@@ -1,0 +1,16 @@
+gunicorn
+flask
+jinja2
+werkzeug
+itsdangerous
+click
+requests
+Pillow
+PyYAML
+numpy
+mutagen
+pycryptodomex
+yt-dlp
+websockets
+brotli
+psutil==5.9.8

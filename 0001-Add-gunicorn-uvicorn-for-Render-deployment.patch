@@ -1,0 +1,8 @@
+From faa06226fd53478bd8578478d3706f852e7c7b55 Mon Sep 17 00:00:00 2001
+From: Jamie <jamiemg96@gmail.com>
+Date: Wed, 26 Nov 2025 16:13:22 +0000
+Subject: [PATCH] Add gunicorn + uvicorn for Render deployment
+
+-- 
+2.51.1.windows.1
+
