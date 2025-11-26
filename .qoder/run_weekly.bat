@@ -1,0 +1,3 @@
+@echo off
+echo Running Weekly Qoder Maintenance Tasks...
+python .qoder/workflow.py --weekly

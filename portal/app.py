@@ -14,12 +14,16 @@ try:
 except ImportError:
     YoutubeDL = None
 
+# Import cookie utilities
+from portal.cookie_utils import find_valid_cookie_file, load_cookie_content
+
 # Change relative imports to absolute imports
 from portal.config import (
     SECRET_KEY, PORTAL_AUTH_KEY, OUTPUT_DIR,
     MAX_UPLOAD_SIZE, BRANDS_DIR
 )
 from portal.database import log_event, get_db
+from portal.private.routes import private_portal
 import tempfile
 import os
 
@@ -44,7 +48,7 @@ watermark_jobs = {}
 @app.route('/portal/')
 def dashboard():
     """Main portal dashboard"""
-    return render_template('dashboard.html')
+    return render_template('clean_dashboard.html')
 
 @app.route('/portal/test')
 def test_page():
@@ -107,12 +111,11 @@ def fetch_videos_from_urls():
                 
                 # Check if this is an Instagram URL and cookies are required
                 if 'instagram.com' in url_input.lower():
-                    # Try to load cookies from cookies.txt file as fallback
-                    cookies_txt_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cookies.txt')
-                    if os.path.exists(cookies_txt_path):
+                    # Try to load valid cookies from cookies.txt or other files
+                    cookie_file = find_valid_cookie_file()
+                    if cookie_file:
                         try:
-                            with open(cookies_txt_path, 'r', encoding='utf-8') as f:
-                                cookie_text = f.read()
+                            cookie_text = load_cookie_content(cookie_file)
                             
                             # Validate cookies before using them
                             cookies_valid = False
@@ -135,7 +138,7 @@ def fetch_videos_from_urls():
                         except Exception as file_error:
                             print(f"[FETCH] Error reading cookies.txt: {str(file_error)}")
                     else:
-                        print("[FETCH] No cookies.txt file found")
+                        print("[FETCH] No valid cookies.txt file found")
                 
                 with YoutubeDL(ydl_opts) as ydl:
                     print(f"[FETCH] Downloading: {url_input[:50]}...")
@@ -476,6 +479,9 @@ def get_conversion_status(job_id):
     return jsonify(response)
 
 # Stub endpoints removed - focus on core watermarking functionality
+
+# Register blueprints
+app.register_blueprint(private_portal)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

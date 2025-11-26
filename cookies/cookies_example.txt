@@ -1,0 +1,7 @@
+# Netscape HTTP Cookie File
+# This is an example cookie file - replace with your actual Instagram cookies
+# Format: domain<TAB>flag<TAB>path<TAB>secure<TAB>expiration<TAB>name<TAB>value
+.instagram.com	TRUE	/	TRUE	0	ig_did	XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+.instagram.com	TRUE	/	TRUE	0	csrftoken	XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+.instagram.com	TRUE	/	TRUE	0	sessionid	XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+.instagram.com	TRUE	/	TRUE	0	ds_user_id	XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
