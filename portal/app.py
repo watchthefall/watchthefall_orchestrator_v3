@@ -34,6 +34,11 @@ app = Flask(__name__,
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE
 
+# Add root route
+@app.route('/')
+def index():
+    return "WatchTheFall Portal is running"
+
 # Global conversion lock - only one FFmpeg process at a time (Render free tier 512MB RAM)
 conversion_lock = threading.Lock()
 conversion_in_progress = {'active': False, 'start_time': None}
