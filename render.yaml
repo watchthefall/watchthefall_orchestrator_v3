@@ -7,7 +7,7 @@ services:
     startCommand: "gunicorn portal.app:app"
     envVars:
       - key: PYTHON_VERSION
-        value: 3.10.7
+        value: 3.10.6
       - key: RENDER
         value: true
       - key: ENV
