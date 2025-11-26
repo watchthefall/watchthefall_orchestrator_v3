@@ -30,7 +30,7 @@ import os
 app = Flask(__name__, 
             template_folder='templates',
             static_folder='static',
-            static_url_path='/portal/static')
+            static_url_path='/static')
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE
 
