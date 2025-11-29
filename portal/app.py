@@ -16,11 +16,11 @@ except ImportError:
     YoutubeDL = None
 
 # Import video processing utilities
-from video_processor import VideoProcessor
-from brand_loader import get_available_brands
+from .video_processor import VideoProcessor
+from .brand_loader import get_available_brands
 
 # Import configuration
-from config import (
+from .config import (
     SECRET_KEY, PORTAL_AUTH_KEY, OUTPUT_DIR,
     MAX_UPLOAD_SIZE, BRANDS_DIR
 )
