@@ -191,11 +191,14 @@ class VideoProcessor:
             '-filter_complex', filter_complex,
             '-filter_threads', '1',  # Limit filter threads to 1
             '-bufsize', '32M',  # Set buffer size
+            '-map', '[vout]',  # Explicitly map video output from filter_complex
+            '-map', '0:a?',  # Map audio stream if present
             '-c:v', 'libx264',
             '-crf', '23',  # Increased CRF for faster encoding
             '-preset', 'ultrafast',  # Ultrafast preset
+            '-c:a', 'aac',  # Re-encode audio instead of copying
+            '-b:a', '128k',  # Set audio bitrate
             '-movflags', '+faststart',  # Fast start for web playback
-            '-c:a', 'copy',  # Copy audio stream without re-encoding
             output_path
         ]
         
