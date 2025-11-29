@@ -146,8 +146,22 @@ class VideoProcessor:
             # Use faster geq filter instead of colorchannelmixer for opacity
             filters.append(f"movie='{watermark_path}',scale={wm_width}:-1,format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='0.15*alpha(X,Y)'[watermark]")
             filters.append(f"[{inputs[-1]}][watermark]overlay={wm_x}:{wm_y}[vout]")
+        else:
+            # If no watermark, ensure the final output is labeled as [vout]
+            if len(filters) > 0:
+                # Replace the last filter to add [vout] label
+                last_filter = filters[-1]
+                if not last_filter.endswith('[vout]'):
+                    # Find the last input label and add [vout] to the end
+                    if inputs[-1] != '0:v':
+                        filters[-1] = f"{last_filter}[vout]"
+            else:
+                # No filters at all, return None
+                return None
         
-        return ';'.join(filters) if filters else None
+        filter_complex = ';'.join(filters)
+        print(f"[FILTER FIX] Final overlay now outputs [vout]")
+        return filter_complex
     
     def process_brand(self, brand_config: Dict, logo_settings: Optional[Dict] = None, 
                      video_id: str = 'video') -> str:
