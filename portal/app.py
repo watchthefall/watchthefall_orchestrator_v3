@@ -15,9 +15,6 @@ try:
 except ImportError:
     YoutubeDL = None
 
-# Import cookie utilities
-from cookie_utils import find_valid_cookie_file, load_cookie_content
-
 # Import video processing utilities
 from video_processor import VideoProcessor
 from brand_loader import get_available_brands
@@ -112,36 +109,8 @@ def process_branded_videos():
                     'force_ipv4': True,
                 }
                 
-                # Check if this is an Instagram URL and cookies are required
-                if 'instagram.com' in url_input.lower():
-                    # Try to load valid cookies from cookies.txt or other files
-                    cookie_file = find_valid_cookie_file()
-                    if cookie_file:
-                        try:
-                            cookie_text = load_cookie_content(cookie_file)
-                            
-                            # Validate cookies before using them
-                            cookies_valid = False
-                            if (cookie_text.startswith('# Netscape HTTP Cookie File') and 
-                                'sessionid' in cookie_text and 
-                                'csrftoken' in cookie_text and 
-                                'ds_user_id' in cookie_text):
-                                cookies_valid = True
-                            
-                            if cookies_valid:
-                                # Write cookie text to a temp file for yt-dlp
-                                fd, cookie_path = tempfile.mkstemp()
-                                with os.fdopen(fd, 'w') as f:
-                                    f.write(cookie_text)
-                                ydl_opts['cookiefile'] = cookie_path
-                                print("[IG-COOKIES] Authenticated mode enabled (from cookies.txt)")
-                                print(f"[PROCESS BRANDS] Using Instagram cookies from cookies.txt file: {cookie_path}")
-                            else:
-                                print("[PROCESS BRANDS] Instagram cookies from cookies.txt are invalid")
-                        except Exception as file_error:
-                            print(f"[PROCESS BRANDS] Error reading cookies.txt: {str(file_error)}")
-                    else:
-                        print("[PROCESS BRANDS] No valid cookies.txt file found")
+                # NOTE: Cookie handling has been removed for V3
+                # V3 uses a different downloader logic that doesn't require cookie files
                 
                 with YoutubeDL(ydl_opts) as ydl:
                     print(f"[PROCESS BRANDS] Downloading: {url_input[:50]}...")
@@ -179,14 +148,6 @@ def process_branded_videos():
                             'error': str(download_error),
                             'success': False
                         }
-                    finally:
-                        # Clean up temp cookie file if it was created
-                        if 'cookiefile' in ydl_opts:
-                            try:
-                                os.remove(ydl_opts['cookiefile'])
-                                print(f"[PROCESS BRANDS] Cleaned up temp cookie file: {ydl_opts['cookiefile']}")
-                            except Exception as cleanup_error:
-                                print(f"[PROCESS BRANDS] Error cleaning up temp cookie file: {str(cleanup_error)}")
             except Exception as e:
                 print(f"[PROCESS BRANDS ERROR] {url_input}: {str(e)}")
                 import traceback
@@ -291,36 +252,8 @@ def fetch_videos_from_urls():
                     'force_ipv4': True,
                 }
                 
-                # Check if this is an Instagram URL and cookies are required
-                if 'instagram.com' in url_input.lower():
-                    # Try to load valid cookies from cookies.txt or other files
-                    cookie_file = find_valid_cookie_file()
-                    if cookie_file:
-                        try:
-                            cookie_text = load_cookie_content(cookie_file)
-                            
-                            # Validate cookies before using them
-                            cookies_valid = False
-                            if (cookie_text.startswith('# Netscape HTTP Cookie File') and 
-                                'sessionid' in cookie_text and 
-                                'csrftoken' in cookie_text and 
-                                'ds_user_id' in cookie_text):
-                                cookies_valid = True
-                            
-                            if cookies_valid:
-                                # Write cookie text to a temp file for yt-dlp
-                                fd, cookie_path = tempfile.mkstemp()
-                                with os.fdopen(fd, 'w') as f:
-                                    f.write(cookie_text)
-                                ydl_opts['cookiefile'] = cookie_path
-                                print("[IG-COOKIES] Authenticated mode enabled (from cookies.txt)")
-                                print(f"[FETCH] Using Instagram cookies from cookies.txt file: {cookie_path}")
-                            else:
-                                print("[FETCH] Instagram cookies from cookies.txt are invalid")
-                        except Exception as file_error:
-                            print(f"[FETCH] Error reading cookies.txt: {str(file_error)}")
-                    else:
-                        print("[FETCH] No valid cookies.txt file found")
+                # NOTE: Cookie handling has been removed for V3
+                # V3 uses a different downloader logic that doesn't require cookie files
                 
                 with YoutubeDL(ydl_opts) as ydl:
                     print(f"[FETCH] Downloading: {url_input[:50]}...")
@@ -360,14 +293,6 @@ def fetch_videos_from_urls():
                             'error': str(download_error),
                             'success': False
                         }
-                    finally:
-                        # Clean up temp cookie file if it was created
-                        if 'cookiefile' in ydl_opts:
-                            try:
-                                os.remove(ydl_opts['cookiefile'])
-                                print(f"[FETCH] Cleaned up temp cookie file: {ydl_opts['cookiefile']}")
-                            except Exception as cleanup_error:
-                                print(f"[FETCH] Error cleaning up temp cookie file: {str(cleanup_error)}")
             except Exception as e:
                 print(f"[FETCH ERROR] {url_input}: {str(e)}")
                 import traceback
