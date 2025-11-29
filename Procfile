@@ -1,1 +1,1 @@
-web: gunicorn portal.app:app
+web: gunicorn portal.app:app --workers 1 --timeout 300

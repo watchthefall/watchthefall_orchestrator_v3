@@ -183,11 +183,27 @@ def process_branded_videos():
                 'available_brands': [brand['name'] for brand in brand_configs]
             }), 400
         
-        print(f"[PROCESS BRANDS] Processing {len(selected_brand_configs)} brands")
+        print(f"[PROCESS BRANDS] Processing {len(selected_brand_configs)} brands sequentially")
         
-        # 3. Process video with selected brands
+        # 3. Process video with selected brands ONE AT A TIME
         processor = VideoProcessor(video_filepath, OUTPUT_DIR)
-        output_paths = processor.process_multiple_brands(selected_brand_configs, video_id=video_id)
+        output_paths = []
+        
+        total_brands = len(selected_brand_configs)
+        for i, brand_config in enumerate(selected_brand_configs, 1):
+            brand_name = brand_config.get('name', 'Unknown')
+            print(f"[PROCESS BRANDS] PROCESSING BRAND {i} of {total_brands}: {brand_name}")
+            
+            try:
+                output_path = processor.process_brand(brand_config, video_id=video_id)
+                output_paths.append(output_path)
+                print(f"[PROCESS BRANDS] FINISHED BRAND {i}: {brand_name}")
+            except Exception as e:
+                print(f"[PROCESS BRANDS] FAILED BRAND {i}: {brand_name} - {str(e)}")
+                import traceback
+                traceback.print_exc()
+        
+        print(f"[PROCESS BRANDS] ALL BRANDS COMPLETED: {len(output_paths)} successful")
         
         # 4. Generate download URLs
         download_urls = []

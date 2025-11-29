@@ -176,6 +176,8 @@ class VideoProcessor:
             # No overlays - just copy
             import shutil
             shutil.copy2(self.video_path, output_path)
+            processing_time = time.time() - start_time
+            print(f"  Processing {brand_name} completed in {processing_time:.2f} seconds (copy only)")
             return output_path
         
         # Run ffmpeg with optimized settings
