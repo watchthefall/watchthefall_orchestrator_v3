@@ -1,0 +1,7 @@
+flask
+yt-dlp
+pillow
+numpy
+pyyaml
+requests
+pyjwt

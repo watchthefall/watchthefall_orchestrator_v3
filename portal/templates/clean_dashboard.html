@@ -101,6 +101,17 @@
             border-color: #ffd700;
         }
         
+        select[multiple] {
+            width: 100%;
+            padding: 0.8rem;
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 1rem;
+            height: 150px;
+        }
+        
         button {
             background: #ffd700;
             color: #000;
@@ -112,6 +123,7 @@
             cursor: pointer;
             transition: all 0.3s ease;
             width: 100%;
+            margin-top: 1rem;
         }
         
         button:hover {
@@ -162,6 +174,8 @@
             color: #4da6ff;
             text-decoration: none;
             font-weight: 500;
+            display: inline-block;
+            margin: 0.2rem 0;
         }
         
         .download-link:hover {
@@ -227,17 +241,25 @@
         
         <main>
             <div class="card">
-                <h2 class="card-title">Video Downloader</h2>
+                <h2 class="card-title">Branded Video Generator</h2>
                 <div class="input-group">
                     <label for="videoUrl">Enter Video URL</label>
-                    <input type="text" id="videoUrl" placeholder="https://tiktok.com/@user/video/123...">
+                    <input type="text" id="videoUrl" placeholder="https://instagram.com/@user/reel/123...">
                 </div>
-                <button id="downloadBtn">Download Video</button>
+                
+                <div class="input-group">
+                    <label for="brandSelector">Select Brands (Ctrl+Click for multiple)</label>
+                    <select id="brandSelector" multiple>
+                        <!-- Brands will be populated by JavaScript -->
+                    </select>
+                </div>
+                
+                <button id="generateBtn">Generate Branded Videos</button>
                 
                 <div id="statusMessage" class="status-message" style="display: none;"></div>
                 
                 <div id="resultsPanel" class="results-panel">
-                    <h3>Download Results</h3>
+                    <h3>Branded Videos</h3>
                     <div id="resultsList"></div>
                 </div>
             </div>
@@ -249,48 +271,74 @@
     </div>
     
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/brand_handler.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const videoUrlInput = document.getElementById('videoUrl');
-            const downloadBtn = document.getElementById('downloadBtn');
+            const brandSelector = document.getElementById('brandSelector');
+            const generateBtn = document.getElementById('generateBtn');
             const statusMessage = document.getElementById('statusMessage');
             const resultsPanel = document.getElementById('resultsPanel');
             const resultsList = document.getElementById('resultsList');
             
-            downloadBtn.addEventListener('click', downloadVideo);
+            // Initialize brand handler
+            const brandHandler = new BrandHandler();
             
-            async function downloadVideo() {
+            // Load available brands
+            loadAvailableBrands();
+            
+            generateBtn.addEventListener('click', generateBrandedVideos);
+            
+            async function loadAvailableBrands() {
+                try {
+                    await brandHandler.loadBrands();
+                    brandHandler.populateSelect(brandSelector);
+                } catch (error) {
+                    console.error('Error loading brands:', error);
+                }
+            }
+            
+            async function generateBrandedVideos() {
                 const url = videoUrlInput.value.trim();
+                const selectedBrands = Array.from(brandSelector.selectedOptions).map(option => option.value);
                 
                 if (!url) {
                     showStatus('Please enter a video URL', 'error');
                     return;
                 }
                 
-                showStatus('Downloading video...', 'loading');
-                downloadBtn.disabled = true;
+                if (selectedBrands.length === 0) {
+                    showStatus('Please select at least one brand', 'error');
+                    return;
+                }
+                
+                showStatus('Processing video with selected brands...', 'loading');
+                generateBtn.disabled = true;
                 
                 try {
-                    const response = await fetch('/api/videos/fetch', {
+                    const response = await fetch('/api/videos/process_brands', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ urls: [url] })
+                        body: JSON.stringify({ 
+                            url: url,
+                            brands: selectedBrands
+                        })
                     });
                     
                     const data = await response.json();
                     
                     if (data.success) {
-                        showStatus('Download completed successfully!', 'success');
-                        showResults(data.results);
+                        showStatus('Video processing completed successfully!', 'success');
+                        showResults(data.outputs);
                     } else {
                         showStatus(`Error: ${data.error}`, 'error');
                     }
                 } catch (error) {
                     showStatus(`Network error: ${error.message}`, 'error');
                 } finally {
-                    downloadBtn.disabled = false;
+                    generateBtn.disabled = false;
                 }
             }
             
@@ -308,27 +356,19 @@
                 }
             }
             
-            function showResults(results) {
+            function showResults(outputs) {
                 resultsList.innerHTML = '';
                 resultsPanel.classList.add('active');
                 
-                results.forEach(result => {
+                outputs.forEach(output => {
                     const resultItem = document.createElement('div');
                     resultItem.className = 'result-item';
                     
-                    if (result.success) {
-                        resultItem.innerHTML = `
-                            <div class="result-title">${result.filename}</div>
-                            <div class="result-meta">Size: ${result.size_mb} MB</div>
-                            <a href="${result.download_url}" class="download-link" target="_blank">Download Video</a>
-                        `;
-                    } else {
-                        resultItem.innerHTML = `
-                            <div class="result-title">Download Failed</div>
-                            <div class="result-meta">URL: ${result.url}</div>
-                            <div style="color: #ff5555;">Error: ${result.error}</div>
-                        `;
-                    }
+                    resultItem.innerHTML = `
+                        <div class="result-title">${output.brand}</div>
+                        <div class="result-meta">File: ${output.filename}</div>
+                        <a href="${output.download_url}" class="download-link" target="_blank">Download ${output.brand} Video</a>
+                    `;
                     
                     resultsList.appendChild(resultItem);
                 });

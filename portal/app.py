@@ -9,21 +9,25 @@ import subprocess
 import tempfile
 import threading
 import time
+import json
 try:
     from yt_dlp import YoutubeDL
 except ImportError:
     YoutubeDL = None
 
 # Import cookie utilities
-from portal.cookie_utils import find_valid_cookie_file, load_cookie_content
+from cookie_utils import find_valid_cookie_file, load_cookie_content
 
-# Change relative imports to absolute imports
-from portal.config import (
+# Import video processing utilities
+from video_processor import VideoProcessor
+from brand_loader import get_available_brands
+
+# Import configuration
+from config import (
     SECRET_KEY, PORTAL_AUTH_KEY, OUTPUT_DIR,
     MAX_UPLOAD_SIZE, BRANDS_DIR
 )
-from portal.database import log_event, get_db
-from portal.private.routes import private_portal
+
 import tempfile
 import os
 
@@ -34,17 +38,18 @@ app = Flask(__name__,
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE
 
-# Add root route
-@app.route('/')
-def index():
-    return render_template('clean_dashboard.html')
-
 # Global conversion lock - only one FFmpeg process at a time (Render free tier 512MB RAM)
 conversion_lock = threading.Lock()
 conversion_in_progress = {'active': False, 'start_time': None}
 
 # Job status dictionary for async watermark conversions
 watermark_jobs = {}
+
+# ============================================================================
+
+@app.route('/')
+def index():
+    return render_template('clean_dashboard.html')
 
 # ============================================================================
 # FRONTEND ROUTES
@@ -75,11 +80,183 @@ def test_page():
 # API: VIDEO PROCESSING
 # ============================================================================
 
-# ============================================================================
-# API: VIDEO PROCESSING
-# ============================================================================
-
-# Upload endpoint removed - using client-side device upload with blob URLs
+@app.route('/api/videos/process_brands', methods=['POST'])
+def process_branded_videos():
+    """Process video with selected brand overlays"""
+    try:
+        data = request.get_json(force=True) or {}
+        url = data.get('url')
+        selected_brands = data.get('brands', [])
+        
+        if not url:
+            return jsonify({'success': False, 'error': 'URL is required'}), 400
+        
+        if not selected_brands:
+            return jsonify({'success': False, 'error': 'At least one brand must be selected'}), 400
+        
+        print(f"[PROCESS BRANDS] URL: {url[:50]}...")
+        print(f"[PROCESS BRANDS] Selected brands: {selected_brands}")
+        
+        # 1. Download the video
+        def download_video(url_input):
+            try:
+                # Base yt-dlp options
+                ydl_opts = {
+                    'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
+                    'merge_output_format': 'mp4',
+                    'format': 'mp4/best',
+                    'noplaylist': True,
+                    'quiet': True,
+                    'no_warnings': True,
+                    'geo_bypass': True,
+                    'force_ipv4': True,
+                }
+                
+                # Check if this is an Instagram URL and cookies are required
+                if 'instagram.com' in url_input.lower():
+                    # Try to load valid cookies from cookies.txt or other files
+                    cookie_file = find_valid_cookie_file()
+                    if cookie_file:
+                        try:
+                            cookie_text = load_cookie_content(cookie_file)
+                            
+                            # Validate cookies before using them
+                            cookies_valid = False
+                            if (cookie_text.startswith('# Netscape HTTP Cookie File') and 
+                                'sessionid' in cookie_text and 
+                                'csrftoken' in cookie_text and 
+                                'ds_user_id' in cookie_text):
+                                cookies_valid = True
+                            
+                            if cookies_valid:
+                                # Write cookie text to a temp file for yt-dlp
+                                fd, cookie_path = tempfile.mkstemp()
+                                with os.fdopen(fd, 'w') as f:
+                                    f.write(cookie_text)
+                                ydl_opts['cookiefile'] = cookie_path
+                                print("[IG-COOKIES] Authenticated mode enabled (from cookies.txt)")
+                                print(f"[PROCESS BRANDS] Using Instagram cookies from cookies.txt file: {cookie_path}")
+                            else:
+                                print("[PROCESS BRANDS] Instagram cookies from cookies.txt are invalid")
+                        except Exception as file_error:
+                            print(f"[PROCESS BRANDS] Error reading cookies.txt: {str(file_error)}")
+                    else:
+                        print("[PROCESS BRANDS] No valid cookies.txt file found")
+                
+                with YoutubeDL(ydl_opts) as ydl:
+                    print(f"[PROCESS BRANDS] Downloading: {url_input[:50]}...")
+                    try:
+                        info = ydl.extract_info(url_input, download=True)
+                        filename = ydl.prepare_filename(info)
+                        
+                        # Ensure .mp4 extension
+                        if not filename.endswith('.mp4'):
+                            base, _ = os.path.splitext(filename)
+                            filename = base + '.mp4'
+                        
+                        name = os.path.basename(filename)
+                        file_exists = os.path.exists(filename)
+                        file_size_mb = os.path.getsize(filename) / (1024 * 1024) if file_exists else 0
+                        
+                        if not file_exists or file_size_mb == 0:
+                            print(f"[PROCESS BRANDS WARNING] File may not have downloaded properly: {filename} (exists: {file_exists}, size: {file_size_mb:.2f}MB)")
+                            # Check if we have error information in the info dict
+                            if info and 'error' in info:
+                                print(f"[PROCESS BRANDS ERROR DETAIL] yt-dlp error: {info['error']}")
+                        
+                        print(f"[PROCESS BRANDS] Success: {name} ({file_size_mb:.2f}MB)")
+                        return {
+                            'filename': name,
+                            'filepath': filename,
+                            'size_mb': round(file_size_mb, 2),
+                            'success': file_exists and file_size_mb > 0
+                        }
+                    except Exception as download_error:
+                        print(f"[PROCESS BRANDS ERROR] Download failed for {url_input}: {str(download_error)}")
+                        import traceback
+                        traceback.print_exc()
+                        return {
+                            'error': str(download_error),
+                            'success': False
+                        }
+                    finally:
+                        # Clean up temp cookie file if it was created
+                        if 'cookiefile' in ydl_opts:
+                            try:
+                                os.remove(ydl_opts['cookiefile'])
+                                print(f"[PROCESS BRANDS] Cleaned up temp cookie file: {ydl_opts['cookiefile']}")
+                            except Exception as cleanup_error:
+                                print(f"[PROCESS BRANDS] Error cleaning up temp cookie file: {str(cleanup_error)}")
+            except Exception as e:
+                print(f"[PROCESS BRANDS ERROR] {url_input}: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                return {
+                    'error': str(e),
+                    'success': False,
+                    'details': traceback.format_exc()
+                }
+        
+        # Download the video
+        download_result = download_video(url)
+        if not download_result.get('success'):
+            return jsonify({
+                'success': False,
+                'error': 'Failed to download video',
+                'details': download_result.get('error')
+            }), 500
+        
+        video_filepath = download_result['filepath']
+        video_id = os.path.splitext(download_result['filename'])[0]
+        
+        # 2. Load brand configurations
+        brand_configs = get_available_brands(os.path.dirname(os.path.abspath(__file__)))
+        
+        # Filter to only selected brands
+        selected_brand_configs = [brand for brand in brand_configs if brand['name'] in selected_brands]
+        
+        if not selected_brand_configs:
+            return jsonify({
+                'success': False,
+                'error': 'No valid brands selected',
+                'available_brands': [brand['name'] for brand in brand_configs]
+            }), 400
+        
+        print(f"[PROCESS BRANDS] Processing {len(selected_brand_configs)} brands")
+        
+        # 3. Process video with selected brands
+        processor = VideoProcessor(video_filepath, OUTPUT_DIR)
+        output_paths = processor.process_multiple_brands(selected_brand_configs, video_id=video_id)
+        
+        # 4. Generate download URLs
+        download_urls = []
+        for output_path in output_paths:
+            filename = os.path.basename(output_path)
+            brand_name = os.path.basename(os.path.dirname(output_path))
+            download_urls.append({
+                'brand': brand_name,
+                'filename': filename,
+                'download_url': f'/api/videos/download/{filename}'
+            })
+        
+        # Clean up original video
+        try:
+            os.remove(video_filepath)
+        except Exception as e:
+            print(f"[PROCESS BRANDS] Warning: Could not remove original video: {e}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully processed video for {len(output_paths)} brands',
+            'outputs': download_urls
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"[PROCESS BRANDS EXCEPTION]:")
+        traceback.print_exc()
+        log_event('error', None, f'Brand processing failed: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/videos/fetch', methods=['POST'])
 def fetch_videos_from_urls():
@@ -266,7 +443,24 @@ def download_video(filename):
 # ============================================================================
 # API: BRANDS (Static JSON)
 # ============================================================================
-# Templates endpoint removed - frontend loads brands.json directly
+
+@app.route('/api/brands/list', methods=['GET'])
+def list_brands():
+    """Get list of available brands"""
+    try:
+        brand_configs = get_available_brands(os.path.dirname(os.path.abspath(__file__)))
+        brands = [{'name': brand['name'], 'display_name': brand['display_name']} 
+                 for brand in brand_configs]
+        
+        return jsonify({
+            'success': True,
+            'brands': brands
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 # ============================================================================
 # API: WATERMARK CONVERSION (WebM to MP4)
@@ -484,9 +678,6 @@ def get_conversion_status(job_id):
     return jsonify(response)
 
 # Stub endpoints removed - focus on core watermarking functionality
-
-# Register blueprints
-app.register_blueprint(private_portal)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
