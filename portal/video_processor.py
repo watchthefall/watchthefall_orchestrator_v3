@@ -145,7 +145,7 @@ class VideoProcessor:
             
             # Use faster geq filter instead of colorchannelmixer for opacity
             filters.append(f"movie='{watermark_path}',scale={wm_width}:-1,format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='0.15*alpha(X,Y)'[watermark]")
-            filters.append(f"[{inputs[-1]}][watermark]overlay={wm_x}:{wm_y}")
+            filters.append(f"[{inputs[-1]}][watermark]overlay={wm_x}:{wm_y}[vout]")
         
         return ';'.join(filters) if filters else None
     
