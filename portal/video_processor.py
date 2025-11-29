@@ -168,6 +168,7 @@ class VideoProcessor:
         output_path = os.path.join(self.output_dir, brand_name, output_filename)
         
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        print(f"[DEBUG] Writing branded video to: {output_path}")
         
         # Build filter complex
         filter_complex = self.build_filter_complex(brand_config, logo_settings)

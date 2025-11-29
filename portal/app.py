@@ -360,7 +360,24 @@ def fetch_videos_from_urls():
 def download_video(filename):
     """Download processed video"""
     try:
+        # First try to find the file in the main output directory
         filepath = os.path.join(OUTPUT_DIR, filename)
+        
+        # If not found, search in brand subdirectories
+        if not os.path.exists(filepath):
+            print(f"[DOWNLOAD] File not found in main directory, searching brand subdirectories...")
+            for brand_dir in os.listdir(OUTPUT_DIR):
+                brand_path = os.path.join(OUTPUT_DIR, brand_dir)
+                if os.path.isdir(brand_path):
+                    filepath = os.path.join(brand_path, filename)
+                    if os.path.exists(filepath):
+                        print(f"[DOWNLOAD] Found file in brand directory: {brand_path}")
+                        break
+            else:
+                # File not found in any directory
+                filepath = os.path.join(OUTPUT_DIR, filename)  # Reset to original path for error message
+        
+        print(f"[DEBUG] Looking for file at: {filepath}")
         
         # Check if file exists
         if not os.path.exists(filepath):
@@ -371,7 +388,7 @@ def download_video(filename):
         print(f"[DOWNLOAD] Serving file: {filename} ({file_size} bytes)")
         
         # Send file with proper headers for downloads folder
-        response = send_from_directory(OUTPUT_DIR, filename, as_attachment=True)
+        response = send_from_directory(os.path.dirname(filepath), filename, as_attachment=True)
         
         # Add Content-Disposition header to suggest Downloads folder
         response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
