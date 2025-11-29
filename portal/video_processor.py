@@ -184,7 +184,6 @@ class VideoProcessor:
         cmd = [
             FFMPEG_BIN, '-y',
             '-threads', '1',  # Limit threads to 1
-            '-max_alloc', '32M',  # Limit memory allocation
             '-use_wallclock_as_timestamps', '1',  # Use wallclock timestamps
             '-fflags', '+genpts',  # Generate presentation timestamps
             '-i', self.video_path,
@@ -194,14 +193,13 @@ class VideoProcessor:
             '-c:v', 'libx264',
             '-crf', '23',  # Increased CRF for faster encoding
             '-preset', 'ultrafast',  # Ultrafast preset
-            '-threads', '1',  # Limit threads to 1 (duplicate for encoder)
             '-movflags', '+faststart',  # Fast start for web playback
             '-c:a', 'copy',  # Copy audio stream without re-encoding
             output_path
         ]
         
         try:
-            print(f"  Using low-memory FFmpeg mode for {brand_name}")
+            print("Using low-memory FFmpeg mode (no max_alloc)")
             result = subprocess.run(cmd, check=True, capture_output=True)
             processing_time = time.time() - start_time
             print(f"  Processing {brand_name} completed in {processing_time:.2f} seconds")
