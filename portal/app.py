@@ -97,7 +97,7 @@ def process_branded_videos():
         # 1. Download the video
         def download_video(url_input):
             try:
-                # Base yt-dlp options
+                # Base yt-dlp options with timeout settings
                 ydl_opts = {
                     'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
                     'merge_output_format': 'mp4',
@@ -107,6 +107,11 @@ def process_branded_videos():
                     'no_warnings': True,
                     'geo_bypass': True,
                     'force_ipv4': True,
+                    # Add timeout settings to prevent hanging downloads
+                    'socket_timeout': 300,  # 5 minutes socket timeout
+                    'retries': 3,  # Retry up to 3 times
+                    'fragment_retries': 3,  # Retry fragments up to 3 times
+                    'retry_sleep_functions': {'http': lambda n: 2 ** n},  # Exponential backoff
                 }
                 
                 # NOTE: Cookie handling has been removed for V3
@@ -256,7 +261,7 @@ def fetch_videos_from_urls():
         
         def download_one(url_input):
             try:
-                # Base yt-dlp options
+                # Base yt-dlp options with timeout settings
                 ydl_opts = {
                     'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
                     'merge_output_format': 'mp4',
@@ -266,6 +271,11 @@ def fetch_videos_from_urls():
                     'no_warnings': True,
                     'geo_bypass': True,
                     'force_ipv4': True,
+                    # Add timeout settings to prevent hanging downloads
+                    'socket_timeout': 300,  # 5 minutes socket timeout
+                    'retries': 3,  # Retry up to 3 times
+                    'fragment_retries': 3,  # Retry fragments up to 3 times
+                    'retry_sleep_functions': {'http': lambda n: 2 ** n},  # Exponential backoff
                 }
                 
                 # NOTE: Cookie handling has been removed for V3
