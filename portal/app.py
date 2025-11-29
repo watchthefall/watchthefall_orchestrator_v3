@@ -37,7 +37,7 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE
 # Add root route
 @app.route('/')
 def index():
-    return "WatchTheFall Portal is running"
+    return render_template('clean_dashboard.html')
 
 # Global conversion lock - only one FFmpeg process at a time (Render free tier 512MB RAM)
 conversion_lock = threading.Lock()

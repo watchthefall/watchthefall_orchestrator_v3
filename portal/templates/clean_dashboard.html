@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WatchTheFall Portal</title>
+    <!-- Flask static references -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/wtf_logo.png') }}">
     <style>
         * {
             margin: 0;
@@ -23,6 +27,18 @@
             max-width: 800px;
             margin: 0 auto;
             padding: 2rem;
+        }
+        
+        #branding-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #333;
+        }
+        
+        .branding-logo {
+            max-width: 200px;
+            height: auto;
         }
         
         header {
@@ -200,6 +216,10 @@
 </head>
 <body>
     <div class="container">
+        <div id="branding-header">
+            <img src="{{ url_for('static', filename='img/wtf_logo.png') }}" alt="WatchTheFall Logo" class="branding-logo">
+        </div>
+        
         <header>
             <h1>⚡ WatchTheFall</h1>
             <div class="subtitle">Orchestrator Portal v3</div>
@@ -228,6 +248,7 @@
         </footer>
     </div>
     
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const videoUrlInput = document.getElementById('videoUrl');
