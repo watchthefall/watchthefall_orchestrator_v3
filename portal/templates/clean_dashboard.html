@@ -101,15 +101,35 @@
             border-color: #ffd700;
         }
         
-        select[multiple] {
-            width: 100%;
-            padding: 0.8rem;
+        /* Brand checkboxes styling */
+        .brand-checkbox-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .brand-checkbox-label {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem;
             background: #222;
             border: 1px solid #444;
             border-radius: 4px;
-            color: #fff;
-            font-size: 1rem;
-            height: 150px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .brand-checkbox-label:hover {
+            background: #333;
+            border-color: #ffd700;
+        }
+        
+        .brand-checkbox-label input[type="checkbox"] {
+            margin-right: 0.5rem;
+            width: 1.2rem;
+            height: 1.2rem;
+            accent-color: #ffd700;
         }
         
         button {
@@ -225,6 +245,10 @@
             .card {
                 padding: 1.5rem;
             }
+            
+            .brand-checkbox-container {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -248,10 +272,10 @@
                 </div>
                 
                 <div class="input-group">
-                    <label for="brandSelector">Select Brands (Ctrl+Click for multiple)</label>
-                    <select id="brandSelector" multiple>
-                        <!-- Brands will be populated by JavaScript -->
-                    </select>
+                    <label>Select Brands</label>
+                    <div id="brandCheckboxContainer" class="brand-checkbox-container">
+                        <!-- Brand checkboxes will be populated by JavaScript -->
+                    </div>
                 </div>
                 
                 <button id="generateBtn">Generate Branded Videos</button>
@@ -275,7 +299,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const videoUrlInput = document.getElementById('videoUrl');
-            const brandSelector = document.getElementById('brandSelector');
+            const brandCheckboxContainer = document.getElementById('brandCheckboxContainer');
             const generateBtn = document.getElementById('generateBtn');
             const statusMessage = document.getElementById('statusMessage');
             const resultsPanel = document.getElementById('resultsPanel');
@@ -292,7 +316,16 @@
             async function loadAvailableBrands() {
                 try {
                     await brandHandler.loadBrands();
-                    brandHandler.populateSelect(brandSelector);
+                    // Create checkboxes for each brand
+                    brandHandler.getBrands().forEach(brand => {
+                        const label = document.createElement('label');
+                        label.className = 'brand-checkbox-label';
+                        label.innerHTML = `
+                            <input type="checkbox" name="brands" value="${brand}">
+                            ${brand}
+                        `;
+                        brandCheckboxContainer.appendChild(label);
+                    });
                 } catch (error) {
                     console.error('Error loading brands:', error);
                 }
@@ -300,7 +333,9 @@
             
             async function generateBrandedVideos() {
                 const url = videoUrlInput.value.trim();
-                const selectedBrands = Array.from(brandSelector.selectedOptions).map(option => option.value);
+                // Get all checked checkboxes
+                const checkedBoxes = document.querySelectorAll('input[name="brands"]:checked');
+                const selectedBrands = Array.from(checkedBoxes).map(box => box.value);
                 
                 if (!url) {
                     showStatus('Please enter a video URL', 'error');

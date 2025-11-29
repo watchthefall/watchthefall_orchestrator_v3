@@ -37,28 +37,6 @@ class BrandHandler {
     }
     
     /**
-     * Populate a select element with available brands
-     * @param {HTMLSelectElement} selectElement - The select element to populate
-     */
-    populateSelect(selectElement) {
-        if (!this.loaded) {
-            console.warn('Brands not loaded yet. Call loadBrands() first.');
-            return;
-        }
-        
-        // Clear existing options
-        selectElement.innerHTML = '';
-        
-        // Add options for each brand
-        this.brands.forEach(brand => {
-            const option = document.createElement('option');
-            option.value = brand;
-            option.textContent = brand;
-            selectElement.appendChild(option);
-        });
-    }
-    
-    /**
      * Get the list of available brands
      * @returns {Array} List of brand names
      */
