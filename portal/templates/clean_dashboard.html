@@ -321,7 +321,7 @@
                         const label = document.createElement('label');
                         label.className = 'brand-checkbox-label';
                         label.innerHTML = `
-                            <input type="checkbox" name="brands" value="${brand}">
+                            <input type="checkbox" class="brand-checkbox" value="${brand}">
                             ${brand}
                         `;
                         brandCheckboxContainer.appendChild(label);
@@ -334,7 +334,7 @@
             async function generateBrandedVideos() {
                 const url = videoUrlInput.value.trim();
                 // Get all checked checkboxes
-                const checkedBoxes = document.querySelectorAll('input[name="brands"]:checked');
+                const checkedBoxes = document.querySelectorAll('.brand-checkbox:checked');
                 const selectedBrands = Array.from(checkedBoxes).map(box => box.value);
                 
                 if (!url) {
