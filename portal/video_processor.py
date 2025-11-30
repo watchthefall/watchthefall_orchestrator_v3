@@ -152,15 +152,14 @@ class VideoProcessor:
                 # Replace the last filter to add [vout] label
                 last_filter = filters[-1]
                 if not last_filter.endswith('[vout]'):
-                    # Find the last input label and add [vout] to the end
-                    if inputs[-1] != '0:v':
-                        filters[-1] = f"{last_filter}[vout]"
+                    # Add [vout] to the end of the last filter
+                    filters[-1] = f"{last_filter}[vout]"
             else:
                 # No filters at all, return None
                 return None
         
         filter_complex = ';'.join(filters)
-        print(f"[FILTER FIX] Final overlay now outputs [vout]")
+        print(f"[FILTER FIX] Final filter complex: {filter_complex}")
         return filter_complex
     
     def process_brand(self, brand_config: Dict, logo_settings: Optional[Dict] = None, 
