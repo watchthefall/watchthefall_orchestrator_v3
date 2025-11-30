@@ -83,19 +83,27 @@ class VideoProcessor:
         filters = []
         inputs = ['0:v']  # Start with video input
         
+        print(f"[DEBUG] Building filter complex for brand: {brand_config.get('name', 'Unknown')}")
+        print(f"[DEBUG] Video dimensions: {width}x{height}")
+        
         # 1. Load and scale template
         template_path = os.path.join(PROJECT_ROOT, 'portal', 'wtf_brands', assets.get('template', ''))
         if os.path.exists(template_path):
+            print(f"[DEBUG] Adding template: {template_path}")
             # Scale template to match scaled video
             template_scale = f"scale={target_width}:-1" if width > 720 else f"scale={width}:{height}"
             filters.append(f"movie='{template_path}',{template_scale}[template]")
             filters.append(f"[{inputs[-1]}][template]overlay=0:0[v1]")
             inputs.append('v1')
+            print(f"[DEBUG] Template overlay added, current inputs: {inputs}")
+        else:
+            print(f"[DEBUG] No template found at: {template_path}")
         
         # 2. Overlay logo (if settings provided)
         if logo_settings and logo_settings.get('logo_path'):
             logo_path = logo_settings['logo_path']
             if os.path.exists(logo_path):
+                print(f"[DEBUG] Adding logo: {logo_path}")
                 logo_x = logo_settings['logo_settings']['x']
                 logo_y = logo_settings['logo_settings']['y']
                 logo_w = logo_settings['logo_settings']['width']
@@ -110,10 +118,16 @@ class VideoProcessor:
                 filters.append(f"movie='{logo_path}',scale={logo_scale_w}:{logo_scale_h}[logo]")
                 filters.append(f"[{inputs[-1]}][logo]overlay={logo_x_scaled}:{logo_y_scaled}[v2]")
                 inputs.append('v2')
+                print(f"[DEBUG] Logo overlay added, current inputs: {inputs}")
+            else:
+                print(f"[DEBUG] Logo file not found: {logo_path}")
+        else:
+            print("[DEBUG] No logo settings provided or logo path missing")
         
         # 3. Overlay watermark with fixed opacity using faster geq filter
         watermark_path = os.path.join(PROJECT_ROOT, 'portal', 'wtf_brands', assets.get('watermark', ''))
         if os.path.exists(watermark_path):
+            print(f"[DEBUG] Adding watermark: {watermark_path}")
             wm_scale = options.get('watermark_scale', 0.25)
             # Scale watermark appropriately
             wm_width = int((width * wm_scale) * (target_width / width)) if width > 720 else int(width * wm_scale)
@@ -146,11 +160,14 @@ class VideoProcessor:
             # Use faster geq filter instead of colorchannelmixer for opacity
             filters.append(f"movie='{watermark_path}',scale={wm_width}:-1,format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='0.15*alpha(X,Y)'[watermark]")
             filters.append(f"[{inputs[-1]}][watermark]overlay={wm_x}:{wm_y}[vout]")
+            print(f"[DEBUG] Watermark overlay added with [vout] label")
         else:
+            print(f"[DEBUG] No watermark found at: {watermark_path}")
             # If no watermark, ensure the final output is labeled as [vout]
             if len(filters) > 0:
                 # Get the last filter and ensure it ends with [vout]
                 last_filter = filters[-1]
+                print(f"[DEBUG] Last filter before modification: {last_filter}")
                 if not last_filter.endswith('[vout]'):
                     # Remove any existing output label and add [vout]
                     # Find the last bracket and remove everything after it
@@ -159,11 +176,14 @@ class VideoProcessor:
                         last_bracket = last_filter.rfind('[')
                         base_filter = last_filter[:last_bracket]
                         filters[-1] = f"{base_filter}[vout]"
+                        print(f"[DEBUG] Modified last filter to add [vout]: {filters[-1]}")
                     else:
                         # No existing output label, just append [vout]
                         filters[-1] = f"{last_filter}[vout]"
+                        print(f"[DEBUG] Appended [vout] to last filter: {filters[-1]}")
             else:
                 # No filters at all, return None
+                print("[DEBUG] No filters to process, returning None")
                 return None
         
         # Ensure exactly one [vout] label exists in the entire filter chain
@@ -171,13 +191,15 @@ class VideoProcessor:
         
         # Validate that exactly one [vout] exists
         vout_count = filter_complex.count('[vout]')
+        print(f"[DEBUG] Final filter complex: {filter_complex}")
+        print(f"[DEBUG] Number of [vout] labels found: {vout_count}")
+        
         if vout_count == 0:
             print("[ERROR] No [vout] label found in filter complex")
             return None
         elif vout_count > 1:
             print(f"[WARNING] Multiple [vout] labels found ({vout_count}), filter complex may be malformed: {filter_complex}")
         
-        print(f"[DEBUG] Final FFmpeg filter graph: {filter_complex}")
         return filter_complex
     
     def process_brand(self, brand_config: Dict, logo_settings: Optional[Dict] = None, 
@@ -204,8 +226,11 @@ class VideoProcessor:
         # Build filter complex
         filter_complex = self.build_filter_complex(brand_config, logo_settings)
         
-        if not filter_complex:
-            # No overlays - just copy
+        print(f"[DEBUG] Built filter complex result: {filter_complex}")
+        
+        if not filter_complex or '[vout]' not in filter_complex:
+            # No overlays or no vout label - just copy
+            print(f"[DEBUG] No valid filter complex with [vout], copying original video: {self.video_path} to {output_path}")
             import shutil
             shutil.copy2(self.video_path, output_path)
             processing_time = time.time() - start_time
@@ -234,13 +259,14 @@ class VideoProcessor:
         ]
         
         try:
-            print("Using low-memory FFmpeg mode (no max_alloc)")
+            print(f"[DEBUG] Executing FFmpeg command: {' '.join(cmd)}")
             result = subprocess.run(cmd, check=True, capture_output=True)
             processing_time = time.time() - start_time
             print(f"  Processing {brand_name} completed in {processing_time:.2f} seconds")
             return output_path
         except subprocess.CalledProcessError as e:
             print(f"FFmpeg error: {e.stderr.decode()}")
+            print(f"FFmpeg stdout: {e.stdout.decode()}")
             raise
     
     def process_multiple_brands(self, brands: List[Dict], logo_settings: Optional[Dict] = None,
