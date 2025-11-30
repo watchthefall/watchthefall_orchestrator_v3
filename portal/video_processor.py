@@ -149,17 +149,35 @@ class VideoProcessor:
         else:
             # If no watermark, ensure the final output is labeled as [vout]
             if len(filters) > 0:
-                # Replace the last filter to add [vout] label
+                # Get the last filter and ensure it ends with [vout]
                 last_filter = filters[-1]
                 if not last_filter.endswith('[vout]'):
-                    # Add [vout] to the end of the last filter
-                    filters[-1] = f"{last_filter}[vout]"
+                    # Remove any existing output label and add [vout]
+                    # Find the last bracket and remove everything after it
+                    if '[' in last_filter and last_filter.rfind('[') > last_filter.rfind('='):
+                        # Remove existing output label
+                        last_bracket = last_filter.rfind('[')
+                        base_filter = last_filter[:last_bracket]
+                        filters[-1] = f"{base_filter}[vout]"
+                    else:
+                        # No existing output label, just append [vout]
+                        filters[-1] = f"{last_filter}[vout]"
             else:
                 # No filters at all, return None
                 return None
         
+        # Ensure exactly one [vout] label exists in the entire filter chain
         filter_complex = ';'.join(filters)
-        print(f"[FILTER FIX] Final filter complex: {filter_complex}")
+        
+        # Validate that exactly one [vout] exists
+        vout_count = filter_complex.count('[vout]')
+        if vout_count == 0:
+            print("[ERROR] No [vout] label found in filter complex")
+            return None
+        elif vout_count > 1:
+            print(f"[WARNING] Multiple [vout] labels found ({vout_count}), filter complex may be malformed: {filter_complex}")
+        
+        print(f"[DEBUG] Final FFmpeg filter graph: {filter_complex}")
         return filter_complex
     
     def process_brand(self, brand_config: Dict, logo_settings: Optional[Dict] = None, 
