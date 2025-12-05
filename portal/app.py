@@ -97,81 +97,65 @@ def process_branded_videos():
         # 1. Download the video
         def download_video(url_input):
             try:
-                # Try primary format first
+                # Configure yt_dlp with cookie support for Instagram
                 ydl_opts = {
                     'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
                     'merge_output_format': 'mp4',
-                    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-                    'noplaylist': True,
-                    'quiet': True,
-                    'no_warnings': True,
-                    'geo_bypass': True,
-                    'force_ipv4': True,
+                    'format': 'mp4',
+                    'cookiefile': './portal/data/cookies.txt',
+                    'retries': 5,
+                    'fragment_retries': 5,
                     'socket_timeout': 300,
-                    'retries': 3,
-                    'fragment_retries': 3,
-                    'retry_sleep_functions': {'http': lambda n: 2 ** n},
+                    'http_headers': {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.5',
+                        'Accept-Encoding': 'gzip, deflate',
+                        'Connection': 'keep-alive',
+                        'Upgrade-Insecure-Requests': '1',
+                    }
                 }
-                
-                # Add Instagram-specific headers if needed
-                if 'instagram.com' in url_input or 'instagr.am' in url_input:
-                    ydl_opts.update({
-                        'http_headers': {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
-                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                            'Accept-Language': 'en-US,en;q=0.5',
-                            'Accept-Encoding': 'gzip, deflate',
-                            'Connection': 'keep-alive',
-                            'Upgrade-Insecure-Requests': '1',
-                        }
-                    })
                 
                 with YoutubeDL(ydl_opts) as ydl:
                     print(f"[PROCESS BRANDS] Downloading: {url_input[:50]}...")
                     try:
                         info = ydl.extract_info(url_input, download=True)
                         filename = ydl.prepare_filename(info)
-                    except Exception as primary_error:
-                        print(f"[PROCESS BRANDS] Primary format failed, trying fallback: {str(primary_error)}")
-                        # Fallback to simpler format
-                        ydl_opts['format'] = 'best[ext=mp4]/best'
-                        try:
-                            with YoutubeDL(ydl_opts) as ydl_fallback:
-                                info = ydl_fallback.extract_info(url_input, download=True)
-                                filename = ydl_fallback.prepare_filename(info)
-                        except Exception as secondary_error:
-                            print(f"[PROCESS BRANDS] Secondary format failed, trying final fallback: {str(secondary_error)}")
-                            # Final fallback - get whatever is available
-                            ydl_opts['format'] = 'best'
-                            with YoutubeDL(ydl_opts) as ydl_final:
-                                info = ydl_final.extract_info(url_input, download=True)
-                                filename = ydl_final.prepare_filename(info)
-                    
-                    # Ensure .mp4 extension
-                    if not filename.endswith('.mp4'):
-                        base, _ = os.path.splitext(filename)
-                        filename = base + '.mp4'
-                    
-                    name = os.path.basename(filename)
-                    file_exists = os.path.exists(filename)
-                    file_size_mb = os.path.getsize(filename) / (1024 * 1024) if file_exists else 0
-                    
-                    if not file_exists or file_size_mb == 0:
-                        print(f"[PROCESS BRANDS WARNING] File may not have downloaded properly: {filename} (exists: {file_exists}, size: {file_size_mb:.2f}MB)")
-                        # Check if we have error information in the info dict
-                        if info and 'error' in info:
-                            print(f"[PROCESS BRANDS ERROR DETAIL] yt-dlp error: {info['error']}")
-                        # Also check for other error fields
-                        elif info and 'errors' in info:
-                            print(f"[PROCESS BRANDS ERROR DETAIL] yt-dlp errors: {info['errors']}")
-                    
-                    print(f"[PROCESS BRANDS] Success: {name} ({file_size_mb:.2f}MB)")
-                    return {
-                        'filename': name,
-                        'filepath': filename,
-                        'size_mb': round(file_size_mb, 2),
-                        'success': file_exists and file_size_mb > 0
-                    }
+                    except Exception as download_error:
+                        print(f"[PROCESS BRANDS ERROR] Download failed for {url_input}: {str(download_error)}")
+                        import traceback
+                        traceback.print_exc()
+                        return {
+                            'error': str(download_error),
+                            'success': False,
+                            'details': traceback.format_exc()
+                        }
+                
+                # Ensure .mp4 extension
+                if not filename.endswith('.mp4'):
+                    base, _ = os.path.splitext(filename)
+                    filename = base + '.mp4'
+                
+                name = os.path.basename(filename)
+                file_exists = os.path.exists(filename)
+                file_size_mb = os.path.getsize(filename) / (1024 * 1024) if file_exists else 0
+                
+                if not file_exists or file_size_mb == 0:
+                    print(f"[PROCESS BRANDS WARNING] File may not have downloaded properly: {filename} (exists: {file_exists}, size: {file_size_mb:.2f}MB)")
+                    # Check if we have error information in the info dict
+                    if info and 'error' in info:
+                        print(f"[PROCESS BRANDS ERROR DETAIL] yt-dlp error: {info['error']}")
+                    # Also check for other error fields
+                    elif info and 'errors' in info:
+                        print(f"[PROCESS BRANDS ERROR DETAIL] yt-dlp errors: {info['errors']}")
+                
+                print(f"[PROCESS BRANDS] Success: {name} ({file_size_mb:.2f}MB)")
+                return {
+                    'filename': name,
+                    'filepath': filename,
+                    'size_mb': round(file_size_mb, 2),
+                    'success': file_exists and file_size_mb > 0
+                }
             except Exception as e:
                 print(f"[PROCESS BRANDS ERROR] {url_input}: {str(e)}")
                 import traceback
@@ -286,82 +270,67 @@ def fetch_videos_from_urls():
         
         def download_one(url_input):
             try:
-                # Try primary format first
+                # Configure yt_dlp with cookie support for Instagram
                 ydl_opts = {
                     'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
                     'merge_output_format': 'mp4',
-                    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-                    'noplaylist': True,
-                    'quiet': True,
-                    'no_warnings': True,
-                    'geo_bypass': True,
-                    'force_ipv4': True,
+                    'format': 'mp4',
+                    'cookiefile': './portal/data/cookies.txt',
+                    'retries': 5,
+                    'fragment_retries': 5,
                     'socket_timeout': 300,
-                    'retries': 3,
-                    'fragment_retries': 3,
-                    'retry_sleep_functions': {'http': lambda n: 2 ** n},
+                    'http_headers': {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.5',
+                        'Accept-Encoding': 'gzip, deflate',
+                        'Connection': 'keep-alive',
+                        'Upgrade-Insecure-Requests': '1',
+                    }
                 }
-                
-                # Add Instagram-specific headers if needed
-                if 'instagram.com' in url_input or 'instagr.am' in url_input:
-                    ydl_opts.update({
-                        'http_headers': {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
-                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                            'Accept-Language': 'en-US,en;q=0.5',
-                            'Accept-Encoding': 'gzip, deflate',
-                            'Connection': 'keep-alive',
-                            'Upgrade-Insecure-Requests': '1',
-                        }
-                    })
                 
                 with YoutubeDL(ydl_opts) as ydl:
                     print(f"[FETCH] Downloading: {url_input[:50]}...")
                     try:
                         info = ydl.extract_info(url_input, download=True)
                         filename = ydl.prepare_filename(info)
-                    except Exception as primary_error:
-                        print(f"[FETCH] Primary format failed, trying fallback: {str(primary_error)}")
-                        # Fallback to simpler format
-                        ydl_opts['format'] = 'best[ext=mp4]/best'
-                        try:
-                            with YoutubeDL(ydl_opts) as ydl_fallback:
-                                info = ydl_fallback.extract_info(url_input, download=True)
-                                filename = ydl_fallback.prepare_filename(info)
-                        except Exception as secondary_error:
-                            print(f"[FETCH] Secondary format failed, trying final fallback: {str(secondary_error)}")
-                            # Final fallback - get whatever is available
-                            ydl_opts['format'] = 'best'
-                            with YoutubeDL(ydl_opts) as ydl_final:
-                                info = ydl_final.extract_info(url_input, download=True)
-                                filename = ydl_final.prepare_filename(info)
-                    
-                    # Ensure .mp4 extension
-                    if not filename.endswith('.mp4'):
-                        base, _ = os.path.splitext(filename)
-                        filename = base + '.mp4'
-                    
-                    name = os.path.basename(filename)
-                    file_exists = os.path.exists(filename)
-                    file_size_mb = os.path.getsize(filename) / (1024 * 1024) if file_exists else 0
-                    
-                    if not file_exists or file_size_mb == 0:
-                        print(f"[FETCH WARNING] File may not have downloaded properly: {filename} (exists: {file_exists}, size: {file_size_mb:.2f}MB)")
-                        # Check if we have error information in the info dict
-                        if info and 'error' in info:
-                            print(f"[FETCH ERROR DETAIL] yt-dlp error: {info['error']}")
-                        # Also check for other error fields
-                        elif info and 'errors' in info:
-                            print(f"[FETCH ERROR DETAIL] yt-dlp errors: {info['errors']}")
-                    
-                    print(f"[FETCH] Success: {name} ({file_size_mb:.2f}MB)")
-                    return {
-                        'url': url_input,
-                        'filename': name,
-                        'download_url': f'/api/videos/download/{name}',
-                        'size_mb': round(file_size_mb, 2),
-                        'success': file_exists and file_size_mb > 0
-                    }
+                    except Exception as download_error:
+                        print(f"[FETCH ERROR] Download failed for {url_input}: {str(download_error)}")
+                        import traceback
+                        traceback.print_exc()
+                        return {
+                            'url': url_input,
+                            'error': str(download_error),
+                            'success': False,
+                            'details': traceback.format_exc()
+                        }
+                
+                # Ensure .mp4 extension
+                if not filename.endswith('.mp4'):
+                    base, _ = os.path.splitext(filename)
+                    filename = base + '.mp4'
+                
+                name = os.path.basename(filename)
+                file_exists = os.path.exists(filename)
+                file_size_mb = os.path.getsize(filename) / (1024 * 1024) if file_exists else 0
+                
+                if not file_exists or file_size_mb == 0:
+                    print(f"[FETCH WARNING] File may not have downloaded properly: {filename} (exists: {file_exists}, size: {file_size_mb:.2f}MB)")
+                    # Check if we have error information in the info dict
+                    if info and 'error' in info:
+                        print(f"[FETCH ERROR DETAIL] yt-dlp error: {info['error']}")
+                    # Also check for other error fields
+                    elif info and 'errors' in info:
+                        print(f"[FETCH ERROR DETAIL] yt-dlp errors: {info['errors']}")
+                
+                print(f"[FETCH] Success: {name} ({file_size_mb:.2f}MB)")
+                return {
+                    'url': url_input,
+                    'filename': name,
+                    'download_url': f'/api/videos/download/{name}',
+                    'size_mb': round(file_size_mb, 2),
+                    'success': file_exists and file_size_mb > 0
+                }
             except Exception as e:
                 print(f"[FETCH ERROR] {url_input}: {str(e)}")
                 import traceback
