@@ -223,7 +223,10 @@ def process_branded_videos():
         download_urls = []
         for output_path in output_paths:
             filename = os.path.basename(output_path)
-            brand_name = os.path.basename(os.path.dirname(output_path))
+            # Extract brand name from filename (format: {video_id}_{brand_name}.mp4)
+            # Split by underscore and take the last part before .mp4
+            name_parts = filename.replace('.mp4', '').split('_')
+            brand_name = name_parts[-1] if len(name_parts) > 1 else 'unknown'
             download_urls.append({
                 'brand': brand_name,
                 'filename': filename,
@@ -386,6 +389,15 @@ def download_video(filename):
         # Check if file exists
         if not os.path.exists(filepath):
             print(f"[DOWNLOAD ERROR] File not found: {filepath}")
+            # List contents of output directory for debugging
+            try:
+                if os.path.exists(OUTPUT_DIR):
+                    output_contents = os.listdir(OUTPUT_DIR)
+                    print(f"[DOWNLOAD DEBUG] Contents of OUTPUT_DIR ({OUTPUT_DIR}): {output_contents}")
+                else:
+                    print(f"[DOWNLOAD DEBUG] OUTPUT_DIR does not exist: {OUTPUT_DIR}")
+            except Exception as e:
+                print(f"[DOWNLOAD DEBUG] Could not list contents of OUTPUT_DIR: {e}")
             return jsonify({'error': 'File not found', 'path': filepath, 'filename': filename}), 404
         
         file_size = os.path.getsize(filepath)

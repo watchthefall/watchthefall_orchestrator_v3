@@ -220,6 +220,11 @@ class VideoProcessor:
         output_filename = f"{video_id}_{brand_name}.mp4"
         output_path = os.path.join(self.output_dir, output_filename)
         
+        print(f"[DEBUG] Processing brand: {brand_name}")
+        print(f"[DEBUG] Video ID: {video_id}")
+        print(f"[DEBUG] Output filename: {output_filename}")
+        print(f"[DEBUG] Output path: {output_path}")
+        
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         print(f"[DEBUG] Writing branded video to: {output_path}")
         
@@ -235,6 +240,7 @@ class VideoProcessor:
             shutil.copy2(self.video_path, output_path)
             processing_time = time.time() - start_time
             print(f"  Processing {brand_name} completed in {processing_time:.2f} seconds (copy only)")
+            print(f"[DEBUG] File exists after copy: {os.path.exists(output_path)}")
             return output_path
         
         # Run ffmpeg with optimized settings for Render Pro environments
@@ -263,6 +269,10 @@ class VideoProcessor:
             result = subprocess.run(cmd, check=True, capture_output=True)
             processing_time = time.time() - start_time
             print(f"  Processing {brand_name} completed in {processing_time:.2f} seconds")
+            print(f"[DEBUG] File exists after FFmpeg: {os.path.exists(output_path)}")
+            if os.path.exists(output_path):
+                file_size = os.path.getsize(output_path)
+                print(f"[DEBUG] Output file size: {file_size} bytes")
             return output_path
         except subprocess.CalledProcessError as e:
             print(f"FFmpeg error: {e.stderr.decode()}")
