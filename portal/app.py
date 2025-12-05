@@ -102,7 +102,6 @@ def process_branded_videos():
                     'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
                     'merge_output_format': 'mp4',
                     'format': 'mp4',
-                    'cookiefile': './portal/data/cookies.txt',
                     'retries': 5,
                     'fragment_retries': 5,
                     'socket_timeout': 300,
@@ -115,6 +114,21 @@ def process_branded_videos():
                         'Upgrade-Insecure-Requests': '1',
                     }
                 }
+                
+                # Only add cookiefile if the file exists and is readable
+                cookie_file = './portal/data/cookies.txt'
+                try:
+                    if os.path.exists(cookie_file) and os.path.isfile(cookie_file):
+                        # Test if file is readable
+                        with open(cookie_file, 'r', encoding='utf-8') as f:
+                            f.read(1)  # Try to read first character
+                        ydl_opts['cookiefile'] = cookie_file
+                        print(f"[PROCESS BRANDS] Using cookie file: {cookie_file}")
+                    else:
+                        print(f"[PROCESS BRANDS] Cookie file not found or not readable: {cookie_file}")
+                except Exception as cookie_error:
+                    print(f"[PROCESS BRANDS] Warning: Could not use cookie file {cookie_file}: {cookie_error}")
+                    # Continue without cookies
                 
                 with YoutubeDL(ydl_opts) as ydl:
                     print(f"[PROCESS BRANDS] Downloading: {url_input[:50]}...")
@@ -278,7 +292,6 @@ def fetch_videos_from_urls():
                     'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
                     'merge_output_format': 'mp4',
                     'format': 'mp4',
-                    'cookiefile': './portal/data/cookies.txt',
                     'retries': 5,
                     'fragment_retries': 5,
                     'socket_timeout': 300,
@@ -291,6 +304,21 @@ def fetch_videos_from_urls():
                         'Upgrade-Insecure-Requests': '1',
                     }
                 }
+                
+                # Only add cookiefile if the file exists and is readable
+                cookie_file = './portal/data/cookies.txt'
+                try:
+                    if os.path.exists(cookie_file) and os.path.isfile(cookie_file):
+                        # Test if file is readable
+                        with open(cookie_file, 'r', encoding='utf-8') as f:
+                            f.read(1)  # Try to read first character
+                        ydl_opts['cookiefile'] = cookie_file
+                        print(f"[FETCH] Using cookie file: {cookie_file}")
+                    else:
+                        print(f"[FETCH] Cookie file not found or not readable: {cookie_file}")
+                except Exception as cookie_error:
+                    print(f"[FETCH] Warning: Could not use cookie file {cookie_file}: {cookie_error}")
+                    # Continue without cookies
                 
                 with YoutubeDL(ydl_opts) as ydl:
                     print(f"[FETCH] Downloading: {url_input[:50]}...")
