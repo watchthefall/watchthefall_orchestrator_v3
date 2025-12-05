@@ -123,7 +123,10 @@ def process_branded_videos():
                         with open(cookie_file, 'r', encoding='utf-8') as f:
                             content = f.read().strip()
                             # Check if file has actual cookie data (not just comments)
-                            if content and not content.startswith('# Netscape HTTP Cookie File') or (content.count('\n') > 1):
+                            # File is valid if it has content and either:
+                            # 1. Doesn't start with the header (unlikely but possible), OR
+                            # 2. Has more than one line (indicating actual cookie data beyond header)
+                            if content and (not content.startswith('# Netscape HTTP Cookie File') or (content.count('\n') > 1)):
                                 ydl_opts['cookiefile'] = cookie_file
                                 print(f"[PROCESS BRANDS] Using cookie file: {cookie_file}")
                             else:
@@ -317,7 +320,10 @@ def fetch_videos_from_urls():
                         with open(cookie_file, 'r', encoding='utf-8') as f:
                             content = f.read().strip()
                             # Check if file has actual cookie data (not just comments)
-                            if content and not content.startswith('# Netscape HTTP Cookie File') or (content.count('\n') > 1):
+                            # File is valid if it has content and either:
+                            # 1. Doesn't start with the header (unlikely but possible), OR
+                            # 2. Has more than one line (indicating actual cookie data beyond header)
+                            if content and (not content.startswith('# Netscape HTTP Cookie File') or (content.count('\n') > 1)):
                                 ydl_opts['cookiefile'] = cookie_file
                                 print(f"[FETCH] Using cookie file: {cookie_file}")
                             else:
