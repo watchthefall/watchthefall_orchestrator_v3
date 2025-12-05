@@ -22,5 +22,9 @@ loglevel = "info"
 # Preload application code before forking worker processes
 preload_app = True
 
-# For Render Free Tier compatibility
-# Remove Pro-specific settings that may cause issues on Free Tier
+# Take advantage of Render Pro resources
+# Enable worker tmp dir for better performance
+worker_tmp_dir = "/dev/shm"
+
+# Increase worker connections for better throughput
+worker_connections = 1000

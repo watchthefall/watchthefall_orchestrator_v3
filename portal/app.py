@@ -261,31 +261,42 @@ def fetch_videos_from_urls():
         
         def download_one(url_input):
             try:
-                # Base yt-dlp options with timeout settings
+                # Try primary format first
                 ydl_opts = {
                     'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
                     'merge_output_format': 'mp4',
-                    'format': 'mp4/best',
+                    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
                     'noplaylist': True,
                     'quiet': True,
                     'no_warnings': True,
                     'geo_bypass': True,
                     'force_ipv4': True,
-                    # Add timeout settings to prevent hanging downloads
-                    'socket_timeout': 300,  # 5 minutes socket timeout
-                    'retries': 3,  # Retry up to 3 times
-                    'fragment_retries': 3,  # Retry fragments up to 3 times
-                    'retry_sleep_functions': {'http': lambda n: 2 ** n},  # Exponential backoff
+                    'socket_timeout': 300,
+                    'retries': 3,
+                    'fragment_retries': 3,
+                    'retry_sleep_functions': {'http': lambda n: 2 ** n},
                 }
-                
-                # NOTE: Cookie handling has been removed for V3
-                # V3 uses a different downloader logic that doesn't require cookie files
                 
                 with YoutubeDL(ydl_opts) as ydl:
                     print(f"[FETCH] Downloading: {url_input[:50]}...")
                     try:
                         info = ydl.extract_info(url_input, download=True)
                         filename = ydl.prepare_filename(info)
+                    except Exception as primary_error:
+                        print(f"[FETCH] Primary format failed, trying fallback: {str(primary_error)}")
+                        # Fallback to simpler format
+                        ydl_opts['format'] = 'best[ext=mp4]/best'
+                        try:
+                            with YoutubeDL(ydl_opts) as ydl_fallback:
+                                info = ydl_fallback.extract_info(url_input, download=True)
+                                filename = ydl_fallback.prepare_filename(info)
+                        except Exception as secondary_error:
+                            print(f"[FETCH] Secondary format failed, trying final fallback: {str(secondary_error)}")
+                            # Final fallback - get whatever is available
+                            ydl_opts['format'] = 'best'
+                            with YoutubeDL(ydl_opts) as ydl_final:
+                                info = ydl_final.extract_info(url_input, download=True)
+                                filename = ydl_final.prepare_filename(info)
                         
                         # Ensure .mp4 extension
                         if not filename.endswith('.mp4'):
