@@ -29,36 +29,28 @@ class VideoProcessor:
     def __init__(self, video_path: str, output_dir: str = 'exports'):
         self.video_path = video_path
         self.output_dir = output_dir
-        os.makedirs(output_dir, exist_ok=True)
         
-        self.video_info = self._probe_video()
-        # Removed brightness calculation to speed up processing
-    
-    def _probe_video(self) -> Dict:
-        """Get video properties"""
+        # Probe video info
+        cmd = [FFPROBE_BIN, '-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams', video_path]
         try:
-            cmd = [
-                FFPROBE_BIN, '-v', 'error',
-                '-select_streams', 'v:0',
-                '-show_entries', 'stream=width,height,duration',
-                '-of', 'json',
-                self.video_path
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            data = json.loads(result.stdout)
-            stream = data['streams'][0]
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            self.video_info = json.loads(result.stdout)
+            print(f"[DEBUG] Video info: {json.dumps(self.video_info, indent=2)}")
             
-            return {
-                'width': int(stream['width']),
-                'height': int(stream['height']),
-                'duration': float(stream.get('duration', 0))
-            }
-        except:
-            return {'width': 1080, 'height': 1920, 'duration': 0}
-    
-    # Removed calculate_video_brightness function - no longer needed
-    
-    # Removed calculate_adaptive_watermark_opacity function - using fixed opacity
+            # Extract key information
+            format_info = self.video_info.get('format', {})
+            streams = self.video_info.get('streams', [])
+            
+            print(f"[DEBUG] Format: {format_info.get('format_name', 'unknown')}")
+            print(f"[DEBUG] Duration: {format_info.get('duration', 'unknown')} seconds")
+            print(f"[DEBUG] Streams count: {len(streams)}")
+            
+            for i, stream in enumerate(streams):
+                print(f"[DEBUG] Stream {i}: codec={stream.get('codec_name', 'unknown')}, type={stream.get('codec_type', 'unknown')}")
+                
+        except Exception as e:
+            print(f"[ERROR] Failed to probe video: {e}")
+            self.video_info = {}
     
     def build_filter_complex(self, brand_config: Dict, logo_settings: Optional[Dict] = None) -> str:
         """
@@ -266,9 +258,12 @@ class VideoProcessor:
         
         try:
             print(f"[DEBUG] Executing FFmpeg command with Render Pro optimizations: {' '.join(cmd)}")
-            result = subprocess.run(cmd, check=True, capture_output=True)
+            # Add verbose output to see what's happening
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
             processing_time = time.time() - start_time
             print(f"  Processing {brand_name} completed in {processing_time:.2f} seconds")
+            print(f"[DEBUG] FFmpeg stdout: {result.stdout}")
+            print(f"[DEBUG] FFmpeg stderr: {result.stderr}")
             print(f"[DEBUG] File exists after FFmpeg: {os.path.exists(output_path)}")
             if os.path.exists(output_path):
                 file_size = os.path.getsize(output_path)
