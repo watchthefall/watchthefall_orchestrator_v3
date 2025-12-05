@@ -2,9 +2,9 @@
   "ScotlandWTF": {
     "display_name": "ScotlandWTF",
     "assets": {
-      "template": "wtf_orchestrator/template.png",
-      "logo": "wtf_orchestrator/logos/scotland-wtf-logo.png",
-      "watermark": "wtf_orchestrator/watermarks/scotland_watermark.png"
+      "template": "ScotlandWTF/template.png",
+      "logo": "ScotlandWTF/logo.png",
+      "watermark": "ScotlandWTF/watermark.png"
     },
     "options": {
       "watermark_position": "bottom-right",
@@ -14,9 +14,9 @@
   "EnglandWTF": {
     "display_name": "EnglandWTF",
     "assets": {
-      "template": "wtf_orchestrator/template.png",
-      "logo": "wtf_orchestrator/logos/england-wtf-logo.png",
-      "watermark": "wtf_orchestrator/watermarks/England_watermark.png"
+      "template": "EnglandWTF/template.png",
+      "logo": "EnglandWTF/logo.png",
+      "watermark": "EnglandWTF/watermark.png"
     },
     "options": {
       "watermark_position": "bottom-right",
