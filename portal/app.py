@@ -301,6 +301,9 @@ def fetch_videos_from_urls():
                             # Check if we have error information in the info dict
                             if info and 'error' in info:
                                 print(f"[FETCH ERROR DETAIL] yt-dlp error: {info['error']}")
+                            # Also check for other error fields
+                            elif info and 'errors' in info:
+                                print(f"[FETCH ERROR DETAIL] yt-dlp errors: {info['errors']}")
                         
                         print(f"[FETCH] Success: {name} ({file_size_mb:.2f}MB)")
                         return {
@@ -314,10 +317,17 @@ def fetch_videos_from_urls():
                         print(f"[FETCH ERROR] Download failed for {url_input}: {str(download_error)}")
                         import traceback
                         traceback.print_exc()
+                        # Try to get more detailed error information
+                        error_details = str(download_error)
+                        if hasattr(download_error, 'msg'):
+                            error_details += f"; msg: {download_error.msg}"
+                        if hasattr(download_error, 'reason'):
+                            error_details += f"; reason: {download_error.reason}"
                         return {
                             'url': url_input,
-                            'error': str(download_error),
-                            'success': False
+                            'error': error_details,
+                            'success': False,
+                            'details': traceback.format_exc()
                         }
             except Exception as e:
                 print(f"[FETCH ERROR] {url_input}: {str(e)}")
@@ -366,23 +376,41 @@ def download_video(filename):
         # If not found, search in brand subdirectories
         if not os.path.exists(filepath):
             print(f"[DOWNLOAD] File not found in main directory, searching brand subdirectories...")
-            for brand_dir in os.listdir(OUTPUT_DIR):
-                brand_path = os.path.join(OUTPUT_DIR, brand_dir)
-                if os.path.isdir(brand_path):
-                    filepath = os.path.join(brand_path, filename)
-                    if os.path.exists(filepath):
-                        print(f"[DOWNLOAD] Found file in brand directory: {brand_path}")
-                        break
-            else:
-                # File not found in any directory
-                filepath = os.path.join(OUTPUT_DIR, filename)  # Reset to original path for error message
+            try:
+                for brand_dir in os.listdir(OUTPUT_DIR):
+                    brand_path = os.path.join(OUTPUT_DIR, brand_dir)
+                    if os.path.isdir(brand_path):
+                        filepath = os.path.join(brand_path, filename)
+                        if os.path.exists(filepath):
+                            print(f"[DOWNLOAD] Found file in brand directory: {brand_path}")
+                            break
+                else:
+                    # File not found in any directory
+                    filepath = os.path.join(OUTPUT_DIR, filename)  # Reset to original path for error message
+            except Exception as e:
+                print(f"[DOWNLOAD ERROR] Failed to list directories in {OUTPUT_DIR}: {e}")
         
         print(f"[DEBUG] Looking for file at: {filepath}")
         
         # Check if file exists
         if not os.path.exists(filepath):
             print(f"[DOWNLOAD ERROR] File not found: {filepath}")
-            return jsonify({'error': 'File not found', 'path': filepath}), 404
+            # List contents of output directory for debugging
+            try:
+                output_contents = os.listdir(OUTPUT_DIR)
+                print(f"[DOWNLOAD DEBUG] Contents of OUTPUT_DIR ({OUTPUT_DIR}): {output_contents}")
+                # List contents of brand subdirectories
+                for item in output_contents:
+                    item_path = os.path.join(OUTPUT_DIR, item)
+                    if os.path.isdir(item_path):
+                        try:
+                            brand_contents = os.listdir(item_path)
+                            print(f"[DOWNLOAD DEBUG] Contents of brand directory {item}: {brand_contents}")
+                        except Exception as e:
+                            print(f"[DOWNLOAD DEBUG] Could not list contents of {item_path}: {e}")
+            except Exception as e:
+                print(f"[DOWNLOAD DEBUG] Could not list contents of OUTPUT_DIR: {e}")
+            return jsonify({'error': 'File not found', 'path': filepath, 'filename': filename}), 404
         
         file_size = os.path.getsize(filepath)
         print(f"[DOWNLOAD] Serving file: {filename} ({file_size} bytes)")
