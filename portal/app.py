@@ -779,6 +779,7 @@ def debug_brand_integrity():
 def debug_build_filter(brand_name):
     from .video_processor import VideoProcessor
     from .brand_loader import get_available_brands
+    import os
 
     portal_dir = os.path.dirname(os.path.abspath(__file__))
     brands = get_available_brands(portal_dir)
@@ -794,8 +795,8 @@ def debug_build_filter(brand_name):
         }), 404
 
     # Generate a dry-run filter without needing a real video
-    dummy_video = os.path.join(portal_dir, "dummy.mp4")
-    vp = VideoProcessor(video_path=dummy_video)
+    # Use os.devnull to avoid FFprobe errors
+    vp = VideoProcessor(video_path=os.devnull)
     filter_complex = vp.build_filter_complex(brand)
 
     return jsonify({
