@@ -370,46 +370,14 @@ def fetch_videos_from_urls():
 def download_video(filename):
     """Download processed video"""
     try:
-        # First try to find the file in the main output directory
+        # Look for the file in the main output directory only
         filepath = os.path.join(OUTPUT_DIR, filename)
-        
-        # If not found, search in brand subdirectories
-        if not os.path.exists(filepath):
-            print(f"[DOWNLOAD] File not found in main directory, searching brand subdirectories...")
-            try:
-                for brand_dir in os.listdir(OUTPUT_DIR):
-                    brand_path = os.path.join(OUTPUT_DIR, brand_dir)
-                    if os.path.isdir(brand_path):
-                        filepath = os.path.join(brand_path, filename)
-                        if os.path.exists(filepath):
-                            print(f"[DOWNLOAD] Found file in brand directory: {brand_path}")
-                            break
-                else:
-                    # File not found in any directory
-                    filepath = os.path.join(OUTPUT_DIR, filename)  # Reset to original path for error message
-            except Exception as e:
-                print(f"[DOWNLOAD ERROR] Failed to list directories in {OUTPUT_DIR}: {e}")
         
         print(f"[DEBUG] Looking for file at: {filepath}")
         
         # Check if file exists
         if not os.path.exists(filepath):
             print(f"[DOWNLOAD ERROR] File not found: {filepath}")
-            # List contents of output directory for debugging
-            try:
-                output_contents = os.listdir(OUTPUT_DIR)
-                print(f"[DOWNLOAD DEBUG] Contents of OUTPUT_DIR ({OUTPUT_DIR}): {output_contents}")
-                # List contents of brand subdirectories
-                for item in output_contents:
-                    item_path = os.path.join(OUTPUT_DIR, item)
-                    if os.path.isdir(item_path):
-                        try:
-                            brand_contents = os.listdir(item_path)
-                            print(f"[DOWNLOAD DEBUG] Contents of brand directory {item}: {brand_contents}")
-                        except Exception as e:
-                            print(f"[DOWNLOAD DEBUG] Could not list contents of {item_path}: {e}")
-            except Exception as e:
-                print(f"[DOWNLOAD DEBUG] Could not list contents of OUTPUT_DIR: {e}")
             return jsonify({'error': 'File not found', 'path': filepath, 'filename': filename}), 404
         
         file_size = os.path.getsize(filepath)

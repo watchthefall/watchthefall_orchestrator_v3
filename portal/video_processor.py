@@ -218,7 +218,7 @@ class VideoProcessor:
         start_time = time.time()
         brand_name = brand_config.get('name', 'brand')
         output_filename = f"{video_id}_{brand_name}.mp4"
-        output_path = os.path.join(self.output_dir, brand_name, output_filename)
+        output_path = os.path.join(self.output_dir, output_filename)
         
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         print(f"[DEBUG] Writing branded video to: {output_path}")
@@ -237,21 +237,21 @@ class VideoProcessor:
             print(f"  Processing {brand_name} completed in {processing_time:.2f} seconds (copy only)")
             return output_path
         
-        # Run ffmpeg with optimized settings for Render Pro environments
+        # Run ffmpeg with optimized settings for low memory environments
         cmd = [
             FFMPEG_BIN, '-y',
-            '-threads', '2',  # Increase threads to 2 for Render Pro
+            '-threads', '1',  # Limit threads to 1 for low memory environments
             '-use_wallclock_as_timestamps', '1',  # Use wallclock timestamps
             '-fflags', '+genpts',  # Generate presentation timestamps
             '-i', self.video_path,
             '-filter_complex', filter_complex,
-            '-filter_threads', '2',  # Increase filter threads to 2
-            '-bufsize', '64M',  # Increase buffer size for better performance
+            '-filter_threads', '1',  # Limit filter threads to 1
+            '-bufsize', '32M',  # Set buffer size
             '-map', '[vout]',  # Explicitly map video output from filter_complex
             '-map', '0:a?',  # Map audio stream if present
             '-c:v', 'libx264',
-            '-crf', '23',  # Maintain quality with CRF 23
-            '-preset', 'faster',  # Use faster preset for better quality/speed balance
+            '-crf', '23',  # Increased CRF for faster encoding
+            '-preset', 'ultrafast',  # Ultrafast preset
             '-c:a', 'aac',  # Re-encode audio instead of copying
             '-b:a', '128k',  # Set audio bitrate
             '-movflags', '+faststart',  # Fast start for web playback
@@ -259,7 +259,7 @@ class VideoProcessor:
         ]
         
         try:
-            print(f"[DEBUG] Executing FFmpeg command with Render Pro optimizations: {' '.join(cmd)}")
+            print(f"[DEBUG] Executing FFmpeg command: {' '.join(cmd)}")
             result = subprocess.run(cmd, check=True, capture_output=True)
             processing_time = time.time() - start_time
             print(f"  Processing {brand_name} completed in {processing_time:.2f} seconds")

@@ -9,7 +9,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.10.6
       - key: RENDER
-        value: true
+        value: "true"
       - key: ENV
         value: production
     headers:
