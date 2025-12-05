@@ -237,21 +237,21 @@ class VideoProcessor:
             print(f"  Processing {brand_name} completed in {processing_time:.2f} seconds (copy only)")
             return output_path
         
-        # Run ffmpeg with optimized settings for low memory environments
+        # Run ffmpeg with optimized settings for Render Pro environments
         cmd = [
             FFMPEG_BIN, '-y',
-            '-threads', '1',  # Limit threads to 1
+            '-threads', '2',  # Increase threads to 2 for Render Pro
             '-use_wallclock_as_timestamps', '1',  # Use wallclock timestamps
             '-fflags', '+genpts',  # Generate presentation timestamps
             '-i', self.video_path,
             '-filter_complex', filter_complex,
-            '-filter_threads', '1',  # Limit filter threads to 1
-            '-bufsize', '32M',  # Set buffer size
+            '-filter_threads', '2',  # Increase filter threads to 2
+            '-bufsize', '64M',  # Increase buffer size for better performance
             '-map', '[vout]',  # Explicitly map video output from filter_complex
             '-map', '0:a?',  # Map audio stream if present
             '-c:v', 'libx264',
-            '-crf', '23',  # Increased CRF for faster encoding
-            '-preset', 'ultrafast',  # Ultrafast preset
+            '-crf', '23',  # Maintain quality with CRF 23
+            '-preset', 'faster',  # Use faster preset for better quality/speed balance
             '-c:a', 'aac',  # Re-encode audio instead of copying
             '-b:a', '128k',  # Set audio bitrate
             '-movflags', '+faststart',  # Fast start for web playback
@@ -259,7 +259,7 @@ class VideoProcessor:
         ]
         
         try:
-            print(f"[DEBUG] Executing FFmpeg command: {' '.join(cmd)}")
+            print(f"[DEBUG] Executing FFmpeg command with Render Pro optimizations: {' '.join(cmd)}")
             result = subprocess.run(cmd, check=True, capture_output=True)
             processing_time = time.time() - start_time
             print(f"  Processing {brand_name} completed in {processing_time:.2f} seconds")
