@@ -87,7 +87,7 @@ class VideoProcessor:
         print(f"[DEBUG] Video dimensions: {width}x{height}")
         
         # 1. Load and scale template
-        template_path = os.path.join(PROJECT_ROOT, 'portal', 'wtf_brands', assets.get('template', ''))
+        template_path = os.path.join(PROJECT_ROOT, 'imports', 'brands', assets.get('template', ''))
         if os.path.exists(template_path):
             print(f"[DEBUG] Adding template: {template_path}")
             # Scale template to match scaled video
@@ -125,7 +125,7 @@ class VideoProcessor:
             print("[DEBUG] No logo settings provided or logo path missing")
         
         # 3. Overlay watermark with fixed opacity using faster geq filter
-        watermark_path = os.path.join(PROJECT_ROOT, 'portal', 'wtf_brands', assets.get('watermark', ''))
+        watermark_path = os.path.join(PROJECT_ROOT, 'imports', 'brands', assets.get('watermark', ''))
         if os.path.exists(watermark_path):
             print(f"[DEBUG] Adding watermark: {watermark_path}")
             wm_scale = options.get('watermark_scale', 0.25)
