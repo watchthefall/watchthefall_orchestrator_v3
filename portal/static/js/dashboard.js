@@ -35,7 +35,7 @@ function showResults(results) {
                 resultItem.innerHTML = `
                     <div class="result-title">${result.filename}</div>
                     <div class="result-meta">Size: ${result.size_mb} MB</div>
-                    <a href="${result.download_url}" class="download-link" target="_blank">Download Video</a>
+                    <button class="download-btn" onclick="downloadBinaryFile('${result.download_url}', '${result.filename}')">Download Video</button>
                 `;
             } else {
                 resultItem.innerHTML = `
@@ -47,6 +47,36 @@ function showResults(results) {
             
             resultsList.appendChild(resultItem);
         });
+    }
+}
+
+// Function to download binary files correctly
+async function downloadBinaryFile(url, filename) {
+    try {
+        showStatus(`Downloading ${filename}...`, 'loading');
+        
+        const res = await fetch(url);
+        if (!res.ok) {
+            // Try to read text for debugging, but do NOT parse as JSON
+            const errText = await res.text();
+            throw new Error("Download failed: " + errText);
+        }
+
+        const blob = await res.blob();
+        const downloadUrl = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = filename;   // Ensure filename variable is inherited properly
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(downloadUrl);
+        
+        showStatus(`Downloaded ${filename} successfully!`, 'success');
+    } catch (error) {
+        showStatus(`Download error: ${error.message}`, 'error');
+        console.error('Download error:', error);
     }
 }
 

@@ -402,11 +402,41 @@
                     resultItem.innerHTML = `
                         <div class="result-title">${output.brand}</div>
                         <div class="result-meta">File: ${output.filename}</div>
-                        <a href="${output.download_url}" class="download-link" target="_blank">Download ${output.brand} Video</a>
+                        <button class="download-btn" onclick="downloadBinaryFile('${output.download_url}', '${output.filename}')">Download ${output.brand} Video</button>
                     `;
                     
                     resultsList.appendChild(resultItem);
                 });
+            }
+            
+            // Function to download binary files correctly
+            async function downloadBinaryFile(url, filename) {
+                try {
+                    showStatus(`Downloading ${filename}...`, 'loading');
+                    
+                    const res = await fetch(url);
+                    if (!res.ok) {
+                        // Try to read text for debugging, but do NOT parse as JSON
+                        const errText = await res.text();
+                        throw new Error("Download failed: " + errText);
+                    }
+
+                    const blob = await res.blob();
+                    const downloadUrl = URL.createObjectURL(blob);
+
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = filename;   // Ensure filename variable is inherited properly
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(downloadUrl);
+                    
+                    showStatus(`Downloaded ${filename} successfully!`, 'success');
+                } catch (error) {
+                    showStatus(`Download error: ${error.message}`, 'error');
+                    console.error('Download error:', error);
+                }
             }
         });
     </script>
