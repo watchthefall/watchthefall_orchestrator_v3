@@ -735,5 +735,172 @@ def get_conversion_status(job_id):
 
 # Stub endpoints removed - focus on core watermarking functionality
 
+@app.route('/api/debug/brand-integrity', methods=['GET'])
+def brand_integrity_check():
+    """Check the integrity of all brand assets and configuration"""
+    try:
+        # Get available brands from configuration
+        brands = get_available_brands(os.path.dirname(os.path.abspath(__file__)))
+        
+        # Base path for brand assets
+        base_assets_path = os.path.join(app.root_path, 'imports', 'brands')
+        
+        # Results dictionary
+        results = {}
+        
+        # Check each brand
+        for brand in brands:
+            brand_name = brand.get('name', 'Unknown')
+            assets = brand.get('assets', {})
+            
+            # Initialize result for this brand
+            brand_result = {
+                'template_ok': False,
+                'logo_ok': False,
+                'watermark_ok': False,
+                'config_matches': True,  # Assume true until proven otherwise
+                'absolute_paths_resolved': True,
+                'details': {}
+            }
+            
+            # Check template
+            template_path = assets.get('template', '')
+            if template_path:
+                full_template_path = os.path.join(base_assets_path, template_path)
+                brand_result['template_ok'] = os.path.exists(full_template_path) and os.access(full_template_path, os.R_OK)
+                brand_result['details']['template_path'] = full_template_path
+                brand_result['details']['template_exists'] = os.path.exists(full_template_path)
+            else:
+                brand_result['details']['template_error'] = 'No template path specified in config'
+            
+            # Check logo
+            logo_path = assets.get('logo', '')
+            if logo_path:
+                full_logo_path = os.path.join(base_assets_path, logo_path)
+                brand_result['logo_ok'] = os.path.exists(full_logo_path) and os.access(full_logo_path, os.R_OK)
+                brand_result['details']['logo_path'] = full_logo_path
+                brand_result['details']['logo_exists'] = os.path.exists(full_logo_path)
+            else:
+                brand_result['details']['logo_error'] = 'No logo path specified in config'
+            
+            # Check watermark
+            watermark_path = assets.get('watermark', '')
+            if watermark_path:
+                full_watermark_path = os.path.join(base_assets_path, watermark_path)
+                brand_result['watermark_ok'] = os.path.exists(full_watermark_path) and os.access(full_watermark_path, os.R_OK)
+                brand_result['details']['watermark_path'] = full_watermark_path
+                brand_result['details']['watermark_exists'] = os.path.exists(full_watermark_path)
+            else:
+                brand_result['details']['watermark_error'] = 'No watermark path specified in config'
+            
+            # Check if all required assets exist
+            brand_result['config_matches'] = brand_result['template_ok'] and brand_result['logo_ok'] and brand_result['watermark_ok']
+            
+            results[brand_name] = brand_result
+        
+        # Overall status
+        all_good = all(brand_result['config_matches'] for brand_result in results.values())
+        
+        return jsonify({
+            'status': 'success' if all_good else 'issues_found',
+            'brands_checked': len(results),
+            'all_brands_valid': all_good,
+            'brand_details': results
+        })
+        
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'traceback': error_trace
+        }), 500
+
+
+@app.route('/api/debug/build-filter/<brand_name>', methods=['GET'])
+def build_filter_dry_run(brand_name):
+    """Generate a dry-run of the FFmpeg filter_complex for a specific brand"""
+    try:
+        # Get available brands
+        brands = get_available_brands(os.path.dirname(os.path.abspath(__file__)))
+        
+        # Find the requested brand
+        target_brand = None
+        for brand in brands:
+            if brand.get('name', '').lower() == brand_name.lower():
+                target_brand = brand
+                break
+        
+        if not target_brand:
+            return jsonify({
+                'status': 'error',
+                'message': f'Brand "{brand_name}" not found'
+            }), 404
+        
+        # Create a mock video processor with a dummy video path to test filter generation
+        # We'll use a temporary file to avoid errors
+        import tempfile
+        dummy_video = tempfile.NamedTemporaryFile(suffix='.mp4', delete=False)
+        dummy_video.close()
+        
+        try:
+            # Create a simple mock video file for testing
+            with open(dummy_video.name, 'wb') as f:
+                f.write(b'\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom\x00\x00\x00\x08free')
+            
+            # Create video processor with dummy video
+            processor = VideoProcessor(dummy_video.name)
+            
+            # Build filter complex (this is the dry run)
+            filter_complex = processor.build_filter_complex(target_brand)
+            
+            # Count vout labels
+            vout_count = filter_complex.count('[vout]') if filter_complex else 0
+            
+            # Get asset paths
+            assets = target_brand.get('assets', {})
+            base_assets_path = os.path.join(app.root_path, 'imports', 'brands')
+            
+            resolved_paths = {}
+            for asset_key, asset_path in assets.items():
+                if asset_path:
+                    resolved_paths[asset_key] = os.path.join(base_assets_path, asset_path)
+            
+            # Get video dimensions (mock values since we're using a dummy video)
+            width = getattr(processor, 'video_info', {}).get('width', 1080)
+            height = getattr(processor, 'video_info', {}).get('height', 1920)
+            
+            return jsonify({
+                'status': 'success',
+                'brand': brand_name,
+                'filter_valid': filter_complex is not None and vout_count > 0,
+                'filter_complex': filter_complex,
+                'vout_count': vout_count,
+                'paths': resolved_paths,
+                'video_dimensions': {
+                    'width': width,
+                    'height': height
+                },
+                'warnings': [] if vout_count == 1 else [f'Expected exactly 1 [vout] label, found {vout_count}']
+            })
+            
+        finally:
+            # Clean up dummy file
+            try:
+                os.unlink(dummy_video.name)
+            except:
+                pass
+                
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'traceback': error_trace
+        }), 500
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
