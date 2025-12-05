@@ -736,86 +736,68 @@ def get_conversion_status(job_id):
 # Stub endpoints removed - focus on core watermarking functionality
 
 
+# ================================================================
+# DEBUG ENDPOINT: BRAND INTEGRITY CHECK
+# ================================================================
 @app.route('/api/debug/brand-integrity', methods=['GET'])
 def debug_brand_integrity():
-    """
-    Validate the brand directory structure and confirm correct asset resolution.
-    """
-    try:
-        base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "imports", "brands")
-        report = {}
+    import os
+    base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "imports", "brands")
 
-        if not os.path.exists(base_path):
-            return jsonify({
-                "success": False,
-                "error": "Brand directory missing",
-                "expected_path": base_path
-            }), 500
-
-        brands = os.listdir(base_path)
-
-        for brand in brands:
-            brand_dir = os.path.join(base_path, brand)
-            if not os.path.isdir(brand_dir):
-                continue
-
-            report[brand] = {}
-            required_files = ["template.png", "logo.png", "watermark.png"]
-
-            for f in required_files:
-                fp = os.path.join(brand_dir, f)
-                report[brand][f] = {
-                    "exists": os.path.exists(fp),
-                    "path": fp
-                }
-
-        return jsonify({
-            "success": True,
-            "brand_root": base_path,
-            "brands": report
-        })
-
-    except Exception as e:
+    if not os.path.exists(base):
         return jsonify({
             "success": False,
-            "error": str(e)
+            "error": "Brand directory not found",
+            "path": base
         }), 500
 
+    brands = {}
+    for brand in os.listdir(base):
+        folder = os.path.join(base, brand)
+        if os.path.isdir(folder):
+            brands[brand] = {
+                "template.png": os.path.exists(os.path.join(folder, "template.png")),
+                "logo.png": os.path.exists(os.path.join(folder, "logo.png")),
+                "watermark.png": os.path.exists(os.path.join(folder, "watermark.png")),
+                "path": folder
+            }
 
+    return jsonify({
+        "success": True,
+        "brands": brands
+    })
+
+# ================================================================
+# DEBUG ENDPOINT: FFmpeg FILTER COMPLEX DRY-RUN
+# ================================================================
 @app.route('/api/debug/build-filter/<brand_name>', methods=['GET'])
 def debug_build_filter(brand_name):
-    """
-    Build and return the FFmpeg filter_complex string for a brand
-    without running FFmpeg.
-    """
-    try:
-        # Load all brand configs
-        brand_configs = get_available_brands(os.path.dirname(os.path.abspath(__file__)))
+    from .video_processor import VideoProcessor
+    from .brand_loader import get_available_brands
 
-        # Find requested brand
-        brand_config = next((b for b in brand_configs if b["name"] == brand_name), None)
+    portal_dir = os.path.dirname(os.path.abspath(__file__))
+    brands = get_available_brands(portal_dir)
 
-        if not brand_config:
-            return jsonify({
-                "success": False,
-                "error": f"Brand '{brand_name}' not found."
-            }), 404
+    # Find the brand config by name (case-insensitive)
+    brand = next((b for b in brands if b["name"].lower() == brand_name.lower()), None)
 
-        # Build filter (no logo settings for now)
-        processor = VideoProcessor(video_path="dummy.mp4")  # path not used for filter generation
-        filter_complex = processor.build_filter_complex(brand_config)
-
-        return jsonify({
-            "success": True,
-            "brand": brand_name,
-            "filter_complex": filter_complex
-        })
-
-    except Exception as e:
+    if not brand:
         return jsonify({
             "success": False,
-            "error": str(e)
-        }), 500
+            "error": f"Brand '{brand_name}' not found",
+            "brands_available": [b['name'] for b in brands]
+        }), 404
+
+    # Generate a dry-run filter without needing a real video
+    dummy_video = os.path.join(portal_dir, "dummy.mp4")
+    vp = VideoProcessor(video_path=dummy_video)
+    filter_complex = vp.build_filter_complex(brand)
+
+    return jsonify({
+        "success": True,
+        "brand": brand_name,
+        "filter_complex": filter_complex
+    })
 
 
 if __name__ == '__main__':
