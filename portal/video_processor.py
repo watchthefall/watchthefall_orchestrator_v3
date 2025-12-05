@@ -17,6 +17,7 @@ except ImportError:
     FFPROBE_BIN = 'ffprobe'
     PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+
 class VideoProcessor:
     """
     Process videos with brand overlays: template, logo, and adaptive watermark
@@ -45,12 +46,28 @@ class VideoProcessor:
             print(f"[DEBUG] Duration: {format_info.get('duration', 'unknown')} seconds")
             print(f"[DEBUG] Streams count: {len(streams)}")
             
-            for i, stream in enumerate(streams):
-                print(f"[DEBUG] Stream {i}: codec={stream.get('codec_name', 'unknown')}, type={stream.get('codec_type', 'unknown')}")
+            # Find video stream
+            video_stream = None
+            for stream in streams:
+                if stream.get('codec_type') == 'video':
+                    video_stream = stream
+                    break
+            
+            if video_stream:
+                self.video_info = {
+                    'width': int(video_stream.get('width', 1080)),
+                    'height': int(video_stream.get('height', 1920)),
+                    'duration': float(format_info.get('duration', 0))
+                }
+            else:
+                # Fallback if no video stream found
+                self.video_info = {'width': 1080, 'height': 1920, 'duration': 0}
                 
+            print(f"[DEBUG] Video dimensions: {self.video_info['width']}x{self.video_info['height']}")
+            
         except Exception as e:
             print(f"[ERROR] Failed to probe video: {e}")
-            self.video_info = {}
+            self.video_info = {'width': 1080, 'height': 1920, 'duration': 0}
     
     def build_filter_complex(self, brand_config: Dict, logo_settings: Optional[Dict] = None) -> str:
         """
@@ -64,6 +81,7 @@ class VideoProcessor:
         """
         assets = brand_config.get('assets', {})
         options = brand_config.get('options', {})
+        brand_name = brand_config.get('name', 'Unknown')
         
         width = self.video_info['width']
         height = self.video_info['height']
@@ -75,11 +93,13 @@ class VideoProcessor:
         filters = []
         inputs = ['0:v']  # Start with video input
         
-        print(f"[DEBUG] Building filter complex for brand: {brand_config.get('name', 'Unknown')}")
+        print(f"[DEBUG] Building filter complex for brand: {brand_name}")
         print(f"[DEBUG] Video dimensions: {width}x{height}")
         
         # 1. Load and scale template
         template_path = os.path.join(PROJECT_ROOT, 'imports', 'brands', assets.get('template', ''))
+        print(f"[DEBUG] Template path: {template_path}")
+        print(f"[DEBUG] Template exists: {os.path.exists(template_path)}")
         if os.path.exists(template_path):
             print(f"[DEBUG] Adding template: {template_path}")
             # Scale template to match scaled video
@@ -94,6 +114,8 @@ class VideoProcessor:
         # 2. Overlay logo (if settings provided)
         if logo_settings and logo_settings.get('logo_path'):
             logo_path = logo_settings['logo_path']
+            print(f"[DEBUG] Logo path: {logo_path}")
+            print(f"[DEBUG] Logo exists: {os.path.exists(logo_path)}")
             if os.path.exists(logo_path):
                 print(f"[DEBUG] Adding logo: {logo_path}")
                 logo_x = logo_settings['logo_settings']['x']
@@ -118,6 +140,8 @@ class VideoProcessor:
         
         # 3. Overlay watermark with fixed opacity using faster geq filter
         watermark_path = os.path.join(PROJECT_ROOT, 'imports', 'brands', assets.get('watermark', ''))
+        print(f"[DEBUG] Watermark path: {watermark_path}")
+        print(f"[DEBUG] Watermark exists: {os.path.exists(watermark_path)}")
         if os.path.exists(watermark_path):
             print(f"[DEBUG] Adding watermark: {watermark_path}")
             wm_scale = options.get('watermark_scale', 0.25)
@@ -174,9 +198,10 @@ class VideoProcessor:
                         filters[-1] = f"{last_filter}[vout]"
                         print(f"[DEBUG] Appended [vout] to last filter: {filters[-1]}")
             else:
-                # No filters at all, return None
-                print("[DEBUG] No filters to process, returning None")
-                return None
+                # No filters at all, create a fallback filter
+                print("[DEBUG] No filters found, creating fallback filter")
+                filters.append(f"[0:v]scale={width}:{height}[vout]")
+                print(f"[DEBUG] Added fallback filter: {filters[-1]}")
         
         # Ensure exactly one [vout] label exists in the entire filter chain
         filter_complex = ';'.join(filters)
@@ -186,11 +211,18 @@ class VideoProcessor:
         print(f"[DEBUG] Final filter complex: {filter_complex}")
         print(f"[DEBUG] Number of [vout] labels found: {vout_count}")
         
+        # Add fallback if no [vout] label found
         if vout_count == 0:
-            print("[ERROR] No [vout] label found in filter complex")
-            return None
+            print("[WARNING] No [vout] label found, adding fallback filter")
+            if filter_complex:
+                filter_complex += f";[0:v]scale={width}:{height}[vout]"
+            else:
+                filter_complex = f"[0:v]scale={width}:{height}[vout]"
+            print(f"[DEBUG] Updated filter complex with fallback: {filter_complex}")
         elif vout_count > 1:
-            print(f"[WARNING] Multiple [vout] labels found ({vout_count}), filter complex may be malformed: {filter_complex}")
+            print(f"[ERROR] Multiple [vout] labels found ({vout_count}), filter complex may be malformed: {filter_complex}")
+            # Return None to indicate error
+            return None
         
         return filter_complex
     
@@ -225,15 +257,17 @@ class VideoProcessor:
         
         print(f"[DEBUG] Built filter complex result: {filter_complex}")
         
+        # If filter_complex generation failed, return error
+        if filter_complex is None:
+            error_msg = f"[ERROR] Failed to generate valid filter_complex for brand {brand_name}"
+            print(error_msg)
+            raise Exception(error_msg)
+        
+        # If no valid filter_complex, return error instead of copying
         if not filter_complex or '[vout]' not in filter_complex:
-            # No overlays or no vout label - just copy
-            print(f"[DEBUG] No valid filter complex with [vout], copying original video: {self.video_path} to {output_path}")
-            import shutil
-            shutil.copy2(self.video_path, output_path)
-            processing_time = time.time() - start_time
-            print(f"  Processing {brand_name} completed in {processing_time:.2f} seconds (copy only)")
-            print(f"[DEBUG] File exists after copy: {os.path.exists(output_path)}")
-            return output_path
+            error_msg = f"[ERROR] No valid filter complex with [vout] for brand {brand_name}"
+            print(error_msg)
+            raise Exception(error_msg)
         
         # Run ffmpeg with optimized settings for Render Pro environments
         cmd = [
@@ -270,9 +304,9 @@ class VideoProcessor:
                 print(f"[DEBUG] Output file size: {file_size} bytes")
             return output_path
         except subprocess.CalledProcessError as e:
-            print(f"FFmpeg error: {e.stderr.decode()}")
-            print(f"FFmpeg stdout: {e.stdout.decode()}")
-            raise
+            error_msg = f"FFmpeg error: {e.stderr}\nFFmpeg stdout: {e.stdout}"
+            print(error_msg)
+            raise Exception(error_msg)
     
     def process_multiple_brands(self, brands: List[Dict], logo_settings: Optional[Dict] = None,
                                video_id: str = 'video') -> List[str]:
@@ -298,7 +332,10 @@ class VideoProcessor:
                 output_paths.append(output_path)
                 print(f"    ✓ Exported to {output_path}")
             except Exception as e:
-                print(f"    ✗ Failed: {e}")
+                error_msg = f"    ✗ Failed: {e}"
+                print(error_msg)
+                # Don't raise exception, continue with other brands
+                # But we could choose to raise if we want to stop on first error
         
         return output_paths
 
