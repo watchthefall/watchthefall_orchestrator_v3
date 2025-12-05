@@ -1,1 +1,2 @@
-# Cookies file for Instagram authentication
+# Netscape HTTP Cookie File
+# Instagram cookies for authenticated downloads

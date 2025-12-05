@@ -119,11 +119,15 @@ def process_branded_videos():
                 cookie_file = './portal/data/cookies.txt'
                 try:
                     if os.path.exists(cookie_file) and os.path.isfile(cookie_file):
-                        # Test if file is readable
+                        # Test if file is readable and has valid content
                         with open(cookie_file, 'r', encoding='utf-8') as f:
-                            f.read(1)  # Try to read first character
-                        ydl_opts['cookiefile'] = cookie_file
-                        print(f"[PROCESS BRANDS] Using cookie file: {cookie_file}")
+                            content = f.read().strip()
+                            # Check if file has actual cookie data (not just comments)
+                            if content and not content.startswith('# Netscape HTTP Cookie File') or (content.count('\n') > 1):
+                                ydl_opts['cookiefile'] = cookie_file
+                                print(f"[PROCESS BRANDS] Using cookie file: {cookie_file}")
+                            else:
+                                print(f"[PROCESS BRANDS] Cookie file exists but appears to be empty or only contains header: {cookie_file}")
                     else:
                         print(f"[PROCESS BRANDS] Cookie file not found or not readable: {cookie_file}")
                 except Exception as cookie_error:
@@ -309,11 +313,15 @@ def fetch_videos_from_urls():
                 cookie_file = './portal/data/cookies.txt'
                 try:
                     if os.path.exists(cookie_file) and os.path.isfile(cookie_file):
-                        # Test if file is readable
+                        # Test if file is readable and has valid content
                         with open(cookie_file, 'r', encoding='utf-8') as f:
-                            f.read(1)  # Try to read first character
-                        ydl_opts['cookiefile'] = cookie_file
-                        print(f"[FETCH] Using cookie file: {cookie_file}")
+                            content = f.read().strip()
+                            # Check if file has actual cookie data (not just comments)
+                            if content and not content.startswith('# Netscape HTTP Cookie File') or (content.count('\n') > 1):
+                                ydl_opts['cookiefile'] = cookie_file
+                                print(f"[FETCH] Using cookie file: {cookie_file}")
+                            else:
+                                print(f"[FETCH] Cookie file exists but appears to be empty or only contains header: {cookie_file}")
                     else:
                         print(f"[FETCH] Cookie file not found or not readable: {cookie_file}")
                 except Exception as cookie_error:
