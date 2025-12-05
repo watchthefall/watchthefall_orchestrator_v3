@@ -35,6 +35,11 @@ app = Flask(__name__,
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE
 
+# Debug endpoint to verify app is loading routes correctly
+@app.route("/__debug_alive__")
+def debug_alive():
+    return "YES — YOUR APP LOADED THIS ROUTE"
+
 # Global conversion lock - only one FFmpeg process at a time (Render free tier 512MB RAM)
 conversion_lock = threading.Lock()
 conversion_in_progress = {'active': False, 'start_time': None}
