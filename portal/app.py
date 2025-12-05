@@ -126,7 +126,22 @@ def process_branded_videos():
                             # File is valid if it has content and either:
                             # 1. Doesn't start with the header (unlikely but possible), OR
                             # 2. Has more than one line (indicating actual cookie data beyond header)
-                            if content and (not content.startswith('# Netscape HTTP Cookie File') or (content.count('\n') > 1)):
+                            # Additional check: look for actual cookie data patterns
+                            has_cookie_data = False
+                            if content:
+                                lines = content.split('\n')
+                                # Check if we have more than just header lines
+                                # Look for lines that contain actual cookie data (domain, flag, path, etc.)
+                                for line in lines:
+                                    line = line.strip()
+                                    # Skip empty lines and comments
+                                    if line and not line.startswith('#'):
+                                        # Check if this looks like a cookie line (has tab-separated values)
+                                        if '\t' in line:
+                                            has_cookie_data = True
+                                            break
+                            
+                            if has_cookie_data:
                                 ydl_opts['cookiefile'] = cookie_file
                                 print(f"[PROCESS BRANDS] Using cookie file: {cookie_file}")
                             else:
@@ -323,7 +338,22 @@ def fetch_videos_from_urls():
                             # File is valid if it has content and either:
                             # 1. Doesn't start with the header (unlikely but possible), OR
                             # 2. Has more than one line (indicating actual cookie data beyond header)
-                            if content and (not content.startswith('# Netscape HTTP Cookie File') or (content.count('\n') > 1)):
+                            # Additional check: look for actual cookie data patterns
+                            has_cookie_data = False
+                            if content:
+                                lines = content.split('\n')
+                                # Check if we have more than just header lines
+                                # Look for lines that contain actual cookie data (domain, flag, path, etc.)
+                                for line in lines:
+                                    line = line.strip()
+                                    # Skip empty lines and comments
+                                    if line and not line.startswith('#'):
+                                        # Check if this looks like a cookie line (has tab-separated values)
+                                        if '\t' in line:
+                                            has_cookie_data = True
+                                            break
+                            
+                            if has_cookie_data:
                                 ydl_opts['cookiefile'] = cookie_file
                                 print(f"[FETCH] Using cookie file: {cookie_file}")
                             else:
