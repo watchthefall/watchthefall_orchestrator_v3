@@ -297,6 +297,14 @@ def dashboard():
     """Main portal dashboard"""
     return render_template('clean_dashboard.html')
 
+@app.route("/portal/downloader_dashboard")
+def downloader_dashboard():
+    return render_template("downloader_dashboard.html")
+
+@app.route("/portal")
+def portal_home():
+    return downloader_dashboard()
+
 @app.route('/portal/test')
 def test_page():
     """Test page to verify portal is online"""
