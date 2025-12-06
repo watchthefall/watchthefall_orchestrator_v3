@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WTF Downloader – Simple Video Downloader</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+    body {
+        background: #000;
+        color: #fff;
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+    }
+    h1 {
+        text-align: center;
+        margin-top: 25px;
+        font-size: 32px;
+        letter-spacing: 2px;
+        text-shadow: 0 0 8px #00b7ff;
+    }
+    .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    .card {
+        background: #111;
+        border: 1px solid #00b7ff;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+        box-shadow: 0 0 15px rgba(0, 183, 255, 0.3);
+    }
+    .form-group {
+        margin-bottom: 15px;
+    }
+    label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+    input[type="text"], input[type="url"], textarea {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #00b7ff;
+        border-radius: 4px;
+        background: #000;
+        color: #fff;
+        box-sizing: border-box;
+    }
+    textarea {
+        min-height: 100px;
+        resize: vertical;
+    }
+    button {
+        background: #00b7ff;
+        color: #000;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+        width: 100%;
+        margin-top: 10px;
+    }
+    button:hover {
+        background: #00a0e0;
+    }
+    button:disabled {
+        background: #333;
+        cursor: not-allowed;
+    }
+    .progress {
+        height: 20px;
+        background: #333;
+        border-radius: 10px;
+        margin: 15px 0;
+        overflow: hidden;
+    }
+    .progress-bar {
+        height: 100%;
+        background: #00b7ff;
+        width: 0%;
+        transition: width 0.3s;
+    }
+    .result {
+        margin-top: 15px;
+        padding: 10px;
+        border-radius: 4px;
+        display: none;
+    }
+    .result.success {
+        background: rgba(0, 255, 0, 0.1);
+        border: 1px solid #0f0;
+    }
+    .result.error {
+        background: rgba(255, 0, 0, 0.1);
+        border: 1px solid #f00;
+    }
+    .history-item {
+        background: #222;
+        border: 1px solid #444;
+        border-radius: 4px;
+        padding: 10px;
+        margin: 10px 0;
+    }
+    .tabs {
+        display: flex;
+        margin-bottom: 20px;
+    }
+    .tab {
+        flex: 1;
+        text-align: center;
+        padding: 10px;
+        background: #222;
+        cursor: pointer;
+        border: 1px solid #444;
+    }
+    .tab.active {
+        background: #00b7ff;
+        color: #000;
+    }
+    .tab-content {
+        display: none;
+    }
+    .tab-content.active {
+        display: block;
+    }
+</style>
+</head>
+<body>
+    <h1>WTF Downloader</h1>
+    
+    <div class="container">
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('single')">Single Download</div>
+            <div class="tab" onclick="switchTab('batch')">Batch Download</div>
+            <div class="tab" onclick="switchTab('history')">Download History</div>
+        </div>
+        
+        <!-- Single Download Tab -->
+        <div id="single-tab" class="tab-content active">
+            <div class="card">
+                <h2>Download Video</h2>
+                <div class="form-group">
+                    <label for="video-url">Video URL:</label>
+                    <input type="url" id="video-url" placeholder="Paste TikTok, Instagram, Twitter, or YouTube URL">
+                </div>
+                <button id="download-btn" onclick="downloadVideo()">Download Video</button>
+                
+                <div class="progress" id="download-progress" style="display: none;">
+                    <div class="progress-bar" id="progress-bar"></div>
+                </div>
+                
+                <div id="download-result" class="result"></div>
+            </div>
+        </div>
+        
+        <!-- Batch Download Tab -->
+        <div id="batch-tab" class="tab-content">
+            <div class="card">
+                <h2>Batch Download</h2>
+                <div class="form-group">
+                    <label for="batch-urls">Video URLs (one per line):</label>
+                    <textarea id="batch-urls" placeholder="Paste multiple URLs, one per line"></textarea>
+                </div>
+                <button id="batch-download-btn" onclick="downloadBatch()">Download Videos</button>
+                
+                <div class="progress" id="batch-progress" style="display: none;">
+                    <div class="progress-bar" id="batch-progress-bar"></div>
+                </div>
+                
+                <div id="batch-result" class="result"></div>
+            </div>
+        </div>
+        
+        <!-- History Tab -->
+        <div id="history-tab" class="tab-content">
+            <div class="card">
+                <h2>Download History</h2>
+                <div id="history-list">
+                    <p>No downloads yet.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // Switch between tabs
+    function switchTab(tabName) {
+        // Hide all tab contents
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Remove active class from all tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Show selected tab content
+        document.getElementById(tabName + '-tab').classList.add('active');
+        
+        // Set active class on clicked tab
+        event.target.classList.add('active');
+    }
+    
+    // Download single video
+    async function downloadVideo() {
+        const urlInput = document.getElementById('video-url');
+        const downloadBtn = document.getElementById('download-btn');
+        const progress = document.getElementById('download-progress');
+        const progressBar = document.getElementById('progress-bar');
+        const result = document.getElementById('download-result');
+        
+        const url = urlInput.value.trim();
+        if (!url) {
+            showError(result, 'Please enter a video URL');
+            return;
+        }
+        
+        // Disable button and show progress
+        downloadBtn.disabled = true;
+        progress.style.display = 'block';
+        progressBar.style.width = '0%';
+        result.style.display = 'none';
+        
+        try {
+            // Simulate progress
+            simulateProgress(progressBar, 3000);
+            
+            // Make API call
+            const response = await fetch('/api/download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url: url })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showSuccess(result, `Download successful! File: ${data.file_path}`);
+                addToHistory(url, data.platform, data.file_path);
+            } else {
+                showError(result, `Download failed: ${data.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            showError(result, `Download failed: ${error.message}`);
+        } finally {
+            downloadBtn.disabled = false;
+        }
+    }
+    
+    // Download batch videos
+    async function downloadBatch() {
+        const urlsInput = document.getElementById('batch-urls');
+        const downloadBtn = document.getElementById('batch-download-btn');
+        const progress = document.getElementById('batch-progress');
+        const progressBar = document.getElementById('batch-progress-bar');
+        const result = document.getElementById('batch-result');
+        
+        const urlsText = urlsInput.value.trim();
+        if (!urlsText) {
+            showError(result, 'Please enter at least one video URL');
+            return;
+        }
+        
+        const urls = urlsText.split('\n').filter(url => url.trim()).map(url => url.trim());
+        if (urls.length === 0) {
+            showError(result, 'Please enter valid video URLs');
+            return;
+        }
+        
+        // Disable button and show progress
+        downloadBtn.disabled = true;
+        progress.style.display = 'block';
+        progressBar.style.width = '0%';
+        result.style.display = 'none';
+        
+        try {
+            // Simulate progress
+            simulateProgress(progressBar, urls.length * 2000);
+            
+            // Make API call
+            const response = await fetch('/api/download/batch', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ urls: urls })
+            });
+            
+            const data = await response.json();
+            
+            if (data.downloads) {
+                const successCount = data.downloads.filter(d => d.success).length;
+                const failCount = data.downloads.length - successCount;
+                
+                let message = `Batch download complete: ${successCount} successful, ${failCount} failed.`;
+                
+                // Add successful downloads to history
+                data.downloads.filter(d => d.success).forEach(d => {
+                    addToHistory(d.url, d.platform, d.file_path);
+                });
+                
+                showSuccess(result, message);
+            } else {
+                showError(result, `Batch download failed: ${data.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            showError(result, `Batch download failed: ${error.message}`);
+        } finally {
+            downloadBtn.disabled = false;
+        }
+    }
+    
+    // Simulate progress bar
+    function simulateProgress(progressBar, duration) {
+        const interval = 50;
+        const increment = (interval / duration) * 100;
+        let width = 0;
+        
+        const timer = setInterval(() => {
+            width += increment;
+            if (width >= 100) {
+                width = 100;
+                clearInterval(timer);
+            }
+            progressBar.style.width = width + '%';
+        }, interval);
+    }
+    
+    // Show success message
+    function showSuccess(element, message) {
+        element.textContent = message;
+        element.className = 'result success';
+        element.style.display = 'block';
+    }
+    
+    // Show error message
+    function showError(element, message) {
+        element.textContent = message;
+        element.className = 'result error';
+        element.style.display = 'block';
+    }
+    
+    // Add to download history
+    function addToHistory(url, platform, filePath) {
+        const historyList = document.getElementById('history-list');
+        
+        // Clear "No downloads yet" message if present
+        if (historyList.innerHTML.includes('No downloads yet')) {
+            historyList.innerHTML = '';
+        }
+        
+        const historyItem = document.createElement('div');
+        historyItem.className = 'history-item';
+        historyItem.innerHTML = `
+            <strong>${platform.toUpperCase()}</strong><br>
+            <small>${url}</small><br>
+            <small>File: ${filePath}</small>
+        `;
+        
+        historyList.insertBefore(historyItem, historyList.firstChild);
+    }
+    
+    // Detect platform from URL
+    async function detectPlatform() {
+        const urlInput = document.getElementById('video-url');
+        const url = urlInput.value.trim();
+        
+        if (!url) return;
+        
+        try {
+            const response = await fetch('/api/detect-platform', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url: url })
+            });
+            
+            const data = await response.json();
+            console.log(`Detected platform: ${data.platform}`);
+        } catch (error) {
+            console.error('Platform detection failed:', error);
+        }
+    }
+    
+    // Add event listener to URL input for platform detection
+    document.getElementById('video-url').addEventListener('blur', detectPlatform);
+</script>
+</body>
+</html>

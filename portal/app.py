@@ -28,8 +28,9 @@ def ensure_video_stream(path):
         return False
 
 # Import video processing utilities
-from .video_processor import VideoProcessor, normalize_video
-from .brand_loader import get_available_brands
+# DISABLED for WTF_Downloader transformation
+# from .video_processor import VideoProcessor, normalize_video
+# from .brand_loader import get_available_brands
 
 # Import configuration
 from .config import (
@@ -399,6 +400,7 @@ def process_branded_videos():
                     except Exception as cookie_error:
                         print(f"[PROCESS BRANDS] Warning: Could not use cookie file {cookie_file}: {cookie_error}")
                         # Continue without cookies
+                    
                     with YoutubeDL(ydl_opts) as ydl:
                         print(f"[PROCESS BRANDS] Downloading: {url_input[:50]}...")
                         try:
@@ -454,7 +456,6 @@ def process_branded_videos():
                         'success': False,
                         'details': traceback.format_exc()
                     }
-            
             # Download the video
             download_result = download_video(url)
             if not download_result.get('success'):
@@ -1097,6 +1098,65 @@ def debug_build_filter(brand_name):
         "brand": brand_name,
         "filter_complex": filter_complex
     })
+
+
+# ================================================================
+# WTF DOWNLOADER ENDPOINTS
+# ================================================================
+
+@app.route('/api/detect-platform', methods=['POST'])
+def api_detect_platform():
+    """Detect the platform from a URL."""
+    try:
+        data = request.get_json()
+        url = data.get('url')
+        
+        if not url:
+            return jsonify({"error": "URL is required"}), 400
+        
+        from downloader.platform_detector import detect_platform
+        platform = detect_platform(url)
+        return jsonify({"url": url, "platform": platform})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/download', methods=['POST'])
+def api_download_video():
+    """Download a single video."""
+    try:
+        data = request.get_json()
+        url = data.get('url')
+        
+        if not url:
+            return jsonify({"error": "URL is required"}), 400
+        
+        # Import and run the async download function
+        import asyncio
+        from downloader.batch_downloader import download_single_video
+        result = asyncio.run(download_single_video(url))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/download/batch', methods=['POST'])
+def api_download_batch():
+    """Download multiple videos."""
+    try:
+        data = request.get_json()
+        urls = data.get('urls', [])
+        
+        if not urls:
+            return jsonify({"error": "At least one URL is required"}), 400
+        
+        # Import and run the async batch download function
+        import asyncio
+        from downloader.batch_downloader import download_batch
+        results = asyncio.run(download_batch(urls))
+        return jsonify({"downloads": results})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == '__main__':
