@@ -311,10 +311,15 @@ def process_branded_videos():
         data = request.get_json(force=True) or {}
         url = data.get('url')
         selected_brands = data.get('brands', [])
-        
+
+        # NEW: accept source_path for local downloaded files
+        source_path = data.get("source_path")
+        if source_path and not url:
+            url = source_path
+
         if not url:
-            return jsonify({'success': False, 'error': 'URL is required'}), 400
-        
+            return jsonify({'success': False, 'error': 'URL or source_path is required'}), 400
+
         if not selected_brands:
             return jsonify({'success': False, 'error': 'At least one brand must be selected'}), 400
         
