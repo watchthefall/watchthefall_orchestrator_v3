@@ -34,6 +34,10 @@ app = Flask(__name__,
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE
 
+# Initialize database
+from .database import init_db
+init_db()
+
 # Debug endpoint to verify app is loading routes correctly
 @app.route("/__debug_alive")
 def debug_alive():
