@@ -36,9 +36,9 @@ app.config['SECRET_KEY'] = SECRET_KEY
 app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE
 
 # Debug endpoint to verify app is loading routes correctly
-@app.route("/__debug_alive__")
+@app.route("/__debug_alive")
 def debug_alive():
-    return "YES — YOUR APP LOADED THIS ROUTE"
+    return "alive", 200
 
 # Global conversion lock - only one FFmpeg process at a time (Render free tier 512MB RAM)
 conversion_lock = threading.Lock()
