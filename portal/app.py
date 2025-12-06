@@ -509,9 +509,19 @@ def process_branded_videos():
                 output_paths.append(output_path)
                 print(f"[PROCESS BRANDS] FINISHED BRAND {i}: {brand_name}")
             except Exception as e:
-                print(f"[PROCESS BRANDS] FAILED BRAND {i}: {brand_name} - {str(e)}")
-                import traceback
-                traceback.print_exc()
+                error_message = str(e)
+                if "audio-only" in error_message or "no valid video stream" in error_message:
+                    # Handle audio-only video error specifically
+                    print(f"[PROCESS BRANDS] AUDIO-ONLY VIDEO DETECTED FOR BRAND {i}: {brand_name}")
+                    return jsonify({
+                        'success': False,
+                        'error': 'The downloaded file contains no video stream (audio-only). Instagram served audio-only content. Try again or use a different video.',
+                        'details': error_message
+                    }), 400
+                else:
+                    print(f"[PROCESS BRANDS] FAILED BRAND {i}: {brand_name} - {str(e)}")
+                    import traceback
+                    traceback.print_exc()
         
         print(f"[PROCESS BRANDS] ALL BRANDS COMPLETED: {len(output_paths)} successful")
         

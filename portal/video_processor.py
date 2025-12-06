@@ -69,6 +69,27 @@ class VideoProcessor:
             print(f"[ERROR] Failed to probe video: {e}")
             self.video_info = {'width': 1080, 'height': 1920, 'duration': 0}
     
+    def has_video_stream(self) -> bool:
+        """
+        Check if the video file contains a valid video stream.
+        
+        Returns:
+            bool: True if video stream exists, False otherwise
+        """
+        try:
+            streams = self.video_info.get('streams', [])
+            for stream in streams:
+                if stream.get('codec_type') == 'video':
+                    # Check if the video stream has valid dimensions
+                    width = stream.get('width', 0)
+                    height = stream.get('height', 0)
+                    if width > 0 and height > 0:
+                        return True
+            return False
+        except Exception as e:
+            print(f"[ERROR] Failed to check video stream: {e}")
+            return False
+    
     def build_filter_complex(self, brand_config: Dict, logo_settings: Optional[Dict] = None) -> str:
         """
         Build ffmpeg filter_complex for overlays
@@ -266,6 +287,12 @@ class VideoProcessor:
         # If no valid filter_complex, return error instead of copying
         if not filter_complex or '[vout]' not in filter_complex:
             error_msg = f"[ERROR] No valid filter complex with [vout] for brand {brand_name}"
+            print(error_msg)
+            raise Exception(error_msg)
+        
+        # Check if the input video has a valid video stream before processing
+        if not self.has_video_stream():
+            error_msg = "[ERROR] The input file contains no valid video stream (audio-only). Instagram may have served audio-only content."
             print(error_msg)
             raise Exception(error_msg)
         
