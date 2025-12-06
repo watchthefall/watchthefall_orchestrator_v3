@@ -210,14 +210,13 @@ async function fetchVideo() {
         return;
     }
 
-    const file = data.results[0].filename;
+    // Store the full path if available, otherwise use filename
+    const file = data.results[0].local_path || data.results[0].filename;
     localStorage.setItem("last_downloaded_file", file);
-
     updateRecentFiles();
 
     box.innerHTML = `✅ Downloaded: <b>${file}</b>`;
 }
-
 /* -----------------------------
    PROCESS VIDEO WITH BRANDS
 ------------------------------ */
