@@ -1167,5 +1167,14 @@ def api_download_batch():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/portal/download_file/<path:filename>")
+def download_file(filename):
+    from flask import send_file
+    full_path = os.path.join("portal", "outputs", filename)
+    if not os.path.exists(full_path):
+        full_path = os.path.join("storage", "raw", filename)
+    return send_file(full_path, as_attachment=True)
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

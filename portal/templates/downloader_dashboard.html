@@ -99,6 +99,21 @@
         background: rgba(255, 0, 0, 0.1);
         border: 1px solid #f00;
     }
+    .download-link {
+        display: inline-block;
+        background: #00b7ff;
+        color: #000;
+        padding: 8px 16px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-weight: bold;
+        margin-top: 10px;
+        border: none;
+        cursor: pointer;
+    }
+    .download-link:hover {
+        background: #00a0e0;
+    }
     .history-item {
         background: #222;
         border: 1px solid #444;
@@ -243,8 +258,9 @@
             const data = await response.json();
             
             if (data.success) {
-                showSuccess(result, `Download successful! File: ${data.file_path}`);
-                addToHistory(url, data.platform, data.file_path);
+                const downloadLink = `<a class="download-link" href="/portal/download_file/${data.filename}" download>⬇ Download to Device</a>`;
+                showSuccess(result, `Download successful! ${downloadLink}`);
+                addToHistory(url, data.platform, data.filename);
             } else {
                 showError(result, `Download failed: ${data.error || 'Unknown error'}`);
             }
@@ -362,7 +378,7 @@
         historyItem.innerHTML = `
             <strong>${platform.toUpperCase()}</strong><br>
             <small>${url}</small><br>
-            <small>File: ${filePath}</small>
+            <a class="download-link" href="/portal/download_file/${filePath}" download>⬇ Download File</a>
         `;
         
         historyList.insertBefore(historyItem, historyList.firstChild);
