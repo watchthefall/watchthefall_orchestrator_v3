@@ -321,131 +321,148 @@ def process_branded_videos():
         print(f"[PROCESS BRANDS] URL: {url[:50]}...")
         print(f"[PROCESS BRANDS] Selected brands: {selected_brands}")
         
-        # 1. Download the video
-        def download_video(url_input):
-            try:
-                # Configure yt_dlp with cookie support for Instagram
-                ydl_opts = {
-                    'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
-                    'merge_output_format': 'mp4',
-                    'format': 'mp4',
-                    'retries': 5,
-                    'fragment_retries': 5,
-                    'socket_timeout': 300,
-                    'http_headers': {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                        'Accept-Language': 'en-US,en;q=0.5',
-                        'Accept-Encoding': 'gzip, deflate',
-                        'Connection': 'keep-alive',
-                        'Upgrade-Insecure-Requests': '1',
-                    }
-                }
-                
-                # Only add cookiefile if the file exists and is readable
-                cookie_file = './portal/data/cookies.txt'
+        # Check if url is actually a local file path (doesn't start with http)
+        if url.startswith('http'):
+            # 1. Download the video from URL
+            def download_video(url_input):
                 try:
-                    if os.path.exists(cookie_file) and os.path.isfile(cookie_file):
-                        # Test if file is readable and has valid content
-                        with open(cookie_file, 'r', encoding='utf-8') as f:
-                            content = f.read().strip()
-                            # Check if file has actual cookie data (not just comments)
-                            # File is valid if it has content and either:
-                            # 1. Doesn't start with the header (unlikely but possible), OR
-                            # 2. Has more than one line (indicating actual cookie data beyond header)
-                            # Additional check: look for actual cookie data patterns
-                            has_cookie_data = False
-                            if content:
-                                lines = content.split('\n')
-                                # Check if we have more than just header lines
-                                # Look for lines that contain actual cookie data (domain, flag, path, etc.)
-                                for line in lines:
-                                    line = line.strip()
-                                    # Skip empty lines and comments
-                                    if line and not line.startswith('#'):
-                                        # Check if this looks like a cookie line (has tab-separated values)
-                                        if '\t' in line:
-                                            has_cookie_data = True
-                                            break
+                    # Configure yt_dlp with cookie support for Instagram
+                    ydl_opts = {
+                        'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
+                        'merge_output_format': 'mp4',
+                        'format': 'mp4',
+                        'retries': 5,
+                        'fragment_retries': 5,
+                        'socket_timeout': 300,
+                        'http_headers': {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                            'Accept-Language': 'en-US,en;q=0.5',
+                            'Accept-Encoding': 'gzip, deflate',
+                            'Connection': 'keep-alive',
+                            'Upgrade-Insecure-Requests': '1',
+                        }
+                    }
+                    
+                    # Only add cookiefile if the file exists and is readable
+                    cookie_file = './portal/data/cookies.txt'
+                    try:
+                        if os.path.exists(cookie_file) and os.path.isfile(cookie_file):
+                            # Test if file is readable and has valid content
+                            with open(cookie_file, 'r', encoding='utf-8') as f:
+                                content = f.read().strip()
+                                # Check if file has actual cookie data (not just comments)
+                                # File is valid if it has content and either:
+                                # 1. Doesn't start with the header (unlikely but possible), OR
+                                # 2. Has more than one line (indicating actual cookie data beyond header)
+                                # Additional check: look for actual cookie data patterns
+                                has_cookie_data = False
+                                if content:
+                                    lines = content.split('\n')
+                                    # Check if we have more than just header lines
+                                    # Look for lines that contain actual cookie data (domain, flag, path, etc.)
+                                    for line in lines:
+                                        line = line.strip()
+                                        # Skip empty lines and comments
+                                        if line and not line.startswith('#'):
+                                            # Check if this looks like a cookie line (has tab-separated values)
+                                            if '\t' in line:
+                                                has_cookie_data = True
+                                                break
                             
                             if has_cookie_data:
                                 ydl_opts['cookiefile'] = cookie_file
                                 print(f"[PROCESS BRANDS] Using cookie file: {cookie_file}")
                             else:
                                 print(f"[PROCESS BRANDS] Cookie file exists but appears to be empty or only contains header: {cookie_file}")
-                    else:
-                        print(f"[PROCESS BRANDS] Cookie file not found or not readable: {cookie_file}")
-                except Exception as cookie_error:
-                    print(f"[PROCESS BRANDS] Warning: Could not use cookie file {cookie_file}: {cookie_error}")
-                    # Continue without cookies
-                
-                with YoutubeDL(ydl_opts) as ydl:
-                    print(f"[PROCESS BRANDS] Downloading: {url_input[:50]}...")
-                    try:
-                        info = ydl.extract_info(url_input, download=True)
-                        filename = ydl.prepare_filename(info)
-                    except Exception as download_error:
-                        print(f"[PROCESS BRANDS ERROR] Download failed for {url_input}: {str(download_error)}")
-                        import traceback
-                        traceback.print_exc()
-                        return {
-                            'error': str(download_error),
-                            'success': False,
-                            'details': traceback.format_exc()
-                        }
-                
-                # Ensure .mp4 extension
-                if not filename.endswith('.mp4'):
-                    base, _ = os.path.splitext(filename)
-                    filename = base + '.mp4'
-                
-                name = os.path.basename(filename)
-                file_exists = os.path.exists(filename)
-                file_size_mb = os.path.getsize(filename) / (1024 * 1024) if file_exists else 0
-                
-                if not file_exists or file_size_mb == 0:
-                    print(f"[PROCESS BRANDS WARNING] File may not have downloaded properly: {filename} (exists: {file_exists}, size: {file_size_mb:.2f}MB)")
-                    # Check if we have error information in the info dict
-                    if info and 'error' in info:
-                        print(f"[PROCESS BRANDS ERROR DETAIL] yt-dlp error: {info['error']}")
-                    # Also check for other error fields
-                    elif info and 'errors' in info:
-                        print(f"[PROCESS BRANDS ERROR DETAIL] yt-dlp errors: {info['errors']}")
-                
-                print(f"[PROCESS BRANDS] Success: {name} ({file_size_mb:.2f}MB)")
-                return {
-                    'filename': name,
-                    'filepath': filename,
-                    'size_mb': round(file_size_mb, 2),
-                    'success': file_exists and file_size_mb > 0
-                }
-            except Exception as e:
-                print(f"[PROCESS BRANDS ERROR] {url_input}: {str(e)}")
-                import traceback
-                traceback.print_exc()
-                # Try to get more detailed error information
-                error_details = str(e)
-                if hasattr(e, 'msg'):
-                    error_details += f"; msg: {e.msg}"
-                if hasattr(e, 'reason'):
-                    error_details += f"; reason: {e.reason}"
-                return {
-                    'error': error_details,
+                        else:
+                            print(f"[PROCESS BRANDS] Cookie file not found or not readable: {cookie_file}")
+                    except Exception as cookie_error:
+                        print(f"[PROCESS BRANDS] Warning: Could not use cookie file {cookie_file}: {cookie_error}")
+                        # Continue without cookies
+                    
+                    with YoutubeDL(ydl_opts) as ydl:
+                        print(f"[PROCESS BRANDS] Downloading: {url_input[:50]}...")
+                        try:
+                            info = ydl.extract_info(url_input, download=True)
+                            filename = ydl.prepare_filename(info)
+                        except Exception as download_error:
+                            print(f"[PROCESS BRANDS ERROR] Download failed for {url_input}: {str(download_error)}")
+                            import traceback
+                            traceback.print_exc()
+                            return {
+                                'error': str(download_error),
+                                'success': False,
+                                'details': traceback.format_exc()
+                            }
+                    
+                    # Ensure .mp4 extension
+                    if not filename.endswith('.mp4'):
+                        base, _ = os.path.splitext(filename)
+                        filename = base + '.mp4'
+                    
+                    name = os.path.basename(filename)
+                    file_exists = os.path.exists(filename)
+                    file_size_mb = os.path.getsize(filename) / (1024 * 1024) if file_exists else 0
+                    
+                    if not file_exists or file_size_mb == 0:
+                        print(f"[PROCESS BRANDS WARNING] File may not have downloaded properly: {filename} (exists: {file_exists}, size: {file_size_mb:.2f}MB)")
+                        # Check if we have error information in the info dict
+                        if info and 'error' in info:
+                            print(f"[PROCESS BRANDS ERROR DETAIL] yt-dlp error: {info['error']}")
+                        # Also check for other error fields
+                        elif info and 'errors' in info:
+                            print(f"[PROCESS BRANDS ERROR DETAIL] yt-dlp errors: {info['errors']}")
+                    
+                    print(f"[PROCESS BRANDS] Success: {name} ({file_size_mb:.2f}MB)")
+                    return {
+                        'filename': name,
+                        'filepath': filename,
+                        'size_mb': round(file_size_mb, 2),
+                        'success': file_exists and file_size_mb > 0
+                    }
+                except Exception as e:
+                    print(f"[PROCESS BRANDS ERROR] {url_input}: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    # Try to get more detailed error information
+                    error_details = str(e)
+                    if hasattr(e, 'msg'):
+                        error_details += f"; msg: {e.msg}"
+                    if hasattr(e, 'reason'):
+                        error_details += f"; reason: {e.reason}"
+                    return {
+                        'error': error_details,
+                        'success': False,
+                        'details': traceback.format_exc()
+                    }
+            
+            # Download the video
+            download_result = download_video(url)
+            if not download_result.get('success'):
+                return jsonify({
                     'success': False,
-                    'details': traceback.format_exc()
-                }
-        
-        # Download the video
-        download_result = download_video(url)
-        if not download_result.get('success'):
-            return jsonify({
-                'success': False,
-                'error': 'Failed to download video',
-                'details': download_result.get('error')
-            }), 500
-        
-        video_filepath = download_result['filepath']
-        video_id = os.path.splitext(download_result['filename'])[0]
+                    'error': 'Failed to download video',
+                    'details': download_result.get('error')
+                }), 500
+            
+            video_filepath = download_result['filepath']
+            video_id = os.path.splitext(download_result['filename'])[0]
+        else:
+            # URL is actually a local file path
+            print(f"[PROCESS BRANDS] Processing local file: {url}")
+            # Construct the full path to the file in OUTPUT_DIR
+            video_filepath = os.path.join(OUTPUT_DIR, url)
+            video_id = os.path.splitext(url)[0]
+            
+            # Check if file exists
+            if not os.path.exists(video_filepath):
+                return jsonify({
+                    'success': False,
+                    'error': f'File not found: {video_filepath}'
+                }), 404
+            
+            print(f"[PROCESS BRANDS] Found local file: {video_filepath}")
         
         # 2. Load brand configurations
         brand_configs = get_available_brands(os.path.dirname(os.path.abspath(__file__)))
@@ -496,11 +513,12 @@ def process_branded_videos():
                 'download_url': f'/api/videos/download/{filename}'
             })
         
-        # Clean up original video
-        try:
-            os.remove(video_filepath)
-        except Exception as e:
-            print(f"[PROCESS BRANDS] Warning: Could not remove original video: {e}")
+        # Clean up original video (only if we downloaded it, not if it was local)
+        if url.startswith('http'):
+            try:
+                os.remove(video_filepath)
+            except Exception as e:
+                print(f"[PROCESS BRANDS] Warning: Could not remove original video: {e}")
         
         return jsonify({
             'success': True,

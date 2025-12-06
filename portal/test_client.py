@@ -76,7 +76,7 @@ def process_brands(source_filename, brands):
         response = requests.post(
             f"{BASE_URL}/api/videos/process_brands",
             json={
-                "url": source_filename,  # Changed from source_path to url
+                "url": source_filename,  # This can be a URL or a local filename
                 "brands": brands
             },
             timeout=300  # 5 minutes for processing
@@ -88,7 +88,7 @@ def process_brands(source_filename, brands):
         if response.status_code == 200:
             data = response.json()
             if data.get('success'):
-                return data.get('processed_videos', [])
+                return data.get('outputs', [])  # Changed from 'processed_videos' to 'outputs'
             else:
                 print(f"Processing failed: {data.get('error')}")
                 return []
@@ -151,6 +151,7 @@ def main():
     print()
     
     # Step 2: Process with brands
+    # Send the filename (not the full URL) to process the local file
     processed_videos = process_brands(source_filename, brands)
     if not processed_videos:
         print("Failed to process video. Exiting.")
