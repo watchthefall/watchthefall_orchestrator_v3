@@ -7,13 +7,24 @@ import uuid
 from werkzeug.utils import secure_filename
 import subprocess
 import tempfile
-import threading
-import time
-import json
-try:
-    from yt_dlp import YoutubeDL
-except ImportError:
-    YoutubeDL = None
+import os
+
+def ensure_video_stream(path):
+    import subprocess, json, os
+
+    probe_cmd = [
+        "ffprobe", "-v", "quiet",
+        "-print_format", "json",
+        "-show_streams", path
+    ]
+
+    result = subprocess.run(probe_cmd, capture_output=True, text=True)
+    try:
+        info = json.loads(result.stdout)
+        video_streams = [s for s in info.get("streams", []) if s.get("codec_type") == "video"]
+        return len(video_streams) > 0
+    except:
+        return False
 
 # Import video processing utilities
 from .video_processor import VideoProcessor
@@ -385,7 +396,6 @@ def process_branded_videos():
                     except Exception as cookie_error:
                         print(f"[PROCESS BRANDS] Warning: Could not use cookie file {cookie_file}: {cookie_error}")
                         # Continue without cookies
-                    
                     with YoutubeDL(ydl_opts) as ydl:
                         print(f"[PROCESS BRANDS] Downloading: {url_input[:50]}...")
                         try:
@@ -635,10 +645,27 @@ def fetch_videos_from_urls():
                     base, _ = os.path.splitext(filename)
                     filename = base + '.mp4'
                 
+                # Check if downloaded file has valid video stream, if not try fallback
+                if not ensure_video_stream(filename):
+                    print(f"[FETCH] No valid video stream found in {filename}, attempting fallback extraction...")
+                    # fallback extraction using yt-dlp (bundled)
+                    fixed_path = filename.replace(".mp4", "_fixed.mp4")
+                    ytdlp_cmd = [
+                        "yt-dlp",
+                        url_input,
+                        "-f", "mp4",
+                        "-o", fixed_path
+                    ]
+                    subprocess.run(ytdlp_cmd)
+                    if os.path.exists(fixed_path):
+                        filename = fixed_path
+                        print(f"[FETCH] Fallback extraction successful: {filename}")
+                    else:
+                        print(f"[FETCH] Fallback extraction failed for {url_input}")
+                
                 name = os.path.basename(filename)
                 file_exists = os.path.exists(filename)
-                file_size_mb = os.path.getsize(filename) / (1024 * 1024) if file_exists else 0
-                
+                file_size_mb = os.path.getsize(filename) / (1024 * 1024) if file_exists else 0                
                 if not file_exists or file_size_mb == 0:
                     print(f"[FETCH WARNING] File may not have downloaded properly: {filename} (exists: {file_exists}, size: {file_size_mb:.2f}MB)")
                     # Check if we have error information in the info dict
@@ -652,6 +679,7 @@ def fetch_videos_from_urls():
                 return {
                     'url': url_input,
                     'filename': name,
+                    'local_path': filename,  # Return full path
                     'download_url': f'/api/videos/download/{name}',
                     'size_mb': round(file_size_mb, 2),
                     'success': file_exists and file_size_mb > 0
@@ -660,18 +688,18 @@ def fetch_videos_from_urls():
                 print(f"[FETCH ERROR] {url_input}: {str(e)}")
                 import traceback
                 traceback.print_exc()
-                # Try to get more detailed error information
-                error_details = str(e)
-                if hasattr(e, 'msg'):
-                    error_details += f"; msg: {e.msg}"
-                if hasattr(e, 'reason'):
-                    error_details += f"; reason: {e.reason}"
-                return {
-                    'url': url_input,
-                    'error': error_details,
-                    'success': False,
-                    'details': traceback.format_exc()
-                }
+            # Try to get more detailed error information
+            error_details = str(e)
+            if hasattr(e, 'msg'):
+                error_details += f"; msg: {e.msg}"
+            if hasattr(e, 'reason'):
+                error_details += f"; reason: {e.reason}"
+            return {
+                'url': url_input,
+                'error': error_details,
+                'success': False,
+                'details': traceback.format_exc()
+            }
         
         # Download sequentially to keep memory low
         results = []
