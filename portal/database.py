@@ -8,6 +8,7 @@ from .config import DB_PATH
 
 def init_db():
     """Initialize database with required tables"""
+    print(f"[DATABASE] Initializing database at {DB_PATH}")
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     
@@ -65,6 +66,7 @@ def init_db():
     
     conn.commit()
     conn.close()
+    print("[DATABASE] Database initialized successfully")
 
 def get_db():
     """Get database connection"""
