@@ -24,9 +24,8 @@ from .config import (
     SECRET_KEY, PORTAL_AUTH_KEY, OUTPUT_DIR,
     MAX_UPLOAD_SIZE, BRANDS_DIR
 )
+from .database import log_event
 
-import tempfile
-import os
 
 app = Flask(__name__, 
             template_folder='templates',
