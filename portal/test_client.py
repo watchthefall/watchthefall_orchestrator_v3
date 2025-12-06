@@ -76,8 +76,8 @@ def process_brands(source_filename, brands):
         response = requests.post(
             f"{BASE_URL}/api/videos/process_brands",
             json={
-                "brands": brands,
-                "source_path": source_filename
+                "url": source_filename,  # Changed from source_path to url
+                "brands": brands
             },
             timeout=300  # 5 minutes for processing
         )
