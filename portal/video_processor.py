@@ -18,6 +18,47 @@ except ImportError:
     PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def normalize_video(input_path: str) -> str:
+    """
+    Normalize video timestamps to fix corrupted Instagram video files.
+    
+    Args:
+        input_path: Path to the input video file
+        
+    Returns:
+        Path to normalized video file (or original if normalization fails)
+    """
+    try:
+        fixed_path = input_path.replace(".mp4", "_normalized.mp4")
+        print(f"[NORMALIZE] Normalizing video timestamps: {input_path}")
+        
+        cmd = [
+            FFMPEG_BIN, "-y",
+            "-i", input_path,
+            "-vf", "fps=25",
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-fflags", "+genpts",
+            fixed_path
+        ]
+        
+        print(f"[NORMALIZE] Running command: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if result.returncode == 0 and os.path.exists(fixed_path):
+            file_size = os.path.getsize(fixed_path) / (1024 * 1024)
+            print(f"[NORMALIZE] Successfully normalized video: {fixed_path} ({file_size:.2f}MB)")
+            return fixed_path
+        else:
+            print(f"[NORMALIZE] Failed to normalize video. stderr: {result.stderr}")
+            if os.path.exists(fixed_path):
+                os.remove(fixed_path)  # Clean up failed output
+            return input_path
+    except Exception as e:
+        print(f"[NORMALIZE] Error during normalization: {e}")
+        return input_path
+
+
 class VideoProcessor:
     """
     Process videos with brand overlays: template, logo, and adaptive watermark

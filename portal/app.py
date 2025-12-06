@@ -28,7 +28,7 @@ def ensure_video_stream(path):
         return False
 
 # Import video processing utilities
-from .video_processor import VideoProcessor
+from .video_processor import VideoProcessor, normalize_video
 from .brand_loader import get_available_brands
 
 # Import configuration
@@ -495,8 +495,13 @@ def process_branded_videos():
         
         print(f"[PROCESS BRANDS] Processing {len(selected_brand_configs)} brands sequentially")
         
+        # Normalize video timestamps to fix corrupted Instagram videos
+        print(f"[PROCESS BRANDS] Normalizing video timestamps: {video_filepath}")
+        normalized_video_path = normalize_video(video_filepath)
+        print(f"[PROCESS BRANDS] Using normalized video: {normalized_video_path}")
+        
         # 3. Process video with selected brands ONE AT A TIME
-        processor = VideoProcessor(video_filepath, OUTPUT_DIR)
+        processor = VideoProcessor(normalized_video_path, OUTPUT_DIR)
         output_paths = []
         
         total_brands = len(selected_brand_configs)
