@@ -8,6 +8,8 @@ from werkzeug.utils import secure_filename
 import subprocess
 import tempfile
 import threading
+from yt_dlp import YoutubeDL
+
 def ensure_video_stream(path):
     import subprocess, json, os
 
