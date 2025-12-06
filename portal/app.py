@@ -343,7 +343,7 @@ def process_branded_videos():
             # 1. Download the video from URL
             def download_video(url_input):
                 try:
-                    # Configure yt_dlp with cookie support for Instagram
+                    # Configure yt_dlp with cookie support for Instagram with app emulation
                     ydl_opts = {
                         'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
                         'merge_output_format': 'mp4',
@@ -352,7 +352,8 @@ def process_branded_videos():
                         'fragment_retries': 5,
                         'socket_timeout': 300,
                         'http_headers': {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+                            'User-Agent': 'Instagram 271.1.0.21.84 Android',
+                            'X-IG-App-ID': '567067343352427',
                             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                             'Accept-Language': 'en-US,en;q=0.5',
                             'Accept-Encoding': 'gzip, deflate',
@@ -585,7 +586,7 @@ def fetch_videos_from_urls():
         
         def download_one(url_input):
             try:
-                # Configure yt_dlp with cookie support for Instagram
+                # Configure yt_dlp with cookie support for Instagram with app emulation
                 ydl_opts = {
                     'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
                     'merge_output_format': 'mp4',
@@ -594,7 +595,8 @@ def fetch_videos_from_urls():
                     'fragment_retries': 5,
                     'socket_timeout': 300,
                     'http_headers': {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+                        'User-Agent': 'Instagram 271.1.0.21.84 Android',
+                        'X-IG-App-ID': '567067343352427',
                         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                         'Accept-Language': 'en-US,en;q=0.5',
                         'Accept-Encoding': 'gzip, deflate',
