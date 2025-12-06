@@ -1,444 +1,266 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WatchTheFall Portal</title>
-    <!-- Flask static references -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/wtf_logo.png') }}">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #000;
-            color: #f0f0f0;
-            min-height: 100vh;
-            line-height: 1.6;
-        }
-        
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        
-        #branding-header {
-            text-align: center;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid #333;
-        }
-        
-        .branding-logo {
-            max-width: 200px;
-            height: auto;
-        }
-        
-        header {
-            text-align: center;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid #333;
-        }
-        
-        h1 {
-            color: #ffd700;
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-            letter-spacing: 1px;
-        }
-        
-        .subtitle {
-            color: #aaa;
-            font-size: 1.1rem;
-        }
-        
-        .card {
-            background: #111;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        }
-        
-        .card-title {
-            color: #ffd700;
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-        }
-        
-        .input-group {
-            margin-bottom: 1.5rem;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: #ccc;
-            font-weight: 500;
-        }
-        
-        input[type="text"] {
-            width: 100%;
-            padding: 0.8rem;
-            background: #222;
-            border: 1px solid #444;
-            border-radius: 4px;
-            color: #fff;
-            font-size: 1rem;
-        }
-        
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #ffd700;
-        }
-        
-        /* Brand checkboxes styling */
-        .brand-checkbox-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-        
-        .brand-checkbox-label {
-            display: flex;
-            align-items: center;
-            padding: 0.5rem;
-            background: #222;
-            border: 1px solid #444;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .brand-checkbox-label:hover {
-            background: #333;
-            border-color: #ffd700;
-        }
-        
-        .brand-checkbox-label input[type="checkbox"] {
-            margin-right: 0.5rem;
-            width: 1.2rem;
-            height: 1.2rem;
-            accent-color: #ffd700;
-        }
-        
-        button {
-            background: #ffd700;
-            color: #000;
-            border: none;
-            padding: 0.8rem 1.5rem;
-            border-radius: 4px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            width: 100%;
-            margin-top: 1rem;
-        }
-        
-        button:hover {
-            background: #ffc400;
-            transform: translateY(-2px);
-        }
-        
-        button:disabled {
-            background: #444;
-            color: #888;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .results-panel {
-            display: none;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 4px;
-            padding: 1.5rem;
-            margin-top: 1.5rem;
-        }
-        
-        .results-panel.active {
-            display: block;
-        }
-        
-        .result-item {
-            padding: 1rem;
-            background: #222;
-            border-radius: 4px;
-            margin-bottom: 1rem;
-        }
-        
-        .result-title {
-            color: #ffd700;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-        
-        .result-meta {
-            color: #888;
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
-        }
-        
-        .download-link {
-            color: #4da6ff;
-            text-decoration: none;
-            font-weight: 500;
-            display: inline-block;
-            margin: 0.2rem 0;
-        }
-        
-        .download-link:hover {
-            text-decoration: underline;
-        }
-        
-        .status-message {
-            padding: 1rem;
-            border-radius: 4px;
-            margin: 1rem 0;
-            text-align: center;
-        }
-        
-        .status-loading {
-            background: #1a3a5a;
-            color: #5bc0de;
-        }
-        
-        .status-success {
-            background: #1a3a1a;
-            color: #00ff00;
-        }
-        
-        .status-error {
-            background: #3a1a1a;
-            color: #ff5555;
-        }
-        
-        footer {
-            text-align: center;
-            margin-top: 2rem;
-            padding-top: 1rem;
-            border-top: 1px solid #333;
-            color: #666;
-            font-size: 0.9rem;
-        }
-        
-        @media (max-width: 600px) {
-            .container {
-                padding: 1rem;
-            }
-            
-            h1 {
-                font-size: 2rem;
-            }
-            
-            .card {
-                padding: 1.5rem;
-            }
-            
-            .brand-checkbox-container {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<title>WatchTheFall – Orchestrator Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+    body {
+        background: #000;
+        color: #fff;
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+    }
+
+    h1 {
+        text-align: center;
+        margin-top: 25px;
+        font-size: 32px;
+        letter-spacing: 2px;
+        text-shadow: 0 0 8px #00b7ff;
+    }
+
+    .glitch {
+        color: white;
+        position: relative;
+        display: inline-block;
+    }
+
+    .glitch::before,
+    .glitch::after {
+        content: attr(data-text);
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 0.6;
+    }
+
+    .glitch::before {
+        left: 2px;
+        text-shadow: -2px 0 red;
+        animation: glitch-1 2s infinite linear alternate-reverse;
+    }
+
+    .glitch::after {
+        left: -2px;
+        text-shadow: -2px 0 cyan;
+        animation: glitch-2 1.6s infinite linear alternate-reverse;
+    }
+
+    @keyframes glitch-1 {
+        0% { clip: rect(0, 9999px, 0, 0); }
+        60% { clip: rect(0, 9999px, 100px, 0); }
+        100% { clip: rect(0, 9999px, 20px, 0); }
+    }
+
+    @keyframes glitch-2 {
+        0% { clip: rect(0, 9999px, 20px, 0); }
+        60% { clip: rect(0, 9999px, 100px, 0); }
+        100% { clip: rect(0, 9999px, 0, 0); }
+    }
+
+    .container {
+        width: 90%;
+        max-width: 700px;
+        margin: auto;
+        margin-top: 20px;
+        background: #111;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 0 12px #00b7ff44;
+    }
+
+    input[type="text"] {
+        width: 100%;
+        padding: 12px;
+        margin: 10px 0;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+    }
+
+    button {
+        width: 100%;
+        padding: 14px;
+        margin-top: 10px;
+        border: none;
+        background: #00b7ff;
+        font-size: 18px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+
+    button:hover {
+        background: #008fcc;
+    }
+
+    .brand-list {
+        margin-top: 15px;
+        padding: 10px;
+        background: #222;
+        border-radius: 8px;
+    }
+
+    .brand-list label {
+        display: block;
+        margin: 5px 0;
+    }
+
+    .result-box {
+        margin-top: 20px;
+        padding: 15px;
+        background: #222;
+        border-radius: 8px;
+    }
+
+    .download-link {
+        display: block;
+        padding: 8px;
+        margin-top: 8px;
+        background: #0099cc;
+        text-align: center;
+        border-radius: 8px;
+        color: white;
+        text-decoration: none;
+    }
+
+    .download-link:hover {
+        background: #0077aa;
+    }
+
+</style>
 </head>
 <body>
-    <div class="container">
-        <div id="branding-header">
-            <img src="{{ url_for('static', filename='img/wtf_logo.png') }}" alt="WatchTheFall Logo" class="branding-logo">
-        </div>
-        
-        <header>
-            <h1>⚡ WatchTheFall</h1>
-            <div class="subtitle">Orchestrator Portal v3</div>
-        </header>
-        
-        <main>
-            <div class="card">
-                <h2 class="card-title">Branded Video Generator</h2>
-                <div class="input-group">
-                    <label for="videoUrl">Enter Video URL</label>
-                    <input type="text" id="videoUrl" placeholder="https://instagram.com/@user/reel/123...">
-                </div>
-                
-                <div class="input-group">
-                    <label>Select Brands</label>
-                    <div id="brandCheckboxContainer" class="brand-checkbox-container">
-                        <!-- Brand checkboxes will be populated by JavaScript -->
-                    </div>
-                </div>
-                
-                <button id="generateBtn">Generate Branded Videos</button>
-                
-                <div id="statusMessage" class="status-message" style="display: none;"></div>
-                
-                <div id="resultsPanel" class="results-panel">
-                    <h3>Branded Videos</h3>
-                    <div id="resultsList"></div>
-                </div>
-            </div>
-        </main>
-        
-        <footer>
-            <p>WatchTheFall Orchestrator v3 &copy; 2025</p>
-        </footer>
-    </div>
-    
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/brand_handler.js') }}"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const videoUrlInput = document.getElementById('videoUrl');
-            const brandCheckboxContainer = document.getElementById('brandCheckboxContainer');
-            const generateBtn = document.getElementById('generateBtn');
-            const statusMessage = document.getElementById('statusMessage');
-            const resultsPanel = document.getElementById('resultsPanel');
-            const resultsList = document.getElementById('resultsList');
-            
-            // Initialize brand handler
-            const brandHandler = new BrandHandler();
-            
-            // Load available brands
-            loadAvailableBrands();
-            
-            generateBtn.addEventListener('click', generateBrandedVideos);
-            
-            async function loadAvailableBrands() {
-                try {
-                    await brandHandler.loadBrands();
-                    // Create checkboxes for each brand
-                    brandHandler.getBrands().forEach(brand => {
-                        const label = document.createElement('label');
-                        label.className = 'brand-checkbox-label';
-                        label.innerHTML = `
-                            <input type="checkbox" class="brand-checkbox" value="${brand}">
-                            ${brand}
-                        `;
-                        brandCheckboxContainer.appendChild(label);
-                    });
-                } catch (error) {
-                    console.error('Error loading brands:', error);
-                }
-            }
-            
-            async function generateBrandedVideos() {
-                const url = videoUrlInput.value.trim();
-                // Get all checked checkboxes
-                const checkedBoxes = document.querySelectorAll('.brand-checkbox:checked');
-                const selectedBrands = Array.from(checkedBoxes).map(box => box.value);
-                
-                if (!url) {
-                    showStatus('Please enter a video URL', 'error');
-                    return;
-                }
-                
-                if (selectedBrands.length === 0) {
-                    showStatus('Please select at least one brand', 'error');
-                    return;
-                }
-                
-                showStatus('Processing video with selected brands...', 'loading');
-                generateBtn.disabled = true;
-                
-                try {
-                    const response = await fetch('/api/videos/process_brands', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ 
-                            url: url,
-                            brands: selectedBrands
-                        })
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        showStatus('Video processing completed successfully!', 'success');
-                        showResults(data.outputs);
-                    } else {
-                        showStatus(`Error: ${data.error}`, 'error');
-                    }
-                } catch (error) {
-                    showStatus(`Network error: ${error.message}`, 'error');
-                } finally {
-                    generateBtn.disabled = false;
-                }
-            }
-            
-            function showStatus(message, type) {
-                statusMessage.textContent = message;
-                statusMessage.className = 'status-message';
-                statusMessage.classList.add(`status-${type}`);
-                statusMessage.style.display = 'block';
-                
-                // Hide status after 5 seconds for success messages
-                if (type === 'success') {
-                    setTimeout(() => {
-                        statusMessage.style.display = 'none';
-                    }, 5000);
-                }
-            }
-            
-            function showResults(outputs) {
-                resultsList.innerHTML = '';
-                resultsPanel.classList.add('active');
-                
-                outputs.forEach(output => {
-                    const resultItem = document.createElement('div');
-                    resultItem.className = 'result-item';
-                    
-                    resultItem.innerHTML = `
-                        <div class="result-title">${output.brand}</div>
-                        <div class="result-meta">File: ${output.filename}</div>
-                        <button class="download-btn" onclick="downloadBinaryFile('${output.download_url}', '${output.filename}')">Download ${output.brand} Video</button>
-                    `;
-                    
-                    resultsList.appendChild(resultItem);
-                });
-            }
-            
-            // Function to download binary files correctly
-            async function downloadBinaryFile(url, filename) {
-                try {
-                    showStatus(`Downloading ${filename}...`, 'loading');
-                    
-                    const res = await fetch(url);
-                    if (!res.ok) {
-                        // Try to read text for debugging, but do NOT parse as JSON
-                        const errText = await res.text();
-                        throw new Error("Download failed: " + errText);
-                    }
 
-                    const blob = await res.blob();
-                    const downloadUrl = URL.createObjectURL(blob);
+<h1><span class="glitch" data-text="WATCH THE FALL">WATCH THE FALL</span></h1>
 
-                    const a = document.createElement('a');
-                    a.href = downloadUrl;
-                    a.download = filename;   // Ensure filename variable is inherited properly
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    URL.revokeObjectURL(downloadUrl);
-                    
-                    showStatus(`Downloaded ${filename} successfully!`, 'success');
-                } catch (error) {
-                    showStatus(`Download error: ${error.message}`, 'error');
-                    console.error('Download error:', error);
-                }
-            }
-        });
-    </script>
+<div class="container">
+
+    <h2>1. Paste Social Media Video URL</h2>
+    <input id="videoUrl" type="text" placeholder="https://instagram.com/reel/... or https://x.com/...">
+
+    <button onclick="fetchVideo()">⬇ Download Video</button>
+
+    <div id="downloadStatus"></div>
+
+    <h2 style="margin-top:25px;">2. Select Brand Templates</h2>
+    <div class="brand-list" id="brandsBox">Loading brands…</div>
+
+    <button onclick="processBrands()">⚡ Process Selected Brands</button>
+
+    <div id="processResult" class="result-box" style="display:none;"></div>
+
+</div>
+
+<script>
+const apiBase = window.location.origin;
+
+async function loadBrands() {
+    const box = document.getElementById("brandsBox");
+    box.innerHTML = "Loading…";
+
+    const res = await fetch(`${apiBase}/api/brands/list`);
+    const data = await res.json();
+
+    if (!data.success) {
+        box.innerHTML = "Error loading brands.";
+        return;
+    }
+
+    box.innerHTML = "";
+    data.brands.forEach(b => {
+        box.innerHTML += `
+            <label>
+                <input type="checkbox" value="${b.name}"> ${b.display_name}
+            </label>
+        `;
+    });
+}
+
+async function fetchVideo() {
+    const url = document.getElementById("videoUrl").value.trim();
+    const statusBox = document.getElementById("downloadStatus");
+
+    if (!url) {
+        statusBox.innerHTML = "<span style='color:red;'>Please enter a URL.</span>";
+        return;
+    }
+
+    statusBox.innerHTML = "Downloading…";
+
+    const res = await fetch(`${apiBase}/api/videos/fetch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls: [url] })
+    });
+
+    const data = await res.json();
+
+    if (!data.success) {
+        statusBox.innerHTML = "❌ Download failed.";
+        return;
+    }
+
+    const file = data.results[0].filename;
+    localStorage.setItem("last_downloaded_file", file);
+
+    statusBox.innerHTML = `
+        ✅ Downloaded: <b>${file}</b><br>
+        Ready for branding.
+    `;
+}
+
+async function processBrands() {
+    const file = localStorage.getItem("last_downloaded_file");
+    const resultBox = document.getElementById("processResult");
+    resultBox.style.display = "block";
+    resultBox.innerHTML = "Processing…";
+
+    if (!file) {
+        resultBox.innerHTML = "<span style='color:red;'>No downloaded file found.</span>";
+        return;
+    }
+
+    const selected = [...document.querySelectorAll(".brand-list input:checked")]
+        .map(cb => cb.value);
+
+    if (selected.length === 0) {
+        resultBox.innerHTML = "<span style='color:red;'>Select at least one brand.</span>";
+        return;
+    }
+
+    const res = await fetch(`${apiBase}/api/videos/process_brands`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            source_path: file,
+            brands: selected
+        })
+    });
+
+    const data = await res.json();
+
+    if (!data.success) {
+        resultBox.innerHTML = "❌ Processing failed.<br>" + data.error;
+        return;
+    }
+
+    resultBox.innerHTML = `<b>${data.message}</b><br><br>`;
+
+    data.outputs.forEach(o => {
+        resultBox.innerHTML += `
+            <a class="download-link" href="${o.download_url}" download>
+                ⬇ Download ${o.brand}
+            </a>
+        `;
+    });
+}
+
+loadBrands();
+</script>
+
 </body>
 </html>
