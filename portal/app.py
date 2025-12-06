@@ -343,11 +343,12 @@ def process_branded_videos():
             # 1. Download the video from URL
             def download_video(url_input):
                 try:
-                    # Configure yt_dlp with cookie support for Instagram with app emulation
+                    # Configure yt_dlp with enhanced fallback options for Instagram
                     ydl_opts = {
                         'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
                         'merge_output_format': 'mp4',
-                        'format': 'mp4',
+                        'format': 'bv*+ba/best',  # Better fallback for Instagram
+                        'prefer_ffmpeg': True,
                         'retries': 5,
                         'fragment_retries': 5,
                         'socket_timeout': 300,
@@ -586,11 +587,12 @@ def fetch_videos_from_urls():
         
         def download_one(url_input):
             try:
-                # Configure yt_dlp with cookie support for Instagram with app emulation
+                # Configure yt_dlp with enhanced fallback options for Instagram
                 ydl_opts = {
                     'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
                     'merge_output_format': 'mp4',
-                    'format': 'mp4',
+                    'format': 'bv*+ba/best',  # Better fallback for Instagram
+                    'prefer_ffmpeg': True,
                     'retries': 5,
                     'fragment_retries': 5,
                     'socket_timeout': 300,
