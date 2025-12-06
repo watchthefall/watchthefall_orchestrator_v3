@@ -80,11 +80,7 @@ class VideoProcessor:
             streams = self.video_info.get('streams', [])
             for stream in streams:
                 if stream.get('codec_type') == 'video':
-                    # Check if the video stream has valid dimensions
-                    width = stream.get('width', 0)
-                    height = stream.get('height', 0)
-                    if width > 0 and height > 0:
-                        return True
+                    return True
             return False
         except Exception as e:
             print(f"[ERROR] Failed to check video stream: {e}")
