@@ -54,20 +54,21 @@ class VideoProcessor:
                     break
             
             if video_stream:
-                self.video_info = {
+                self.video_metadata = {
                     'width': int(video_stream.get('width', 1080)),
                     'height': int(video_stream.get('height', 1920)),
                     'duration': float(format_info.get('duration', 0))
                 }
             else:
                 # Fallback if no video stream found
-                self.video_info = {'width': 1080, 'height': 1920, 'duration': 0}
+                self.video_metadata = {'width': 1080, 'height': 1920, 'duration': 0}
                 
-            print(f"[DEBUG] Video dimensions: {self.video_info['width']}x{self.video_info['height']}")
+            print(f"[DEBUG] Video dimensions: {self.video_metadata['width']}x{self.video_metadata['height']}")
             
         except Exception as e:
             print(f"[ERROR] Failed to probe video: {e}")
-            self.video_info = {'width': 1080, 'height': 1920, 'duration': 0}
+            self.video_info = {}
+            self.video_metadata = {'width': 1080, 'height': 1920, 'duration': 0}
     
     def has_video_stream(self) -> bool:
         """
@@ -100,8 +101,8 @@ class VideoProcessor:
         options = brand_config.get('options', {})
         brand_name = brand_config.get('name', 'Unknown')
         
-        width = self.video_info['width']
-        height = self.video_info['height']
+        width = self.video_metadata['width']
+        height = self.video_metadata['height']
         
         # Scale down videos wider than 720px for faster processing
         target_width = min(width, 720)
