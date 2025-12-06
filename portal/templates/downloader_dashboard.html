@@ -258,9 +258,13 @@
             const data = await response.json();
             
             if (data.success) {
-                const downloadLink = `<a class="download-link" href="/portal/download_file/${data.filename}" download>⬇ Download to Device</a>`;
+                // Handle both API response formats
+                const filename = data.filename || (data.file_path ? data.file_path.split('/').pop() : '');
+                const downloadLink = `<a class="download-link" href="/portal/download_file/${filename}" download>⬇ Download to Device</a>`;
                 showSuccess(result, `Download successful! ${downloadLink}`);
-                addToHistory(url, data.platform, data.filename);
+                // Use platform from response if available, otherwise detect it
+                const platform = data.platform || 'unknown';
+                addToHistory(url, platform, filename);
             } else {
                 showError(result, `Download failed: ${data.error || 'Unknown error'}`);
             }
@@ -375,10 +379,12 @@
         
         const historyItem = document.createElement('div');
         historyItem.className = 'history-item';
+        // Extract filename from path if needed
+        const displayFilename = filePath.includes('/') ? filePath.split('/').pop() : filePath;
         historyItem.innerHTML = `
             <strong>${platform.toUpperCase()}</strong><br>
             <small>${url}</small><br>
-            <a class="download-link" href="/portal/download_file/${filePath}" download>⬇ Download File</a>
+            <a class="download-link" href="/portal/download_file/${displayFilename}" download>⬇ Download File</a>
         `;
         
         historyList.insertBefore(historyItem, historyList.firstChild);
