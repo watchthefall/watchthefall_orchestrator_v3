@@ -20,7 +20,7 @@ LOG_DIR = os.path.join(PORTAL_ROOT, 'logs')
 LOG_FILE = os.path.join(LOG_DIR, 'portal.log')
 
 # Brand assets
-BRANDS_DIR = os.path.join(PROJECT_ROOT, 'imports', 'brands')
+BRANDS_DIR = os.path.join(PORTAL_ROOT, 'imports', 'brands')
 TEMPLATE_DIR = os.path.join(BRANDS_DIR, 'wtf_orchestrator')
 
 # FFmpeg

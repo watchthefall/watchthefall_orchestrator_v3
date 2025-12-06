@@ -40,6 +40,162 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE
 def debug_alive():
     return "alive", 200
 
+@app.route("/__debug_routes")
+def debug_routes():
+    """List all registered routes"""
+    routes = []
+    for rule in app.url_map.iter_rules():
+        routes.append({
+            'endpoint': rule.endpoint,
+            'methods': list(rule.methods),
+            'rule': str(rule)
+        })
+    return jsonify({
+        'status': 'ok',
+        'routes': routes
+    })
+
+@app.route("/__debug_env")
+def debug_env():
+    """Show environment variables"""
+    import os
+    env_vars = {}
+    for key in os.environ:
+        # Hide sensitive values
+        if any(sensitive in key.lower() for sensitive in ['key', 'secret', 'password', 'token']):
+            env_vars[key] = '***HIDDEN***'
+        else:
+            env_vars[key] = os.environ[key]
+    
+    return jsonify({
+        'status': 'ok',
+        'environment': env_vars
+    })
+
+@app.route("/__debug_ffmpeg")
+def debug_ffmpeg():
+    """Show FFmpeg configuration"""
+    from .config import FFMPEG_BIN, FFPROBE_BIN
+    import subprocess
+    import os
+    
+    ffmpeg_info = {
+        'ffmpeg_bin': FFMPEG_BIN,
+        'ffprobe_bin': FFPROBE_BIN,
+        'ffmpeg_exists': os.path.exists(FFMPEG_BIN) or subprocess.run(['which', FFMPEG_BIN], capture_output=True).returncode == 0 if os.name != 'nt' else True,
+        'ffprobe_exists': os.path.exists(FFPROBE_BIN) or subprocess.run(['which', FFPROBE_BIN], capture_output=True).returncode == 0 if os.name != 'nt' else True
+    }
+    
+    # Try to get FFmpeg version
+    try:
+        result = subprocess.run([FFMPEG_BIN, '-version'], capture_output=True, text=True, timeout=5)
+        ffmpeg_info['version'] = result.stdout.split('\n')[0] if result.stdout else 'Unknown'
+    except Exception as e:
+        ffmpeg_info['version_error'] = str(e)
+    
+    return jsonify({
+        'status': 'ok',
+        'ffmpeg': ffmpeg_info
+    })
+
+@app.route("/__debug_storage")
+def debug_storage():
+    """Show storage information"""
+    import os
+    from .config import UPLOAD_DIR, OUTPUT_DIR, TEMP_DIR, LOG_DIR, DB_PATH, BRANDS_DIR
+    
+    def get_dir_info(path):
+        try:
+            if os.path.exists(path):
+                size = sum(os.path.getsize(os.path.join(dirpath, filename)) 
+                          for dirpath, dirnames, filenames in os.walk(path) 
+                          for filename in filenames)
+                count = sum(len(files) for _, _, files in os.walk(path))
+                return {
+                    'exists': True,
+                    'size_bytes': size,
+                    'file_count': count,
+                    'writable': os.access(path, os.W_OK)
+                }
+            else:
+                return {
+                    'exists': False,
+                    'size_bytes': 0,
+                    'file_count': 0,
+                    'writable': False
+                }
+        except Exception as e:
+            return {
+                'exists': os.path.exists(path),
+                'error': str(e)
+            }
+    
+    storage_info = {
+        'upload_dir': get_dir_info(UPLOAD_DIR),
+        'output_dir': get_dir_info(OUTPUT_DIR),
+        'temp_dir': get_dir_info(TEMP_DIR),
+        'log_dir': get_dir_info(LOG_DIR),
+        'db_path': get_dir_info(os.path.dirname(DB_PATH)),
+        'brands_dir': get_dir_info(BRANDS_DIR)
+    }
+    
+    return jsonify({
+        'status': 'ok',
+        'storage': storage_info
+    })
+
+@app.route("/__debug_brands")
+def debug_brands():
+    """Show brand information"""
+    from .brand_loader import get_available_brands
+    import os
+    
+    portal_dir = os.path.dirname(os.path.abspath(__file__))
+    brands = get_available_brands(portal_dir)
+    
+    brand_info = []
+    for brand in brands:
+        brand_info.append({
+            'name': brand.get('name'),
+            'display_name': brand.get('display_name'),
+            'assets': brand.get('assets', {}),
+            'options': brand.get('options', {})
+        })
+    
+    return jsonify({
+        'status': 'ok',
+        'brands': brand_info,
+        'count': len(brand_info)
+    })
+
+@app.route("/__debug_health")
+def debug_health():
+    """Health check endpoint"""
+    import os
+    from .config import UPLOAD_DIR, OUTPUT_DIR, TEMP_DIR
+    
+    # Check if essential directories are writable
+    dirs = [UPLOAD_DIR, OUTPUT_DIR, TEMP_DIR]
+    health_checks = {}
+    
+    for directory in dirs:
+        try:
+            test_file = os.path.join(directory, '.health_check')
+            with open(test_file, 'w') as f:
+                f.write('test')
+            os.remove(test_file)
+            health_checks[directory] = 'OK'
+        except Exception as e:
+            health_checks[directory] = f'ERROR: {str(e)}'
+    
+    # Overall health
+    all_healthy = all(status == 'OK' for status in health_checks.values())
+    
+    return jsonify({
+        'status': 'healthy' if all_healthy else 'unhealthy',
+        'checks': health_checks
+    })
+
 # Global conversion lock - only one FFmpeg process at a time (Render free tier 512MB RAM)
 conversion_lock = threading.Lock()
 conversion_in_progress = {'active': False, 'start_time': None}
