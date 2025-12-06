@@ -1169,11 +1169,40 @@ def api_download_batch():
 
 @app.route("/portal/download_file/<path:filename>")
 def download_file(filename):
-    from flask import send_file
-    full_path = os.path.join("portal", "outputs", filename)
-    if not os.path.exists(full_path):
-        full_path = os.path.join("storage", "raw", filename)
-    return send_file(full_path, as_attachment=True)
+    """
+    Serve downloaded video files. Checks actual storage paths used by downloader.
+    """
+    from flask import send_file, jsonify
+    import os
+
+    # Absolute paths for safety
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    storage_raw = os.path.join(base_dir, 'storage', 'raw')
+    portal_outputs = os.path.join(base_dir, 'portal', 'outputs')
+
+    # Construct actual expected file paths
+    candidates = [
+        os.path.join(storage_raw, filename),        # Primary location used by downloader
+        os.path.join(portal_outputs, filename),     # Legacy location
+    ]
+
+    # Find file that exists
+    for path in candidates:
+        if os.path.isfile(path):
+            return send_file(
+                path,
+                as_attachment=True,
+                mimetype='video/mp4',
+                download_name=filename,
+                conditional=True
+            )
+
+    # If none exist, return helpful error
+    return jsonify({
+        "success": False,
+        "error": "File not found",
+        "searched": candidates
+    }), 404
 
 
 if __name__ == '__main__':
