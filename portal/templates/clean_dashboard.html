@@ -13,7 +13,6 @@
         margin: 0;
         padding: 0;
     }
-
     h1 {
         text-align: center;
         margin-top: 25px;
@@ -21,63 +20,47 @@
         letter-spacing: 2px;
         text-shadow: 0 0 8px #00b7ff;
     }
-
     .glitch {
-        color: white;
         position: relative;
         display: inline-block;
     }
-
     .glitch::before,
     .glitch::after {
         content: attr(data-text);
         position: absolute;
-        left: 0;
-        top: 0;
         opacity: 0.6;
     }
-
     .glitch::before {
         left: 2px;
         text-shadow: -2px 0 red;
-        animation: glitch-1 2s infinite linear alternate-reverse;
     }
-
     .glitch::after {
         left: -2px;
         text-shadow: -2px 0 cyan;
-        animation: glitch-2 1.6s infinite linear alternate-reverse;
     }
 
-    @keyframes glitch-1 {
-        0% { clip: rect(0, 9999px, 0, 0); }
-        60% { clip: rect(0, 9999px, 100px, 0); }
-        100% { clip: rect(0, 9999px, 20px, 0); }
-    }
-
-    @keyframes glitch-2 {
-        0% { clip: rect(0, 9999px, 20px, 0); }
-        60% { clip: rect(0, 9999px, 100px, 0); }
-        100% { clip: rect(0, 9999px, 0, 0); }
-    }
-
-    .container {
+    .section {
         width: 90%;
         max-width: 700px;
-        margin: auto;
-        margin-top: 20px;
+        margin: 20px auto;
         background: #111;
         padding: 20px;
         border-radius: 12px;
-        box-shadow: 0 0 12px #00b7ff44;
+        box-shadow: 0 0 12px #00b7ff33;
+    }
+
+    h2 {
+        margin-top: 0;
+        border-bottom: 1px solid #333;
+        padding-bottom: 5px;
     }
 
     input[type="text"] {
         width: 100%;
         padding: 12px;
         margin: 10px 0;
-        border: none;
         border-radius: 8px;
+        border: none;
         font-size: 16px;
     }
 
@@ -87,81 +70,100 @@
         margin-top: 10px;
         border: none;
         background: #00b7ff;
+        color: #000;
+        border-radius: 8px;
         font-size: 18px;
-        border-radius: 8px;
         cursor: pointer;
-        transition: 0.2s;
     }
-
     button:hover {
-        background: #008fcc;
-    }
-
-    .brand-list {
-        margin-top: 15px;
-        padding: 10px;
-        background: #222;
-        border-radius: 8px;
+        background: #0098d8;
     }
 
     .brand-list label {
         display: block;
-        margin: 5px 0;
-    }
-
-    .result-box {
-        margin-top: 20px;
-        padding: 15px;
-        background: #222;
-        border-radius: 8px;
+        margin: 6px 0;
     }
 
     .download-link {
         display: block;
         padding: 8px;
-        margin-top: 8px;
+        margin-top: 6px;
         background: #0099cc;
-        text-align: center;
-        border-radius: 8px;
         color: white;
+        text-align: center;
+        border-radius: 6px;
         text-decoration: none;
     }
-
     .download-link:hover {
-        background: #0077aa;
+        background: #007faa;
     }
 
+    .mono {
+        font-family: monospace;
+        white-space: pre-wrap;
+        background: #000;
+        padding: 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        line-height: 1.3;
+    }
 </style>
 </head>
 <body>
 
 <h1><span class="glitch" data-text="WATCH THE FALL">WATCH THE FALL</span></h1>
 
-<div class="container">
+<!-- =======================
+     SECTION 1 — PROCESS
+======================== -->
+<div class="section">
+    <h2>1. Process a Video</h2>
 
-    <h2>1. Paste Social Media Video URL</h2>
-    <input id="videoUrl" type="text" placeholder="https://instagram.com/reel/... or https://x.com/...">
-
+    <input id="videoUrl" type="text" placeholder="Paste Instagram / TikTok / X link…">
     <button onclick="fetchVideo()">⬇ Download Video</button>
-
     <div id="downloadStatus"></div>
 
-    <h2 style="margin-top:25px;">2. Select Brand Templates</h2>
-    <div class="brand-list" id="brandsBox">Loading brands…</div>
+    <h3>Select Brand Templates</h3>
+    <div class="brand-list" id="brandsBox">Loading…</div>
 
-    <button onclick="processBrands()">⚡ Process Selected Brands</button>
+    <button onclick="processBrands()">⚡ Apply Brands</button>
+    <div id="processResult" class="mono" style="display:none;"></div>
+</div>
 
-    <div id="processResult" class="result-box" style="display:none;"></div>
+<!-- =======================
+     SECTION 2 — RECENT DLs
+======================== -->
+<div class="section">
+    <h2>2. Recent Downloads</h2>
+    <div id="recentFiles" class="mono">Loading…</div>
+</div>
 
+<!-- =======================
+     SECTION 3 — SYSTEM STATUS
+======================== -->
+<div class="section">
+    <h2>3. System Status</h2>
+    <button onclick="loadSystemStatus()">Refresh Status</button>
+    <div id="systemStatus" class="mono">Awaiting refresh…</div>
+</div>
+
+<!-- =======================
+     SECTION 4 — BRAND CHECK
+======================== -->
+<div class="section">
+    <h2>4. Brand Integrity Check</h2>
+    <button onclick="loadBrandIntegrity()">Run Check</button>
+    <div id="brandIntegrity" class="mono">Awaiting check…</div>
 </div>
 
 <script>
 const apiBase = window.location.origin;
 
+/* -----------------------------
+   LOAD BRANDS
+------------------------------ */
 async function loadBrands() {
     const box = document.getElementById("brandsBox");
-    box.innerHTML = "Loading…";
-
     const res = await fetch(`${apiBase}/api/brands/list`);
     const data = await res.json();
 
@@ -174,22 +176,26 @@ async function loadBrands() {
     data.brands.forEach(b => {
         box.innerHTML += `
             <label>
-                <input type="checkbox" value="${b.name}"> ${b.display_name}
+                <input type="checkbox" value="${b.name}">
+                ${b.display_name}
             </label>
         `;
     });
 }
 
+/* -----------------------------
+   DOWNLOAD VIDEO
+------------------------------ */
 async function fetchVideo() {
     const url = document.getElementById("videoUrl").value.trim();
-    const statusBox = document.getElementById("downloadStatus");
+    const box = document.getElementById("downloadStatus");
 
     if (!url) {
-        statusBox.innerHTML = "<span style='color:red;'>Please enter a URL.</span>";
+        box.innerHTML = "❌ Enter a URL.";
         return;
     }
 
-    statusBox.innerHTML = "Downloading…";
+    box.innerHTML = "Downloading…";
 
     const res = await fetch(`${apiBase}/api/videos/fetch`, {
         method: "POST",
@@ -200,27 +206,28 @@ async function fetchVideo() {
     const data = await res.json();
 
     if (!data.success) {
-        statusBox.innerHTML = "❌ Download failed.";
+        box.innerHTML = "❌ Download failed.";
         return;
     }
 
     const file = data.results[0].filename;
     localStorage.setItem("last_downloaded_file", file);
 
-    statusBox.innerHTML = `
-        ✅ Downloaded: <b>${file}</b><br>
-        Ready for branding.
-    `;
+    updateRecentFiles();
+
+    box.innerHTML = `✅ Downloaded: <b>${file}</b>`;
 }
 
+/* -----------------------------
+   PROCESS VIDEO WITH BRANDS
+------------------------------ */
 async function processBrands() {
     const file = localStorage.getItem("last_downloaded_file");
     const resultBox = document.getElementById("processResult");
     resultBox.style.display = "block";
-    resultBox.innerHTML = "Processing…";
 
     if (!file) {
-        resultBox.innerHTML = "<span style='color:red;'>No downloaded file found.</span>";
+        resultBox.innerHTML = "❌ No downloaded file.";
         return;
     }
 
@@ -228,9 +235,11 @@ async function processBrands() {
         .map(cb => cb.value);
 
     if (selected.length === 0) {
-        resultBox.innerHTML = "<span style='color:red;'>Select at least one brand.</span>";
+        resultBox.innerHTML = "❌ Select at least one brand.";
         return;
     }
+
+    resultBox.innerHTML = "Processing…";
 
     const res = await fetch(`${apiBase}/api/videos/process_brands`, {
         method: "POST",
@@ -244,22 +253,51 @@ async function processBrands() {
     const data = await res.json();
 
     if (!data.success) {
-        resultBox.innerHTML = "❌ Processing failed.<br>" + data.error;
+        resultBox.innerHTML = "❌ Failed:<br>" + data.error;
         return;
     }
 
-    resultBox.innerHTML = `<b>${data.message}</b><br><br>`;
-
-    data.outputs.forEach(o => {
-        resultBox.innerHTML += `
-            <a class="download-link" href="${o.download_url}" download>
-                ⬇ Download ${o.brand}
-            </a>
-        `;
-    });
+    resultBox.innerHTML = data.message + "\n\n";
+    data.outputs.forEach(o =>
+        resultBox.innerHTML += `⬇ <a class="download-link" href="${o.download_url}">${o.filename}</a>\n`
+    );
 }
 
+/* -----------------------------
+   RECENT FILES
+------------------------------ */
+function updateRecentFiles() {
+    const file = localStorage.getItem("last_downloaded_file");
+    const box = document.getElementById("recentFiles");
+    if (!file) box.innerHTML = "No recent files.";
+    else box.innerHTML = "• " + file;
+}
+
+/* -----------------------------
+   SYSTEM STATUS
+------------------------------ */
+async function loadSystemStatus() {
+    const box = document.getElementById("systemStatus");
+    box.innerHTML = "Checking…";
+    const res = await fetch(`${apiBase}/__debug_health`);
+    const data = await res.json();
+    box.innerHTML = JSON.stringify(data, null, 2);
+}
+
+/* -----------------------------
+   BRAND INTEGRITY
+------------------------------ */
+async function loadBrandIntegrity() {
+    const box = document.getElementById("brandIntegrity");
+    box.innerHTML = "Checking…";
+    const res = await fetch(`${apiBase}/api/debug/brand-integrity`);
+    const data = await res.json();
+    box.innerHTML = JSON.stringify(data, null, 2);
+}
+
+/* Init */
 loadBrands();
+updateRecentFiles();
 </script>
 
 </body>
