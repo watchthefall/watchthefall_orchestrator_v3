@@ -51,7 +51,70 @@ watermark_jobs = {}
 
 @app.route('/')
 def index():
-    return render_template('clean_dashboard.html')
+    return jsonify({
+        "message": "WTF Portal running",
+        "status": "ok",
+        "api_endpoints": [
+            "POST /api/videos/process_brands",
+            "POST /api/videos/fetch",
+            "GET /api/videos/download/<filename>",
+            "GET /api/brands/list",
+            "POST /api/videos/convert-watermark",
+            "GET /api/videos/convert-status/<job_id>",
+            "GET /api/debug/brand-integrity",
+            "GET /api/debug/build-filter/<brand_name>"
+        ]
+    })
+
+@app.route('/api')
+def api_root():
+    """API root endpoint listing available API routes"""
+    return jsonify({
+        "status": "ok",
+        "message": "WatchTheFall Portal API",
+        "endpoints": [
+            {
+                "route": "/api/videos/process_brands",
+                "method": "POST",
+                "description": "Process video with selected brands"
+            },
+            {
+                "route": "/api/videos/fetch",
+                "method": "POST",
+                "description": "Fetch video from URL"
+            },
+            {
+                "route": "/api/videos/download/<filename>",
+                "method": "GET",
+                "description": "Download processed video"
+            },
+            {
+                "route": "/api/brands/list",
+                "method": "GET",
+                "description": "List available brands"
+            },
+            {
+                "route": "/api/videos/convert-watermark",
+                "method": "POST",
+                "description": "Convert video with watermark"
+            },
+            {
+                "route": "/api/videos/convert-status/<job_id>",
+                "method": "GET",
+                "description": "Get conversion status"
+            },
+            {
+                "route": "/api/debug/brand-integrity",
+                "method": "GET",
+                "description": "Check brand asset integrity"
+            },
+            {
+                "route": "/api/debug/build-filter/<brand_name>",
+                "method": "GET",
+                "description": "Dry-run FFmpeg filter generation"
+            }
+        ]
+    })
 
 # ============================================================================
 # FRONTEND ROUTES
