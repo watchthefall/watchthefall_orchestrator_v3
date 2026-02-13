@@ -337,10 +337,18 @@ def process_branded_videos():
         if source_path and not url:
             url = source_path
 
+        print(f"[PROCESS BRANDS] ========== NEW REQUEST ==========")
+        print(f"[PROCESS BRANDS] Raw request data: {data}")
+        print(f"[PROCESS BRANDS] URL: {url}")
+        print(f"[PROCESS BRANDS] Selected brands: {selected_brands}")
+        print(f"[PROCESS BRANDS] ========================================")
+
         if not url:
+            print(f"[PROCESS BRANDS] ERROR: No URL provided")
             return jsonify({'success': False, 'error': 'URL or source_path is required'}), 400
 
         if not selected_brands:
+            print(f"[PROCESS BRANDS] ERROR: No brands selected")
             return jsonify({'success': False, 'error': 'At least one brand must be selected'}), 400
         
         print(f"[PROCESS BRANDS] URL: {url[:50]}...")
@@ -560,6 +568,14 @@ def process_branded_videos():
                 os.remove(video_filepath)
             except Exception as e:
                 print(f"[PROCESS BRANDS] Warning: Could not remove original video: {e}")
+        
+        print(f"[PROCESS BRANDS] ========== RESPONSE ==========")
+        print(f"[PROCESS BRANDS] Success: True")
+        print(f"[PROCESS BRANDS] Output count: {len(output_paths)}")
+        print(f"[PROCESS BRANDS] Output files:")
+        for i, dl in enumerate(download_urls, 1):
+            print(f"[PROCESS BRANDS]   {i}. {dl['filename']} (brand: {dl['brand']})")
+        print(f"[PROCESS BRANDS] ========================================")
         
         return jsonify({
             'success': True,
