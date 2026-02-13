@@ -1,6 +1,11 @@
 # Gunicorn configuration for Render deployment
 # This ensures consistent timeout settings regardless of how Render starts the app
 
+import os
+
+# Bind to PORT environment variable (required by Render)
+bind = f"0.0.0.0:{os.environ.get('PORT', '10000')}"
+
 # Number of worker processes
 workers = 1
 
