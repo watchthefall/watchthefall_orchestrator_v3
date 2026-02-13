@@ -70,12 +70,21 @@ def normalize_video(input_path: str) -> str:
 
 class VideoProcessor:
     """
-    Process videos with brand overlays: template, logo, and adaptive watermark
+    Process videos with brand overlays using dynamic master asset resolution.
+    Assets resolved from WTF_MASTER_ASSETS/Branding/ based on video orientation.
     """
     
-    SAFE_ZONE_PERCENT = 0.05  # 5% padding from edges
-    # Fixed opacity instead of adaptive brightness detection
-    WATERMARK_OPACITY = 0.15
+    # Master asset paths
+    MASTER_ASSETS_ROOT = os.path.join(PROJECT_ROOT, 'WTF_MASTER_ASSETS', 'Branding')
+    WATERMARKS_DIR = os.path.join(MASTER_ASSETS_ROOT, 'Watermarks')
+    LOGOS_DIR = os.path.join(MASTER_ASSETS_ROOT, 'Logos', 'Circle')
+    
+    # Watermark full-frame opacity (40%)
+    WATERMARK_OPACITY = 0.4
+    # Logo sizing (15% of video width)
+    LOGO_SCALE = 0.15
+    # Logo padding from edges (pixels)
+    LOGO_PADDING = 40
     
     def __init__(self, video_path: str, output_dir: str = 'exports'):
         self.video_path = video_path
@@ -137,154 +146,170 @@ class VideoProcessor:
             print(f"[ERROR] Failed to check video stream: {e}")
             return False
     
+    def detect_orientation(self) -> str:
+        """
+        Detect video orientation based on dimensions.
+        
+        Returns:
+            'Vertical_HD' for portrait (height > width)
+            'Square' for square (height == width)
+            'Landscape' for landscape (width > height)
+        """
+        width = self.video_metadata['width']
+        height = self.video_metadata['height']
+        
+        if height > width:
+            orientation = 'Vertical_HD'
+        elif width == height:
+            orientation = 'Square'
+        else:
+            orientation = 'Landscape'
+        
+        print(f"[DEBUG] Detected orientation: {orientation} (w:{width} x h:{height})")
+        return orientation
+    
+    def resolve_watermark_path(self, brand_name: str) -> Optional[str]:
+        """
+        Resolve watermark path from master assets based on brand and orientation.
+        
+        Naming patterns tried (in order):
+        - {brand}_watermark.png
+        - {Brand}_watermark.png (capitalized)
+        - {brand.lower()}_watermark.png
+        """
+        orientation = self.detect_orientation()
+        watermark_dir = os.path.join(self.WATERMARKS_DIR, orientation)
+        
+        # Clean brand name (remove 'WTF' suffix if present)
+        clean_brand = brand_name.replace('WTF', '').strip()
+        
+        # Try different naming patterns
+        patterns = [
+            f"{clean_brand}_watermark.png",
+            f"{clean_brand.lower()}_watermark.png",
+            f"{clean_brand.capitalize()}_watermark.png",
+            f"{brand_name}_watermark.png",
+        ]
+        
+        for pattern in patterns:
+            path = os.path.join(watermark_dir, pattern)
+            print(f"[DEBUG] Trying watermark path: {path}")
+            if os.path.exists(path):
+                print(f"[DEBUG] Found watermark: {path}")
+                return path
+        
+        print(f"[WARNING] No watermark found for {brand_name} in {watermark_dir}")
+        return None
+    
+    def resolve_logo_path(self, brand_name: str) -> Optional[str]:
+        """
+        Resolve logo path from master assets Circle folder.
+        
+        Tries multiple naming patterns and file extensions.
+        """
+        # Clean brand name
+        clean_brand = brand_name.replace('WTF', '').strip()
+        
+        # Try different naming patterns and extensions
+        patterns = [
+            f"{brand_name} Logo.webp",
+            f"{brand_name} Logo.png",
+            f"{brand_name} Logo.jpg",
+            f"{clean_brand} WTF Logo.webp",
+            f"{clean_brand} WTF Logo.png",
+            f"{clean_brand}-wtf-logo_1.png",
+            f"{clean_brand.lower()}-wtf-logo_1.png",
+            f"{clean_brand.lower()}.png",
+            f"wtf_logo.png",  # Fallback generic logo
+        ]
+        
+        for pattern in patterns:
+            path = os.path.join(self.LOGOS_DIR, pattern)
+            print(f"[DEBUG] Trying logo path: {path}")
+            if os.path.exists(path):
+                print(f"[DEBUG] Found logo: {path}")
+                return path
+        
+        print(f"[WARNING] No logo found for {brand_name} in {self.LOGOS_DIR}")
+        return None
+    
     def build_filter_complex(self, brand_config: Dict, logo_settings: Optional[Dict] = None) -> str:
         """
-        Build ffmpeg filter_complex for overlays
+        Build ffmpeg filter_complex for overlays using dynamic master asset resolution.
         
-        Order:
-        1. Scale template to video size
-        2. Overlay template
-        3. Overlay logo (if settings provided)
-        4. Overlay watermark with fixed opacity
+        Pipeline:
+        1. Watermark as FULL-FRAME overlay at 40% opacity (from master assets)
+        2. Logo bottom-right at 15% width (from master assets Circle folder)
+        
+        No template overlay - watermark IS the full-frame overlay.
         """
-        assets = brand_config.get('assets', {})
-        options = brand_config.get('options', {})
         brand_name = brand_config.get('name', 'Unknown')
         
         width = self.video_metadata['width']
         height = self.video_metadata['height']
         
-        # Scale down videos wider than 720px for faster processing
-        target_width = min(width, 720)
-        scale_filter = f"scale={target_width}:-1" if width > 720 else "null"
-        
         filters = []
-        inputs = ['0:v']  # Start with video input
+        current_input = '0:v'
         
         print(f"[DEBUG] Building filter complex for brand: {brand_name}")
         print(f"[DEBUG] Video dimensions: {width}x{height}")
+        print(f"[DEBUG] Master assets root: {self.MASTER_ASSETS_ROOT}")
         
-        # 1. Load and scale template
-        template_path = os.path.join(PROJECT_ROOT, 'portal', 'imports', 'brands', assets.get('template', ''))
-        print(f"[DEBUG] Template path: {template_path}")
-        print(f"[DEBUG] Template exists: {os.path.exists(template_path)}")
-        if os.path.exists(template_path):
-            print(f"[DEBUG] Adding template: {template_path}")
-            # Scale template to match scaled video
-            template_scale = f"scale={target_width}:-1" if width > 720 else f"scale={width}:{height}"
-            filters.append(f"movie='{template_path}',{template_scale}[template]")
-            filters.append(f"[{inputs[-1]}][template]overlay=0:0[v1]")
-            inputs.append('v1')
-            print(f"[DEBUG] Template overlay added, current inputs: {inputs}")
+        # 1. WATERMARK as full-frame overlay (replaces old template concept)
+        watermark_path = self.resolve_watermark_path(brand_name)
+        if watermark_path:
+            print(f"[DEBUG] Adding full-frame watermark: {watermark_path}")
+            # Scale watermark to exactly match video dimensions
+            # Apply 40% opacity via geq filter
+            opacity = self.WATERMARK_OPACITY
+            filters.append(f"movie='{watermark_path}',scale={width}:{height},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{opacity}*alpha(X,Y)'[watermark]")
+            filters.append(f"[{current_input}][watermark]overlay=0:0[v1]")
+            current_input = 'v1'
+            print(f"[DEBUG] Watermark overlay added (full-frame, {int(opacity*100)}% opacity)")
         else:
-            print(f"[DEBUG] No template found at: {template_path}")
+            print(f"[WARNING] No watermark found for {brand_name}, skipping watermark overlay")
         
-        # 2. Overlay logo from brand assets (bottom-right, above watermark)
-        logo_path = os.path.join(PROJECT_ROOT, 'portal', 'imports', 'brands', assets.get('logo', ''))
-        print(f"[DEBUG] Logo path: {logo_path}")
-        print(f"[DEBUG] Logo exists: {os.path.exists(logo_path)}")
-        if os.path.exists(logo_path):
+        # 2. LOGO bottom-right with padding
+        logo_path = self.resolve_logo_path(brand_name)
+        if logo_path:
             print(f"[DEBUG] Adding logo: {logo_path}")
             # Scale logo to 15% of video width
-            logo_scale = 0.15
-            logo_width = int(target_width * logo_scale) if width > 720 else int(width * logo_scale)
+            logo_width = int(width * self.LOGO_SCALE)
+            padding = self.LOGO_PADDING
             
-            # Position: bottom-right with margin
-            logo_margin = int(target_width * 0.03) if width > 720 else int(width * 0.03)
-            logo_x = f"W-w-{logo_margin}"
-            logo_y = f"H-h-{logo_margin}-100"  # 100px above watermark
+            # Position: bottom-right with padding
+            logo_x = f"W-w-{padding}"
+            logo_y = f"H-h-{padding}"
             
-            filters.append(f"movie='{logo_path}',scale={logo_width}:-1[logo]")
-            filters.append(f"[{inputs[-1]}][logo]overlay={logo_x}:{logo_y}[v2]")
-            inputs.append('v2')
-            print(f"[DEBUG] Logo overlay added, current inputs: {inputs}")
+            # Add colorkey filter to remove black background if present
+            filters.append(f"movie='{logo_path}',scale={logo_width}:-1,format=rgba,colorkey=black:0.1:0.1[logo]")
+            filters.append(f"[{current_input}][logo]overlay={logo_x}:{logo_y}[v2]")
+            current_input = 'v2'
+            print(f"[DEBUG] Logo overlay added (bottom-right, {self.LOGO_SCALE*100:.0f}% width, {padding}px padding)")
         else:
-            print(f"[DEBUG] Logo file not found: {logo_path}")
+            print(f"[WARNING] No logo found for {brand_name}, skipping logo overlay")
         
-        # 3. Overlay watermark with fixed opacity using faster geq filter
-        watermark_path = os.path.join(PROJECT_ROOT, 'portal', 'imports', 'brands', assets.get('watermark', ''))
-        print(f"[DEBUG] Watermark path: {watermark_path}")
-        print(f"[DEBUG] Watermark exists: {os.path.exists(watermark_path)}")
-        if os.path.exists(watermark_path):
-            print(f"[DEBUG] Adding watermark: {watermark_path}")
-            wm_scale = options.get('watermark_scale', 0.25)
-            # Scale watermark appropriately
-            wm_width = int((width * wm_scale) * (target_width / width)) if width > 720 else int(width * wm_scale)
-            
-            # Calculate position (bottom-right with safe zone)
-            safe_margin = int(width * self.SAFE_ZONE_PERCENT)
-            wm_position = options.get('watermark_position', 'bottom-right')
-            
-            # Scale position coordinates
-            if width > 720:
-                scale_factor = target_width / width
-                safe_margin = int(safe_margin * scale_factor)
-            
-            if wm_position == 'bottom-right':
-                wm_x = f"W-w-{safe_margin}"
-                wm_y = f"H-h-{safe_margin}"
-            elif wm_position == 'bottom-left':
-                wm_x = safe_margin
-                wm_y = f"H-h-{safe_margin}"
-            elif wm_position == 'top-right':
-                wm_x = f"W-w-{safe_margin}"
-                wm_y = safe_margin
-            elif wm_position == 'top-left':
-                wm_x = safe_margin
-                wm_y = safe_margin
-            else:
-                wm_x = f"W-w-{safe_margin}"
-                wm_y = f"H-h-{safe_margin}"
-            
-            # Use faster geq filter instead of colorchannelmixer for opacity (50% visible)
-            filters.append(f"movie='{watermark_path}',scale={wm_width}:-1,format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='0.5*alpha(X,Y)'[watermark]")
-            filters.append(f"[{inputs[-1]}][watermark]overlay={wm_x}:{wm_y}[vout]")
-            print(f"[DEBUG] Watermark overlay added with [vout] label")
+        # Ensure final output is labeled [vout]
+        if filters:
+            # Replace last output label with [vout]
+            last_filter = filters[-1]
+            if '[v1]' in last_filter or '[v2]' in last_filter:
+                filters[-1] = last_filter.rsplit('[', 1)[0] + '[vout]'
+            print(f"[DEBUG] Final output labeled as [vout]")
         else:
-            print(f"[DEBUG] No watermark found at: {watermark_path}")
-            # If no watermark, ensure the final output is labeled as [vout]
-            if len(filters) > 0:
-                # Get the last filter and ensure it ends with [vout]
-                last_filter = filters[-1]
-                print(f"[DEBUG] Last filter before modification: {last_filter}")
-                if not last_filter.endswith('[vout]'):
-                    # Remove any existing output label and add [vout]
-                    # Find the last bracket and remove everything after it
-                    if '[' in last_filter and last_filter.rfind('[') > last_filter.rfind('='):
-                        # Remove existing output label
-                        last_bracket = last_filter.rfind('[')
-                        base_filter = last_filter[:last_bracket]
-                        filters[-1] = f"{base_filter}[vout]"
-                        print(f"[DEBUG] Modified last filter to add [vout]: {filters[-1]}")
-                    else:
-                        # No existing output label, just append [vout]
-                        filters[-1] = f"{last_filter}[vout]"
-                        print(f"[DEBUG] Appended [vout] to last filter: {filters[-1]}")
-            else:
-                # No filters at all, create a fallback filter
-                print("[DEBUG] No filters found, creating fallback filter")
-                filters.append(f"[0:v]scale={width}:{height}[vout]")
-                print(f"[DEBUG] Added fallback filter: {filters[-1]}")
+            # No overlays at all - just pass through with scale
+            print("[WARNING] No overlays applied, creating passthrough filter")
+            filters.append(f"[0:v]scale={width}:{height}[vout]")
         
-        # Ensure exactly one [vout] label exists in the entire filter chain
         filter_complex = ';'.join(filters)
         
-        # Validate that exactly one [vout] exists
+        # Validate [vout] exists
         vout_count = filter_complex.count('[vout]')
         print(f"[DEBUG] Final filter complex: {filter_complex}")
-        print(f"[DEBUG] Number of [vout] labels found: {vout_count}")
+        print(f"[DEBUG] Number of [vout] labels: {vout_count}")
         
-        # Add fallback if no [vout] label found
-        if vout_count == 0:
-            print("[WARNING] No [vout] label found, adding fallback filter")
-            if filter_complex:
-                filter_complex += f";[0:v]scale={width}:{height}[vout]"
-            else:
-                filter_complex = f"[0:v]scale={width}:{height}[vout]"
-            print(f"[DEBUG] Updated filter complex with fallback: {filter_complex}")
-        elif vout_count > 1:
-            print(f"[ERROR] Multiple [vout] labels found ({vout_count}), filter complex may be malformed: {filter_complex}")
-            # Return None to indicate error
+        if vout_count != 1:
+            print(f"[ERROR] Invalid [vout] count ({vout_count}), filter may be malformed")
             return None
         
         return filter_complex
