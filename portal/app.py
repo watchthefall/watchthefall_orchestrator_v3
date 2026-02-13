@@ -28,9 +28,8 @@ def ensure_video_stream(path):
         return False
 
 # Import video processing utilities
-# DISABLED for WTF_Downloader transformation
-# from .video_processor import VideoProcessor, normalize_video
-# from .brand_loader import get_available_brands
+from .video_processor import VideoProcessor, normalize_video
+from .brand_loader import get_available_brands
 
 # Import configuration
 from .config import (
