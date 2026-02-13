@@ -315,6 +315,10 @@ class VideoProcessor:
         filter_complex = self.build_filter_complex(brand_config, logo_settings)
         
         print(f"[DEBUG] Built filter complex result: {filter_complex}")
+        print(f"[FILTER_COMPLEX] ========================================")
+        print(f"[FILTER_COMPLEX] EXACT STRING FOR {brand_name}:")
+        print(f"[FILTER_COMPLEX] {filter_complex}")
+        print(f"[FILTER_COMPLEX] =========================================")
         
         # If filter_complex generation failed, return error
         if filter_complex is None:
