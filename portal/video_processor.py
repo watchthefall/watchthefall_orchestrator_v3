@@ -205,33 +205,23 @@ class VideoProcessor:
         """
         Resolve logo path from master assets Circle folder.
         
-        Tries multiple naming patterns and file extensions.
+        Strict pattern: {brand}_logo.png
+        No fallback, no guessing.
         """
-        # Clean brand name
-        clean_brand = brand_name.replace('WTF', '').strip()
+        # Strict naming: {BrandName}_logo.png
+        logo_filename = f"{brand_name}_logo.png"
+        path = os.path.join(self.LOGOS_DIR, logo_filename)
         
-        # Try different naming patterns and extensions
-        patterns = [
-            f"{brand_name} Logo.webp",
-            f"{brand_name} Logo.png",
-            f"{brand_name} Logo.jpg",
-            f"{clean_brand} WTF Logo.webp",
-            f"{clean_brand} WTF Logo.png",
-            f"{clean_brand}-wtf-logo_1.png",
-            f"{clean_brand.lower()}-wtf-logo_1.png",
-            f"{clean_brand.lower()}.png",
-            f"wtf_logo.png",  # Fallback generic logo
-        ]
+        print(f"[DEBUG] Looking for logo: {path}")
         
-        for pattern in patterns:
-            path = os.path.join(self.LOGOS_DIR, pattern)
-            print(f"[DEBUG] Trying logo path: {path}")
-            if os.path.exists(path):
-                print(f"[DEBUG] Found logo: {path}")
-                return path
-        
-        print(f"[WARNING] No logo found for {brand_name} in {self.LOGOS_DIR}")
-        return None
+        if os.path.exists(path):
+            print(f"[DEBUG] Found logo: {path}")
+            return path
+        else:
+            print(f"[ERROR] Logo not found for brand '{brand_name}'")
+            print(f"[ERROR] Expected: {logo_filename}")
+            print(f"[ERROR] All logos must follow pattern: {{BrandName}}_logo.png")
+            return None
     
     def build_filter_complex(self, brand_config: Dict, logo_settings: Optional[Dict] = None) -> str:
         """
