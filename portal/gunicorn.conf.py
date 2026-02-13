@@ -4,7 +4,8 @@
 import os
 
 # Bind to PORT environment variable (required by Render)
-bind = f"0.0.0.0:{os.environ.get('PORT', '10000')}"
+# No fallback - Render always provides PORT
+bind = f"0.0.0.0:{os.environ['PORT']}"
 
 # Number of worker processes
 workers = 1
