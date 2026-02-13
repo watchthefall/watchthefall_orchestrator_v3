@@ -165,6 +165,19 @@
                 </div>
                 <button id="download-btn" onclick="downloadVideo()">Download Video</button>
                 
+                <!-- Branding Section (Optional) -->
+                <div style="margin-top: 20px; border-top: 1px solid #444; padding-top: 15px;">
+                    <div style="cursor: pointer; user-select: none;" onclick="toggleBranding()">
+                        <span id="branding-toggle">▶</span> <strong>Branding (Optional)</strong>
+                    </div>
+                    <div id="branding-section" style="display: none; margin-top: 10px;">
+                        <div id="brand-list" style="max-height: 200px; overflow-y: auto; margin-bottom: 10px;">
+                            <p style="color: #888;">Loading brands...</p>
+                        </div>
+                        <button id="download-brand-btn" onclick="downloadWithBranding()" style="background: #ff9500;">Download + Brand</button>
+                    </div>
+                </div>
+                
                 <div class="progress" id="download-progress" style="display: none;">
                     <div class="progress-bar" id="progress-bar"></div>
                 </div>
@@ -415,6 +428,128 @@
     
     // Add event listener to URL input for platform detection
     document.getElementById('video-url').addEventListener('blur', detectPlatform);
+    
+    // ============================
+    // BRANDING FUNCTIONALITY
+    // ============================
+    
+    // Toggle branding section visibility
+    function toggleBranding() {
+        const section = document.getElementById('branding-section');
+        const toggle = document.getElementById('branding-toggle');
+        
+        if (section.style.display === 'none') {
+            section.style.display = 'block';
+            toggle.textContent = '▼';  // Down arrow
+            loadBrands();
+        } else {
+            section.style.display = 'none';
+            toggle.textContent = '▶';  // Right arrow
+        }
+    }
+    
+    // Load available brands from API
+    async function loadBrands() {
+        const brandList = document.getElementById('brand-list');
+        
+        try {
+            const response = await fetch('/api/brands/list');
+            const data = await response.json();
+            
+            if (data.success && data.brands) {
+                brandList.innerHTML = '';
+                data.brands.forEach(brand => {
+                    const label = document.createElement('label');
+                    label.style.display = 'block';
+                    label.style.marginBottom = '8px';
+                    label.style.cursor = 'pointer';
+                    label.innerHTML = `
+                        <input type="checkbox" value="${brand.name}" style="margin-right: 8px;">
+                        ${brand.display_name}
+                    `;
+                    brandList.appendChild(label);
+                });
+            } else {
+                brandList.innerHTML = '<p style="color: #f00;">Failed to load brands</p>';
+            }
+        } catch (error) {
+            brandList.innerHTML = '<p style="color: #f00;">Error loading brands</p>';
+            console.error('Brand loading error:', error);
+        }
+    }
+    
+    // Download video with branding
+    async function downloadWithBranding() {
+        const urlInput = document.getElementById('video-url');
+        const downloadBtn = document.getElementById('download-brand-btn');
+        const progress = document.getElementById('download-progress');
+        const progressBar = document.getElementById('progress-bar');
+        const result = document.getElementById('download-result');
+        
+        const url = urlInput.value.trim();
+        if (!url) {
+            showError(result, 'Please enter a video URL');
+            return;
+        }
+        
+        // Get selected brands
+        const selectedBrands = [];
+        document.querySelectorAll('#brand-list input[type="checkbox"]:checked').forEach(cb => {
+            selectedBrands.push(cb.value);
+        });
+        
+        if (selectedBrands.length === 0) {
+            showError(result, 'Please select at least one brand');
+            return;
+        }
+        
+        // Disable button and show progress
+        downloadBtn.disabled = true;
+        progress.style.display = 'block';
+        progressBar.style.width = '0%';
+        result.style.display = 'none';
+        
+        try {
+            // Simulate progress
+            simulateProgress(progressBar, 5000);
+            
+            // Call branding API
+            const response = await fetch('/api/videos/process_brands', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    url: url,
+                    brands: selectedBrands
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success && data.outputs) {
+                let message = `Successfully processed ${data.outputs.length} branded version(s):<br><br>`;
+                
+                data.outputs.forEach(output => {
+                    const filename = output.filename;
+                    message += `<a class="download-link" href="${output.download_url}" download>⬇ ${output.brand} - ${filename}</a><br>`;
+                });
+                
+                showSuccess(result, message);
+                
+                // Add to history (first output)
+                if (data.outputs.length > 0) {
+                    addToHistory(url, 'branded', data.outputs[0].filename);
+                }
+            } else {
+                showError(result, `Branding failed: ${data.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            showError(result, `Branding failed: ${error.message}`);
+        } finally {
+            downloadBtn.disabled = false;
+        }
+    }
 </script>
 </body>
 </html>
