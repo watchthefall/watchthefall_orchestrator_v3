@@ -20,7 +20,12 @@ except ImportError:
 
 def normalize_video(input_path: str) -> str:
     """
-    Normalize video timestamps to fix corrupted Instagram video files.
+    Normalize video to standard 8-bit H264 SDR format, stripping HDR/DOVI metadata.
+    
+    This stage MUST run before branding to handle:
+    - HEVC 10-bit Dolby Vision inputs
+    - Corrupt timestamps from Instagram/TikTok
+    - HDR colorspace metadata
     
     Args:
         input_path: Path to the input video file
@@ -30,15 +35,19 @@ def normalize_video(input_path: str) -> str:
     """
     try:
         fixed_path = input_path.replace(".mp4", "_normalized.mp4")
-        print(f"[NORMALIZE] Normalizing video timestamps: {input_path}")
+        print(f"[NORMALIZE] Normalizing video to clean 8-bit H264 SDR: {input_path}")
         
         cmd = [
             FFMPEG_BIN, "-y",
             "-i", input_path,
-            "-vf", "fps=25",
-            "-c:v", "copy",
+            "-vf", "scale=720:-2",  # Scale to 720px width, maintain aspect ratio (even height)
+            "-c:v", "libx264",  # Re-encode to H264 (NOT copy)
+            "-preset", "fast",
+            "-crf", "23",
+            "-pix_fmt", "yuv420p",  # Force 8-bit SDR (strips HDR/10-bit)
             "-c:a", "aac",
-            "-fflags", "+genpts",
+            "-b:a", "128k",
+            "-movflags", "+faststart",
             fixed_path
         ]
         
@@ -341,21 +350,19 @@ class VideoProcessor:
         # Run ffmpeg with optimized settings for Render Pro environments
         cmd = [
             FFMPEG_BIN, '-y',
-            '-threads', '4',  # Increase threads for Render Pro
-            '-use_wallclock_as_timestamps', '1',  # Use wallclock timestamps
-            '-fflags', '+genpts',  # Generate presentation timestamps
             '-i', self.video_path,
             '-filter_complex', filter_complex,
-            '-filter_threads', '2',  # Increase filter threads for Render Pro
-            '-bufsize', '256M',  # Increase buffer size for Render Pro
-            '-map', '[vout]',  # Explicitly map video output from filter_complex
-            '-map', '0:a?',  # Map audio stream if present
+            '-threads', '4',
+            '-filter_threads', '2',
+            '-bufsize', '256M',
+            '-map', '[vout]',
+            '-map', '0:a?',
             '-c:v', 'libx264',
-            '-crf', '23',  # Maintain quality with CRF 23
-            '-preset', 'fast',  # Use fast preset for Render Pro
-            '-c:a', 'aac',  # Re-encode audio instead of copying
-            '-b:a', '128k',  # Set audio bitrate
-            '-movflags', '+faststart',  # Fast start for web playback
+            '-crf', '23',
+            '-preset', 'fast',
+            '-c:a', 'aac',
+            '-b:a', '128k',
+            '-movflags', '+faststart',
             output_path
         ]
         
