@@ -179,32 +179,27 @@ class VideoProcessor:
         else:
             print(f"[DEBUG] No template found at: {template_path}")
         
-        # 2. Overlay logo (if settings provided)
-        if logo_settings and logo_settings.get('logo_path'):
-            logo_path = logo_settings['logo_path']
-            print(f"[DEBUG] Logo path: {logo_path}")
-            print(f"[DEBUG] Logo exists: {os.path.exists(logo_path)}")
-            if os.path.exists(logo_path):
-                print(f"[DEBUG] Adding logo: {logo_path}")
-                logo_x = logo_settings['logo_settings']['x']
-                logo_y = logo_settings['logo_settings']['y']
-                logo_w = logo_settings['logo_settings']['width']
-                logo_h = logo_settings['logo_settings']['height']
-                
-                # Scale logo appropriately
-                logo_scale_w = int(logo_w * (target_width / width)) if width > 720 else logo_w
-                logo_scale_h = int(logo_h * (target_width / width)) if width > 720 else logo_h
-                logo_x_scaled = int(logo_x * (target_width / width)) if width > 720 else logo_x
-                logo_y_scaled = int(logo_y * (target_width / width)) if width > 720 else logo_y
-                
-                filters.append(f"movie='{logo_path}',scale={logo_scale_w}:{logo_scale_h}[logo]")
-                filters.append(f"[{inputs[-1]}][logo]overlay={logo_x_scaled}:{logo_y_scaled}[v2]")
-                inputs.append('v2')
-                print(f"[DEBUG] Logo overlay added, current inputs: {inputs}")
-            else:
-                print(f"[DEBUG] Logo file not found: {logo_path}")
+        # 2. Overlay logo from brand assets (bottom-right, above watermark)
+        logo_path = os.path.join(PROJECT_ROOT, 'portal', 'imports', 'brands', assets.get('logo', ''))
+        print(f"[DEBUG] Logo path: {logo_path}")
+        print(f"[DEBUG] Logo exists: {os.path.exists(logo_path)}")
+        if os.path.exists(logo_path):
+            print(f"[DEBUG] Adding logo: {logo_path}")
+            # Scale logo to 15% of video width
+            logo_scale = 0.15
+            logo_width = int(target_width * logo_scale) if width > 720 else int(width * logo_scale)
+            
+            # Position: bottom-right with margin
+            logo_margin = int(target_width * 0.03) if width > 720 else int(width * 0.03)
+            logo_x = f"W-w-{logo_margin}"
+            logo_y = f"H-h-{logo_margin}-100"  # 100px above watermark
+            
+            filters.append(f"movie='{logo_path}',scale={logo_width}:-1[logo]")
+            filters.append(f"[{inputs[-1]}][logo]overlay={logo_x}:{logo_y}[v2]")
+            inputs.append('v2')
+            print(f"[DEBUG] Logo overlay added, current inputs: {inputs}")
         else:
-            print("[DEBUG] No logo settings provided or logo path missing")
+            print(f"[DEBUG] Logo file not found: {logo_path}")
         
         # 3. Overlay watermark with fixed opacity using faster geq filter
         watermark_path = os.path.join(PROJECT_ROOT, 'portal', 'imports', 'brands', assets.get('watermark', ''))
@@ -241,8 +236,8 @@ class VideoProcessor:
                 wm_x = f"W-w-{safe_margin}"
                 wm_y = f"H-h-{safe_margin}"
             
-            # Use faster geq filter instead of colorchannelmixer for opacity
-            filters.append(f"movie='{watermark_path}',scale={wm_width}:-1,format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='0.15*alpha(X,Y)'[watermark]")
+            # Use faster geq filter instead of colorchannelmixer for opacity (50% visible)
+            filters.append(f"movie='{watermark_path}',scale={wm_width}:-1,format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='0.5*alpha(X,Y)'[watermark]")
             filters.append(f"[{inputs[-1]}][watermark]overlay={wm_x}:{wm_y}[vout]")
             print(f"[DEBUG] Watermark overlay added with [vout] label")
         else:
