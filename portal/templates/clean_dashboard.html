@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>WatchTheFall – Orchestrator Dashboard</title>
+<title>WTF Downloader – Simple Video Downloader</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
@@ -125,6 +125,16 @@
 
     <h3>Select Brand Templates</h3>
     <div class="brand-list" id="brandsBox">Loading…</div>
+    
+    <h3>🔍 Watermark Size</h3>
+    <div style="display: flex; align-items: center; gap: 15px; margin: 15px 0;">
+        <input type="range" id="watermarkScale" min="1.0" max="1.5" step="0.05" value="1.15" 
+               style="flex: 1; height: 8px; background: #333; border-radius: 5px; outline: none; cursor: pointer;">
+        <span id="scaleValue" style="min-width: 60px; text-align: right; font-weight: bold; color: #00b7ff;">1.15x</span>
+    </div>
+    <div style="color: #888; font-size: 13px; margin-top: -10px; margin-bottom: 15px;">
+        Adjust watermark coverage (1.0 = frame-exact, 1.5 = 50% larger)
+    </div>
 
     <button onclick="processBrands()">⚡ Apply Brands</button>
     <div id="processResult" class="mono" style="display:none;"></div>
@@ -158,6 +168,19 @@
 
 <script>
 const apiBase = window.location.origin;
+
+/* -----------------------------
+   WATERMARK SCALE SLIDER
+------------------------------ */
+const scaleSlider = document.getElementById("watermarkScale");
+const scaleDisplay = document.getElementById("scaleValue");
+
+if (scaleSlider && scaleDisplay) {
+    scaleSlider.addEventListener("input", (e) => {
+        const val = parseFloat(e.target.value).toFixed(2);
+        scaleDisplay.textContent = `${val}x`;
+    });
+}
 
 /* -----------------------------
    LOAD BRANDS
@@ -237,15 +260,19 @@ async function processBrands() {
         resultBox.innerHTML = "❌ Select at least one brand.";
         return;
     }
+    
+    // Get watermark scale from slider
+    const watermarkScale = parseFloat(document.getElementById("watermarkScale").value);
 
-    resultBox.innerHTML = "Processing…";
+    resultBox.innerHTML = `Processing with ${watermarkScale.toFixed(2)}x watermark scale…`;
 
     const res = await fetch(`${apiBase}/api/videos/process_brands`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             source_path: file,
-            brands: selected
+            brands: selected,
+            watermark_scale: watermarkScale
         })
     });
 
