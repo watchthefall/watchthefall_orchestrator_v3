@@ -529,12 +529,8 @@ def process_branded_videos():
         # 3. Process video with selected brands ONE AT A TIME
         processor = VideoProcessor(normalized_video_path, OUTPUT_DIR)
         
-        # Apply branding configuration overrides from UI
-        processor.WATERMARK_SCALE = watermark_scale
-        processor.WATERMARK_OPACITY = watermark_opacity
-        processor.LOGO_SCALE = logo_scale
-        processor.LOGO_PADDING = logo_padding
-        print(f"[PROCESS BRANDS] Branding config: scale={watermark_scale}, opacity={watermark_opacity}, logo_scale={logo_scale}, logo_padding={logo_padding}")
+        # Import database functions for per-brand config
+        from .database import get_brand_config
         
         output_paths = []
         
@@ -542,6 +538,29 @@ def process_branded_videos():
         for i, brand_config in enumerate(selected_brand_configs, 1):
             brand_name = brand_config.get('name', 'Unknown')
             print(f"[PROCESS BRANDS] PROCESSING BRAND {i} of {total_brands}: {brand_name}")
+            
+            # Load saved configuration for this brand (falls back to defaults if none saved)
+            saved_config = get_brand_config(brand_name)
+            
+            # Apply per-brand configuration to processor
+            processor.WATERMARK_SCALE = saved_config.get('watermark_scale', 1.15)
+            processor.WATERMARK_OPACITY = saved_config.get('watermark_opacity', 0.4)
+            processor.LOGO_SCALE = saved_config.get('logo_scale', 0.15)
+            processor.LOGO_PADDING = saved_config.get('logo_padding', 40)
+            
+            # Text layer config
+            processor.TEXT_ENABLED = bool(saved_config.get('text_enabled', False))
+            processor.TEXT_CONTENT = saved_config.get('text_content', '')
+            processor.TEXT_POSITION = saved_config.get('text_position', 'bottom')
+            processor.TEXT_SIZE = saved_config.get('text_size', 48)
+            processor.TEXT_COLOR = saved_config.get('text_color', '#FFFFFF')
+            processor.TEXT_FONT = saved_config.get('text_font', 'Arial')
+            processor.TEXT_BG_ENABLED = bool(saved_config.get('text_bg_enabled', True))
+            processor.TEXT_BG_COLOR = saved_config.get('text_bg_color', '#000000')
+            processor.TEXT_BG_OPACITY = saved_config.get('text_bg_opacity', 0.6)
+            processor.TEXT_MARGIN = saved_config.get('text_margin', 40)
+            
+            print(f"[PROCESS BRANDS] Brand {brand_name} config: scale={processor.WATERMARK_SCALE}, opacity={processor.WATERMARK_OPACITY}, text={processor.TEXT_ENABLED}")
             
             try:
                 output_path = processor.process_brand(brand_config, video_id=video_id)
@@ -968,6 +987,64 @@ def list_brands():
             'brands': brands
         })
     except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/brands/<brand_name>/config', methods=['GET'])
+def get_brand_config_api(brand_name):
+    """Get saved configuration for a brand"""
+    try:
+        from .database import get_brand_config
+        config = get_brand_config(brand_name)
+        return jsonify({
+            'success': True,
+            'config': config
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/brands/<brand_name>/config', methods=['POST'])
+def save_brand_config_api(brand_name):
+    """Save configuration for a brand"""
+    try:
+        from .database import save_brand_config
+        data = request.get_json(force=True) or {}
+        
+        # Build config object from request
+        config = {
+            'watermark_scale': float(data.get('watermark_scale', 1.15)),
+            'watermark_opacity': float(data.get('watermark_opacity', 0.4)),
+            'logo_scale': float(data.get('logo_scale', 0.15)),
+            'logo_padding': int(data.get('logo_padding', 40)),
+            'text_enabled': bool(data.get('text_enabled', False)),
+            'text_content': str(data.get('text_content', '')),
+            'text_position': str(data.get('text_position', 'bottom')),
+            'text_size': int(data.get('text_size', 48)),
+            'text_color': str(data.get('text_color', '#FFFFFF')),
+            'text_font': str(data.get('text_font', 'Arial')),
+            'text_bg_enabled': bool(data.get('text_bg_enabled', True)),
+            'text_bg_color': str(data.get('text_bg_color', '#000000')),
+            'text_bg_opacity': float(data.get('text_bg_opacity', 0.6)),
+            'text_margin': int(data.get('text_margin', 40))
+        }
+        
+        save_brand_config(brand_name, config)
+        
+        print(f"[BRAND CONFIG] Saved config for {brand_name}: scale={config['watermark_scale']}, text={config['text_enabled']}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Configuration saved for {brand_name}',
+            'config': config
+        })
+    except Exception as e:
+        import traceback
+        print(f"[BRAND CONFIG ERROR] {traceback.format_exc()}")
         return jsonify({
             'success': False,
             'error': str(e)

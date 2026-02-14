@@ -88,6 +88,18 @@ class VideoProcessor:
     # Logo padding from edges (pixels)
     LOGO_PADDING = 40
     
+    # Text layer settings (defaults)
+    TEXT_ENABLED = False
+    TEXT_CONTENT = ''
+    TEXT_POSITION = 'bottom'  # top, bottom, center
+    TEXT_SIZE = 48
+    TEXT_COLOR = '#FFFFFF'
+    TEXT_FONT = 'Arial'
+    TEXT_BG_ENABLED = True
+    TEXT_BG_COLOR = '#000000'
+    TEXT_BG_OPACITY = 0.6
+    TEXT_MARGIN = 40
+    
     def __init__(self, video_path: str, output_dir: str = 'exports'):
         self.video_path = video_path
         self.output_dir = output_dir
@@ -287,11 +299,50 @@ class VideoProcessor:
         else:
             print(f"[WARNING] No logo found for {brand_name}, skipping logo overlay")
         
+        # 3. TEXT LAYER (drawtext filter)
+        if self.TEXT_ENABLED and self.TEXT_CONTENT:
+            print(f"[DEBUG] Adding text layer: '{self.TEXT_CONTENT}'")
+            
+            # Escape special characters for FFmpeg drawtext
+            escaped_text = self.TEXT_CONTENT.replace("'", "'\\''").replace(":", "\\:")
+            
+            # Convert hex color to FFmpeg format (remove # prefix)
+            text_color = self.TEXT_COLOR.lstrip('#')
+            bg_color = self.TEXT_BG_COLOR.lstrip('#')
+            
+            # Calculate position based on TEXT_POSITION setting
+            margin = self.TEXT_MARGIN
+            if self.TEXT_POSITION == 'top':
+                y_pos = margin
+            elif self.TEXT_POSITION == 'center':
+                y_pos = '(h-text_h)/2'
+            else:  # bottom (default)
+                y_pos = f'h-text_h-{margin}'
+            
+            # Build drawtext filter
+            font_size = self.TEXT_SIZE
+            
+            # Add background box if enabled
+            if self.TEXT_BG_ENABLED:
+                # FFmpeg box opacity (0-1)
+                box_opacity = self.TEXT_BG_OPACITY
+                drawtext_filter = f"drawtext=text='{escaped_text}':fontsize={font_size}:fontcolor=0x{text_color}:x=(w-text_w)/2:y={y_pos}:box=1:boxcolor=0x{bg_color}@{box_opacity}:boxborderw=10"
+            else:
+                drawtext_filter = f"drawtext=text='{escaped_text}':fontsize={font_size}:fontcolor=0x{text_color}:x=(w-text_w)/2:y={y_pos}"
+            
+            # Determine next label
+            next_label = 'v3' if current_input in ['v1', 'v2'] else 'v2'
+            filters.append(f"[{current_input}]{drawtext_filter}[{next_label}]")
+            current_input = next_label
+            print(f"[DEBUG] Text layer added (position={self.TEXT_POSITION}, size={font_size}, bg={self.TEXT_BG_ENABLED})")
+        else:
+            print(f"[DEBUG] Text layer disabled or empty, skipping")
+        
         # Ensure final output is labeled [vout]
         if filters:
             # Replace last output label with [vout]
             last_filter = filters[-1]
-            if '[v1]' in last_filter or '[v2]' in last_filter:
+            if '[v1]' in last_filter or '[v2]' in last_filter or '[v3]' in last_filter:
                 filters[-1] = last_filter.rsplit('[', 1)[0] + '[vout]'
             print(f"[DEBUG] Final output labeled as [vout]")
         else:

@@ -348,6 +348,67 @@
     </div>
     <p style="color:#666; font-size:12px; margin:5px 0;">💡 Drag logo on preview to reposition</p>
     
+    <!-- Text Layer Controls -->
+    <h3>✍️ Text Layer</h3>
+    <div class="toggle-row">
+        <span class="slider-label">Enable Text</span>
+        <label class="toggle-switch">
+            <input type="checkbox" id="textEnabled" onchange="updateCanvasPreview()">
+            <span class="toggle-slider"></span>
+        </label>
+    </div>
+    <div id="textControls" style="display:none;">
+        <div class="slider-group">
+            <div class="slider-header">
+                <span class="slider-label">Text Content</span>
+            </div>
+            <input type="text" id="textContent" placeholder="e.g., Follow for more..." oninput="updateCanvasPreview()">
+        </div>
+        <div class="slider-group">
+            <div class="slider-header">
+                <span class="slider-label">Position</span>
+                <span class="slider-value" id="textPosVal">Bottom</span>
+            </div>
+            <select id="textPosition" onchange="document.getElementById('textPosVal').textContent = this.options[this.selectedIndex].text; updateCanvasPreview();" style="width:100%; padding:10px; background:#222; color:#fff; border:none; border-radius:8px;">
+                <option value="top">Top</option>
+                <option value="center">Center</option>
+                <option value="bottom" selected>Bottom</option>
+            </select>
+        </div>
+        <div class="slider-group">
+            <div class="slider-header">
+                <span class="slider-label">Font Size</span>
+                <span class="slider-value" id="textSizeVal">48px</span>
+            </div>
+            <input type="range" id="textSize" min="24" max="96" value="48" oninput="document.getElementById('textSizeVal').textContent = this.value + 'px'; updateCanvasPreview();">
+        </div>
+        <div class="slider-group">
+            <div class="slider-header">
+                <span class="slider-label">Text Color</span>
+                <span class="slider-value" id="textColorVal">#FFFFFF</span>
+            </div>
+            <input type="color" id="textColor" value="#FFFFFF" onchange="document.getElementById('textColorVal').textContent = this.value; updateCanvasPreview();" style="width:100%; height:40px; border:none; border-radius:8px; cursor:pointer;">
+        </div>
+        <div class="toggle-row">
+            <span class="slider-label">Background Box</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="textBgEnabled" checked onchange="updateCanvasPreview()">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div class="slider-group">
+            <div class="slider-header">
+                <span class="slider-label">BG Opacity</span>
+                <span class="slider-value" id="textBgOpacityVal">60%</span>
+            </div>
+            <input type="range" id="textBgOpacity" min="20" max="100" value="60" oninput="document.getElementById('textBgOpacityVal').textContent = this.value + '%'; updateCanvasPreview();">
+        </div>
+    </div>
+    
+    <!-- Save Config Button -->
+    <button onclick="saveBrandConfig()" id="saveConfigBtn" style="background:#28a745; margin-top:15px;">💾 Save Brand Config</button>
+    <div id="saveResult" style="margin-top:5px;"></div>
+    
     <!-- Process Button -->
     <button onclick="processBrands()" id="processBtn">⚡ Apply Branding</button>
     <div id="processResult"></div>
@@ -455,6 +516,61 @@ function drawOverlays() {
         
         // Store logo bounds for hit testing
         canvas._logoBounds = { x: logoX, y: logoY, w: logoW, h: logoH };
+    }
+    
+    // Draw text layer
+    const textEnabled = document.getElementById('textEnabled').checked;
+    const textContent = document.getElementById('textContent').value;
+    
+    // Show/hide text controls based on toggle
+    document.getElementById('textControls').style.display = textEnabled ? 'block' : 'none';
+    
+    if (textEnabled && textContent) {
+        const textPosition = document.getElementById('textPosition').value;
+        const textSize = parseInt(document.getElementById('textSize').value);
+        const textColor = document.getElementById('textColor').value;
+        const textBgEnabled = document.getElementById('textBgEnabled').checked;
+        const textBgOpacity = parseInt(document.getElementById('textBgOpacity').value) / 100;
+        
+        // Scale font size relative to canvas
+        const scaledFontSize = Math.round(textSize * (canvas.width / 720));
+        const margin = 40 * (canvas.width / 720);
+        
+        ctx.font = `bold ${scaledFontSize}px Arial`;
+        ctx.textAlign = 'center';
+        
+        // Measure text
+        const textMetrics = ctx.measureText(textContent);
+        const textWidth = textMetrics.width;
+        const textHeight = scaledFontSize;
+        
+        // Calculate Y position
+        let textY;
+        if (textPosition === 'top') {
+            textY = margin + textHeight;
+        } else if (textPosition === 'center') {
+            textY = canvas.height / 2 + textHeight / 2;
+        } else {  // bottom
+            textY = canvas.height - margin;
+        }
+        
+        const textX = canvas.width / 2;
+        
+        // Draw background box if enabled
+        if (textBgEnabled) {
+            const padding = 10 * (canvas.width / 720);
+            ctx.fillStyle = `rgba(0, 0, 0, ${textBgOpacity})`;
+            ctx.fillRect(
+                textX - textWidth / 2 - padding,
+                textY - textHeight - padding / 2,
+                textWidth + padding * 2,
+                textHeight + padding
+            );
+        }
+        
+        // Draw text
+        ctx.fillStyle = textColor;
+        ctx.fillText(textContent, textX, textY);
     }
     
     // Update watermark bounds outline
@@ -594,9 +710,104 @@ function selectBrand(brandName, btnEl) {
         btnEl.classList.add('selected');
     }
     
-    // Load brand assets for preview (use first selected brand)
+    // Load brand assets and saved config for preview (use first selected brand)
     if (selectedBrands.length > 0) {
         loadBrandAssets(selectedBrands[0]);
+        loadBrandConfig(selectedBrands[0]);
+    }
+}
+
+async function loadBrandConfig(brandName) {
+    // Load saved config from database
+    try {
+        const res = await fetch(`${apiBase}/api/brands/${brandName}/config`);
+        const data = await res.json();
+        
+        if (data.success && data.config) {
+            const cfg = data.config;
+            
+            // Apply watermark settings
+            document.getElementById('wmScale').value = Math.round(cfg.watermark_scale * 100);
+            document.getElementById('wmScaleVal').textContent = Math.round(cfg.watermark_scale * 100) + '%';
+            document.getElementById('wmOpacity').value = Math.round(cfg.watermark_opacity * 100);
+            document.getElementById('wmOpacityVal').textContent = Math.round(cfg.watermark_opacity * 100) + '%';
+            
+            // Apply logo settings
+            document.getElementById('logoScale').value = Math.round(cfg.logo_scale * 100);
+            document.getElementById('logoScaleVal').textContent = Math.round(cfg.logo_scale * 100) + '%';
+            document.getElementById('logoPadding').value = cfg.logo_padding;
+            document.getElementById('logoPaddingVal').textContent = cfg.logo_padding + 'px';
+            
+            // Apply text layer settings
+            document.getElementById('textEnabled').checked = !!cfg.text_enabled;
+            document.getElementById('textContent').value = cfg.text_content || '';
+            document.getElementById('textPosition').value = cfg.text_position || 'bottom';
+            document.getElementById('textPosVal').textContent = (cfg.text_position || 'bottom').charAt(0).toUpperCase() + (cfg.text_position || 'bottom').slice(1);
+            document.getElementById('textSize').value = cfg.text_size || 48;
+            document.getElementById('textSizeVal').textContent = (cfg.text_size || 48) + 'px';
+            document.getElementById('textColor').value = cfg.text_color || '#FFFFFF';
+            document.getElementById('textColorVal').textContent = cfg.text_color || '#FFFFFF';
+            document.getElementById('textBgEnabled').checked = cfg.text_bg_enabled !== false;
+            document.getElementById('textBgOpacity').value = Math.round((cfg.text_bg_opacity || 0.6) * 100);
+            document.getElementById('textBgOpacityVal').textContent = Math.round((cfg.text_bg_opacity || 0.6) * 100) + '%';
+            
+            // Show/hide text controls
+            document.getElementById('textControls').style.display = cfg.text_enabled ? 'block' : 'none';
+            
+            console.log(`[UI] Loaded config for ${brandName}:`, cfg);
+            updateCanvasPreview();
+        }
+    } catch (err) {
+        console.error('Failed to load brand config:', err);
+    }
+}
+
+async function saveBrandConfig() {
+    if (selectedBrands.length === 0) {
+        document.getElementById('saveResult').innerHTML = '<div class="status-msg error">Select a brand first</div>';
+        return;
+    }
+    
+    const brandName = selectedBrands[0];  // Save config for first selected brand
+    const btn = document.getElementById('saveConfigBtn');
+    const result = document.getElementById('saveResult');
+    
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    
+    const config = {
+        watermark_scale: parseInt(document.getElementById('wmScale').value) / 100,
+        watermark_opacity: parseInt(document.getElementById('wmOpacity').value) / 100,
+        logo_scale: parseInt(document.getElementById('logoScale').value) / 100,
+        logo_padding: parseInt(document.getElementById('logoPadding').value),
+        text_enabled: document.getElementById('textEnabled').checked,
+        text_content: document.getElementById('textContent').value,
+        text_position: document.getElementById('textPosition').value,
+        text_size: parseInt(document.getElementById('textSize').value),
+        text_color: document.getElementById('textColor').value,
+        text_bg_enabled: document.getElementById('textBgEnabled').checked,
+        text_bg_opacity: parseInt(document.getElementById('textBgOpacity').value) / 100
+    };
+    
+    try {
+        const res = await fetch(`${apiBase}/api/brands/${brandName}/config`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+            result.innerHTML = `<div class="status-msg success">✅ Saved ${brandName}</div>`;
+        } else {
+            throw new Error(data.error || 'Save failed');
+        }
+    } catch (err) {
+        result.innerHTML = `<div class="status-msg error">❌ ${err.message}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Save Brand Config';
     }
 }
 
@@ -706,25 +917,16 @@ async function processBrands() {
     
     btn.disabled = true;
     btn.textContent = 'Processing...';
-    result.innerHTML = '<div class="status-msg info">⏳ Applying branding...</div>';
-    
-    // Get settings from sliders
-    const watermarkScale = parseInt(document.getElementById('wmScale').value) / 100;
-    const watermarkOpacity = parseInt(document.getElementById('wmOpacity').value) / 100;
-    const logoScale = parseInt(document.getElementById('logoScale').value) / 100;
-    const logoPadding = parseInt(document.getElementById('logoPadding').value);
+    result.innerHTML = '<div class="status-msg info">⏳ Applying branding (using saved configs)...</div>';
     
     try {
+        // Backend uses saved config per brand - no need to send slider values
         const res = await fetch(`${apiBase}/api/videos/process_brands`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 source_path: currentFile,
-                brands: selectedBrands,  // Send all selected brands
-                watermark_scale: watermarkScale,
-                watermark_opacity: watermarkOpacity,
-                logo_scale: logoScale,
-                logo_padding: logoPadding
+                brands: selectedBrands  // Each brand uses its own saved config
             })
         });
         

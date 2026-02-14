@@ -64,6 +64,31 @@ def init_db():
         )
     ''')
     
+    # Brand configurations table - per-brand persistent settings
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS brand_configs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            brand_name TEXT UNIQUE NOT NULL,
+            user_id TEXT,
+            watermark_scale REAL DEFAULT 1.15,
+            watermark_opacity REAL DEFAULT 0.4,
+            logo_scale REAL DEFAULT 0.15,
+            logo_padding INTEGER DEFAULT 40,
+            text_enabled INTEGER DEFAULT 0,
+            text_content TEXT DEFAULT '',
+            text_position TEXT DEFAULT 'bottom',
+            text_size INTEGER DEFAULT 48,
+            text_color TEXT DEFAULT '#FFFFFF',
+            text_font TEXT DEFAULT 'Arial',
+            text_bg_enabled INTEGER DEFAULT 1,
+            text_bg_color TEXT DEFAULT '#000000',
+            text_bg_opacity REAL DEFAULT 0.6,
+            text_margin INTEGER DEFAULT 40,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    ''')
+    
     conn.commit()
     conn.close()
     print("[DATABASE] Database initialized successfully")
@@ -198,6 +223,130 @@ def remove_from_queue(job_id):
     c.execute('DELETE FROM queue WHERE job_id = ?', (job_id,))
     conn.commit()
     conn.close()
+
+# ============================================================================
+# BRAND CONFIG FUNCTIONS
+# ============================================================================
+
+def get_brand_config(brand_name):
+    """Get brand configuration by name"""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('SELECT * FROM brand_configs WHERE brand_name = ?', (brand_name,))
+    row = c.fetchone()
+    conn.close()
+    
+    if row:
+        return dict(row)
+    
+    # Return defaults if no saved config
+    return {
+        'brand_name': brand_name,
+        'watermark_scale': 1.15,
+        'watermark_opacity': 0.4,
+        'logo_scale': 0.15,
+        'logo_padding': 40,
+        'text_enabled': 0,
+        'text_content': '',
+        'text_position': 'bottom',
+        'text_size': 48,
+        'text_color': '#FFFFFF',
+        'text_font': 'Arial',
+        'text_bg_enabled': 1,
+        'text_bg_color': '#000000',
+        'text_bg_opacity': 0.6,
+        'text_margin': 40
+    }
+
+def save_brand_config(brand_name, config):
+    """Save or update brand configuration"""
+    conn = get_db()
+    c = conn.cursor()
+    now = datetime.utcnow().isoformat()
+    
+    # Check if exists
+    c.execute('SELECT id FROM brand_configs WHERE brand_name = ?', (brand_name,))
+    exists = c.fetchone()
+    
+    if exists:
+        # Update
+        c.execute('''
+            UPDATE brand_configs SET
+                watermark_scale = ?,
+                watermark_opacity = ?,
+                logo_scale = ?,
+                logo_padding = ?,
+                text_enabled = ?,
+                text_content = ?,
+                text_position = ?,
+                text_size = ?,
+                text_color = ?,
+                text_font = ?,
+                text_bg_enabled = ?,
+                text_bg_color = ?,
+                text_bg_opacity = ?,
+                text_margin = ?,
+                updated_at = ?
+            WHERE brand_name = ?
+        ''', (
+            config.get('watermark_scale', 1.15),
+            config.get('watermark_opacity', 0.4),
+            config.get('logo_scale', 0.15),
+            config.get('logo_padding', 40),
+            1 if config.get('text_enabled') else 0,
+            config.get('text_content', ''),
+            config.get('text_position', 'bottom'),
+            config.get('text_size', 48),
+            config.get('text_color', '#FFFFFF'),
+            config.get('text_font', 'Arial'),
+            1 if config.get('text_bg_enabled', True) else 0,
+            config.get('text_bg_color', '#000000'),
+            config.get('text_bg_opacity', 0.6),
+            config.get('text_margin', 40),
+            now,
+            brand_name
+        ))
+    else:
+        # Insert
+        c.execute('''
+            INSERT INTO brand_configs (
+                brand_name, watermark_scale, watermark_opacity, logo_scale, logo_padding,
+                text_enabled, text_content, text_position, text_size, text_color,
+                text_font, text_bg_enabled, text_bg_color, text_bg_opacity, text_margin,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            brand_name,
+            config.get('watermark_scale', 1.15),
+            config.get('watermark_opacity', 0.4),
+            config.get('logo_scale', 0.15),
+            config.get('logo_padding', 40),
+            1 if config.get('text_enabled') else 0,
+            config.get('text_content', ''),
+            config.get('text_position', 'bottom'),
+            config.get('text_size', 48),
+            config.get('text_color', '#FFFFFF'),
+            config.get('text_font', 'Arial'),
+            1 if config.get('text_bg_enabled', True) else 0,
+            config.get('text_bg_color', '#000000'),
+            config.get('text_bg_opacity', 0.6),
+            config.get('text_margin', 40),
+            now,
+            now
+        ))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+def get_all_brand_configs():
+    """Get all brand configurations"""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('SELECT * FROM brand_configs ORDER BY brand_name')
+    rows = c.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 # Initialize database on import
 init_db()
