@@ -302,7 +302,8 @@
     </div>
     
     <!-- Brand Selection -->
-    <h3>Select Brand</h3>
+    <h3>Select Brands (Multi-select)</h3>
+    <p style="color:#666; font-size:12px; margin:5px 0 10px;">💡 Click multiple brands - settings apply to all</p>
     <div class="brand-grid" id="brandsBox">Loading...</div>
     
     <!-- Watermark Controls -->
@@ -312,7 +313,7 @@
             <span class="slider-label">Scale</span>
             <span class="slider-value" id="wmScaleVal">115%</span>
         </div>
-        <input type="range" id="wmScale" min="100" max="150" value="115">
+        <input type="range" id="wmScale" min="100" max="200" value="115">
     </div>
     <div class="slider-group">
         <div class="slider-header">
@@ -371,7 +372,7 @@ const apiBase = window.location.origin;
 
 // ========== STATE ==========
 let currentFile = null;
-let selectedBrand = null;
+let selectedBrands = [];  // Multi-brand support
 let frameData = null;
 let watermarkImg = null;
 let logoImg = null;
@@ -583,14 +584,20 @@ async function loadBrands() {
 }
 
 function selectBrand(brandName, btnEl) {
-    // Deselect all
-    document.querySelectorAll('.brand-btn').forEach(b => b.classList.remove('selected'));
-    // Select this one
-    btnEl.classList.add('selected');
-    selectedBrand = brandName;
+    // Toggle brand selection (multi-select)
+    const idx = selectedBrands.indexOf(brandName);
+    if (idx > -1) {
+        selectedBrands.splice(idx, 1);  // Deselect
+        btnEl.classList.remove('selected');
+    } else {
+        selectedBrands.push(brandName);  // Select
+        btnEl.classList.add('selected');
+    }
     
-    // Load brand assets for preview
-    loadBrandAssets(brandName);
+    // Load brand assets for preview (use first selected brand)
+    if (selectedBrands.length > 0) {
+        loadBrandAssets(selectedBrands[0]);
+    }
 }
 
 async function loadBrandAssets(brandName) {
@@ -692,8 +699,8 @@ async function processBrands() {
         return;
     }
     
-    if (!selectedBrand) {
-        result.innerHTML = '<div class="status-msg error">Select a brand</div>';
+    if (selectedBrands.length === 0) {
+        result.innerHTML = '<div class="status-msg error">Select at least one brand</div>';
         return;
     }
     
@@ -713,7 +720,7 @@ async function processBrands() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 source_path: currentFile,
-                brands: [selectedBrand],
+                brands: selectedBrands,  // Send all selected brands
                 watermark_scale: watermarkScale,
                 watermark_opacity: watermarkOpacity,
                 logo_scale: logoScale,
