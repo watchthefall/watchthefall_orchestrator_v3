@@ -81,6 +81,8 @@ class VideoProcessor:
     
     # Watermark full-frame opacity (40%)
     WATERMARK_OPACITY = 0.4
+    # Watermark scale multiplier (1.0 = exact frame size, >1.0 = overscale to compensate for PNG padding)
+    WATERMARK_SCALE = 1.15  # 15% overscale to fill frame when PNG has internal padding
     # Logo sizing (15% of video width)
     LOGO_SCALE = 0.15
     # Logo padding from edges (pixels)
@@ -249,14 +251,19 @@ class VideoProcessor:
         watermark_path = self.resolve_watermark_path(brand_name)
         if watermark_path:
             print(f"[DEBUG] Adding full-frame watermark: {watermark_path}")
-            # Scale watermark to video dimensions (injected from Python, not symbolic W:H)
+            # Scale watermark with multiplier to compensate for internal PNG padding
+            # Scale multiplier controlled by WATERMARK_SCALE (default 1.15 = 15% overscale)
             # W:H only exists in overlay context, not inside movie= source chain
-            # Apply 40% opacity via geq filter
+            scaled_width = int(width * self.WATERMARK_SCALE)
+            scaled_height = int(height * self.WATERMARK_SCALE)
+            # Center the overscaled watermark to maintain visual balance
+            offset_x = (scaled_width - width) // 2
+            offset_y = (scaled_height - height) // 2
             opacity = self.WATERMARK_OPACITY
-            filters.append(f"movie='{watermark_path}',scale={width}:{height},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{opacity}*alpha(X,Y)'[watermark]")
-            filters.append(f"[{current_input}][watermark]overlay=0:0[v1]")
+            filters.append(f"movie='{watermark_path}',scale={scaled_width}:{scaled_height},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{opacity}*alpha(X,Y)'[watermark]")
+            filters.append(f"[{current_input}][watermark]overlay=-{offset_x}:-{offset_y}[v1]")
             current_input = 'v1'
-            print(f"[DEBUG] Watermark overlay added (full-frame {width}x{height}, {int(opacity*100)}% opacity)")
+            print(f"[DEBUG] Watermark overlay added (overscaled {scaled_width}x{scaled_height} @ {int(self.WATERMARK_SCALE*100)}%, {int(opacity*100)}% opacity)")
         else:
             print(f"[WARNING] No watermark found for {brand_name}, skipping watermark overlay")
         

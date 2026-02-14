@@ -331,6 +331,9 @@ def process_branded_videos():
         data = request.get_json(force=True) or {}
         url = data.get('url')
         selected_brands = data.get('brands', [])
+        
+        # Optional watermark scale override (default 1.15 = 15% overscale)
+        watermark_scale = data.get('watermark_scale', 1.15)
 
         # NEW: accept source_path for local downloaded files
         source_path = data.get("source_path")
@@ -520,6 +523,12 @@ def process_branded_videos():
         
         # 3. Process video with selected brands ONE AT A TIME
         processor = VideoProcessor(normalized_video_path, OUTPUT_DIR)
+        
+        # Apply watermark scale override if provided
+        if watermark_scale != 1.15:  # Only override if different from default
+            processor.WATERMARK_SCALE = watermark_scale
+            print(f"[PROCESS BRANDS] Using custom watermark scale: {watermark_scale}x")
+        
         output_paths = []
         
         total_brands = len(selected_brand_configs)
