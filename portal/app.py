@@ -304,7 +304,7 @@ def downloader_dashboard():
 
 @app.route("/portal")
 def portal_home():
-    return downloader_dashboard()
+    return dashboard()  # Use new canvas UI
 
 @app.route('/portal/test')
 def test_page():
