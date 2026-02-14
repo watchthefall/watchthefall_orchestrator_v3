@@ -301,9 +301,18 @@
         <div class="watermark-bounds" id="watermarkBounds"></div>
     </div>
     
-    <!-- Brand Selection -->
-    <h3>Select Brands (Multi-select)</h3>
-    <p style="color:#666; font-size:12px; margin:5px 0 10px;">💡 Click multiple brands - settings apply to all</p>
+    <!-- Queue Mode Header (hidden by default) -->
+    <div id="queueModeHeader" style="display:none; text-align:center; margin-bottom:15px;">
+        <div id="queueProgress" style="font-size:14px; color:#888; margin-bottom:5px;">Brand 1 of 3</div>
+        <div id="queueProgressDots" style="font-size:20px; letter-spacing:8px; margin-bottom:8px;"></div>
+        <h2 id="currentBrandName" style="color:#00b7ff; margin:0; font-size:22px;">ScotlandWTF</h2>
+    </div>
+    
+    <!-- Selection Mode Header (shown by default) -->
+    <div id="selectionModeHeader">
+        <h3>Select Brands (Multi-select)</h3>
+        <p style="color:#666; font-size:12px; margin:5px 0 10px;">💡 Click multiple brands, then Start Branding</p>
+    </div>
     <div class="brand-grid" id="brandsBox">Loading...</div>
     
     <!-- Watermark Controls -->
@@ -405,13 +414,21 @@
         </div>
     </div>
     
-    <!-- Save Config Button -->
-    <button onclick="saveBrandConfig()" id="saveConfigBtn" style="background:#28a745; margin-top:15px;">💾 Save Brand Config</button>
-    <div id="saveResult" style="margin-top:5px;"></div>
+    <!-- Selection Mode Button -->
+    <div id="selectionModeActions">
+        <button onclick="enterQueueMode()" id="startBrandingBtn" style="background:#00b7ff; margin-top:15px;">🚀 Start Branding</button>
+    </div>
     
-    <!-- Process Button -->
-    <button onclick="processBrands()" id="processBtn">⚡ Apply Branding</button>
-    <div id="processResult"></div>
+    <!-- Queue Mode Actions (hidden by default) -->
+    <div id="queueModeActions" style="display:none;">
+        <button onclick="confirmAndDownload()" id="confirmBtn" style="background:#28a745;">⚡ Process & Download</button>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <button onclick="skipBrand()" style="flex:1; background:#666;">Skip</button>
+            <button onclick="cancelQueue()" style="flex:1; background:#c00;">Cancel All</button>
+        </div>
+    </div>
+    
+    <div id="processResult" style="margin-top:10px;"></div>
 </div>
 
 <!-- ========== SECTION 3: DEBUG (Collapsed) ========== -->
@@ -445,6 +462,11 @@ let logoDragging = false;
 let logoX = 0;
 let logoY = 0;
 let logoDragStart = { x: 0, y: 0 };
+
+// ========== QUEUE MODE STATE ==========
+let isQueueMode = false;
+let processingQueue = [];
+let currentQueueIndex = 0;
 
 // ========== CANVAS PREVIEW ==========
 const canvas = document.getElementById('previewCanvas');
@@ -762,55 +784,6 @@ async function loadBrandConfig(brandName) {
     }
 }
 
-async function saveBrandConfig() {
-    if (selectedBrands.length === 0) {
-        document.getElementById('saveResult').innerHTML = '<div class="status-msg error">Select a brand first</div>';
-        return;
-    }
-    
-    const brandName = selectedBrands[0];  // Save config for first selected brand
-    const btn = document.getElementById('saveConfigBtn');
-    const result = document.getElementById('saveResult');
-    
-    btn.disabled = true;
-    btn.textContent = 'Saving...';
-    
-    const config = {
-        watermark_scale: parseInt(document.getElementById('wmScale').value) / 100,
-        watermark_opacity: parseInt(document.getElementById('wmOpacity').value) / 100,
-        logo_scale: parseInt(document.getElementById('logoScale').value) / 100,
-        logo_padding: parseInt(document.getElementById('logoPadding').value),
-        text_enabled: document.getElementById('textEnabled').checked,
-        text_content: document.getElementById('textContent').value,
-        text_position: document.getElementById('textPosition').value,
-        text_size: parseInt(document.getElementById('textSize').value),
-        text_color: document.getElementById('textColor').value,
-        text_bg_enabled: document.getElementById('textBgEnabled').checked,
-        text_bg_opacity: parseInt(document.getElementById('textBgOpacity').value) / 100
-    };
-    
-    try {
-        const res = await fetch(`${apiBase}/api/brands/${brandName}/config`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(config)
-        });
-        
-        const data = await res.json();
-        
-        if (data.success) {
-            result.innerHTML = `<div class="status-msg success">✅ Saved ${brandName}</div>`;
-        } else {
-            throw new Error(data.error || 'Save failed');
-        }
-    } catch (err) {
-        result.innerHTML = `<div class="status-msg error">❌ ${err.message}</div>`;
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '💾 Save Brand Config';
-    }
-}
-
 async function loadBrandAssets(brandName) {
     // Load watermark
     watermarkImg = new Image();
@@ -826,6 +799,299 @@ async function loadBrandAssets(brandName) {
         updateCanvasPreview();
     };
     logoImg.src = `${apiBase}/api/preview/logo/${brandName}`;
+}
+
+// ========== QUEUE MODE FUNCTIONS ==========
+
+function enterQueueMode() {
+    const result = document.getElementById('processResult');
+    
+    if (!currentFile) {
+        result.innerHTML = '<div class="status-msg error">Download a video first</div>';
+        return;
+    }
+    
+    if (selectedBrands.length === 0) {
+        result.innerHTML = '<div class="status-msg error">Select at least one brand</div>';
+        return;
+    }
+    
+    // Initialize queue with selected brands (overrides loaded async)
+    processingQueue = selectedBrands.map(brandName => ({
+        brand_name: brandName,
+        overrides: null,  // Will be loaded from DB
+        status: 'pending'
+    }));
+    currentQueueIndex = 0;
+    isQueueMode = true;
+    
+    // Hide selection mode, show queue mode
+    document.getElementById('selectionModeHeader').style.display = 'none';
+    document.getElementById('brandsBox').style.display = 'none';
+    document.getElementById('selectionModeActions').style.display = 'none';
+    document.getElementById('queueModeHeader').style.display = 'block';
+    document.getElementById('queueModeActions').style.display = 'block';
+    result.innerHTML = '';
+    
+    // Show first brand
+    showCurrentBrandCard();
+}
+
+async function showCurrentBrandCard() {
+    const current = processingQueue[currentQueueIndex];
+    const total = processingQueue.length;
+    
+    // Update progress header
+    document.getElementById('queueProgress').textContent = `Brand ${currentQueueIndex + 1} of ${total}`;
+    document.getElementById('currentBrandName').textContent = current.brand_name;
+    
+    // Update progress dots
+    let dots = '';
+    for (let i = 0; i < total; i++) {
+        const item = processingQueue[i];
+        if (item.status === 'processed') dots += '\u2713 ';  // Checkmark
+        else if (item.status === 'skipped') dots += '\u2212 ';  // Minus
+        else if (i === currentQueueIndex) dots += '\u25CF ';  // Filled circle
+        else dots += '\u25CB ';  // Empty circle
+    }
+    document.getElementById('queueProgressDots').textContent = dots;
+    
+    // Load brand assets for preview
+    await loadBrandAssets(current.brand_name);
+    
+    // Load brand defaults from DB if not already loaded
+    if (!current.overrides) {
+        try {
+            const res = await fetch(`${apiBase}/api/brands/${current.brand_name}/config`);
+            const data = await res.json();
+            
+            if (data.success && data.config) {
+                current.overrides = {
+                    watermark_scale: data.config.watermark_scale || 1.15,
+                    watermark_opacity: data.config.watermark_opacity || 0.4,
+                    logo_scale: data.config.logo_scale || 0.15,
+                    logo_padding: data.config.logo_padding || 40,
+                    text_enabled: !!data.config.text_enabled,
+                    text_content: data.config.text_content || '',
+                    text_position: data.config.text_position || 'bottom',
+                    text_size: data.config.text_size || 48,
+                    text_color: data.config.text_color || '#FFFFFF',
+                    text_bg_enabled: data.config.text_bg_enabled !== false,
+                    text_bg_opacity: data.config.text_bg_opacity || 0.6
+                };
+            } else {
+                // Use defaults if no saved config
+                current.overrides = getDefaultOverrides();
+            }
+        } catch (err) {
+            console.error('Failed to load brand config:', err);
+            current.overrides = getDefaultOverrides();
+        }
+    }
+    
+    // Load overrides into sliders
+    loadOverridesIntoSliders(current.overrides);
+}
+
+function getDefaultOverrides() {
+    return {
+        watermark_scale: 1.15,
+        watermark_opacity: 0.4,
+        logo_scale: 0.15,
+        logo_padding: 40,
+        text_enabled: false,
+        text_content: '',
+        text_position: 'bottom',
+        text_size: 48,
+        text_color: '#FFFFFF',
+        text_bg_enabled: true,
+        text_bg_opacity: 0.6
+    };
+}
+
+function loadOverridesIntoSliders(overrides) {
+    // Watermark
+    document.getElementById('wmScale').value = Math.round(overrides.watermark_scale * 100);
+    document.getElementById('wmScaleVal').textContent = Math.round(overrides.watermark_scale * 100) + '%';
+    document.getElementById('wmOpacity').value = Math.round(overrides.watermark_opacity * 100);
+    document.getElementById('wmOpacityVal').textContent = Math.round(overrides.watermark_opacity * 100) + '%';
+    
+    // Logo
+    document.getElementById('logoScale').value = Math.round(overrides.logo_scale * 100);
+    document.getElementById('logoScaleVal').textContent = Math.round(overrides.logo_scale * 100) + '%';
+    document.getElementById('logoPadding').value = overrides.logo_padding;
+    document.getElementById('logoPaddingVal').textContent = overrides.logo_padding + 'px';
+    
+    // Text layer
+    document.getElementById('textEnabled').checked = overrides.text_enabled;
+    document.getElementById('textContent').value = overrides.text_content;
+    document.getElementById('textPosition').value = overrides.text_position;
+    document.getElementById('textPosVal').textContent = overrides.text_position.charAt(0).toUpperCase() + overrides.text_position.slice(1);
+    document.getElementById('textSize').value = overrides.text_size;
+    document.getElementById('textSizeVal').textContent = overrides.text_size + 'px';
+    document.getElementById('textColor').value = overrides.text_color;
+    document.getElementById('textColorVal').textContent = overrides.text_color;
+    document.getElementById('textBgEnabled').checked = overrides.text_bg_enabled;
+    document.getElementById('textBgOpacity').value = Math.round(overrides.text_bg_opacity * 100);
+    document.getElementById('textBgOpacityVal').textContent = Math.round(overrides.text_bg_opacity * 100) + '%';
+    
+    // Show/hide text controls
+    document.getElementById('textControls').style.display = overrides.text_enabled ? 'block' : 'none';
+    
+    // Reset logo position and update preview
+    logoX = 0; logoY = 0;
+    updateCanvasPreview();
+}
+
+function saveCurrentOverridesFromSliders() {
+    const current = processingQueue[currentQueueIndex];
+    if (!current) return;
+    
+    current.overrides = {
+        watermark_scale: parseInt(document.getElementById('wmScale').value) / 100,
+        watermark_opacity: parseInt(document.getElementById('wmOpacity').value) / 100,
+        logo_scale: parseInt(document.getElementById('logoScale').value) / 100,
+        logo_padding: parseInt(document.getElementById('logoPadding').value),
+        text_enabled: document.getElementById('textEnabled').checked,
+        text_content: document.getElementById('textContent').value,
+        text_position: document.getElementById('textPosition').value,
+        text_size: parseInt(document.getElementById('textSize').value),
+        text_color: document.getElementById('textColor').value,
+        text_bg_enabled: document.getElementById('textBgEnabled').checked,
+        text_bg_opacity: parseInt(document.getElementById('textBgOpacity').value) / 100
+    };
+}
+
+async function confirmAndDownload() {
+    const current = processingQueue[currentQueueIndex];
+    const btn = document.getElementById('confirmBtn');
+    const result = document.getElementById('processResult');
+    
+    // Save current slider state to this brand's overrides
+    saveCurrentOverridesFromSliders();
+    
+    btn.disabled = true;
+    btn.textContent = 'Processing...';
+    result.innerHTML = `<div class="status-msg info">\u23F3 Processing ${current.brand_name}...</div>`;
+    
+    try {
+        // Process THIS brand with ITS overrides
+        const res = await fetch(`${apiBase}/api/videos/process_brands`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                source_path: currentFile,
+                brands: [current.brand_name],
+                // Send per-brand overrides
+                watermark_scale: current.overrides.watermark_scale,
+                watermark_opacity: current.overrides.watermark_opacity,
+                logo_scale: current.overrides.logo_scale,
+                logo_padding: current.overrides.logo_padding,
+                text_enabled: current.overrides.text_enabled,
+                text_content: current.overrides.text_content,
+                text_position: current.overrides.text_position,
+                text_size: current.overrides.text_size,
+                text_color: current.overrides.text_color,
+                text_bg_enabled: current.overrides.text_bg_enabled,
+                text_bg_opacity: current.overrides.text_bg_opacity
+            })
+        });
+        
+        const data = await res.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Processing failed');
+        }
+        
+        // Mark as processed
+        current.status = 'processed';
+        
+        // Trigger download
+        if (data.outputs && data.outputs[0]) {
+            const downloadUrl = data.outputs[0].download_url;
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = '';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        result.innerHTML = `<div class="status-msg success">\u2705 ${current.brand_name} done!</div>`;
+        
+        // Brief delay before advancing
+        await new Promise(r => setTimeout(r, 800));
+        
+        // Advance to next brand
+        advanceQueue();
+        
+    } catch (err) {
+        current.status = 'error';
+        result.innerHTML = `<div class="status-msg error">\u274C ${current.brand_name}: ${err.message}</div>
+                            <button onclick="retryCurrentBrand()" style="margin-top:10px; background:#f90;">Retry</button>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '\u26A1 Process & Download';
+    }
+}
+
+function retryCurrentBrand() {
+    const current = processingQueue[currentQueueIndex];
+    current.status = 'pending';
+    document.getElementById('processResult').innerHTML = '';
+}
+
+function skipBrand() {
+    processingQueue[currentQueueIndex].status = 'skipped';
+    advanceQueue();
+}
+
+function advanceQueue() {
+    currentQueueIndex++;
+    
+    if (currentQueueIndex >= processingQueue.length) {
+        exitQueueMode();
+    } else {
+        showCurrentBrandCard();
+    }
+}
+
+function cancelQueue() {
+    processingQueue = [];
+    currentQueueIndex = 0;
+    exitQueueMode();
+}
+
+function exitQueueMode() {
+    isQueueMode = false;
+    
+    // Show selection mode, hide queue mode
+    document.getElementById('selectionModeHeader').style.display = 'block';
+    document.getElementById('brandsBox').style.display = 'grid';
+    document.getElementById('selectionModeActions').style.display = 'block';
+    document.getElementById('queueModeHeader').style.display = 'none';
+    document.getElementById('queueModeActions').style.display = 'none';
+    
+    // Show completion summary
+    const result = document.getElementById('processResult');
+    const processed = processingQueue.filter(q => q.status === 'processed').length;
+    const skipped = processingQueue.filter(q => q.status === 'skipped').length;
+    
+    if (processingQueue.length > 0) {
+        result.innerHTML = `<div class="status-msg success">\u2705 Completed: ${processed} processed, ${skipped} skipped</div>`;
+    } else {
+        result.innerHTML = '';
+    }
+    
+    // Reset queue
+    processingQueue = [];
+    currentQueueIndex = 0;
+    
+    // Clear brand selections
+    selectedBrands = [];
+    document.querySelectorAll('.brand-btn.selected').forEach(btn => {
+        btn.classList.remove('selected');
+    });
 }
 
 // ========== DOWNLOAD VIDEO ==========
@@ -897,57 +1163,6 @@ async function extractFrame(filename) {
         }
     } catch (err) {
         console.error('Frame extraction failed:', err);
-    }
-}
-
-// ========== PROCESS BRANDING ==========
-async function processBrands() {
-    const btn = document.getElementById('processBtn');
-    const result = document.getElementById('processResult');
-    
-    if (!currentFile) {
-        result.innerHTML = '<div class="status-msg error">Download a video first</div>';
-        return;
-    }
-    
-    if (selectedBrands.length === 0) {
-        result.innerHTML = '<div class="status-msg error">Select at least one brand</div>';
-        return;
-    }
-    
-    btn.disabled = true;
-    btn.textContent = 'Processing...';
-    result.innerHTML = '<div class="status-msg info">⏳ Applying branding (using saved configs)...</div>';
-    
-    try {
-        // Backend uses saved config per brand - no need to send slider values
-        const res = await fetch(`${apiBase}/api/videos/process_brands`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                source_path: currentFile,
-                brands: selectedBrands  // Each brand uses its own saved config
-            })
-        });
-        
-        const data = await res.json();
-        
-        if (!data.success) {
-            throw new Error(data.error || 'Processing failed');
-        }
-        
-        // Show download links
-        let html = '<div class="status-msg success">✅ Done!</div>';
-        data.outputs.forEach(o => {
-            html += `<a class="download-link" href="${o.download_url}" download>⬇ Download ${o.brand}</a>`;
-        });
-        result.innerHTML = html;
-        
-    } catch (err) {
-        result.innerHTML = `<div class="status-msg error">❌ ${err.message}</div>`;
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '⚡ Apply Branding';
     }
 }
 
