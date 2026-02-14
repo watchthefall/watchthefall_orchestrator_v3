@@ -2,21 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>WTF Downloader – Simple Video Downloader</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WTF Brand Studio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
 <style>
+    * { box-sizing: border-box; }
     body {
         background: #000;
         color: #fff;
-        font-family: Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
         margin: 0;
-        padding: 0;
+        padding: 0 0 100px 0;
+        -webkit-tap-highlight-color: transparent;
     }
     h1 {
         text-align: center;
-        margin-top: 25px;
-        font-size: 32px;
+        margin: 20px 0 15px;
+        font-size: 28px;
         letter-spacing: 2px;
         text-shadow: 0 0 8px #00b7ff;
     }
@@ -24,46 +26,36 @@
         position: relative;
         display: inline-block;
     }
-    .glitch::before,
-    .glitch::after {
-        content: attr(data-text);
-        position: absolute;
-        opacity: 0.6;
-    }
-    .glitch::before {
-        left: 2px;
-        text-shadow: -2px 0 red;
-    }
-    .glitch::after {
-        left: -2px;
-        text-shadow: -2px 0 cyan;
-    }
-
     .section {
-        width: 90%;
-        max-width: 700px;
-        margin: 20px auto;
+        width: 94%;
+        max-width: 500px;
+        margin: 15px auto;
         background: #111;
-        padding: 20px;
+        padding: 18px;
         border-radius: 12px;
         box-shadow: 0 0 12px #00b7ff33;
     }
-
     h2 {
-        margin-top: 0;
+        margin: 0 0 12px;
+        font-size: 18px;
         border-bottom: 1px solid #333;
-        padding-bottom: 5px;
+        padding-bottom: 8px;
     }
-
+    h3 {
+        margin: 18px 0 10px;
+        font-size: 15px;
+        color: #00b7ff;
+    }
     input[type="text"] {
         width: 100%;
-        padding: 12px;
-        margin: 10px 0;
+        padding: 14px;
+        margin: 8px 0;
         border-radius: 8px;
         border: none;
         font-size: 16px;
+        background: #222;
+        color: #fff;
     }
-
     button {
         width: 100%;
         padding: 14px;
@@ -72,258 +64,724 @@
         background: #00b7ff;
         color: #000;
         border-radius: 8px;
-        font-size: 18px;
+        font-size: 16px;
+        font-weight: bold;
         cursor: pointer;
+        transition: background 0.2s;
     }
-    button:hover {
+    button:hover, button:active {
         background: #0098d8;
     }
-
-    .brand-list label {
-        display: block;
-        margin: 6px 0;
+    button:disabled {
+        background: #333;
+        color: #666;
+        cursor: not-allowed;
     }
-
+    .brand-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin: 10px 0;
+    }
+    .brand-btn {
+        padding: 12px 8px;
+        background: #222;
+        border: 2px solid #333;
+        border-radius: 8px;
+        color: #fff;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: center;
+    }
+    .brand-btn.selected {
+        background: #003355;
+        border-color: #00b7ff;
+        color: #00b7ff;
+    }
+    .brand-btn:active {
+        transform: scale(0.98);
+    }
+    
+    /* ========== PREVIEW CANVAS ========== */
+    #previewSection {
+        display: none;
+    }
+    .preview-container {
+        position: relative;
+        width: 100%;
+        max-width: 360px;
+        margin: 0 auto;
+        background: #000;
+        border: 2px dashed #333;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    #previewCanvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        touch-action: none;
+    }
+    .watermark-bounds {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        border: 2px dashed rgba(0, 183, 255, 0.4);
+        pointer-events: none;
+        display: none;
+    }
+    .watermark-bounds.visible {
+        display: block;
+    }
+    
+    /* ========== SLIDERS ========== */
+    .slider-group {
+        margin: 15px 0;
+    }
+    .slider-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    .slider-label {
+        font-size: 14px;
+        color: #aaa;
+    }
+    .slider-value {
+        font-weight: bold;
+        color: #00b7ff;
+        min-width: 50px;
+        text-align: right;
+    }
+    input[type="range"] {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 8px;
+        background: #333;
+        border-radius: 4px;
+        outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 24px;
+        height: 24px;
+        background: #00b7ff;
+        border-radius: 50%;
+        cursor: pointer;
+        border: 2px solid #fff;
+    }
+    input[type="range"]::-moz-range-thumb {
+        width: 24px;
+        height: 24px;
+        background: #00b7ff;
+        border-radius: 50%;
+        cursor: pointer;
+        border: 2px solid #fff;
+    }
+    
+    /* ========== TOGGLE SWITCHES ========== */
+    .toggle-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid #222;
+    }
+    .toggle-switch {
+        position: relative;
+        width: 50px;
+        height: 28px;
+    }
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: #333;
+        transition: 0.3s;
+        border-radius: 28px;
+    }
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 22px;
+        width: 22px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: 0.3s;
+        border-radius: 50%;
+    }
+    input:checked + .toggle-slider {
+        background-color: #00b7ff;
+    }
+    input:checked + .toggle-slider:before {
+        transform: translateX(22px);
+    }
+    
+    /* ========== RESULTS ========== */
     .download-link {
         display: block;
-        padding: 8px;
-        margin-top: 6px;
+        padding: 14px;
+        margin-top: 8px;
         background: #0099cc;
         color: white;
         text-align: center;
-        border-radius: 6px;
+        border-radius: 8px;
         text-decoration: none;
+        font-weight: bold;
     }
-    .download-link:hover {
+    .download-link:active {
         background: #007faa;
     }
-
-    .mono {
-        font-family: monospace;
-        white-space: pre-wrap;
-        background: #000;
-        padding: 10px;
-        border-radius: 6px;
-        font-size: 13px;
-        line-height: 1.3;
+    .status-msg {
+        padding: 12px;
+        margin: 10px 0;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+    .status-msg.info { background: #1a3a4a; color: #7dd3fc; }
+    .status-msg.success { background: #1a4a2e; color: #86efac; }
+    .status-msg.error { background: #4a1a1a; color: #fca5a5; }
+    
+    /* ========== COLLAPSIBLE ========== */
+    .collapsible-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        padding: 10px 0;
+    }
+    .collapsible-header h2 {
+        margin: 0;
+        border: none;
+        padding: 0;
+    }
+    .collapse-icon {
+        font-size: 20px;
+        transition: transform 0.2s;
+    }
+    .collapsed .collapse-icon {
+        transform: rotate(-90deg);
+    }
+    .collapsible-content {
+        max-height: 1000px;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+    }
+    .collapsed .collapsible-content {
+        max-height: 0;
     }
 </style>
 </head>
 <body>
 
-<h1><span class="glitch" data-text="WATCH THE FALL">WATCH THE FALL</span></h1>
+<h1><span class="glitch">WTF STUDIO</span></h1>
 
-<!-- =======================
-     SECTION 1 — PROCESS
-======================== -->
+<!-- ========== SECTION 1: DOWNLOAD ========== -->
 <div class="section">
-    <h2>1. Process a Video</h2>
-
-    <input id="videoUrl" type="text" placeholder="Paste Instagram / TikTok / X link…">
-    <button onclick="fetchVideo()">⬇ Download Video</button>
+    <h2>1. Get Video</h2>
+    <input id="videoUrl" type="text" placeholder="Paste TikTok / Instagram / X link...">
+    <button onclick="fetchVideo()" id="downloadBtn">⬇ Download</button>
     <div id="downloadStatus"></div>
+</div>
 
-    <h3>Select Brand Templates</h3>
-    <div class="brand-list" id="brandsBox">Loading…</div>
+<!-- ========== SECTION 2: PREVIEW & CONFIGURE ========== -->
+<div class="section" id="previewSection">
+    <h2>2. Configure Branding</h2>
     
-    <h3>🔍 Watermark Size</h3>
-    <div style="display: flex; align-items: center; gap: 15px; margin: 15px 0;">
-        <input type="range" id="watermarkScale" min="1.0" max="1.5" step="0.05" value="1.15" 
-               style="flex: 1; height: 8px; background: #333; border-radius: 5px; outline: none; cursor: pointer;">
-        <span id="scaleValue" style="min-width: 60px; text-align: right; font-weight: bold; color: #00b7ff;">1.15x</span>
+    <!-- Canvas Preview -->
+    <div class="preview-container" id="previewContainer">
+        <canvas id="previewCanvas" width="360" height="640"></canvas>
+        <div class="watermark-bounds" id="watermarkBounds"></div>
     </div>
-    <div style="color: #888; font-size: 13px; margin-top: -10px; margin-bottom: 15px;">
-        Adjust watermark coverage (1.0 = frame-exact, 1.5 = 50% larger)
+    
+    <!-- Brand Selection -->
+    <h3>Select Brand</h3>
+    <div class="brand-grid" id="brandsBox">Loading...</div>
+    
+    <!-- Watermark Controls -->
+    <h3>🔍 Watermark</h3>
+    <div class="slider-group">
+        <div class="slider-header">
+            <span class="slider-label">Scale</span>
+            <span class="slider-value" id="wmScaleVal">115%</span>
+        </div>
+        <input type="range" id="wmScale" min="100" max="150" value="115">
     </div>
-
-    <button onclick="processBrands()">⚡ Apply Brands</button>
-    <div id="processResult" class="mono" style="display:none;"></div>
+    <div class="slider-group">
+        <div class="slider-header">
+            <span class="slider-label">Opacity</span>
+            <span class="slider-value" id="wmOpacityVal">40%</span>
+        </div>
+        <input type="range" id="wmOpacity" min="10" max="80" value="40">
+    </div>
+    <div class="toggle-row">
+        <span class="slider-label">Show Bounds</span>
+        <label class="toggle-switch">
+            <input type="checkbox" id="showBounds">
+            <span class="toggle-slider"></span>
+        </label>
+    </div>
+    
+    <!-- Logo Controls -->
+    <h3>🏷️ Logo</h3>
+    <div class="slider-group">
+        <div class="slider-header">
+            <span class="slider-label">Size</span>
+            <span class="slider-value" id="logoScaleVal">15%</span>
+        </div>
+        <input type="range" id="logoScale" min="8" max="25" value="15">
+    </div>
+    <div class="slider-group">
+        <div class="slider-header">
+            <span class="slider-label">Padding</span>
+            <span class="slider-value" id="logoPaddingVal">40px</span>
+        </div>
+        <input type="range" id="logoPadding" min="10" max="80" value="40">
+    </div>
+    <p style="color:#666; font-size:12px; margin:5px 0;">💡 Drag logo on preview to reposition</p>
+    
+    <!-- Process Button -->
+    <button onclick="processBrands()" id="processBtn">⚡ Apply Branding</button>
+    <div id="processResult"></div>
 </div>
 
-<!-- =======================
-     SECTION 2 — RECENT DLs
-======================== -->
-<div class="section">
-    <h2>2. Recent Downloads</h2>
-    <div id="recentFiles" class="mono">Loading…</div>
-</div>
-
-<!-- =======================
-     SECTION 3 — SYSTEM STATUS
-======================== -->
-<div class="section">
-    <h2>3. System Status</h2>
-    <button onclick="loadSystemStatus()">Refresh Status</button>
-    <div id="systemStatus" class="mono">Awaiting refresh…</div>
-</div>
-
-<!-- =======================
-     SECTION 4 — BRAND CHECK
-======================== -->
-<div class="section">
-    <h2>4. Brand Integrity Check</h2>
-    <button onclick="loadBrandIntegrity()">Run Check</button>
-    <div id="brandIntegrity" class="mono">Awaiting check…</div>
+<!-- ========== SECTION 3: DEBUG (Collapsed) ========== -->
+<div class="section collapsed" id="debugSection">
+    <div class="collapsible-header" onclick="toggleSection('debugSection')">
+        <h2>Debug Tools</h2>
+        <span class="collapse-icon">▼</span>
+    </div>
+    <div class="collapsible-content">
+        <button onclick="loadSystemStatus()">System Status</button>
+        <div id="systemStatus" style="font-size:11px; margin-top:10px; color:#888;"></div>
+        <button onclick="loadBrandIntegrity()" style="margin-top:10px;">Brand Integrity</button>
+        <div id="brandIntegrity" style="font-size:11px; margin-top:10px; color:#888;"></div>
+    </div>
 </div>
 
 <script>
 const apiBase = window.location.origin;
 
-/* -----------------------------
-   WATERMARK SCALE SLIDER
------------------------------- */
-const scaleSlider = document.getElementById("watermarkScale");
-const scaleDisplay = document.getElementById("scaleValue");
+// ========== STATE ==========
+let currentFile = null;
+let selectedBrand = null;
+let frameData = null;
+let watermarkImg = null;
+let logoImg = null;
+let videoWidth = 720;
+let videoHeight = 1280;
 
-if (scaleSlider && scaleDisplay) {
-    scaleSlider.addEventListener("input", (e) => {
-        const val = parseFloat(e.target.value).toFixed(2);
-        scaleDisplay.textContent = `${val}x`;
-    });
+// Logo drag state
+let logoDragging = false;
+let logoX = 0;
+let logoY = 0;
+let logoDragStart = { x: 0, y: 0 };
+
+// ========== CANVAS PREVIEW ==========
+const canvas = document.getElementById('previewCanvas');
+const ctx = canvas.getContext('2d');
+
+function updateCanvasPreview() {
+    if (!ctx) return;
+    
+    // Clear canvas
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw frame (or placeholder)
+    if (frameData) {
+        const img = new Image();
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            drawOverlays();
+        };
+        img.src = frameData;
+    } else {
+        // Draw placeholder gradient
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, '#1a1a2e');
+        gradient.addColorStop(1, '#16213e');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#333';
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Download a video to preview', canvas.width/2, canvas.height/2);
+        drawOverlays();
+    }
 }
 
-/* -----------------------------
-   LOAD BRANDS
------------------------------- */
+function drawOverlays() {
+    const wmScale = parseInt(document.getElementById('wmScale').value) / 100;
+    const wmOpacity = parseInt(document.getElementById('wmOpacity').value) / 100;
+    const logoScalePct = parseInt(document.getElementById('logoScale').value) / 100;
+    const logoPad = parseInt(document.getElementById('logoPadding').value);
+    
+    // Draw watermark
+    if (watermarkImg && watermarkImg.complete) {
+        const scaledW = canvas.width * wmScale;
+        const scaledH = canvas.height * wmScale;
+        const offsetX = (scaledW - canvas.width) / 2;
+        const offsetY = (scaledH - canvas.height) / 2;
+        
+        ctx.globalAlpha = wmOpacity;
+        ctx.drawImage(watermarkImg, -offsetX, -offsetY, scaledW, scaledH);
+        ctx.globalAlpha = 1.0;
+    }
+    
+    // Draw logo
+    if (logoImg && logoImg.complete) {
+        const logoW = canvas.width * logoScalePct;
+        const logoH = (logoImg.height / logoImg.width) * logoW;
+        
+        // Scale padding relative to canvas
+        const scaledPad = (logoPad / 720) * canvas.width;
+        
+        // Default position: bottom-right
+        if (logoX === 0 && logoY === 0) {
+            logoX = canvas.width - logoW - scaledPad;
+            logoY = canvas.height - logoH - scaledPad;
+        }
+        
+        ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+        
+        // Store logo bounds for hit testing
+        canvas._logoBounds = { x: logoX, y: logoY, w: logoW, h: logoH };
+    }
+    
+    // Update watermark bounds outline
+    const showBounds = document.getElementById('showBounds').checked;
+    const boundsEl = document.getElementById('watermarkBounds');
+    if (showBounds && watermarkImg) {
+        const scaledW = canvas.width * wmScale;
+        const scaledH = canvas.height * wmScale;
+        const offsetX = (scaledW - canvas.width) / 2;
+        const offsetY = (scaledH - canvas.height) / 2;
+        
+        // Calculate visible bounds within canvas
+        const container = document.getElementById('previewContainer');
+        const rect = container.getBoundingClientRect();
+        const scaleRatio = rect.width / canvas.width;
+        
+        boundsEl.style.left = `${-offsetX * scaleRatio}px`;
+        boundsEl.style.top = `${-offsetY * scaleRatio}px`;
+        boundsEl.style.width = `${scaledW * scaleRatio}px`;
+        boundsEl.style.height = `${scaledH * scaleRatio}px`;
+        boundsEl.classList.add('visible');
+    } else {
+        boundsEl.classList.remove('visible');
+    }
+}
+
+// ========== LOGO DRAG ==========
+canvas.addEventListener('mousedown', startLogoDrag);
+canvas.addEventListener('mousemove', dragLogo);
+canvas.addEventListener('mouseup', endLogoDrag);
+canvas.addEventListener('mouseleave', endLogoDrag);
+
+// Touch support
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    startLogoDrag({ clientX: touch.clientX, clientY: touch.clientY });
+}, { passive: false });
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    dragLogo({ clientX: touch.clientX, clientY: touch.clientY });
+}, { passive: false });
+canvas.addEventListener('touchend', endLogoDrag);
+
+function getCanvasCoords(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+    };
+}
+
+function startLogoDrag(e) {
+    if (!canvas._logoBounds) return;
+    const pos = getCanvasCoords(e);
+    const b = canvas._logoBounds;
+    
+    if (pos.x >= b.x && pos.x <= b.x + b.w && pos.y >= b.y && pos.y <= b.y + b.h) {
+        logoDragging = true;
+        logoDragStart = { x: pos.x - logoX, y: pos.y - logoY };
+        canvas.style.cursor = 'grabbing';
+    }
+}
+
+function dragLogo(e) {
+    if (!logoDragging) return;
+    const pos = getCanvasCoords(e);
+    logoX = pos.x - logoDragStart.x;
+    logoY = pos.y - logoDragStart.y;
+    updateCanvasPreview();
+}
+
+function endLogoDrag() {
+    logoDragging = false;
+    canvas.style.cursor = 'default';
+}
+
+// ========== SLIDER LISTENERS ==========
+document.getElementById('wmScale').addEventListener('input', (e) => {
+    document.getElementById('wmScaleVal').textContent = e.target.value + '%';
+    updateCanvasPreview();
+});
+document.getElementById('wmOpacity').addEventListener('input', (e) => {
+    document.getElementById('wmOpacityVal').textContent = e.target.value + '%';
+    updateCanvasPreview();
+});
+document.getElementById('logoScale').addEventListener('input', (e) => {
+    document.getElementById('logoScaleVal').textContent = e.target.value + '%';
+    // Reset logo position when scale changes
+    logoX = 0; logoY = 0;
+    updateCanvasPreview();
+});
+document.getElementById('logoPadding').addEventListener('input', (e) => {
+    document.getElementById('logoPaddingVal').textContent = e.target.value + 'px';
+    logoX = 0; logoY = 0;
+    updateCanvasPreview();
+});
+document.getElementById('showBounds').addEventListener('change', updateCanvasPreview);
+
+// ========== LOAD BRANDS ==========
 async function loadBrands() {
-    const box = document.getElementById("brandsBox");
-    const res = await fetch(`${apiBase}/api/brands/list`);
-    const data = await res.json();
-
-    if (!data.success) {
-        box.innerHTML = "Error loading brands.";
-        return;
+    const box = document.getElementById('brandsBox');
+    try {
+        const res = await fetch(`${apiBase}/api/brands/list`);
+        const data = await res.json();
+        
+        if (!data.success) {
+            box.innerHTML = '<span style="color:#f66">Failed to load brands</span>';
+            return;
+        }
+        
+        box.innerHTML = '';
+        data.brands.forEach(b => {
+            const btn = document.createElement('div');
+            btn.className = 'brand-btn';
+            btn.textContent = b.display_name;
+            btn.dataset.brand = b.name;
+            btn.onclick = () => selectBrand(b.name, btn);
+            box.appendChild(btn);
+        });
+    } catch (err) {
+        box.innerHTML = '<span style="color:#f66">Error loading brands</span>';
     }
-
-    box.innerHTML = "";
-    data.brands.forEach(b => {
-        box.innerHTML += `
-            <label>
-                <input type="checkbox" value="${b.name}">
-                ${b.display_name}
-            </label>
-        `;
-    });
 }
 
-/* -----------------------------
-   DOWNLOAD VIDEO
------------------------------- */
+function selectBrand(brandName, btnEl) {
+    // Deselect all
+    document.querySelectorAll('.brand-btn').forEach(b => b.classList.remove('selected'));
+    // Select this one
+    btnEl.classList.add('selected');
+    selectedBrand = brandName;
+    
+    // Load brand assets for preview
+    loadBrandAssets(brandName);
+}
+
+async function loadBrandAssets(brandName) {
+    // Load watermark
+    watermarkImg = new Image();
+    watermarkImg.crossOrigin = 'anonymous';
+    watermarkImg.onload = updateCanvasPreview;
+    watermarkImg.src = `${apiBase}/api/preview/watermark/${brandName}`;
+    
+    // Load logo
+    logoImg = new Image();
+    logoImg.crossOrigin = 'anonymous';
+    logoImg.onload = () => {
+        logoX = 0; logoY = 0;  // Reset position
+        updateCanvasPreview();
+    };
+    logoImg.src = `${apiBase}/api/preview/logo/${brandName}`;
+}
+
+// ========== DOWNLOAD VIDEO ==========
 async function fetchVideo() {
-    const url = document.getElementById("videoUrl").value.trim();
-    const box = document.getElementById("downloadStatus");
-
+    const url = document.getElementById('videoUrl').value.trim();
+    const btn = document.getElementById('downloadBtn');
+    const status = document.getElementById('downloadStatus');
+    
     if (!url) {
-        box.innerHTML = "❌ Enter a URL.";
-        return;
-    }
-
-    box.innerHTML = "Downloading…";
-
-    const res = await fetch(`${apiBase}/api/videos/fetch`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls: [url] })
-    });
-
-    const data = await res.json();
-
-    if (!data.success) {
-        box.innerHTML = "❌ Download failed.";
-        return;
-    }
-
-    // Store the full path if available, otherwise use filename
-    const file = data.results[0].local_path || data.results[0].filename;
-    localStorage.setItem("last_downloaded_file", file);
-    updateRecentFiles();
-
-    box.innerHTML = `✅ Downloaded: <b>${file}</b>`;
-}
-/* -----------------------------
-   PROCESS VIDEO WITH BRANDS
------------------------------- */
-async function processBrands() {
-    const file = localStorage.getItem("last_downloaded_file");
-    const resultBox = document.getElementById("processResult");
-    resultBox.style.display = "block";
-
-    if (!file) {
-        resultBox.innerHTML = "❌ No downloaded file.";
-        return;
-    }
-
-    const selected = [...document.querySelectorAll(".brand-list input:checked")]
-        .map(cb => cb.value);
-
-    if (selected.length === 0) {
-        resultBox.innerHTML = "❌ Select at least one brand.";
+        status.innerHTML = '<div class="status-msg error">Enter a URL</div>';
         return;
     }
     
-    // Get watermark scale from slider
-    const watermarkScale = parseFloat(document.getElementById("watermarkScale").value);
+    btn.disabled = true;
+    btn.textContent = 'Downloading...';
+    status.innerHTML = '<div class="status-msg info">⏳ Fetching video...</div>';
+    
+    try {
+        const res = await fetch(`${apiBase}/api/videos/fetch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ urls: [url] })
+        });
+        
+        const data = await res.json();
+        
+        if (!data.success || !data.results[0]?.success) {
+            throw new Error(data.results?.[0]?.error || 'Download failed');
+        }
+        
+        currentFile = data.results[0].filename;
+        localStorage.setItem('last_downloaded_file', currentFile);
+        
+        status.innerHTML = `<div class="status-msg success">✅ Downloaded: ${currentFile}</div>`;
+        
+        // Show preview section
+        document.getElementById('previewSection').style.display = 'block';
+        
+        // Extract frame for preview
+        extractFrame(currentFile);
+        
+    } catch (err) {
+        status.innerHTML = `<div class="status-msg error">❌ ${err.message}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '⬇ Download';
+    }
+}
 
-    resultBox.innerHTML = `Processing with ${watermarkScale.toFixed(2)}x watermark scale…`;
+async function extractFrame(filename) {
+    try {
+        const res = await fetch(`${apiBase}/api/preview/extract-frame`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+            frameData = data.frame_data;
+            videoWidth = data.width;
+            videoHeight = data.height;
+            
+            // Adjust canvas aspect ratio
+            canvas.height = canvas.width * (videoHeight / videoWidth);
+            
+            updateCanvasPreview();
+        }
+    } catch (err) {
+        console.error('Frame extraction failed:', err);
+    }
+}
 
-    const res = await fetch(`${apiBase}/api/videos/process_brands`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            source_path: file,
-            brands: selected,
-            watermark_scale: watermarkScale
-        })
-    });
-
-    const data = await res.json();
-
-    if (!data.success) {
-        resultBox.innerHTML = "❌ Failed:<br>" + data.error;
+// ========== PROCESS BRANDING ==========
+async function processBrands() {
+    const btn = document.getElementById('processBtn');
+    const result = document.getElementById('processResult');
+    
+    if (!currentFile) {
+        result.innerHTML = '<div class="status-msg error">Download a video first</div>';
         return;
     }
-
-    resultBox.innerHTML = data.message + "\n\n";
-    data.outputs.forEach(o =>
-        resultBox.innerHTML += `⬇ <a class="download-link" href="${o.download_url}">${o.filename}</a>\n`
-    );
+    
+    if (!selectedBrand) {
+        result.innerHTML = '<div class="status-msg error">Select a brand</div>';
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = 'Processing...';
+    result.innerHTML = '<div class="status-msg info">⏳ Applying branding...</div>';
+    
+    // Get settings from sliders
+    const watermarkScale = parseInt(document.getElementById('wmScale').value) / 100;
+    const watermarkOpacity = parseInt(document.getElementById('wmOpacity').value) / 100;
+    const logoScale = parseInt(document.getElementById('logoScale').value) / 100;
+    const logoPadding = parseInt(document.getElementById('logoPadding').value);
+    
+    try {
+        const res = await fetch(`${apiBase}/api/videos/process_brands`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                source_path: currentFile,
+                brands: [selectedBrand],
+                watermark_scale: watermarkScale,
+                watermark_opacity: watermarkOpacity,
+                logo_scale: logoScale,
+                logo_padding: logoPadding
+            })
+        });
+        
+        const data = await res.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Processing failed');
+        }
+        
+        // Show download links
+        let html = '<div class="status-msg success">✅ Done!</div>';
+        data.outputs.forEach(o => {
+            html += `<a class="download-link" href="${o.download_url}" download>⬇ Download ${o.brand}</a>`;
+        });
+        result.innerHTML = html;
+        
+    } catch (err) {
+        result.innerHTML = `<div class="status-msg error">❌ ${err.message}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '⚡ Apply Branding';
+    }
 }
 
-/* -----------------------------
-   RECENT FILES
------------------------------- */
-function updateRecentFiles() {
-    const file = localStorage.getItem("last_downloaded_file");
-    const box = document.getElementById("recentFiles");
-    if (!file) box.innerHTML = "No recent files.";
-    else box.innerHTML = "• " + file;
+// ========== UTILITY ==========
+function toggleSection(id) {
+    document.getElementById(id).classList.toggle('collapsed');
 }
 
-/* -----------------------------
-   SYSTEM STATUS
------------------------------- */
 async function loadSystemStatus() {
-    const box = document.getElementById("systemStatus");
-    box.innerHTML = "Checking…";
-    const res = await fetch(`${apiBase}/__debug_health`);
-    const data = await res.json();
-    box.innerHTML = JSON.stringify(data, null, 2);
+    const box = document.getElementById('systemStatus');
+    box.textContent = 'Checking...';
+    try {
+        const res = await fetch(`${apiBase}/__debug_health`);
+        const data = await res.json();
+        box.textContent = JSON.stringify(data, null, 2);
+    } catch (e) {
+        box.textContent = 'Error: ' + e.message;
+    }
 }
 
-/* -----------------------------
-   BRAND INTEGRITY
------------------------------- */
 async function loadBrandIntegrity() {
-    const box = document.getElementById("brandIntegrity");
-    box.innerHTML = "Checking…";
-    const res = await fetch(`${apiBase}/api/debug/brand-integrity`);
-    const data = await res.json();
-    box.innerHTML = JSON.stringify(data, null, 2);
+    const box = document.getElementById('brandIntegrity');
+    box.textContent = 'Checking...';
+    try {
+        const res = await fetch(`${apiBase}/api/debug/brand-integrity`);
+        const data = await res.json();
+        box.textContent = JSON.stringify(data, null, 2);
+    } catch (e) {
+        box.textContent = 'Error: ' + e.message;
+    }
 }
 
-/* Init */
+// ========== INIT ==========
 loadBrands();
-updateRecentFiles();
+updateCanvasPreview();
+
+// Check for previously downloaded file
+const lastFile = localStorage.getItem('last_downloaded_file');
+if (lastFile) {
+    currentFile = lastFile;
+    document.getElementById('previewSection').style.display = 'block';
+    extractFrame(lastFile);
+}
 </script>
 
 </body>

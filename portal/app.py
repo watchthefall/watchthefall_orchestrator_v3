@@ -3,6 +3,7 @@ WatchTheFall Portal - Flask Application
 """
 from flask import Flask, request, jsonify, render_template, send_from_directory
 import os
+import json
 import uuid
 from werkzeug.utils import secure_filename
 import subprocess
@@ -332,8 +333,11 @@ def process_branded_videos():
         url = data.get('url')
         selected_brands = data.get('brands', [])
         
-        # Optional watermark scale override (default 1.15 = 15% overscale)
+        # Optional branding configuration overrides
         watermark_scale = data.get('watermark_scale', 1.15)
+        watermark_opacity = data.get('watermark_opacity', 0.4)
+        logo_scale = data.get('logo_scale', 0.15)
+        logo_padding = data.get('logo_padding', 40)
 
         # NEW: accept source_path for local downloaded files
         source_path = data.get("source_path")
@@ -524,10 +528,12 @@ def process_branded_videos():
         # 3. Process video with selected brands ONE AT A TIME
         processor = VideoProcessor(normalized_video_path, OUTPUT_DIR)
         
-        # Apply watermark scale override if provided
-        if watermark_scale != 1.15:  # Only override if different from default
-            processor.WATERMARK_SCALE = watermark_scale
-            print(f"[PROCESS BRANDS] Using custom watermark scale: {watermark_scale}x")
+        # Apply branding configuration overrides from UI
+        processor.WATERMARK_SCALE = watermark_scale
+        processor.WATERMARK_OPACITY = watermark_opacity
+        processor.LOGO_SCALE = logo_scale
+        processor.LOGO_PADDING = logo_padding
+        print(f"[PROCESS BRANDS] Branding config: scale={watermark_scale}, opacity={watermark_opacity}, logo_scale={logo_scale}, logo_padding={logo_padding}")
         
         output_paths = []
         
@@ -826,6 +832,123 @@ def download_video(filename):
         return jsonify({'error': 'File not found', 'details': str(e), 'filename': filename, 'filepath': filepath}), 404
 
 # Recent videos endpoint removed - using localStorage history only
+
+# ============================================================================
+# API: PREVIEW - Frame extraction and asset serving for canvas preview
+# ============================================================================
+
+@app.route('/api/preview/extract-frame', methods=['POST'])
+def extract_frame():
+    """Extract first frame from video for canvas preview"""
+    import base64
+    from .config import FFMPEG_BIN, FFPROBE_BIN
+    
+    try:
+        data = request.get_json(force=True) or {}
+        filename = data.get('filename')
+        
+        if not filename:
+            return jsonify({'success': False, 'error': 'No filename provided'}), 400
+        
+        # Find the video file
+        video_path = os.path.join(OUTPUT_DIR, filename)
+        if not os.path.exists(video_path):
+            return jsonify({'success': False, 'error': f'File not found: {filename}'}), 404
+        
+        # Get video dimensions with ffprobe
+        probe_cmd = [
+            FFPROBE_BIN, '-v', 'quiet',
+            '-print_format', 'json',
+            '-show_streams', video_path
+        ]
+        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+        probe_data = json.loads(probe_result.stdout)
+        
+        width, height = 720, 1280  # Default
+        for stream in probe_data.get('streams', []):
+            if stream.get('codec_type') == 'video':
+                width = stream.get('width', 720)
+                height = stream.get('height', 1280)
+                break
+        
+        # Extract first frame as JPEG (small, fast)
+        temp_frame = os.path.join(tempfile.gettempdir(), f'frame_{uuid.uuid4().hex}.jpg')
+        
+        extract_cmd = [
+            FFMPEG_BIN, '-y',
+            '-i', video_path,
+            '-vframes', '1',
+            '-q:v', '5',  # Quality 2-31 (lower = better, 5 is good balance)
+            temp_frame
+        ]
+        
+        subprocess.run(extract_cmd, capture_output=True)
+        
+        if not os.path.exists(temp_frame):
+            return jsonify({'success': False, 'error': 'Failed to extract frame'}), 500
+        
+        # Read frame and encode as base64
+        with open(temp_frame, 'rb') as f:
+            frame_data = base64.b64encode(f.read()).decode('utf-8')
+        
+        # Clean up temp file
+        os.remove(temp_frame)
+        
+        return jsonify({
+            'success': True,
+            'frame_data': f'data:image/jpeg;base64,{frame_data}',
+            'width': width,
+            'height': height,
+            'aspect_ratio': width / height
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/preview/watermark/<brand_name>')
+def get_watermark_preview(brand_name):
+    """Serve watermark PNG for canvas preview"""
+    from .video_processor import VideoProcessor
+    
+    # Get orientation from query param (default Vertical_HD)
+    orientation = request.args.get('orientation', 'Vertical_HD')
+    
+    # Clean brand name
+    clean_brand = brand_name.replace('WTF', '').strip()
+    
+    # Build watermark path
+    watermark_dir = os.path.join(VideoProcessor.WATERMARKS_DIR, orientation)
+    
+    patterns = [
+        f"{clean_brand}_watermark.png",
+        f"{clean_brand.lower()}_watermark.png",
+        f"{clean_brand.capitalize()}_watermark.png",
+        f"{brand_name}_watermark.png",
+    ]
+    
+    for pattern in patterns:
+        path = os.path.join(watermark_dir, pattern)
+        if os.path.exists(path):
+            return send_from_directory(os.path.dirname(path), os.path.basename(path))
+    
+    return jsonify({'error': 'Watermark not found', 'brand': brand_name}), 404
+
+
+@app.route('/api/preview/logo/<brand_name>')
+def get_logo_preview(brand_name):
+    """Serve logo PNG for canvas preview"""
+    from .video_processor import VideoProcessor
+    
+    logo_filename = f"{brand_name}_logo.png"
+    logo_path = os.path.join(VideoProcessor.LOGOS_DIR, logo_filename)
+    
+    if os.path.exists(logo_path):
+        return send_from_directory(os.path.dirname(logo_path), logo_filename)
+    
+    return jsonify({'error': 'Logo not found', 'brand': brand_name}), 404
 
 # ============================================================================
 # API: BRANDS (Static JSON)
