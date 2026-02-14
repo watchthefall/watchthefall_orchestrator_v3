@@ -1051,6 +1051,157 @@ def save_brand_config_api(brand_name):
         }), 500
 
 # ============================================================================
+# API: BRANDS CRUD (Unified brand management)
+# ============================================================================
+
+@app.route('/api/brands', methods=['GET'])
+def get_all_brands_api():
+    """Get all brands. System brands + user brands if user_id provided."""
+    try:
+        from .database import get_all_brands
+        user_id = request.args.get('user_id', type=int)
+        include_system = request.args.get('include_system', 'true').lower() == 'true'
+        
+        brands = get_all_brands(user_id=user_id, include_system=include_system)
+        
+        return jsonify({
+            'success': True,
+            'brands': brands,
+            'count': len(brands)
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/brands/<int:brand_id>', methods=['GET'])
+def get_single_brand_api(brand_id):
+    """Get a single brand by ID"""
+    try:
+        from .database import get_brand
+        brand = get_brand(brand_id=brand_id)
+        
+        if not brand:
+            return jsonify({'success': False, 'error': 'Brand not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'brand': brand
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/brands', methods=['POST'])
+def create_brand_api():
+    """Create a new brand"""
+    try:
+        from .database import create_brand
+        data = request.get_json(force=True) or {}
+        
+        # Required fields
+        name = data.get('name')
+        display_name = data.get('display_name', name)
+        
+        if not name:
+            return jsonify({'success': False, 'error': 'name is required'}), 400
+        
+        # Create brand
+        brand_id = create_brand(
+            name=name,
+            display_name=display_name,
+            user_id=data.get('user_id'),
+            is_system=data.get('is_system', False),
+            is_locked=data.get('is_locked', False),
+            watermark_vertical=data.get('watermark_vertical'),
+            watermark_square=data.get('watermark_square'),
+            watermark_landscape=data.get('watermark_landscape'),
+            logo_path=data.get('logo_path'),
+            watermark_scale=data.get('watermark_scale', 1.15),
+            watermark_opacity=data.get('watermark_opacity', 0.4),
+            logo_scale=data.get('logo_scale', 0.15),
+            logo_padding=data.get('logo_padding', 40),
+            text_enabled=data.get('text_enabled', False),
+            text_content=data.get('text_content', ''),
+            text_position=data.get('text_position', 'bottom'),
+            text_size=data.get('text_size', 48),
+            text_color=data.get('text_color', '#FFFFFF'),
+            text_font=data.get('text_font', 'Arial'),
+            text_bg_enabled=data.get('text_bg_enabled', True),
+            text_bg_color=data.get('text_bg_color', '#000000'),
+            text_bg_opacity=data.get('text_bg_opacity', 0.6),
+            text_margin=data.get('text_margin', 40)
+        )
+        
+        print(f"[BRANDS] Created brand: {name} (id={brand_id})")
+        
+        return jsonify({
+            'success': True,
+            'brand_id': brand_id,
+            'message': f'Brand {name} created'
+        }), 201
+    except Exception as e:
+        import traceback
+        print(f"[BRANDS ERROR] Create: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/brands/<int:brand_id>', methods=['PUT'])
+def update_brand_api(brand_id):
+    """Update a brand's settings and/or assets"""
+    try:
+        from .database import get_brand, update_brand
+        
+        # Check brand exists
+        brand = get_brand(brand_id=brand_id)
+        if not brand:
+            return jsonify({'success': False, 'error': 'Brand not found'}), 404
+        
+        # Check if locked (system templates)
+        if brand['is_locked']:
+            return jsonify({'success': False, 'error': 'This brand is locked and cannot be modified'}), 403
+        
+        data = request.get_json(force=True) or {}
+        
+        # Update brand
+        update_brand(brand_id, **data)
+        
+        print(f"[BRANDS] Updated brand: {brand['name']} (id={brand_id})")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Brand {brand["name"]} updated'
+        })
+    except Exception as e:
+        import traceback
+        print(f"[BRANDS ERROR] Update: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/brands/<int:brand_id>', methods=['DELETE'])
+def delete_brand_api(brand_id):
+    """Soft delete a brand (set is_active = 0)"""
+    try:
+        from .database import get_brand, delete_brand
+        
+        # Check brand exists
+        brand = get_brand(brand_id=brand_id)
+        if not brand:
+            return jsonify({'success': False, 'error': 'Brand not found'}), 404
+        
+        # Check if system brand
+        if brand['is_system']:
+            return jsonify({'success': False, 'error': 'System brands cannot be deleted'}), 403
+        
+        delete_brand(brand_id)
+        
+        print(f"[BRANDS] Deleted brand: {brand['name']} (id={brand_id})")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Brand {brand["name"]} deleted'
+        })
+    except Exception as e:
+        import traceback
+        print(f"[BRANDS ERROR] Delete: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# ============================================================================
 # API: WATERMARK CONVERSION (WebM to MP4)
 # ============================================================================
 

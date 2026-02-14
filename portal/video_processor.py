@@ -182,16 +182,39 @@ class VideoProcessor:
         print(f"[DEBUG] Detected orientation: {orientation} (w:{width} x h:{height})")
         return orientation
     
-    def resolve_watermark_path(self, brand_name: str) -> Optional[str]:
+    def resolve_watermark_path(self, brand_name: str, brand_config: Dict = None) -> Optional[str]:
         """
-        Resolve watermark path from master assets based on brand and orientation.
+        Resolve watermark path - first from database config, then from master assets.
         
-        Naming patterns tried (in order):
-        - {brand}_watermark.png
-        - {Brand}_watermark.png (capitalized)
-        - {brand.lower()}_watermark.png
+        Priority:
+        1. DB-stored path based on orientation (watermark_vertical, watermark_square, watermark_landscape)
+        2. Fallback to master assets filesystem resolution
+        
+        Args:
+            brand_name: Name of the brand
+            brand_config: Optional brand config dict with DB-stored paths
         """
         orientation = self.detect_orientation()
+        
+        # 1. Try DB-stored path based on orientation
+        if brand_config:
+            orientation_key = {
+                'Vertical_HD': 'watermark_vertical',
+                'Square': 'watermark_square',
+                'Landscape': 'watermark_landscape'
+            }.get(orientation)
+            
+            db_path = brand_config.get(orientation_key)
+            if db_path:
+                # DB path is relative to project root
+                from .config import PROJECT_ROOT
+                full_path = os.path.join(PROJECT_ROOT, db_path)
+                if os.path.exists(full_path):
+                    print(f"[DEBUG] Using DB watermark path: {full_path}")
+                    return full_path
+                print(f"[DEBUG] DB watermark path not found: {full_path}")
+        
+        # 2. Fallback to master assets filesystem resolution
         watermark_dir = os.path.join(self.WATERMARKS_DIR, orientation)
         
         # Clean brand name (remove 'WTF' suffix if present)
@@ -215,14 +238,30 @@ class VideoProcessor:
         print(f"[WARNING] No watermark found for {brand_name} in {watermark_dir}")
         return None
     
-    def resolve_logo_path(self, brand_name: str) -> Optional[str]:
+    def resolve_logo_path(self, brand_name: str, brand_config: Dict = None) -> Optional[str]:
         """
-        Resolve logo path from master assets Circle folder.
+        Resolve logo path - first from database config, then from master assets.
         
-        Strict pattern: {brand}_logo.png
-        No fallback, no guessing.
+        Priority:
+        1. DB-stored path (logo_path)
+        2. Fallback to master assets Circle folder
+        
+        Args:
+            brand_name: Name of the brand
+            brand_config: Optional brand config dict with DB-stored paths
         """
-        # Strict naming: {BrandName}_logo.png
+        # 1. Try DB-stored path
+        if brand_config:
+            db_path = brand_config.get('logo_path')
+            if db_path:
+                from .config import PROJECT_ROOT
+                full_path = os.path.join(PROJECT_ROOT, db_path)
+                if os.path.exists(full_path):
+                    print(f"[DEBUG] Using DB logo path: {full_path}")
+                    return full_path
+                print(f"[DEBUG] DB logo path not found: {full_path}")
+        
+        # 2. Fallback to master assets Circle folder
         logo_filename = f"{brand_name}_logo.png"
         path = os.path.join(self.LOGOS_DIR, logo_filename)
         
@@ -260,7 +299,7 @@ class VideoProcessor:
         print(f"[DEBUG] Master assets root: {self.MASTER_ASSETS_ROOT}")
         
         # 1. WATERMARK as full-frame overlay (replaces old template concept)
-        watermark_path = self.resolve_watermark_path(brand_name)
+        watermark_path = self.resolve_watermark_path(brand_name, brand_config)
         if watermark_path:
             print(f"[DEBUG] Adding full-frame watermark: {watermark_path}")
             # Scale watermark with multiplier to compensate for internal PNG padding
@@ -280,7 +319,7 @@ class VideoProcessor:
             print(f"[WARNING] No watermark found for {brand_name}, skipping watermark overlay")
         
         # 2. LOGO bottom-right with padding
-        logo_path = self.resolve_logo_path(brand_name)
+        logo_path = self.resolve_logo_path(brand_name, brand_config)
         if logo_path:
             print(f"[DEBUG] Adding logo: {logo_path}")
             # Scale logo to 15% of video width

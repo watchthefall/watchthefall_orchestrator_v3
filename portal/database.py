@@ -89,6 +89,40 @@ def init_db():
         )
     ''')
     
+    # Unified brands table - full brand ownership and assets
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS brands (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            display_name TEXT NOT NULL,
+            user_id INTEGER,
+            is_system INTEGER DEFAULT 0,
+            is_locked INTEGER DEFAULT 0,
+            is_active INTEGER DEFAULT 1,
+            watermark_vertical TEXT,
+            watermark_square TEXT,
+            watermark_landscape TEXT,
+            logo_path TEXT,
+            watermark_scale REAL DEFAULT 1.15,
+            watermark_opacity REAL DEFAULT 0.4,
+            logo_scale REAL DEFAULT 0.15,
+            logo_padding INTEGER DEFAULT 40,
+            text_enabled INTEGER DEFAULT 0,
+            text_content TEXT DEFAULT '',
+            text_position TEXT DEFAULT 'bottom',
+            text_size INTEGER DEFAULT 48,
+            text_color TEXT DEFAULT '#FFFFFF',
+            text_font TEXT DEFAULT 'Arial',
+            text_bg_enabled INTEGER DEFAULT 1,
+            text_bg_color TEXT DEFAULT '#000000',
+            text_bg_opacity REAL DEFAULT 0.6,
+            text_margin INTEGER DEFAULT 40,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(name, user_id)
+        )
+    ''')
+    
     conn.commit()
     conn.close()
     print("[DATABASE] Database initialized successfully")
@@ -348,5 +382,241 @@ def get_all_brand_configs():
     conn.close()
     return [dict(row) for row in rows]
 
+# ============================================================================
+# UNIFIED BRANDS TABLE FUNCTIONS
+# ============================================================================
+
+def get_brand(brand_id=None, name=None, user_id=None):
+    """Get a brand by ID or name"""
+    conn = get_db()
+    c = conn.cursor()
+    
+    if brand_id:
+        c.execute('SELECT * FROM brands WHERE id = ?', (brand_id,))
+    elif name:
+        if user_id is not None:
+            c.execute('SELECT * FROM brands WHERE name = ? AND (user_id = ? OR user_id IS NULL)', (name, user_id))
+        else:
+            c.execute('SELECT * FROM brands WHERE name = ?', (name,))
+    else:
+        conn.close()
+        return None
+    
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_all_brands(user_id=None, include_system=True):
+    """Get all brands for a user (including system brands if include_system=True)"""
+    conn = get_db()
+    c = conn.cursor()
+    
+    if user_id and include_system:
+        # User's brands + system brands
+        c.execute('''
+            SELECT * FROM brands 
+            WHERE (user_id = ? OR is_system = 1) AND is_active = 1
+            ORDER BY is_system DESC, name
+        ''', (user_id,))
+    elif user_id:
+        # Only user's brands
+        c.execute('SELECT * FROM brands WHERE user_id = ? AND is_active = 1 ORDER BY name', (user_id,))
+    else:
+        # All system brands (for anonymous/guest)
+        c.execute('SELECT * FROM brands WHERE is_system = 1 AND is_active = 1 ORDER BY name')
+    
+    rows = c.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def create_brand(name, display_name, user_id=None, is_system=False, is_locked=False,
+                 watermark_vertical=None, watermark_square=None, watermark_landscape=None,
+                 logo_path=None, **config):
+    """Create a new brand"""
+    conn = get_db()
+    c = conn.cursor()
+    now = datetime.utcnow().isoformat()
+    
+    c.execute('''
+        INSERT INTO brands (
+            name, display_name, user_id, is_system, is_locked, is_active,
+            watermark_vertical, watermark_square, watermark_landscape, logo_path,
+            watermark_scale, watermark_opacity, logo_scale, logo_padding,
+            text_enabled, text_content, text_position, text_size, text_color,
+            text_font, text_bg_enabled, text_bg_color, text_bg_opacity, text_margin,
+            created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        name, display_name, user_id, 1 if is_system else 0, 1 if is_locked else 0,
+        watermark_vertical, watermark_square, watermark_landscape, logo_path,
+        config.get('watermark_scale', 1.15),
+        config.get('watermark_opacity', 0.4),
+        config.get('logo_scale', 0.15),
+        config.get('logo_padding', 40),
+        1 if config.get('text_enabled') else 0,
+        config.get('text_content', ''),
+        config.get('text_position', 'bottom'),
+        config.get('text_size', 48),
+        config.get('text_color', '#FFFFFF'),
+        config.get('text_font', 'Arial'),
+        1 if config.get('text_bg_enabled', True) else 0,
+        config.get('text_bg_color', '#000000'),
+        config.get('text_bg_opacity', 0.6),
+        config.get('text_margin', 40),
+        now, now
+    ))
+    
+    brand_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    return brand_id
+
+def update_brand(brand_id, **updates):
+    """Update a brand's properties"""
+    conn = get_db()
+    c = conn.cursor()
+    now = datetime.utcnow().isoformat()
+    
+    # Build dynamic update query
+    allowed_fields = [
+        'name', 'display_name', 'is_active', 'is_locked',
+        'watermark_vertical', 'watermark_square', 'watermark_landscape', 'logo_path',
+        'watermark_scale', 'watermark_opacity', 'logo_scale', 'logo_padding',
+        'text_enabled', 'text_content', 'text_position', 'text_size', 'text_color',
+        'text_font', 'text_bg_enabled', 'text_bg_color', 'text_bg_opacity', 'text_margin'
+    ]
+    
+    set_clauses = []
+    params = []
+    
+    for field in allowed_fields:
+        if field in updates:
+            set_clauses.append(f'{field} = ?')
+            value = updates[field]
+            # Handle boolean fields
+            if field in ['is_active', 'is_locked', 'text_enabled', 'text_bg_enabled']:
+                value = 1 if value else 0
+            params.append(value)
+    
+    if not set_clauses:
+        conn.close()
+        return False
+    
+    set_clauses.append('updated_at = ?')
+    params.append(now)
+    params.append(brand_id)
+    
+    c.execute(f'''
+        UPDATE brands SET {', '.join(set_clauses)} WHERE id = ?
+    ''', params)
+    
+    conn.commit()
+    conn.close()
+    return True
+
+def delete_brand(brand_id):
+    """Soft delete a brand (set is_active = 0)"""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('UPDATE brands SET is_active = 0, updated_at = ? WHERE id = ?',
+              (datetime.utcnow().isoformat(), brand_id))
+    conn.commit()
+    conn.close()
+    return True
+
+def seed_system_brands():
+    """Seed system brands from WTF_MASTER_ASSETS"""
+    import os
+    try:
+        from .config import PROJECT_ROOT
+    except ImportError:
+        PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Check if brands already seeded
+    c.execute('SELECT COUNT(*) FROM brands WHERE is_system = 1')
+    count = c.fetchone()[0]
+    if count > 0:
+        print(f"[DATABASE] System brands already seeded ({count} brands)")
+        conn.close()
+        return
+    
+    print("[DATABASE] Seeding system brands from WTF_MASTER_ASSETS...")
+    
+    # Master asset paths
+    master_root = os.path.join(PROJECT_ROOT, 'WTF_MASTER_ASSETS', 'Branding')
+    watermarks_dir = os.path.join(master_root, 'Watermarks')
+    logos_dir = os.path.join(master_root, 'Logos', 'Circle')
+    
+    # System brands to seed (based on existing logos)
+    now = datetime.utcnow().isoformat()
+    seeded = 0
+    
+    # Scan for logo files to determine brand list
+    if os.path.exists(logos_dir):
+        for filename in os.listdir(logos_dir):
+            if filename.endswith('_logo.png'):
+                brand_name = filename.replace('_logo.png', '')
+                display_name = brand_name
+                
+                # Clean brand name for watermark search
+                clean_name = brand_name.replace('WTF', '').strip()
+                
+                # Find watermarks for each orientation
+                watermark_vertical = None
+                watermark_square = None
+                watermark_landscape = None
+                
+                for orientation in ['Vertical_HD', 'Square', 'Landscape']:
+                    orient_dir = os.path.join(watermarks_dir, orientation)
+                    if os.path.exists(orient_dir):
+                        # Try different naming patterns
+                        patterns = [
+                            f"{clean_name}_watermark.png",
+                            f"{clean_name.lower()}_watermark.png",
+                            f"{clean_name.capitalize()}_watermark.png",
+                        ]
+                        for pattern in patterns:
+                            path = os.path.join(orient_dir, pattern)
+                            if os.path.exists(path):
+                                # Store relative path from project root
+                                rel_path = os.path.relpath(path, PROJECT_ROOT)
+                                if orientation == 'Vertical_HD':
+                                    watermark_vertical = rel_path
+                                elif orientation == 'Square':
+                                    watermark_square = rel_path
+                                else:
+                                    watermark_landscape = rel_path
+                                break
+                
+                # Logo path
+                logo_path = os.path.relpath(os.path.join(logos_dir, filename), PROJECT_ROOT)
+                
+                # Insert brand
+                try:
+                    c.execute('''
+                        INSERT INTO brands (
+                            name, display_name, user_id, is_system, is_locked, is_active,
+                            watermark_vertical, watermark_square, watermark_landscape, logo_path,
+                            watermark_scale, watermark_opacity, logo_scale, logo_padding,
+                            text_enabled, text_content, text_position, text_size, text_color,
+                            text_font, text_bg_enabled, text_bg_color, text_bg_opacity, text_margin,
+                            created_at, updated_at
+                        ) VALUES (?, ?, NULL, 1, 0, 1, ?, ?, ?, ?, 1.15, 0.4, 0.15, 40, 0, '', 'bottom', 48, '#FFFFFF', 'Arial', 1, '#000000', 0.6, 40, ?, ?)
+                    ''', (brand_name, display_name, watermark_vertical, watermark_square, watermark_landscape, logo_path, now, now))
+                    seeded += 1
+                    print(f"  [SEED] Created brand: {brand_name}")
+                except sqlite3.IntegrityError:
+                    print(f"  [SEED] Brand already exists: {brand_name}")
+    
+    conn.commit()
+    conn.close()
+    print(f"[DATABASE] Seeded {seeded} system brands")
+
 # Initialize database on import
 init_db()
+
+# Seed system brands if not already done
+seed_system_brands()
