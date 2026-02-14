@@ -249,13 +249,14 @@ class VideoProcessor:
         watermark_path = self.resolve_watermark_path(brand_name)
         if watermark_path:
             print(f"[DEBUG] Adding full-frame watermark: {watermark_path}")
-            # Scale watermark adaptively using W:H (video dimensions in overlay context)
+            # Scale watermark to video dimensions (injected from Python, not symbolic W:H)
+            # W:H only exists in overlay context, not inside movie= source chain
             # Apply 40% opacity via geq filter
             opacity = self.WATERMARK_OPACITY
-            filters.append(f"movie='{watermark_path}',scale=W:H,format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{opacity}*alpha(X,Y)'[watermark]")
+            filters.append(f"movie='{watermark_path}',scale={width}:{height},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{opacity}*alpha(X,Y)'[watermark]")
             filters.append(f"[{current_input}][watermark]overlay=0:0[v1]")
             current_input = 'v1'
-            print(f"[DEBUG] Watermark overlay added (full-frame adaptive scale, {int(opacity*100)}% opacity)")
+            print(f"[DEBUG] Watermark overlay added (full-frame {width}x{height}, {int(opacity*100)}% opacity)")
         else:
             print(f"[WARNING] No watermark found for {brand_name}, skipping watermark overlay")
         
