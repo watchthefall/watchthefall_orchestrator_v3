@@ -284,7 +284,7 @@
 <h1><span class="glitch">WTF STUDIO</span></h1>
 
 <!-- ========== SECTION 1: DOWNLOAD ========== -->
-<div class="section">
+<div class="section" id="downloadSection">
     <h2>1. Get Video</h2>
     <input id="videoUrl" type="text" placeholder="Paste TikTok / Instagram / X link...">
     <button onclick="fetchVideo()" id="downloadBtn">⬇ Download</button>
@@ -836,6 +836,7 @@ function enterQueueMode() {
     isQueueMode = true;
     
     // Hide selection mode, show queue mode
+    document.getElementById('downloadSection').style.display = 'none';  // Hide download section
     document.getElementById('selectionModeHeader').style.display = 'none';
     document.getElementById('brandsBox').style.display = 'none';
     document.getElementById('selectionModeActions').style.display = 'none';
@@ -1285,6 +1286,7 @@ function exitQueueMode() {
     isQueueMode = false;
     
     // Show selection mode, hide queue mode
+    document.getElementById('downloadSection').style.display = 'block';  // Show download section
     document.getElementById('selectionModeHeader').style.display = 'block';
     document.getElementById('brandsBox').style.display = 'grid';
     document.getElementById('selectionModeActions').style.display = 'block';
