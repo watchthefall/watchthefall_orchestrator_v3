@@ -302,10 +302,14 @@
     </div>
     
     <!-- Queue Mode Header (hidden by default) -->
-    <div id="queueModeHeader" style="display:none; text-align:center; margin-bottom:15px;">
-        <div id="queueProgress" style="font-size:14px; color:#888; margin-bottom:5px;">Brand 1 of 3</div>
-        <div id="queueProgressDots" style="font-size:20px; letter-spacing:8px; margin-bottom:8px;"></div>
-        <h2 id="currentBrandName" style="color:#00b7ff; margin:0; font-size:22px;">ScotlandWTF</h2>
+    <div id="queueModeHeader" style="display:none; margin-bottom:15px;">
+        <div style="text-align:center; margin-bottom:10px;">
+            <span style="font-size:14px; color:#888;">Brand Queue</span>
+        </div>
+        <!-- Clickable Brand Pills -->
+        <div id="brandPillsContainer" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:15px;"></div>
+        <!-- Status Summary -->
+        <div id="queueStatusSummary" style="text-align:center; font-size:12px; color:#666; margin-bottom:10px;"></div>
     </div>
     
     <!-- Selection Mode Header (shown by default) -->
@@ -314,6 +318,9 @@
         <p style="color:#666; font-size:12px; margin:5px 0 10px;">💡 Click multiple brands, then Start Branding</p>
     </div>
     <div class="brand-grid" id="brandsBox">Loading...</div>
+    
+    <!-- Override Controls (hidden in Selection Mode) -->
+    <div id="overrideControls" style="display:none;">
     
     <!-- Watermark Controls -->
     <h3>🔍 Watermark</h3>
@@ -414,6 +421,8 @@
         </div>
     </div>
     
+    </div><!-- End overrideControls -->
+    
     <!-- Selection Mode Button -->
     <div id="selectionModeActions">
         <button onclick="enterQueueMode()" id="startBrandingBtn" style="background:#00b7ff; margin-top:15px;">🚀 Start Branding</button>
@@ -421,10 +430,11 @@
     
     <!-- Queue Mode Actions (hidden by default) -->
     <div id="queueModeActions" style="display:none;">
-        <button onclick="confirmAndDownload()" id="confirmBtn" style="background:#28a745;">⚡ Process & Download</button>
+        <button onclick="processCurrentBrand()" id="processCurrentBtn" style="background:#28a745;">⚡ Process This Brand</button>
+        <button onclick="processAllBrands()" id="processAllBtn" style="background:#00b7ff; margin-top:10px;">🚀 Process All Remaining</button>
         <div style="display:flex; gap:10px; margin-top:10px;">
             <button onclick="skipBrand()" style="flex:1; background:#666;">Skip</button>
-            <button onclick="cancelQueue()" style="flex:1; background:#c00;">Cancel All</button>
+            <button onclick="exitQueueMode()" style="flex:1; background:#c00;">Exit Queue</button>
         </div>
     </div>
     
@@ -820,7 +830,7 @@ function enterQueueMode() {
     processingQueue = selectedBrands.map(brandName => ({
         brand_name: brandName,
         overrides: null,  // Will be loaded from DB
-        status: 'pending'
+        status: 'pending'  // pending, editing, processing, done, failed, skipped
     }));
     currentQueueIndex = 0;
     isQueueMode = true;
@@ -831,30 +841,103 @@ function enterQueueMode() {
     document.getElementById('selectionModeActions').style.display = 'none';
     document.getElementById('queueModeHeader').style.display = 'block';
     document.getElementById('queueModeActions').style.display = 'block';
+    document.getElementById('overrideControls').style.display = 'block';  // Show sliders now
     result.innerHTML = '';
     
-    // Show first brand
-    showCurrentBrandCard();
+    // Build brand pills
+    renderBrandPills();
+    
+    // Load first brand
+    switchToBrand(0);
 }
 
-async function showCurrentBrandCard() {
-    const current = processingQueue[currentQueueIndex];
-    const total = processingQueue.length;
+function renderBrandPills() {
+    const container = document.getElementById('brandPillsContainer');
+    container.innerHTML = '';
     
-    // Update progress header
-    document.getElementById('queueProgress').textContent = `Brand ${currentQueueIndex + 1} of ${total}`;
-    document.getElementById('currentBrandName').textContent = current.brand_name;
+    processingQueue.forEach((item, idx) => {
+        const pill = document.createElement('button');
+        pill.className = 'brand-pill';
+        pill.dataset.index = idx;
+        pill.onclick = () => switchToBrand(idx);
+        
+        // Status-based styling
+        let statusIcon = '';
+        let bgColor = '#333';
+        
+        if (item.status === 'done') {
+            statusIcon = '\u2713 ';
+            bgColor = '#28a745';
+        } else if (item.status === 'processing') {
+            statusIcon = '\u23F3 ';
+            bgColor = '#f90';
+        } else if (item.status === 'failed') {
+            statusIcon = '\u274C ';
+            bgColor = '#c00';
+        } else if (item.status === 'skipped') {
+            statusIcon = '\u2212 ';
+            bgColor = '#666';
+        } else if (idx === currentQueueIndex) {
+            bgColor = '#00b7ff';  // Active/editing
+        }
+        
+        pill.innerHTML = statusIcon + item.brand_name;
+        pill.style.cssText = `
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            background: ${bgColor};
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        `;
+        
+        if (idx === currentQueueIndex) {
+            pill.style.transform = 'scale(1.05)';
+            pill.style.boxShadow = '0 0 10px rgba(0, 183, 255, 0.5)';
+        }
+        
+        container.appendChild(pill);
+    });
     
-    // Update progress dots
-    let dots = '';
-    for (let i = 0; i < total; i++) {
-        const item = processingQueue[i];
-        if (item.status === 'processed') dots += '\u2713 ';  // Checkmark
-        else if (item.status === 'skipped') dots += '\u2212 ';  // Minus
-        else if (i === currentQueueIndex) dots += '\u25CF ';  // Filled circle
-        else dots += '\u25CB ';  // Empty circle
+    updateQueueStatusSummary();
+}
+
+function updateQueueStatusSummary() {
+    const summary = document.getElementById('queueStatusSummary');
+    const done = processingQueue.filter(q => q.status === 'done').length;
+    const processing = processingQueue.filter(q => q.status === 'processing').length;
+    const pending = processingQueue.filter(q => q.status === 'pending' || q.status === 'editing').length;
+    const failed = processingQueue.filter(q => q.status === 'failed').length;
+    
+    let parts = [];
+    if (done > 0) parts.push(`${done} done`);
+    if (processing > 0) parts.push(`${processing} processing`);
+    if (pending > 0) parts.push(`${pending} pending`);
+    if (failed > 0) parts.push(`${failed} failed`);
+    
+    summary.textContent = parts.join(' \u2022 ');
+}
+
+async function switchToBrand(idx) {
+    // Save current brand's overrides before switching
+    if (currentQueueIndex !== idx && processingQueue[currentQueueIndex]) {
+        saveCurrentOverridesFromSliders();
     }
-    document.getElementById('queueProgressDots').textContent = dots;
+    
+    currentQueueIndex = idx;
+    const current = processingQueue[idx];
+    
+    // Skip if already processing/done
+    if (current.status === 'processing') {
+        document.getElementById('processResult').innerHTML = '<div class="status-msg info">This brand is currently processing...</div>';
+        return;
+    }
+    
+    // Update pills to show active state
+    renderBrandPills();
     
     // Load brand assets for preview
     await loadBrandAssets(current.brand_name);
@@ -880,7 +963,6 @@ async function showCurrentBrandCard() {
                     text_bg_opacity: data.config.text_bg_opacity || 0.6
                 };
             } else {
-                // Use defaults if no saved config
                 current.overrides = getDefaultOverrides();
             }
         } catch (err) {
@@ -889,8 +971,14 @@ async function showCurrentBrandCard() {
         }
     }
     
+    // Mark as editing
+    current.status = 'editing';
+    
     // Load overrides into sliders
     loadOverridesIntoSliders(current.overrides);
+    
+    // Clear any previous result message
+    document.getElementById('processResult').innerHTML = `<div class="status-msg info">Editing: ${current.brand_name}</div>`;
 }
 
 function getDefaultOverrides() {
@@ -963,26 +1051,39 @@ function saveCurrentOverridesFromSliders() {
 }
 
 async function confirmAndDownload() {
+    // Legacy - redirect to processCurrentBrand
+    await processCurrentBrand();
+}
+
+async function processCurrentBrand() {
     const current = processingQueue[currentQueueIndex];
-    const btn = document.getElementById('confirmBtn');
+    const btn = document.getElementById('processCurrentBtn');
     const result = document.getElementById('processResult');
     
     // Save current slider state to this brand's overrides
     saveCurrentOverridesFromSliders();
     
-    btn.disabled = true;
-    btn.textContent = 'Processing...';
+    // Mark as processing
+    current.status = 'processing';
+    renderBrandPills();
+    
     result.innerHTML = `<div class="status-msg info">\u23F3 Processing ${current.brand_name}...</div>`;
     
+    // Find next brand to switch to while processing
+    const nextIdx = findNextPendingBrand();
+    if (nextIdx !== -1 && nextIdx !== currentQueueIndex) {
+        // Non-blocking: switch to next brand immediately
+        setTimeout(() => switchToBrand(nextIdx), 100);
+    }
+    
+    // Process in background
     try {
-        // Process THIS brand with ITS overrides
         const res = await fetch(`${apiBase}/api/videos/process_brands`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 source_path: currentFile,
                 brands: [current.brand_name],
-                // Send per-brand overrides
                 watermark_scale: current.overrides.watermark_scale,
                 watermark_opacity: current.overrides.watermark_opacity,
                 logo_scale: current.overrides.logo_scale,
@@ -1003,8 +1104,9 @@ async function confirmAndDownload() {
             throw new Error(data.error || 'Processing failed');
         }
         
-        // Mark as processed
-        current.status = 'processed';
+        // Mark as done
+        current.status = 'done';
+        renderBrandPills();
         
         // Trigger download
         if (data.outputs && data.outputs[0]) {
@@ -1017,48 +1119,165 @@ async function confirmAndDownload() {
             document.body.removeChild(link);
         }
         
-        result.innerHTML = `<div class="status-msg success">\u2705 ${current.brand_name} done!</div>`;
+        // Show success if this is still the current brand
+        if (processingQueue[currentQueueIndex] === current) {
+            result.innerHTML = `<div class="status-msg success">\u2705 ${current.brand_name} done!</div>`;
+        }
         
-        // Brief delay before advancing
-        await new Promise(r => setTimeout(r, 800));
-        
-        // Advance to next brand
-        advanceQueue();
+        // Check if all done
+        checkQueueComplete();
         
     } catch (err) {
-        current.status = 'error';
-        result.innerHTML = `<div class="status-msg error">\u274C ${current.brand_name}: ${err.message}</div>
-                            <button onclick="retryCurrentBrand()" style="margin-top:10px; background:#f90;">Retry</button>`;
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '\u26A1 Process & Download';
+        current.status = 'failed';
+        renderBrandPills();
+        
+        if (processingQueue[currentQueueIndex] === current) {
+            result.innerHTML = `<div class="status-msg error">\u274C ${current.brand_name}: ${err.message}</div>
+                                <button onclick="retryBrand(${processingQueue.indexOf(current)})" style="margin-top:10px; background:#f90;">Retry</button>`;
+        }
     }
 }
 
-function retryCurrentBrand() {
-    const current = processingQueue[currentQueueIndex];
-    current.status = 'pending';
-    document.getElementById('processResult').innerHTML = '';
+async function processAllBrands() {
+    const result = document.getElementById('processResult');
+    
+    // Save current overrides first
+    saveCurrentOverridesFromSliders();
+    
+    // Find all pending/editing brands
+    const pendingBrands = processingQueue.filter(q => q.status === 'pending' || q.status === 'editing' || q.status === 'failed');
+    
+    if (pendingBrands.length === 0) {
+        result.innerHTML = '<div class="status-msg info">No pending brands to process</div>';
+        return;
+    }
+    
+    result.innerHTML = `<div class="status-msg info">\ud83d\ude80 Processing ${pendingBrands.length} brands...</div>`;
+    
+    // Process all in parallel (non-blocking)
+    const promises = pendingBrands.map(async (item) => {
+        item.status = 'processing';
+        renderBrandPills();
+        
+        try {
+            const res = await fetch(`${apiBase}/api/videos/process_brands`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    source_path: currentFile,
+                    brands: [item.brand_name],
+                    watermark_scale: item.overrides.watermark_scale,
+                    watermark_opacity: item.overrides.watermark_opacity,
+                    logo_scale: item.overrides.logo_scale,
+                    logo_padding: item.overrides.logo_padding,
+                    text_enabled: item.overrides.text_enabled,
+                    text_content: item.overrides.text_content,
+                    text_position: item.overrides.text_position,
+                    text_size: item.overrides.text_size,
+                    text_color: item.overrides.text_color,
+                    text_bg_enabled: item.overrides.text_bg_enabled,
+                    text_bg_opacity: item.overrides.text_bg_opacity
+                })
+            });
+            
+            const data = await res.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Processing failed');
+            }
+            
+            item.status = 'done';
+            renderBrandPills();
+            
+            // Trigger download
+            if (data.outputs && data.outputs[0]) {
+                const downloadUrl = data.outputs[0].download_url;
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = '';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            
+            return { brand: item.brand_name, success: true };
+            
+        } catch (err) {
+            item.status = 'failed';
+            renderBrandPills();
+            return { brand: item.brand_name, success: false, error: err.message };
+        }
+    });
+    
+    // Wait for all to complete
+    const results = await Promise.all(promises);
+    
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+    
+    if (failed === 0) {
+        result.innerHTML = `<div class="status-msg success">\u2705 All ${successful} brands processed!</div>`;
+    } else {
+        result.innerHTML = `<div class="status-msg warning">\u2705 ${successful} done, \u274C ${failed} failed</div>`;
+    }
+    
+    checkQueueComplete();
+}
+
+function findNextPendingBrand() {
+    // Find next brand that's pending or editing (not processing/done)
+    for (let i = 0; i < processingQueue.length; i++) {
+        if (processingQueue[i].status === 'pending' || processingQueue[i].status === 'editing') {
+            return i;
+        }
+    }
+    return -1;
+}
+
+function retryBrand(idx) {
+    const item = processingQueue[idx];
+    item.status = 'pending';
+    renderBrandPills();
+    switchToBrand(idx);
+}
+
+function checkQueueComplete() {
+    const allDone = processingQueue.every(q => q.status === 'done' || q.status === 'skipped' || q.status === 'failed');
+    if (allDone) {
+        const result = document.getElementById('processResult');
+        const done = processingQueue.filter(q => q.status === 'done').length;
+        const failed = processingQueue.filter(q => q.status === 'failed').length;
+        const skipped = processingQueue.filter(q => q.status === 'skipped').length;
+        
+        result.innerHTML = `<div class="status-msg success">\ud83c\udf89 Queue complete! ${done} done, ${skipped} skipped, ${failed} failed</div>`;
+    }
 }
 
 function skipBrand() {
-    processingQueue[currentQueueIndex].status = 'skipped';
-    advanceQueue();
+    const current = processingQueue[currentQueueIndex];
+    current.status = 'skipped';
+    renderBrandPills();
+    
+    // Find next pending brand
+    const nextIdx = findNextPendingBrand();
+    if (nextIdx !== -1) {
+        switchToBrand(nextIdx);
+    } else {
+        checkQueueComplete();
+    }
 }
 
 function advanceQueue() {
-    currentQueueIndex++;
-    
-    if (currentQueueIndex >= processingQueue.length) {
-        exitQueueMode();
+    // Legacy function - find next pending brand
+    const nextIdx = findNextPendingBrand();
+    if (nextIdx !== -1) {
+        switchToBrand(nextIdx);
     } else {
-        showCurrentBrandCard();
+        checkQueueComplete();
     }
 }
 
 function cancelQueue() {
-    processingQueue = [];
-    currentQueueIndex = 0;
     exitQueueMode();
 }
 
@@ -1071,14 +1290,16 @@ function exitQueueMode() {
     document.getElementById('selectionModeActions').style.display = 'block';
     document.getElementById('queueModeHeader').style.display = 'none';
     document.getElementById('queueModeActions').style.display = 'none';
+    document.getElementById('overrideControls').style.display = 'none';  // Hide sliders
     
     // Show completion summary
     const result = document.getElementById('processResult');
-    const processed = processingQueue.filter(q => q.status === 'processed').length;
+    const done = processingQueue.filter(q => q.status === 'done').length;
     const skipped = processingQueue.filter(q => q.status === 'skipped').length;
+    const failed = processingQueue.filter(q => q.status === 'failed').length;
     
     if (processingQueue.length > 0) {
-        result.innerHTML = `<div class="status-msg success">\u2705 Completed: ${processed} processed, ${skipped} skipped</div>`;
+        result.innerHTML = `<div class="status-msg success">\u2705 Completed: ${done} done, ${skipped} skipped, ${failed} failed</div>`;
     } else {
         result.innerHTML = '';
     }
