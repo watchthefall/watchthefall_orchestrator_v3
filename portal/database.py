@@ -126,6 +126,26 @@ def init_db():
     conn.commit()
     conn.close()
     print("[DATABASE] Database initialized successfully")
+    
+    # Run migrations
+    _run_migrations()
+
+def _run_migrations():
+    """Run database migrations"""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    
+    # Migration: Add text_x and text_y to brands table
+    try:
+        c.execute("SELECT text_x FROM brands LIMIT 1")
+    except sqlite3.OperationalError:
+        print("[DATABASE] Running migration: Adding text_x and text_y columns")
+        c.execute("ALTER TABLE brands ADD COLUMN text_x INTEGER DEFAULT 0")
+        c.execute("ALTER TABLE brands ADD COLUMN text_y INTEGER DEFAULT 0")
+        conn.commit()
+        print("[DATABASE] Migration completed: text_x, text_y added")
+    
+    conn.close()
 
 def get_db():
     """Get database connection"""
@@ -442,10 +462,10 @@ def create_brand(name, display_name, user_id=None, is_system=False, is_locked=Fa
             name, display_name, user_id, is_system, is_locked, is_active,
             watermark_vertical, watermark_square, watermark_landscape, logo_path,
             watermark_scale, watermark_opacity, logo_scale, logo_padding,
-            text_enabled, text_content, text_position, text_size, text_color,
+            text_enabled, text_content, text_position, text_x, text_y, text_size, text_color,
             text_font, text_bg_enabled, text_bg_color, text_bg_opacity, text_margin,
             created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         name, display_name, user_id, 1 if is_system else 0, 1 if is_locked else 0,
         watermark_vertical, watermark_square, watermark_landscape, logo_path,
@@ -456,6 +476,8 @@ def create_brand(name, display_name, user_id=None, is_system=False, is_locked=Fa
         1 if config.get('text_enabled') else 0,
         config.get('text_content', ''),
         config.get('text_position', 'bottom'),
+        config.get('text_x', 0),
+        config.get('text_y', 0),
         config.get('text_size', 48),
         config.get('text_color', '#FFFFFF'),
         config.get('text_font', 'Arial'),
@@ -482,7 +504,7 @@ def update_brand(brand_id, **updates):
         'name', 'display_name', 'is_active', 'is_locked',
         'watermark_vertical', 'watermark_square', 'watermark_landscape', 'logo_path',
         'watermark_scale', 'watermark_opacity', 'logo_scale', 'logo_padding',
-        'text_enabled', 'text_content', 'text_position', 'text_size', 'text_color',
+        'text_enabled', 'text_content', 'text_position', 'text_x', 'text_y', 'text_size', 'text_color',
         'text_font', 'text_bg_enabled', 'text_bg_color', 'text_bg_opacity', 'text_margin'
     ]
     

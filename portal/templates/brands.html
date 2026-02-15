@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brand Management | WTF Studio</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        h1 { font-size: 28px; }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #00b7ff;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #0099dd; transform: translateY(-2px); }
+        .btn-secondary {
+            background: #666;
+            color: #fff;
+        }
+        .btn-secondary:hover { background: #555; }
+        .btn-danger {
+            background: #c00;
+            color: #fff;
+        }
+        .btn-danger:hover { background: #a00; }
+        
+        .brand-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .brand-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.2s;
+        }
+        .brand-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .brand-logo {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+            margin-bottom: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 8px;
+        }
+        
+        .brand-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .brand-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        .badge-system {
+            background: #28a745;
+            color: #fff;
+        }
+        .badge-user {
+            background: #00b7ff;
+            color: #fff;
+        }
+        
+        .brand-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .brand-actions button {
+            flex: 1;
+            padding: 8px;
+            font-size: 13px;
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active { display: flex; }
+        
+        .modal-content {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            color: #aaa;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-size: 14px;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #00b7ff;
+        }
+        
+        .status-msg {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        .status-msg.success { background: rgba(40, 167, 69, 0.2); color: #28a745; }
+        .status-msg.error { background: rgba(204, 0, 0, 0.2); color: #f66; }
+        .status-msg.info { background: rgba(0, 183, 255, 0.2); color: #00b7ff; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Brand Management</h1>
+        <button class="btn btn-primary" onclick="openCreateModal()">+ Create Brand</button>
+    </header>
+    
+    <div id="brandGrid" class="brand-grid">
+        <!-- Brands loaded here -->
+    </div>
+</div>
+
+<!-- Create Brand Modal -->
+<div id="createModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Create New Brand</h2>
+            <button class="modal-close" onclick="closeCreateModal()">×</button>
+        </div>
+        
+        <div id="modalStatus"></div>
+        
+        <form id="createForm" onsubmit="createBrand(event)">
+            <div class="form-group">
+                <label>Brand Name (slug)</label>
+                <input type="text" id="brandName" required placeholder="e.g., mybrand" pattern="[a-z0-9_-]+" title="Lowercase letters, numbers, hyphens, underscores only">
+            </div>
+            
+            <div class="form-group">
+                <label>Display Name</label>
+                <input type="text" id="displayName" required placeholder="e.g., My Brand">
+            </div>
+            
+            <div class="form-group">
+                <label>Watermark Scale (100-200%)</label>
+                <input type="number" id="watermarkScale" min="100" max="200" value="115">
+            </div>
+            
+            <div class="form-group">
+                <label>Watermark Opacity (0-100%)</label>
+                <input type="number" id="watermarkOpacity" min="0" max="100" value="40">
+            </div>
+            
+            <div class="form-group">
+                <label>Logo Scale (10-50%)</label>
+                <input type="number" id="logoScale" min="10" max="50" value="15">
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">Create Brand</button>
+        </form>
+    </div>
+</div>
+
+<script>
+const apiBase = window.location.origin;
+const mockUserId = 1;  // Mock user for now
+
+// Load brands on page load
+loadBrands();
+
+async function loadBrands() {
+    try {
+        const res = await fetch(`${apiBase}/api/brands?user_id=${mockUserId}&include_system=true`);
+        const data = await res.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to load brands');
+        }
+        
+        renderBrands(data.brands);
+    } catch (err) {
+        document.getElementById('brandGrid').innerHTML = `<div class="status-msg error">${err.message}</div>`;
+    }
+}
+
+function renderBrands(brands) {
+    const grid = document.getElementById('brandGrid');
+    grid.innerHTML = '';
+    
+    brands.forEach(brand => {
+        const card = document.createElement('div');
+        card.className = 'brand-card';
+        
+        const logo = brand.logo_path ? `${apiBase}/api/preview/logo/${brand.name}` : '';
+        const badge = brand.is_system ? '<span class="brand-badge badge-system">SYSTEM</span>' : '<span class="brand-badge badge-user">USER</span>';
+        const deleteBtn = brand.is_system ? '' : `<button class="btn btn-danger" onclick="deleteBrand(${brand.id}, '${brand.name}')">Delete</button>`;
+        
+        card.innerHTML = `
+            ${logo ? `<img src="${logo}" class="brand-logo" alt="${brand.display_name}">` : ''}
+            ${badge}
+            <div class="brand-name">${brand.display_name}</div>
+            <div class="brand-actions">
+                <button class="btn btn-secondary" onclick="editBrand(${brand.id})">Edit</button>
+                ${deleteBtn}
+            </div>
+        `;
+        
+        grid.appendChild(card);
+    });
+}
+
+function openCreateModal() {
+    document.getElementById('createModal').classList.add('active');
+    document.getElementById('createForm').reset();
+    document.getElementById('modalStatus').innerHTML = '';
+}
+
+function closeCreateModal() {
+    document.getElementById('createModal').classList.remove('active');
+}
+
+async function createBrand(e) {
+    e.preventDefault();
+    
+    const status = document.getElementById('modalStatus');
+    status.innerHTML = '<div class="status-msg info">Creating brand...</div>';
+    
+    try {
+        const res = await fetch(`${apiBase}/api/brands`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: document.getElementById('brandName').value,
+                display_name: document.getElementById('displayName').value,
+                user_id: mockUserId,
+                watermark_scale: parseInt(document.getElementById('watermarkScale').value) / 100,
+                watermark_opacity: parseInt(document.getElementById('watermarkOpacity').value) / 100,
+                logo_scale: parseInt(document.getElementById('logoScale').value) / 100
+            })
+        });
+        
+        const data = await res.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to create brand');
+        }
+        
+        status.innerHTML = '<div class="status-msg success">✅ Brand created successfully!</div>';
+        setTimeout(() => {
+            closeCreateModal();
+            loadBrands();
+        }, 1000);
+        
+    } catch (err) {
+        status.innerHTML = `<div class="status-msg error">❌ ${err.message}</div>`;
+    }
+}
+
+function editBrand(brandId) {
+    alert('Edit functionality coming soon!');
+}
+
+async function deleteBrand(brandId, brandName) {
+    if (!confirm(`Delete brand "${brandName}"? This cannot be undone.`)) return;
+    
+    try {
+        const res = await fetch(`${apiBase}/api/brands/${brandId}`, { method: 'DELETE' });
+        const data = await res.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to delete brand');
+        }
+        
+        alert('Brand deleted successfully');
+        loadBrands();
+    } catch (err) {
+        alert(`Error: ${err.message}`);
+    }
+}
+</script>
+
+</body>
+</html>

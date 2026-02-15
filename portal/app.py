@@ -298,6 +298,11 @@ def dashboard():
     """Main portal dashboard"""
     return render_template('clean_dashboard.html')
 
+@app.route('/portal/brands')
+def brands_page():
+    """Brand management page"""
+    return render_template('brands.html')
+
 @app.route("/portal/downloader_dashboard")
 def downloader_dashboard():
     return render_template("downloader_dashboard.html")
@@ -1121,6 +1126,8 @@ def create_brand_api():
             text_enabled=data.get('text_enabled', False),
             text_content=data.get('text_content', ''),
             text_position=data.get('text_position', 'bottom'),
+            text_x=data.get('text_x', 0),
+            text_y=data.get('text_y', 0),
             text_size=data.get('text_size', 48),
             text_color=data.get('text_color', '#FFFFFF'),
             text_font=data.get('text_font', 'Arial'),
