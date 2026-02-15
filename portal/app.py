@@ -294,8 +294,13 @@ def api_root():
 # ============================================================================
 
 @app.route('/portal/')
-def dashboard():
-    """Main portal dashboard"""
+def portal_landing():
+    """Landing hub - redirects to brand for now"""
+    return render_template('clean_dashboard.html')
+
+@app.route('/portal/brand')
+def brand_video():
+    """Brand a video page"""
     return render_template('clean_dashboard.html')
 
 @app.route('/portal/brands')
@@ -309,7 +314,7 @@ def downloader_dashboard():
 
 @app.route("/portal")
 def portal_home():
-    return dashboard()  # Use new canvas UI
+    return portal_landing()
 
 @app.route('/portal/test')
 def test_page():
