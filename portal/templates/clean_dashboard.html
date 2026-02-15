@@ -375,17 +375,6 @@
         </div>
         <div class="slider-group">
             <div class="slider-header">
-                <span class="slider-label">Position</span>
-                <span class="slider-value" id="textPosVal">Bottom</span>
-            </div>
-            <select id="textPosition" onchange="document.getElementById('textPosVal').textContent = this.options[this.selectedIndex].text; updateCanvasPreview();" style="width:100%; padding:10px; background:#222; color:#fff; border:none; border-radius:8px;">
-                <option value="top">Top</option>
-                <option value="center">Center</option>
-                <option value="bottom" selected>Bottom</option>
-            </select>
-        </div>
-        <div class="slider-group">
-            <div class="slider-header">
                 <span class="slider-label">Font Size</span>
                 <span class="slider-value" id="textSizeVal">48px</span>
             </div>
@@ -412,6 +401,7 @@
             </div>
             <input type="range" id="textBgOpacity" min="20" max="100" value="60" oninput="document.getElementById('textBgOpacityVal').textContent = this.value + '%'; updateCanvasPreview();">
         </div>
+        <p style="font-size:11px; color:#888; margin-top:8px;">💡 Drag text on canvas to reposition</p>
     </div>
     
     </div><!-- End overrideControls -->
@@ -465,6 +455,12 @@ let logoDragging = false;
 let logoX = 0;
 let logoY = 0;
 let logoDragStart = { x: 0, y: 0 };
+
+// Text drag state
+let textDragging = false;
+let textX = 0;  // 0 means use default center
+let textY = 0;  // 0 means use default bottom
+let textDragStart = { x: 0, y: 0 };
 
 // ========== QUEUE MODE STATE ==========
 let isQueueMode = false;
@@ -547,7 +543,6 @@ function drawOverlays() {
     document.getElementById('textControls').style.display = textEnabled ? 'block' : 'none';
     
     if (textEnabled && textContent) {
-        const textPosition = document.getElementById('textPosition').value;
         const textSize = parseInt(document.getElementById('textSize').value);
         const textColor = document.getElementById('textColor').value;
         const textBgEnabled = document.getElementById('textBgEnabled').checked;
@@ -565,25 +560,21 @@ function drawOverlays() {
         const textWidth = textMetrics.width;
         const textHeight = scaledFontSize;
         
-        // Calculate Y position
-        let textY;
-        if (textPosition === 'top') {
-            textY = margin + textHeight;
-        } else if (textPosition === 'center') {
-            textY = canvas.height / 2 + textHeight / 2;
-        } else {  // bottom
-            textY = canvas.height - margin;
+        // Default position: center-bottom (user can drag to reposition)
+        let drawTextX = textX;
+        let drawTextY = textY;
+        if (textX === 0 && textY === 0) {
+            drawTextX = canvas.width / 2;
+            drawTextY = canvas.height - margin;
         }
-        
-        const textX = canvas.width / 2;
         
         // Draw background box if enabled
         if (textBgEnabled) {
             const padding = 10 * (canvas.width / 720);
             ctx.fillStyle = `rgba(0, 0, 0, ${textBgOpacity})`;
             ctx.fillRect(
-                textX - textWidth / 2 - padding,
-                textY - textHeight - padding / 2,
+                drawTextX - textWidth / 2 - padding,
+                drawTextY - textHeight - padding / 2,
                 textWidth + padding * 2,
                 textHeight + padding
             );
@@ -591,7 +582,19 @@ function drawOverlays() {
         
         // Draw text
         ctx.fillStyle = textColor;
-        ctx.fillText(textContent, textX, textY);
+        ctx.fillText(textContent, drawTextX, drawTextY);
+        
+        // Store text bounds for hit testing (dragging)
+        canvas._textBounds = { 
+            x: drawTextX - textWidth / 2, 
+            y: drawTextY - textHeight, 
+            w: textWidth, 
+            h: textHeight,
+            centerX: drawTextX,
+            centerY: drawTextY
+        };
+    } else {
+        canvas._textBounds = null;
     }
     
     // Update watermark bounds outline
@@ -618,24 +621,24 @@ function drawOverlays() {
     }
 }
 
-// ========== LOGO DRAG ==========
-canvas.addEventListener('mousedown', startLogoDrag);
-canvas.addEventListener('mousemove', dragLogo);
-canvas.addEventListener('mouseup', endLogoDrag);
-canvas.addEventListener('mouseleave', endLogoDrag);
+// ========== DRAG SUPPORT (Logo & Text) ==========
+canvas.addEventListener('mousedown', startDrag);
+canvas.addEventListener('mousemove', drag);
+canvas.addEventListener('mouseup', endDrag);
+canvas.addEventListener('mouseleave', endDrag);
 
 // Touch support
 canvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
     const touch = e.touches[0];
-    startLogoDrag({ clientX: touch.clientX, clientY: touch.clientY });
+    startDrag({ clientX: touch.clientX, clientY: touch.clientY });
 }, { passive: false });
 canvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
     const touch = e.touches[0];
-    dragLogo({ clientX: touch.clientX, clientY: touch.clientY });
+    drag({ clientX: touch.clientX, clientY: touch.clientY });
 }, { passive: false });
-canvas.addEventListener('touchend', endLogoDrag);
+canvas.addEventListener('touchend', endDrag);
 
 function getCanvasCoords(e) {
     const rect = canvas.getBoundingClientRect();
@@ -647,28 +650,48 @@ function getCanvasCoords(e) {
     };
 }
 
-function startLogoDrag(e) {
-    if (!canvas._logoBounds) return;
+function startDrag(e) {
     const pos = getCanvasCoords(e);
-    const b = canvas._logoBounds;
     
-    if (pos.x >= b.x && pos.x <= b.x + b.w && pos.y >= b.y && pos.y <= b.y + b.h) {
-        logoDragging = true;
-        logoDragStart = { x: pos.x - logoX, y: pos.y - logoY };
-        canvas.style.cursor = 'grabbing';
+    // Check if clicking on text first (priority over logo)
+    if (canvas._textBounds) {
+        const tb = canvas._textBounds;
+        if (pos.x >= tb.x && pos.x <= tb.x + tb.w && pos.y >= tb.y && pos.y <= tb.y + tb.h) {
+            textDragging = true;
+            textDragStart = { x: pos.x - textX, y: pos.y - textY };
+            canvas.style.cursor = 'grabbing';
+            return;
+        }
+    }
+    
+    // Check if clicking on logo
+    if (canvas._logoBounds) {
+        const b = canvas._logoBounds;
+        if (pos.x >= b.x && pos.x <= b.x + b.w && pos.y >= b.y && pos.y <= b.y + b.h) {
+            logoDragging = true;
+            logoDragStart = { x: pos.x - logoX, y: pos.y - logoY };
+            canvas.style.cursor = 'grabbing';
+        }
     }
 }
 
-function dragLogo(e) {
-    if (!logoDragging) return;
-    const pos = getCanvasCoords(e);
-    logoX = pos.x - logoDragStart.x;
-    logoY = pos.y - logoDragStart.y;
-    updateCanvasPreview();
+function drag(e) {
+    if (textDragging) {
+        const pos = getCanvasCoords(e);
+        textX = pos.x - textDragStart.x;
+        textY = pos.y - textDragStart.y;
+        updateCanvasPreview();
+    } else if (logoDragging) {
+        const pos = getCanvasCoords(e);
+        logoX = pos.x - logoDragStart.x;
+        logoY = pos.y - logoDragStart.y;
+        updateCanvasPreview();
+    }
 }
 
-function endLogoDrag() {
+function endDrag() {
     logoDragging = false;
+    textDragging = false;
     canvas.style.cursor = 'default';
 }
 
@@ -755,8 +778,6 @@ async function loadBrandConfig(brandName) {
             // Apply text layer settings
             document.getElementById('textEnabled').checked = !!cfg.text_enabled;
             document.getElementById('textContent').value = cfg.text_content || '';
-            document.getElementById('textPosition').value = cfg.text_position || 'bottom';
-            document.getElementById('textPosVal').textContent = (cfg.text_position || 'bottom').charAt(0).toUpperCase() + (cfg.text_position || 'bottom').slice(1);
             document.getElementById('textSize').value = cfg.text_size || 48;
             document.getElementById('textSizeVal').textContent = (cfg.text_size || 48) + 'px';
             document.getElementById('textColor').value = cfg.text_color || '#FFFFFF';
@@ -764,6 +785,10 @@ async function loadBrandConfig(brandName) {
             document.getElementById('textBgEnabled').checked = cfg.text_bg_enabled !== false;
             document.getElementById('textBgOpacity').value = Math.round((cfg.text_bg_opacity || 0.6) * 100);
             document.getElementById('textBgOpacityVal').textContent = Math.round((cfg.text_bg_opacity || 0.6) * 100) + '%';
+            
+            // Load text position if saved
+            textX = cfg.text_x || 0;
+            textY = cfg.text_y || 0;
             
             // Show/hide text controls
             document.getElementById('textControls').style.display = cfg.text_enabled ? 'block' : 'none';
@@ -942,7 +967,8 @@ async function switchToBrand(idx) {
                     logo_scale: data.config.logo_scale || 0.15,
                     text_enabled: !!data.config.text_enabled,
                     text_content: data.config.text_content || '',
-                    text_position: data.config.text_position || 'bottom',
+                    text_x: data.config.text_x || 0,
+                    text_y: data.config.text_y || 0,
                     text_size: data.config.text_size || 48,
                     text_color: data.config.text_color || '#FFFFFF',
                     text_bg_enabled: data.config.text_bg_enabled !== false,
@@ -974,7 +1000,8 @@ function getDefaultOverrides() {
         logo_scale: 0.15,
         text_enabled: false,
         text_content: '',
-        text_position: 'bottom',
+        text_x: 0,
+        text_y: 0,
         text_size: 48,
         text_color: '#FFFFFF',
         text_bg_enabled: true,
@@ -996,8 +1023,6 @@ function loadOverridesIntoSliders(overrides) {
     // Text layer
     document.getElementById('textEnabled').checked = overrides.text_enabled;
     document.getElementById('textContent').value = overrides.text_content;
-    document.getElementById('textPosition').value = overrides.text_position;
-    document.getElementById('textPosVal').textContent = overrides.text_position.charAt(0).toUpperCase() + overrides.text_position.slice(1);
     document.getElementById('textSize').value = overrides.text_size;
     document.getElementById('textSizeVal').textContent = overrides.text_size + 'px';
     document.getElementById('textColor').value = overrides.text_color;
@@ -1005,6 +1030,10 @@ function loadOverridesIntoSliders(overrides) {
     document.getElementById('textBgEnabled').checked = overrides.text_bg_enabled;
     document.getElementById('textBgOpacity').value = Math.round(overrides.text_bg_opacity * 100);
     document.getElementById('textBgOpacityVal').textContent = Math.round(overrides.text_bg_opacity * 100) + '%';
+    
+    // Load text position
+    textX = overrides.text_x || 0;
+    textY = overrides.text_y || 0;
     
     // Show/hide text controls
     document.getElementById('textControls').style.display = overrides.text_enabled ? 'block' : 'none';
@@ -1024,7 +1053,8 @@ function saveCurrentOverridesFromSliders() {
         logo_scale: parseInt(document.getElementById('logoScale').value) / 100,
         text_enabled: document.getElementById('textEnabled').checked,
         text_content: document.getElementById('textContent').value,
-        text_position: document.getElementById('textPosition').value,
+        text_x: textX,
+        text_y: textY,
         text_size: parseInt(document.getElementById('textSize').value),
         text_color: document.getElementById('textColor').value,
         text_bg_enabled: document.getElementById('textBgEnabled').checked,
@@ -1071,7 +1101,8 @@ async function processCurrentBrand() {
                 logo_scale: current.overrides.logo_scale,
                 text_enabled: current.overrides.text_enabled,
                 text_content: current.overrides.text_content,
-                text_position: current.overrides.text_position,
+                text_x: current.overrides.text_x,
+                text_y: current.overrides.text_y,
                 text_size: current.overrides.text_size,
                 text_color: current.overrides.text_color,
                 text_bg_enabled: current.overrides.text_bg_enabled,
@@ -1152,7 +1183,8 @@ async function processAllBrands() {
                     logo_scale: item.overrides.logo_scale,
                     text_enabled: item.overrides.text_enabled,
                     text_content: item.overrides.text_content,
-                    text_position: item.overrides.text_position,
+                    text_x: item.overrides.text_x,
+                    text_y: item.overrides.text_y,
                     text_size: item.overrides.text_size,
                     text_color: item.overrides.text_color,
                     text_bg_enabled: item.overrides.text_bg_enabled,
