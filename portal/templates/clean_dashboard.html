@@ -292,11 +292,11 @@
 </div>
 
 <!-- ========== SECTION 2: PREVIEW & CONFIGURE ========== -->
-<div class="section" id="previewSection">
+<div class="section" id="previewSection" style="display:none;">
     <h2>2. Configure Branding</h2>
     
     <!-- Canvas Preview -->
-    <div class="preview-container" id="previewContainer">
+    <div class="preview-container" id="previewContainer" style="display:none;">
         <canvas id="previewCanvas" width="360" height="640"></canvas>
         <div class="watermark-bounds" id="watermarkBounds"></div>
     </div>
@@ -354,13 +354,6 @@
             <span class="slider-value" id="logoScaleVal">15%</span>
         </div>
         <input type="range" id="logoScale" min="8" max="25" value="15">
-    </div>
-    <div class="slider-group">
-        <div class="slider-header">
-            <span class="slider-label">Padding</span>
-            <span class="slider-value" id="logoPaddingVal">40px</span>
-        </div>
-        <input type="range" id="logoPadding" min="10" max="80" value="40">
     </div>
     <p style="color:#666; font-size:12px; margin:5px 0;">💡 Drag logo on preview to reposition</p>
     
@@ -516,7 +509,6 @@ function drawOverlays() {
     const wmScale = parseInt(document.getElementById('wmScale').value) / 100;
     const wmOpacity = parseInt(document.getElementById('wmOpacity').value) / 100;
     const logoScalePct = parseInt(document.getElementById('logoScale').value) / 100;
-    const logoPad = parseInt(document.getElementById('logoPadding').value);
     
     // Draw watermark
     if (watermarkImg && watermarkImg.complete) {
@@ -535,13 +527,10 @@ function drawOverlays() {
         const logoW = canvas.width * logoScalePct;
         const logoH = (logoImg.height / logoImg.width) * logoW;
         
-        // Scale padding relative to canvas
-        const scaledPad = (logoPad / 720) * canvas.width;
-        
-        // Default position: bottom-right
+        // Default position: bottom-left (user can drag to reposition)
         if (logoX === 0 && logoY === 0) {
-            logoX = canvas.width - logoW - scaledPad;
-            logoY = canvas.height - logoH - scaledPad;
+            logoX = 20;  // Small left margin
+            logoY = canvas.height - logoH - 20;  // Small bottom margin
         }
         
         ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
@@ -698,11 +687,6 @@ document.getElementById('logoScale').addEventListener('input', (e) => {
     logoX = 0; logoY = 0;
     updateCanvasPreview();
 });
-document.getElementById('logoPadding').addEventListener('input', (e) => {
-    document.getElementById('logoPaddingVal').textContent = e.target.value + 'px';
-    logoX = 0; logoY = 0;
-    updateCanvasPreview();
-});
 document.getElementById('showBounds').addEventListener('change', updateCanvasPreview);
 
 // ========== LOAD BRANDS ==========
@@ -767,8 +751,6 @@ async function loadBrandConfig(brandName) {
             // Apply logo settings
             document.getElementById('logoScale').value = Math.round(cfg.logo_scale * 100);
             document.getElementById('logoScaleVal').textContent = Math.round(cfg.logo_scale * 100) + '%';
-            document.getElementById('logoPadding').value = cfg.logo_padding;
-            document.getElementById('logoPaddingVal').textContent = cfg.logo_padding + 'px';
             
             // Apply text layer settings
             document.getElementById('textEnabled').checked = !!cfg.text_enabled;
@@ -843,6 +825,7 @@ function enterQueueMode() {
     document.getElementById('queueModeHeader').style.display = 'block';
     document.getElementById('queueModeActions').style.display = 'block';
     document.getElementById('overrideControls').style.display = 'block';  // Show sliders now
+    document.getElementById('previewContainer').style.display = 'block';  // Show preview
     result.innerHTML = '';
     
     // Build brand pills
@@ -954,7 +937,6 @@ async function switchToBrand(idx) {
                     watermark_scale: data.config.watermark_scale || 1.15,
                     watermark_opacity: data.config.watermark_opacity || 0.4,
                     logo_scale: data.config.logo_scale || 0.15,
-                    logo_padding: data.config.logo_padding || 40,
                     text_enabled: !!data.config.text_enabled,
                     text_content: data.config.text_content || '',
                     text_position: data.config.text_position || 'bottom',
@@ -987,7 +969,6 @@ function getDefaultOverrides() {
         watermark_scale: 1.15,
         watermark_opacity: 0.4,
         logo_scale: 0.15,
-        logo_padding: 40,
         text_enabled: false,
         text_content: '',
         text_position: 'bottom',
@@ -1008,8 +989,6 @@ function loadOverridesIntoSliders(overrides) {
     // Logo
     document.getElementById('logoScale').value = Math.round(overrides.logo_scale * 100);
     document.getElementById('logoScaleVal').textContent = Math.round(overrides.logo_scale * 100) + '%';
-    document.getElementById('logoPadding').value = overrides.logo_padding;
-    document.getElementById('logoPaddingVal').textContent = overrides.logo_padding + 'px';
     
     // Text layer
     document.getElementById('textEnabled').checked = overrides.text_enabled;
@@ -1040,7 +1019,6 @@ function saveCurrentOverridesFromSliders() {
         watermark_scale: parseInt(document.getElementById('wmScale').value) / 100,
         watermark_opacity: parseInt(document.getElementById('wmOpacity').value) / 100,
         logo_scale: parseInt(document.getElementById('logoScale').value) / 100,
-        logo_padding: parseInt(document.getElementById('logoPadding').value),
         text_enabled: document.getElementById('textEnabled').checked,
         text_content: document.getElementById('textContent').value,
         text_position: document.getElementById('textPosition').value,
@@ -1088,7 +1066,6 @@ async function processCurrentBrand() {
                 watermark_scale: current.overrides.watermark_scale,
                 watermark_opacity: current.overrides.watermark_opacity,
                 logo_scale: current.overrides.logo_scale,
-                logo_padding: current.overrides.logo_padding,
                 text_enabled: current.overrides.text_enabled,
                 text_content: current.overrides.text_content,
                 text_position: current.overrides.text_position,
@@ -1170,7 +1147,6 @@ async function processAllBrands() {
                     watermark_scale: item.overrides.watermark_scale,
                     watermark_opacity: item.overrides.watermark_opacity,
                     logo_scale: item.overrides.logo_scale,
-                    logo_padding: item.overrides.logo_padding,
                     text_enabled: item.overrides.text_enabled,
                     text_content: item.overrides.text_content,
                     text_position: item.overrides.text_position,
