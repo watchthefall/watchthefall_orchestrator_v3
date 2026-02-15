@@ -828,6 +828,9 @@ function enterQueueMode() {
     document.getElementById('previewContainer').style.display = 'block';  // Show preview
     result.innerHTML = '';
     
+    // Force canvas redraw now that it's visible
+    setTimeout(() => updateCanvasPreview(), 50);
+    
     // Build brand pills
     renderBrandPills();
     
@@ -1326,10 +1329,10 @@ async function fetchVideo() {
         
         status.innerHTML = `<div class="status-msg success">✅ Downloaded: ${currentFile}</div>`;
         
-        // Show preview section
+        // Show preview section (but NOT canvas - that shows in queue mode)
         document.getElementById('previewSection').style.display = 'block';
         
-        // Extract frame for preview
+        // Extract frame for preview (stores frameData for later use)
         extractFrame(currentFile);
         
     } catch (err) {
@@ -1403,6 +1406,7 @@ const lastFile = localStorage.getItem('last_downloaded_file');
 if (lastFile) {
     currentFile = lastFile;
     document.getElementById('previewSection').style.display = 'block';
+    // Don't show canvas until queue mode
     extractFrame(lastFile);
 }
 </script>
