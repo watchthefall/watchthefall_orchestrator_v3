@@ -424,29 +424,84 @@
                 <input type="text" id="displayName" required placeholder="e.g., My Brand">
             </div>
             
-            <div class="form-group">
-                <label>Watermark Scale (100-200%)</label>
-                <input type="number" id="watermarkScale" min="100" max="200" value="115">
+            <!-- Visual Editor -->
+            <div class="editor-layout">
+                <div class="canvas-container">
+                    <canvas id="brandPreviewCanvas"></canvas>
+                    <div style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); font-size:11px; color:#666;">
+                        👆 Drag to position layers
+                    </div>
+                </div>
+                
+                <div class="controls-panel">
+                    <!-- Logo Controls -->
+                    <div class="control-section">
+                        <h3>🎨 Logo</h3>
+                        <input type="file" id="logoUpload" accept="image/png,image/jpeg" onchange="handleLogoUpload(event)">
+                        <div class="slider-row">
+                            <label>Scale <span class="slider-value" id="logoScaleVal">15%</span></label>
+                            <input type="range" id="logoScale" min="5" max="50" value="15" oninput="updateLogoScale(this.value)">
+                        </div>
+                        <div class="slider-row">
+                            <label>Opacity <span class="slider-value" id="logoOpacityVal">100%</span></label>
+                            <input type="range" id="logoOpacity" min="0" max="100" value="100" oninput="updateLogoOpacity(this.value)">
+                        </div>
+                    </div>
+                    
+                    <!-- Watermark Controls -->
+                    <div class="control-section">
+                        <h3>💧 Watermark</h3>
+                        <input type="file" id="watermarkUpload" accept="image/png,image/jpeg" onchange="handleWatermarkUpload(event)">
+                        <div class="mode-toggle">
+                            <button type="button" class="mode-btn active" id="wmFullscreenBtn" onclick="setWatermarkMode('fullscreen')">Fullscreen</button>
+                            <button type="button" class="mode-btn" id="wmPositionedBtn" onclick="setWatermarkMode('positioned')">Positioned</button>
+                        </div>
+                        <div class="slider-row">
+                            <label>Scale <span class="slider-value" id="wmScaleVal">100%</span></label>
+                            <input type="range" id="wmScale" min="10" max="200" value="100" oninput="updateWmScale(this.value)">
+                        </div>
+                        <div class="slider-row">
+                            <label>Opacity <span class="slider-value" id="wmOpacityVal">10%</span></label>
+                            <input type="range" id="wmOpacity" min="0" max="100" value="10" oninput="updateWmOpacity(this.value)">
+                        </div>
+                    </div>
+                    
+                    <!-- Text Controls -->
+                    <div class="control-section">
+                        <h3>✏️ Text Overlay</h3>
+                        <label style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                            <span>Enable Text</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="textEnabled" onchange="toggleText(this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </label>
+                        <div id="textControls" style="display:none;">
+                            <div class="form-group">
+                                <input type="text" id="textContent" placeholder="Enter text..." oninput="updateText()">
+                            </div>
+                            <div class="slider-row">
+                                <label>Font Size <span class="slider-value" id="textSizeVal">48px</span></label>
+                                <input type="range" id="textSize" min="24" max="96" value="48" oninput="updateTextSize(this.value)">
+                            </div>
+                            <div class="slider-row">
+                                <label>Color</label>
+                                <input type="color" id="textColor" value="#FFFFFF" onchange="updateTextColor(this.value)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             
-            <div class="form-group">
-                <label>Watermark Opacity (0-100%)</label>
-                <input type="number" id="watermarkOpacity" min="0" max="100" value="40">
-            </div>
-            
-            <div class="form-group">
-                <label>Logo Scale (10-50%)</label>
-                <input type="number" id="logoScale" min="10" max="50" value="15">
-            </div>
-            
-            <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">Create Brand</button>
+            <button type="submit" class="btn btn-primary" style="width:100%; margin-top:20px;">Create Brand</button>
         </form>
     </div>
 </div>
 
+<script src="{{ url_for('static', filename='js/brand_editor.js') }}"></script>
 <script>
 const apiBase = window.location.origin;
-// User ID comes from session on backend - no need to pass explicitly
+let editor = null;
 
 // Load brands on page load
 loadBrands();
@@ -514,6 +569,99 @@ function openCreateModal() {
     document.getElementById('createModal').classList.add('active');
     document.getElementById('createForm').reset();
     document.getElementById('modalStatus').innerHTML = '';
+    
+    // Initialize editor
+    if (!editor) {
+        editor = initBrandEditor();
+    }
+    
+    // Reset UI controls
+    document.getElementById('textControls').style.display = 'none';
+    document.getElementById('wmFullscreenBtn').classList.add('active');
+    document.getElementById('wmPositionedBtn').classList.remove('active');
+}
+
+// Control handlers
+function handleLogoUpload(e) {
+    const file = e.target.files[0];
+    if (file && editor) {
+        editor.loadImage(file, 'logo');
+    }
+}
+
+function handleWatermarkUpload(e) {
+    const file = e.target.files[0];
+    if (file && editor) {
+        editor.loadImage(file, 'watermark');
+    }
+}
+
+function updateLogoScale(value) {
+    document.getElementById('logoScaleVal').textContent = value + '%';
+    if (editor) {
+        editor.updateState({ logoScale: parseFloat(value) / 100 });
+    }
+}
+
+function updateLogoOpacity(value) {
+    document.getElementById('logoOpacityVal').textContent = value + '%';
+    if (editor) {
+        editor.updateState({ logoOpacity: parseFloat(value) / 100 });
+    }
+}
+
+function setWatermarkMode(mode) {
+    if (mode === 'fullscreen') {
+        document.getElementById('wmFullscreenBtn').classList.add('active');
+        document.getElementById('wmPositionedBtn').classList.remove('active');
+    } else {
+        document.getElementById('wmFullscreenBtn').classList.remove('active');
+        document.getElementById('wmPositionedBtn').classList.add('active');
+    }
+    if (editor) {
+        editor.updateState({ wmMode: mode });
+    }
+}
+
+function updateWmScale(value) {
+    document.getElementById('wmScaleVal').textContent = value + '%';
+    if (editor) {
+        editor.updateState({ wmScale: parseFloat(value) / 100 });
+    }
+}
+
+function updateWmOpacity(value) {
+    document.getElementById('wmOpacityVal').textContent = value + '%';
+    if (editor) {
+        editor.updateState({ wmOpacity: parseFloat(value) / 100 });
+    }
+}
+
+function toggleText(enabled) {
+    document.getElementById('textControls').style.display = enabled ? 'block' : 'none';
+    if (editor) {
+        editor.updateState({ textEnabled: enabled });
+    }
+}
+
+function updateText() {
+    const content = document.getElementById('textContent').value;
+    if (editor) {
+        editor.updateState({ textContent: content });
+    }
+}
+
+function updateTextSize(value) {
+    document.getElementById('textSizeVal').textContent = value + 'px';
+    if (editor) {
+        editor.updateState({ textSize: parseInt(value) });
+    }
+}
+
+function updateTextColor(value) {
+    if (editor) {
+        editor.updateState({ textColor: value });
+    }
 }
 
 function closeCreateModal() {
@@ -527,16 +675,17 @@ async function createBrand(e) {
     status.innerHTML = '<div class="status-msg info">Creating brand...</div>';
     
     try {
+        // Get editor state
+        const editorState = editor ? editor.exportState() : {};
+        
         const res = await fetch(`${apiBase}/api/brands`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 name: document.getElementById('brandName').value,
                 display_name: document.getElementById('displayName').value,
-                // user_id comes from session on backend
-                watermark_scale: parseInt(document.getElementById('watermarkScale').value) / 100,
-                watermark_opacity: parseInt(document.getElementById('watermarkOpacity').value) / 100,
-                logo_scale: parseInt(document.getElementById('logoScale').value) / 100
+                // Visual positioning from editor
+                ...editorState
             })
         });
         
