@@ -280,6 +280,153 @@ class VideoProcessor:
         """
         Build ffmpeg filter_complex for overlays using dynamic master asset resolution.
         
+        If brand_config contains new percent-based positioning fields (logo_x, wm_mode, etc),
+        uses those. Otherwise falls back to legacy behavior.
+        
+        Pipeline:
+        1. Watermark as FULL-FRAME or POSITIONED overlay
+        2. Logo at saved position with saved opacity
+        3. Optional text overlay at saved position
+        """
+        brand_name = brand_config.get('name', 'Unknown')
+        
+        # Check if brand has new visual positioning fields
+        has_visual_fields = 'logo_x' in brand_config or 'wm_mode' in brand_config
+        
+        if has_visual_fields:
+            print(f"[DEBUG] Brand {brand_name} has visual positioning fields, using percent-based layout")
+            return self.build_filter_complex_visual(brand_config, logo_settings)
+        else:
+            print(f"[DEBUG] Brand {brand_name} using legacy layout (no visual positioning)")
+            return self.build_filter_complex_legacy(brand_config, logo_settings)
+    
+    def build_filter_complex_visual(self, brand_config: Dict, logo_settings: Optional[Dict] = None) -> str:
+        """
+        Build FFmpeg filter_complex from percent-based visual positioning fields.
+        
+        Uses saved percent coordinates (0-1) and converts to pixels based on output dimensions.
+        """
+        brand_name = brand_config.get('name', 'Unknown')
+        
+        # Output dimensions
+        W = self.video_metadata['width']
+        H = self.video_metadata['height']
+        
+        print(f"[VISUAL_PRESET] ========================================")
+        print(f"[VISUAL_PRESET] Building filter for brand: {brand_name}")
+        print(f"[VISUAL_PRESET] Output dimensions: {W}x{H}")
+        
+        filters = []
+        current_input = '0:v'
+        
+        # Extract visual positioning fields with defaults
+        logo_x_pct = brand_config.get('logo_x', 0.85)
+        logo_y_pct = brand_config.get('logo_y', 0.85)
+        logo_scale_pct = brand_config.get('logo_scale', 0.15)
+        logo_opacity = brand_config.get('logo_opacity', 1.0)
+        
+        wm_mode = brand_config.get('wm_mode', 'fullscreen')
+        wm_x_pct = brand_config.get('wm_x', 0.5)
+        wm_y_pct = brand_config.get('wm_y', 0.5)
+        wm_scale_pct = brand_config.get('wm_scale', 1.0)
+        wm_opacity = brand_config.get('wm_opacity', 0.10)
+        
+        text_enabled = brand_config.get('text_enabled', False)
+        text_content = brand_config.get('text_content', '')
+        text_x_pct = brand_config.get('text_x_percent', 0.5)
+        text_y_pct = brand_config.get('text_y_percent', 0.2)
+        text_size = brand_config.get('text_size', 48)
+        text_color = brand_config.get('text_color', '#FFFFFF')
+        
+        print(f"[VISUAL_PRESET] Logo: x={logo_x_pct:.2f}, y={logo_y_pct:.2f}, scale={logo_scale_pct:.2f}, opacity={logo_opacity:.2f}")
+        print(f"[VISUAL_PRESET] Watermark: mode={wm_mode}, x={wm_x_pct:.2f}, y={wm_y_pct:.2f}, scale={wm_scale_pct:.2f}, opacity={wm_opacity:.2f}")
+        print(f"[VISUAL_PRESET] Text: enabled={text_enabled}, content='{text_content[:30]}', x={text_x_pct:.2f}, y={text_y_pct:.2f}")
+        
+        # 1. WATERMARK OVERLAY
+        watermark_path = self.resolve_watermark_path(brand_name, brand_config)
+        if watermark_path:
+            print(f"[VISUAL_PRESET] Adding watermark: {watermark_path}")
+            
+            if wm_mode == 'fullscreen':
+                # Fullscreen mode: scale to W:H, overlay at 0:0
+                scaled_w = int(W * wm_scale_pct)
+                scaled_h = int(H * wm_scale_pct)
+                offset_x = (scaled_w - W) // 2
+                offset_y = (scaled_h - H) // 2
+                
+                print(f"[VISUAL_PRESET] Watermark fullscreen: {scaled_w}x{scaled_h}, offset=(-{offset_x},-{offset_y}), opacity={wm_opacity:.2f}")
+                
+                filters.append(f"movie='{watermark_path}',scale={scaled_w}:{scaled_h},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{wm_opacity}*alpha(X,Y)'[watermark]")
+                filters.append(f"[{current_input}][watermark]overlay=-{offset_x}:-{offset_y}[v1]")
+                current_input = 'v1'
+            else:
+                # Positioned mode: scale and overlay at specific position
+                wm_target_w = int(wm_scale_pct * W * 0.5)  # Scale relative to width
+                wm_x_px = int(wm_x_pct * W) - wm_target_w // 2
+                wm_y_px = int(wm_y_pct * H) - wm_target_w // 2
+                
+                print(f"[VISUAL_PRESET] Watermark positioned: width={wm_target_w}px, pos=({wm_x_px},{wm_y_px}), opacity={wm_opacity:.2f}")
+                
+                filters.append(f"movie='{watermark_path}',scale={wm_target_w}:-1,format=rgba,colorchannelmixer=aa={wm_opacity}[watermark]")
+                filters.append(f"[{current_input}][watermark]overlay={wm_x_px}:{wm_y_px}[v1]")
+                current_input = 'v1'
+        else:
+            print(f"[VISUAL_PRESET] No watermark found, skipping")
+        
+        # 2. LOGO OVERLAY
+        logo_path = self.resolve_logo_path(brand_name, brand_config)
+        if logo_path:
+            logo_target_w = int(logo_scale_pct * W)
+            logo_x_px = int(logo_x_pct * W) - logo_target_w // 2
+            logo_y_px = int(logo_y_pct * H) - logo_target_w // 2
+            
+            print(f"[VISUAL_PRESET] Adding logo: {logo_path}")
+            print(f"[VISUAL_PRESET] Logo: width={logo_target_w}px, pos=({logo_x_px},{logo_y_px}), opacity={logo_opacity:.2f}")
+            
+            filters.append(f"movie='{logo_path}',scale={logo_target_w}:-1,format=rgba,colorchannelmixer=aa={logo_opacity}[logo]")
+            filters.append(f"[{current_input}][logo]overlay={logo_x_px}:{logo_y_px}[v2]")
+            current_input = 'v2'
+        else:
+            print(f"[VISUAL_PRESET] No logo found, skipping")
+        
+        # 3. TEXT OVERLAY (if enabled)
+        if text_enabled and text_content:
+            text_x_px = int(text_x_pct * W)
+            text_y_px = int(text_y_pct * H)
+            
+            print(f"[VISUAL_PRESET] Adding text: '{text_content[:30]}'")
+            print(f"[VISUAL_PRESET] Text: size={text_size}px, pos=({text_x_px},{text_y_px}), color={text_color}")
+            
+            # Escape text for FFmpeg
+            escaped_text = text_content.replace("'", "'\\''").replace(":", "\\:")
+            text_color_hex = text_color.lstrip('#')
+            
+            # Build drawtext filter
+            drawtext_filter = f"drawtext=text='{escaped_text}':fontsize={text_size}:fontcolor=0x{text_color_hex}:x={text_x_px}-text_w/2:y={text_y_px}-text_h/2:box=1:boxcolor=0x000000@0.6:boxborderw=10"
+            
+            next_label = 'v3' if current_input in ['v1', 'v2'] else 'v2'
+            filters.append(f"[{current_input}]{drawtext_filter}[{next_label}]")
+            current_input = next_label
+        
+        # Ensure final output is [vout]
+        if filters:
+            last_filter = filters[-1]
+            if '[v1]' in last_filter or '[v2]' in last_filter or '[v3]' in last_filter:
+                filters[-1] = last_filter.rsplit('[', 1)[0] + '[vout]'
+        else:
+            # No overlays - passthrough
+            filters.append(f"[0:v]scale={W}:{H}[vout]")
+        
+        filter_complex = ';'.join(filters)
+        print(f"[VISUAL_PRESET] Final filter: {filter_complex}")
+        print(f"[VISUAL_PRESET] ========================================")
+        
+        return filter_complex
+    
+    def build_filter_complex_legacy(self, brand_config: Dict, logo_settings: Optional[Dict] = None) -> str:
+        """
+        LEGACY: Build ffmpeg filter_complex for overlays using old hardcoded positioning.
+        
         Pipeline:
         1. Watermark as FULL-FRAME overlay at 40% opacity (from master assets)
         2. Logo bottom-right at 15% width (from master assets Circle folder)

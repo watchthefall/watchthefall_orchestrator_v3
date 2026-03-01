@@ -744,7 +744,7 @@ def process_branded_videos():
         processor = VideoProcessor(normalized_video_path, OUTPUT_DIR)
         
         # Import database functions for per-brand config
-        from .database import get_brand_config
+        from .database import get_brand
         
         output_paths = []
         
@@ -753,31 +753,38 @@ def process_branded_videos():
             brand_name = brand_config.get('name', 'Unknown')
             print(f"[PROCESS BRANDS] PROCESSING BRAND {i} of {total_brands}: {brand_name}")
             
-            # Load saved configuration for this brand (falls back to defaults if none saved)
-            saved_config = get_brand_config(brand_name)
+            # Load brand from NEW unified brands table (includes visual positioning fields)
+            user_id = session.get('user_id')
+            db_brand = get_brand(name=brand_name, user_id=user_id)
             
-            # Apply per-brand configuration to processor
-            processor.WATERMARK_SCALE = saved_config.get('watermark_scale', 1.15)
-            processor.WATERMARK_OPACITY = saved_config.get('watermark_opacity', 0.4)
-            processor.LOGO_SCALE = saved_config.get('logo_scale', 0.15)
-            processor.LOGO_PADDING = saved_config.get('logo_padding', 40)
-            
-            # Text layer config
-            processor.TEXT_ENABLED = bool(saved_config.get('text_enabled', False))
-            processor.TEXT_CONTENT = saved_config.get('text_content', '')
-            processor.TEXT_POSITION = saved_config.get('text_position', 'bottom')
-            processor.TEXT_SIZE = saved_config.get('text_size', 48)
-            processor.TEXT_COLOR = saved_config.get('text_color', '#FFFFFF')
-            processor.TEXT_FONT = saved_config.get('text_font', 'Arial')
-            processor.TEXT_BG_ENABLED = bool(saved_config.get('text_bg_enabled', True))
-            processor.TEXT_BG_COLOR = saved_config.get('text_bg_color', '#000000')
-            processor.TEXT_BG_OPACITY = saved_config.get('text_bg_opacity', 0.6)
-            processor.TEXT_MARGIN = saved_config.get('text_margin', 40)
-            
-            print(f"[PROCESS BRANDS] Brand {brand_name} config: scale={processor.WATERMARK_SCALE}, opacity={processor.WATERMARK_OPACITY}, text={processor.TEXT_ENABLED}")
+            if db_brand:
+                # Use DB brand config (includes visual fields)
+                print(f"[PROCESS BRANDS] Using brand from database with visual positioning: {brand_name}")
+                # Merge filesystem brand_config with DB brand data
+                merged_config = {**brand_config, **db_brand}
+            else:
+                # Fallback to old behavior if brand not in DB
+                print(f"[PROCESS BRANDS] Brand {brand_name} not in database, using legacy config")
+                merged_config = brand_config
+                
+                # Set legacy processor properties (only for non-DB brands)
+                processor.WATERMARK_SCALE = brand_config.get('watermark_scale', 1.15)
+                processor.WATERMARK_OPACITY = brand_config.get('watermark_opacity', 0.4)
+                processor.LOGO_SCALE = brand_config.get('logo_scale', 0.15)
+                processor.LOGO_PADDING = brand_config.get('logo_padding', 40)
+                processor.TEXT_ENABLED = bool(brand_config.get('text_enabled', False))
+                processor.TEXT_CONTENT = brand_config.get('text_content', '')
+                processor.TEXT_POSITION = brand_config.get('text_position', 'bottom')
+                processor.TEXT_SIZE = brand_config.get('text_size', 48)
+                processor.TEXT_COLOR = brand_config.get('text_color', '#FFFFFF')
+                processor.TEXT_FONT = brand_config.get('text_font', 'Arial')
+                processor.TEXT_BG_ENABLED = bool(brand_config.get('text_bg_enabled', True))
+                processor.TEXT_BG_COLOR = brand_config.get('text_bg_color', '#000000')
+                processor.TEXT_BG_OPACITY = brand_config.get('text_bg_opacity', 0.6)
+                processor.TEXT_MARGIN = brand_config.get('text_margin', 40)
             
             try:
-                output_path = processor.process_brand(brand_config, video_id=video_id)
+                output_path = processor.process_brand(merged_config, video_id=video_id)
                 output_paths.append(output_path)
                 print(f"[PROCESS BRANDS] FINISHED BRAND {i}: {brand_name}")
             except Exception as e:
