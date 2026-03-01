@@ -1112,20 +1112,24 @@ async function loadBrandConfig(brandName) {
 }
 
 async function loadBrandAssets(brandName) {
-    // Load watermark
+    // Load watermark (use legacy endpoint for now - works for both old and new paths)
     watermarkImg = new Image();
     watermarkImg.crossOrigin = 'anonymous';
     watermarkImg.onload = updateCanvasPreview;
     watermarkImg.src = `${apiBase}/api/preview/watermark/${brandName}`;
     
-    // Load logo
+    // Load logo (use secure brand-asset endpoint)
     logoImg = new Image();
     logoImg.crossOrigin = 'anonymous';
     logoImg.onload = () => {
         logoX = 0; logoY = 0;  // Reset position
         updateCanvasPreview();
     };
-    logoImg.src = `${apiBase}/api/preview/logo/${brandName}`;
+    logoImg.onerror = () => {
+        console.warn(`[BRANDR] Logo load failed for ${brandName}, may not have logo uploaded`);
+        updateCanvasPreview();  // Update preview anyway (without logo)
+    };
+    logoImg.src = `${apiBase}/api/preview/brand-asset/${brandName}/logo`;
 }
 
 // ========== QUEUE MODE FUNCTIONS ==========
@@ -1169,15 +1173,24 @@ function enterQueueMode() {
     sessionStorage.removeItem('lastDownloadFilename');
     console.log('[BRANDR] Entering queue mode with', selectedBrands.length, 'brands');
     
-    // Hide selection mode, show queue mode
-    document.getElementById('videoSourceSection').style.display = 'none';  // Hide video source section
-    document.getElementById('selectionModeHeader').style.display = 'none';
-    document.getElementById('brandsBox').style.display = 'none';
-    document.getElementById('selectionModeActions').style.display = 'none';
-    document.getElementById('queueModeHeader').style.display = 'block';
-    document.getElementById('queueModeActions').style.display = 'block';
-    document.getElementById('overrideControls').style.display = 'block';  // Show sliders now
-    document.getElementById('previewContainer').style.display = 'block';  // Show preview
+    // Hide selection mode, show queue mode (with defensive null checks)
+    const videoSourceSection = document.getElementById('videoSourceSection');
+    const selectionModeHeader = document.getElementById('selectionModeHeader');
+    const brandsBox = document.getElementById('brandsBox');
+    const selectionModeActions = document.getElementById('selectionModeActions');
+    const queueModeHeader = document.getElementById('queueModeHeader');
+    const queueModeActions = document.getElementById('queueModeActions');
+    const overrideControls = document.getElementById('overrideControls');
+    const previewContainer = document.getElementById('previewContainer');
+    
+    if (videoSourceSection) videoSourceSection.style.display = 'none';
+    if (selectionModeHeader) selectionModeHeader.style.display = 'none';
+    if (brandsBox) brandsBox.style.display = 'none';
+    if (selectionModeActions) selectionModeActions.style.display = 'none';
+    if (queueModeHeader) queueModeHeader.style.display = 'block';
+    if (queueModeActions) queueModeActions.style.display = 'block';
+    if (overrideControls) overrideControls.style.display = 'block';
+    if (previewContainer) previewContainer.style.display = 'block';
     result.innerHTML = '';
     
     // Force canvas redraw now that it's visible

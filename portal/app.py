@@ -746,15 +746,25 @@ def process_branded_videos():
             print(f"[PROCESS BRANDS] Found local file: {video_filepath}")
         
         # 2. Load brand configurations
-        brand_configs = get_available_brands(os.path.dirname(os.path.abspath(__file__)))
+        user_id = session.get('user_id')
+        brand_configs = get_available_brands(os.path.dirname(os.path.abspath(__file__)), user_id=user_id)
+        
+        print(f"[PROCESS BRANDS] Loaded {len(brand_configs)} brands for user {user_id}")
+        print(f"[PROCESS BRANDS] Available brand names: {[b['name'] for b in brand_configs]}")
         
         # Filter to only selected brands
         selected_brand_configs = [brand for brand in brand_configs if brand['name'] in selected_brands]
         
+        print(f"[PROCESS BRANDS] Selected brand configs: {[b['name'] for b in selected_brand_configs]}")
+        
         if not selected_brand_configs:
+            print(f"[PROCESS BRANDS ERROR] No matching brands found!")
+            print(f"[PROCESS BRANDS ERROR] Requested: {selected_brands}")
+            print(f"[PROCESS BRANDS ERROR] Available: {[brand['name'] for brand in brand_configs]}")
             return jsonify({
                 'success': False,
                 'error': 'No valid brands selected',
+                'requested_brands': selected_brands,
                 'available_brands': [brand['name'] for brand in brand_configs]
             }), 400
         
@@ -1331,12 +1341,13 @@ def list_brands():
         
         # Format for frontend
         brand_list = [{
+            'id': brand['id'],
             'name': brand['name'], 
             'display_name': brand.get('display_name', brand['name']),
             'is_ready': brand.get('is_ready', False),  # Include readiness flag
             'is_system': brand.get('is_system', False),  # Include system flag for frontend filtering
             'logo_path': brand.get('logo_path'),
-            'watermark_path': brand.get('watermark_path')
+            'watermark_path': brand.get('watermark_path') or brand.get('watermark_vertical')  # Include watermark for preview
         } for brand in brands]
         
         return jsonify({
