@@ -98,6 +98,24 @@
             background: #00b7ff;
             color: #fff;
         }
+        .badge-ready {
+            background: #28a745;
+            color: #fff;
+        }
+        .badge-incomplete {
+            background: #ff9800;
+            color: #fff;
+        }
+        .badge-warning {
+            display: block;
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(255, 152, 0, 0.2);
+            border-radius: 6px;
+            font-size: 11px;
+            color: #ff9800;
+            text-align: center;
+        }
         
         .brand-actions {
             display: flex;
@@ -438,6 +456,7 @@
                     <div class="control-section">
                         <h3>🎨 Logo</h3>
                         <input type="file" id="logoUpload" accept="image/png,image/jpeg,image/jpg,image/webp,image/*" capture="environment" onchange="handleLogoUpload(event)">
+                        <div id="logoStatus" class="badge-warning" style="display:none; margin-top:8px;">⚠️ No logo uploaded</div>
                         <div class="slider-row">
                             <label>Scale <span class="slider-value" id="logoScaleVal">15%</span></label>
                             <input type="range" id="logoScale" min="5" max="50" value="15" oninput="updateLogoScale(this.value)">
@@ -452,6 +471,7 @@
                     <div class="control-section">
                         <h3>💧 Watermark</h3>
                         <input type="file" id="watermarkUpload" accept="image/png,image/jpeg,image/jpg,image/webp,image/*" capture="environment" onchange="handleWatermarkUpload(event)">
+                        <div id="watermarkStatus" class="badge-warning" style="display:none; margin-top:8px;">⚠️ No watermark uploaded</div>
                         <div class="mode-toggle">
                             <button type="button" class="mode-btn active" id="wmFullscreenBtn" onclick="setWatermarkMode('fullscreen')">Fullscreen</button>
                             <button type="button" class="mode-btn" id="wmPositionedBtn" onclick="setWatermarkMode('positioned')">Positioned</button>
@@ -547,14 +567,27 @@ function renderBrands(brands) {
         card.className = 'brand-card';
         
         const logo = brand.logo_path ? `${apiBase}/api/preview/logo/${brand.name}` : '';
-        // Only show USER badge for user brands (no SYSTEM brands should be here)
-        const badge = '<span class="brand-badge badge-user">USER</span>';
+        
+        // Readiness badges
+        const isReady = brand.is_ready || false;
+        const readinessBadge = isReady 
+            ? '<span class="brand-badge badge-ready">✅ Ready</span>'
+            : '<span class="brand-badge badge-incomplete">⚠️ Incomplete</span>';
+        
+        const missingAssets = [];
+        if (!brand.logo_path) missingAssets.push('logo');
+        if (!brand.watermark_path) missingAssets.push('watermark');
+        const warningMsg = !isReady 
+            ? `<div class="badge-warning">Missing: ${missingAssets.join(', ')}</div>` 
+            : '';
+        
         const deleteBtn = `<button class="btn btn-danger" onclick="deleteBrand(${brand.id}, '${brand.name}')">Delete</button>`;
         
         card.innerHTML = `
             ${logo ? `<img src="${logo}" class="brand-logo" alt="${brand.display_name}">` : ''}
-            ${badge}
+            ${readinessBadge}
             <div class="brand-name">${brand.display_name}</div>
+            ${warningMsg}
             <div class="brand-actions">
                 <button class="btn btn-secondary" onclick="editBrand(${brand.id})">Edit</button>
                 ${deleteBtn}
@@ -595,6 +628,7 @@ function handleLogoUpload(e) {
     const file = e.target.files[0];
     if (file && editor) {
         editor.loadImage(file, 'logo');
+        document.getElementById('logoStatus').style.display = 'none'; // Hide warning when file selected
     }
 }
 
@@ -602,6 +636,7 @@ function handleWatermarkUpload(e) {
     const file = e.target.files[0];
     if (file && editor) {
         editor.loadImage(file, 'watermark');
+        document.getElementById('watermarkStatus').style.display = 'none'; // Hide warning when file selected
     }
 }
 
@@ -739,6 +774,10 @@ async function createBrand(e) {
             });
             const logoData = await logoRes.json();
             if (!logoData.success) {
+                // Show inline error under logo upload
+                const logoStatus = document.getElementById('logoStatus');
+                logoStatus.textContent = `❌ ${logoData.error}`;
+                logoStatus.style.display = 'block';
                 throw new Error('Failed to upload logo: ' + logoData.error);
             }
         }
@@ -756,8 +795,22 @@ async function createBrand(e) {
             });
             const wmData = await wmRes.json();
             if (!wmData.success) {
+                // Show inline error under watermark upload
+                const wmStatus = document.getElementById('watermarkStatus');
+                wmStatus.textContent = `❌ ${wmData.error}`;
+                wmStatus.style.display = 'block';
                 throw new Error('Failed to upload watermark: ' + wmData.error);
             }
+        }
+        
+        // Warn if both assets are missing (only in create mode)
+        if (mode === 'create' && !logoFile && !wmFile) {
+            status.innerHTML = `<div class="status-msg info">⚠️ Brand created but won't work in Brandr until you upload at least a logo or watermark.</div>`;
+            setTimeout(() => {
+                closeCreateModal();
+                loadBrands();
+            }, 3000);
+            return;
         }
         
         status.innerHTML = `<div class="status-msg success">✅ Brand ${mode === 'edit' ? 'updated' : 'created'} successfully!</div>`;

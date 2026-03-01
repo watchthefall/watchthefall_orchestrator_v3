@@ -177,6 +177,13 @@
         border-color: #00b7ff;
         color: #00b7ff;
     }
+    .brand-btn.brand-incomplete {
+        background: #3a2a00;
+        border-color: #665500;
+        color: #ff9800;
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
     .brand-btn:active {
         transform: scale(0.98);
     }
@@ -910,16 +917,22 @@ async function loadBrands() {
             return;
         }
         
-        // User has brands - show them
+        // User has brands - show them (including INCOMPLETE)
         noBrandsState.style.display = 'none';
         box.style.display = 'grid';
         box.innerHTML = '';
         userBrands.forEach(b => {
             const btn = document.createElement('div');
-            btn.className = 'brand-btn';
-            btn.textContent = b.display_name;
+            const isReady = b.is_ready || false;
+            
+            btn.className = isReady ? 'brand-btn' : 'brand-btn brand-incomplete';
+            btn.innerHTML = isReady 
+                ? b.display_name
+                : `${b.display_name} <span style="font-size:16px;">⚠️</span>`;
             btn.dataset.brand = b.name;
-            btn.onclick = () => selectBrand(b.name, btn);
+            btn.dataset.ready = isReady;
+            btn.title = isReady ? '' : 'Incomplete: Upload logo or watermark in Manage Brands';
+            btn.onclick = () => selectBrand(b.name, btn, isReady);
             box.appendChild(btn);
         });
     } catch (err) {
@@ -927,7 +940,14 @@ async function loadBrands() {
     }
 }
 
-function selectBrand(brandName, btnEl) {
+function selectBrand(brandName, btnEl, isReady) {
+    // Block incomplete brands
+    if (!isReady) {
+        const result = document.getElementById('processResult');
+        result.innerHTML = `<div class="status-msg error">⚠️ Brand "${brandName}" is incomplete. Upload assets in <a href="/portal/brands" style="color:#00b7ff;">Manage Brands</a></div>`;
+        return;
+    }
+    
     // Toggle brand selection (multi-select)
     const idx = selectedBrands.indexOf(brandName);
     if (idx > -1) {

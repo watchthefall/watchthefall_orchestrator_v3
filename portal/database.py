@@ -479,7 +479,13 @@ def get_brand(brand_id=None, name=None, user_id=None):
     
     row = c.fetchone()
     conn.close()
-    return dict(row) if row else None
+    
+    if row:
+        brand = dict(row)
+        # Add readiness flag: READY if logo OR watermark exists
+        brand['is_ready'] = bool(brand.get('logo_path') or brand.get('watermark_path'))
+        return brand
+    return None
 
 def get_all_brands(user_id=None, include_system=True):
     """Get all brands for a user (including system brands if include_system=True)"""
@@ -502,7 +508,13 @@ def get_all_brands(user_id=None, include_system=True):
     
     rows = c.fetchall()
     conn.close()
-    return [dict(row) for row in rows]
+    
+    brands = [dict(row) for row in rows]
+    # Add readiness flag to all brands
+    for brand in brands:
+        brand['is_ready'] = bool(brand.get('logo_path') or brand.get('watermark_path'))
+    
+    return brands
 
 def create_brand(name, display_name, user_id=None, is_system=False, is_locked=False,
                  watermark_vertical=None, watermark_square=None, watermark_landscape=None,

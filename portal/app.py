@@ -758,6 +758,30 @@ def process_branded_videos():
                 'available_brands': [brand['name'] for brand in brand_configs]
             }), 400
         
+        # Validate brand readiness (check if brands have required assets)
+        from .database import get_brand
+        user_id = session.get('user_id')
+        incomplete_brands = []
+        
+        for brand_config in selected_brand_configs:
+            brand_name = brand_config.get('name')
+            db_brand = get_brand(name=brand_name, user_id=user_id)
+            
+            if db_brand:
+                # Check if brand has at least one asset (logo OR watermark)
+                is_ready = bool(db_brand.get('logo_path') or db_brand.get('watermark_path'))
+                if not is_ready:
+                    incomplete_brands.append(brand_name)
+        
+        if incomplete_brands:
+            return jsonify({
+                'success': False,
+                'error': f'BRAND_INCOMPLETE: {incomplete_brands[0]}',
+                'code': 'BRAND_INCOMPLETE',
+                'message': f'Brand "{incomplete_brands[0]}" is incomplete. Upload at least a logo or watermark in Manage Brands.',
+                'incomplete_brands': incomplete_brands
+            }), 400
+        
         print(f"[PROCESS BRANDS] Processing {len(selected_brand_configs)} brands sequentially")
         
         # Normalize video timestamps to fix corrupted Instagram videos
