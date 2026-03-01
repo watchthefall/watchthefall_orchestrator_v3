@@ -1516,7 +1516,7 @@ def upload_brand_logo(brand_id):
     """Upload logo for a brand"""
     try:
         from .database import get_brand, update_brand
-        from .config import BRANDS_DIR
+        from .config import BRANDS_DIR, STORAGE_ROOT
         from werkzeug.utils import secure_filename
         
         user_id = session.get('user_id')
@@ -1576,7 +1576,7 @@ def upload_brand_watermark(brand_id):
     """Upload watermark for a brand"""
     try:
         from .database import get_brand, update_brand
-        from .config import BRANDS_DIR
+        from .config import BRANDS_DIR, STORAGE_ROOT
         from werkzeug.utils import secure_filename
         
         user_id = session.get('user_id')
