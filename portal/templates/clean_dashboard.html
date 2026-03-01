@@ -687,7 +687,8 @@ const apiBase = window.location.origin;
 
 // ========== STATE ==========
 let currentFile = null;
-let selectedBrands = [];  // Multi-brand support
+let selectedBrandIds = [];  // Use brand IDs (not names) for selection
+let brandDataCache = {};    // Cache full brand objects by ID
 let frameData = null;
 let watermarkImg = null;
 let logoImg = null;
@@ -993,7 +994,12 @@ async function loadBrands() {
         noBrandsState.style.display = 'none';
         box.style.display = 'grid';
         box.innerHTML = '';
+        
+        // Cache brand data by ID for later lookups
+        brandDataCache = {};
         userBrands.forEach(b => {
+            brandDataCache[b.id] = b;
+            
             const btn = document.createElement('div');
             const isReady = b.is_ready || false;
             
@@ -1002,9 +1008,9 @@ async function loadBrands() {
             // Build brand tile with logo preview and asset badges
             let html = '';
             
-            // Logo preview (if exists)
+            // Logo preview (if exists) - use brand_id for preview endpoint
             if (b.logo_path) {
-                html += `<img src="${apiBase}/api/preview/brand-asset/${b.name}/logo" class="brand-logo-preview" onerror="this.style.display='none'" alt="Logo">`;
+                html += `<img src="${apiBase}/api/preview/brand-asset/${b.id}/logo" class="brand-logo-preview" onerror="this.style.display='none'" alt="Logo">`;
             }
             
             // Brand info
@@ -1023,10 +1029,10 @@ async function loadBrands() {
             html += '<span class="check-icon">✓</span>';
             
             btn.innerHTML = html;
-            btn.dataset.brand = b.name;
+            btn.dataset.brandId = b.id;  // Store brand_id (NOT name)
             btn.dataset.ready = isReady;
             btn.title = isReady ? '' : 'Incomplete: Upload logo or watermark in Manage Brands';
-            btn.onclick = () => selectBrand(b.name, btn, isReady);
+            btn.onclick = () => selectBrand(b.id, btn, isReady);  // Pass brand_id
             box.appendChild(btn);
         });
         
@@ -1038,98 +1044,118 @@ async function loadBrands() {
     }
 }
 
-function selectBrand(brandName, btnEl, isReady) {
+function selectBrand(brandId, btnEl, isReady) {
     // Block incomplete brands
     if (!isReady) {
         const result = document.getElementById('processResult');
+        const brandData = brandDataCache[brandId];
+        const brandName = brandData ? brandData.display_name : `Brand #${brandId}`;
         result.innerHTML = `<div class="status-msg error">⚠️ Brand "${brandName}" is incomplete. Upload assets in <a href="/portal/brands" style="color:#00b7ff;">Manage Brands</a></div>`;
         return;
     }
     
-    // Toggle brand selection (multi-select)
-    const idx = selectedBrands.indexOf(brandName);
+    // Toggle brand selection (multi-select) using brand_id
+    const idx = selectedBrandIds.indexOf(brandId);
     if (idx > -1) {
-        selectedBrands.splice(idx, 1);  // Deselect
+        selectedBrandIds.splice(idx, 1);  // Deselect
         btnEl.classList.remove('selected');
     } else {
-        selectedBrands.push(brandName);  // Select
+        selectedBrandIds.push(brandId);  // Select
         btnEl.classList.add('selected');
     }
     
     // Load brand assets and saved config for preview (use first selected brand)
-    if (selectedBrands.length > 0) {
-        loadBrandAssets(selectedBrands[0]);
-        loadBrandConfig(selectedBrands[0]);
+    if (selectedBrandIds.length > 0) {
+        const firstBrandId = selectedBrandIds[0];
+        loadBrandAssets(firstBrandId);
+        loadBrandConfig(firstBrandId);
     }
     
     // Update confirmation summary
     updateConfirmationSummary();
 }
 
-async function loadBrandConfig(brandName) {
-    // Load saved config from database
+async function loadBrandConfig(brandId) {
+    // Load saved config from database using brand_id
     try {
-        const res = await fetch(`${apiBase}/api/brands/${brandName}/config`);
-        const data = await res.json();
-        
-        if (data.success && data.config) {
-            const cfg = data.config;
-            
-            // Apply watermark settings
-            document.getElementById('wmScale').value = Math.round(cfg.watermark_scale * 100);
-            document.getElementById('wmScaleVal').textContent = Math.round(cfg.watermark_scale * 100) + '%';
-            document.getElementById('wmOpacity').value = Math.round(cfg.watermark_opacity * 100);
-            document.getElementById('wmOpacityVal').textContent = Math.round(cfg.watermark_opacity * 100) + '%';
-            
-            // Apply logo settings
-            document.getElementById('logoScale').value = Math.round(cfg.logo_scale * 100);
-            document.getElementById('logoScaleVal').textContent = Math.round(cfg.logo_scale * 100) + '%';
-            
-            // Apply text layer settings
-            document.getElementById('textEnabled').checked = !!cfg.text_enabled;
-            document.getElementById('textContent').value = cfg.text_content || '';
-            document.getElementById('textSize').value = cfg.text_size || 48;
-            document.getElementById('textSizeVal').textContent = (cfg.text_size || 48) + 'px';
-            document.getElementById('textColor').value = cfg.text_color || '#FFFFFF';
-            document.getElementById('textColorVal').textContent = cfg.text_color || '#FFFFFF';
-            document.getElementById('textBgEnabled').checked = cfg.text_bg_enabled !== false;
-            document.getElementById('textBgOpacity').value = Math.round((cfg.text_bg_opacity || 0.6) * 100);
-            document.getElementById('textBgOpacityVal').textContent = Math.round((cfg.text_bg_opacity || 0.6) * 100) + '%';
-            
-            // Load text position if saved
-            textX = cfg.text_x || 0;
-            textY = cfg.text_y || 0;
-            
-            // Show/hide text controls
-            document.getElementById('textControls').style.display = cfg.text_enabled ? 'block' : 'none';
-            
-            console.log(`[UI] Loaded config for ${brandName}:`, cfg);
-            updateCanvasPreview();
+        const brandData = brandDataCache[brandId];
+        if (!brandData) {
+            console.error(`[BRANDR] Brand #${brandId} not found in cache`);
+            return;
         }
+        
+        const cfg = brandData;  // Config is already loaded from /api/brands/list
+        
+        // Apply watermark settings (use wm_* canonical keys)
+        document.getElementById('wmScale').value = Math.round(cfg.wm_scale * 100);
+        document.getElementById('wmScaleVal').textContent = Math.round(cfg.wm_scale * 100) + '%';
+        document.getElementById('wmOpacity').value = Math.round(cfg.wm_opacity * 100);
+        document.getElementById('wmOpacityVal').textContent = Math.round(cfg.wm_opacity * 100) + '%';
+        
+        // Apply logo settings
+        document.getElementById('logoScale').value = Math.round(cfg.logo_scale * 100);
+        document.getElementById('logoScaleVal').textContent = Math.round(cfg.logo_scale * 100) + '%';
+        
+        // Apply text layer settings
+        document.getElementById('textEnabled').checked = !!cfg.text_enabled;
+        document.getElementById('textContent').value = cfg.text_content || '';
+        document.getElementById('textSize').value = cfg.text_size || 48;
+        document.getElementById('textSizeVal').textContent = (cfg.text_size || 48) + 'px';
+        document.getElementById('textColor').value = cfg.text_color || '#FFFFFF';
+        document.getElementById('textColorVal').textContent = cfg.text_color || '#FFFFFF';
+        document.getElementById('textBgEnabled').checked = cfg.text_bg_enabled !== false;
+        document.getElementById('textBgOpacity').value = Math.round((cfg.text_bg_opacity || 0.6) * 100);
+        document.getElementById('textBgOpacityVal').textContent = Math.round((cfg.text_bg_opacity || 0.6) * 100) + '%';
+        
+        // Load text position if saved
+        textX = cfg.text_x || 0;
+        textY = cfg.text_y || 0;
+        
+        // Show/hide text controls
+        document.getElementById('textControls').style.display = cfg.text_enabled ? 'block' : 'none';
+        
+        console.log(`[UI] Loaded config for brand #${brandId} (${cfg.display_name}):`, cfg);
+        updateCanvasPreview();
     } catch (err) {
         console.error('Failed to load brand config:', err);
     }
 }
 
-async function loadBrandAssets(brandName) {
-    // Load watermark (use legacy endpoint for now - works for both old and new paths)
+async function loadBrandAssets(brandId) {
+    // Load assets using brand_id for secure endpoint
+    const brandData = brandDataCache[brandId];
+    if (!brandData) {
+        console.error(`[BRANDR] Brand #${brandId} not found in cache`);
+        return;
+    }
+    
+    // Load watermark
     watermarkImg = new Image();
     watermarkImg.crossOrigin = 'anonymous';
     watermarkImg.onload = updateCanvasPreview;
-    watermarkImg.src = `${apiBase}/api/preview/watermark/${brandName}`;
-    
-    // Load logo (use secure brand-asset endpoint)
-    logoImg = new Image();
-    logoImg.crossOrigin = 'anonymous';
-    logoImg.onload = () => {
-        logoX = 0; logoY = 0;  // Reset position
+    watermarkImg.onerror = () => {
+        console.warn(`[BRANDR] Watermark load failed for brand #${brandId}`);
         updateCanvasPreview();
     };
-    logoImg.onerror = () => {
-        console.warn(`[BRANDR] Logo load failed for ${brandName}, may not have logo uploaded`);
-        updateCanvasPreview();  // Update preview anyway (without logo)
-    };
-    logoImg.src = `${apiBase}/api/preview/brand-asset/${brandName}/logo`;
+    watermarkImg.src = `${apiBase}/api/preview/brand-asset/${brandId}/watermark`;
+    
+    // Load logo (if exists)
+    if (brandData.logo_path) {
+        logoImg = new Image();
+        logoImg.crossOrigin = 'anonymous';
+        logoImg.onload = () => {
+            logoX = 0; logoY = 0;  // Reset position
+            updateCanvasPreview();
+        };
+        logoImg.onerror = () => {
+            console.warn(`[BRANDR] Logo load failed for brand #${brandId}`);
+            updateCanvasPreview();
+        };
+        logoImg.src = `${apiBase}/api/preview/brand-asset/${brandId}/logo`;
+    } else {
+        logoImg = null;  // No logo for this brand
+        updateCanvasPreview();
+    }
 }
 
 // ========== QUEUE MODE FUNCTIONS ==========
@@ -1146,7 +1172,7 @@ function enterQueueMode() {
         }
     }
     
-    console.log('[BRANDR] enterQueueMode check - currentFile:', currentFile, 'selectedBrands:', selectedBrands);
+    console.log('[BRANDR] enterQueueMode check - currentFile:', currentFile, 'selectedBrandIds:', selectedBrandIds);
     
     if (!currentFile) {
         result.innerHTML = '<div class="status-msg error">Download a video first</div>';
@@ -1154,18 +1180,22 @@ function enterQueueMode() {
         return;
     }
     
-    if (selectedBrands.length === 0) {
+    if (selectedBrandIds.length === 0) {
         result.innerHTML = '<div class="status-msg error">Select at least one brand</div>';
         console.error('[BRANDR] enterQueueMode blocked: No brands selected');
         return;
     }
     
-    // Initialize queue with selected brands (overrides loaded async)
-    processingQueue = selectedBrands.map(brandName => ({
-        brand_name: brandName,
-        overrides: null,  // Will be loaded from DB
-        status: 'pending'  // pending, editing, processing, done, failed, skipped
-    }));
+    // Initialize queue with selected brand IDs
+    processingQueue = selectedBrandIds.map(brandId => {
+        const brandData = brandDataCache[brandId];
+        return {
+            brand_id: brandId,
+            brand_name: brandData ? brandData.display_name : `Brand #${brandId}`,  // For display only
+            overrides: null,  // Will be loaded from cached data
+            status: 'pending'  // pending, editing, processing, done, failed, skipped
+        };
+    });
     currentQueueIndex = 0;
     isQueueMode = true;
     
@@ -1291,34 +1321,28 @@ async function switchToBrand(idx) {
     // Update pills to show active state
     renderBrandPills();
     
-    // Load brand assets for preview
-    await loadBrandAssets(current.brand_name);
+    // Load brand assets for preview using brand_id
+    await loadBrandAssets(current.brand_id);
     
-    // Load brand defaults from DB if not already loaded
+    // Load brand defaults from cache if not already loaded
     if (!current.overrides) {
-        try {
-            const res = await fetch(`${apiBase}/api/brands/${current.brand_name}/config`);
-            const data = await res.json();
-            
-            if (data.success && data.config) {
-                current.overrides = {
-                    watermark_scale: data.config.watermark_scale || 1.15,
-                    watermark_opacity: data.config.watermark_opacity || 0.4,
-                    logo_scale: data.config.logo_scale || 0.15,
-                    text_enabled: !!data.config.text_enabled,
-                    text_content: data.config.text_content || '',
-                    text_x: data.config.text_x || 0,
-                    text_y: data.config.text_y || 0,
-                    text_size: data.config.text_size || 48,
-                    text_color: data.config.text_color || '#FFFFFF',
-                    text_bg_enabled: data.config.text_bg_enabled !== false,
-                    text_bg_opacity: data.config.text_bg_opacity || 0.6
-                };
-            } else {
-                current.overrides = getDefaultOverrides();
-            }
-        } catch (err) {
-            console.error('Failed to load brand config:', err);
+        const brandData = brandDataCache[current.brand_id];
+        if (brandData) {
+            current.overrides = {
+                watermark_scale: brandData.wm_scale || 1.0,
+                watermark_opacity: brandData.wm_opacity || 0.10,
+                logo_scale: brandData.logo_scale || 0.15,
+                text_enabled: !!brandData.text_enabled,
+                text_content: brandData.text_content || '',
+                text_x: brandData.text_x || 0,
+                text_y: brandData.text_y || 0,
+                text_size: brandData.text_size || 48,
+                text_color: brandData.text_color || '#FFFFFF',
+                text_bg_enabled: brandData.text_bg_enabled !== false,
+                text_bg_opacity: brandData.text_bg_opacity || 0.6
+            };
+        } else {
+            console.error(`[BRANDR] Brand #${current.brand_id} not found in cache`);
             current.overrides = getDefaultOverrides();
         }
     }
@@ -1435,7 +1459,10 @@ async function processCurrentBrand() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 source_path: currentFile,
+                brand_ids: [current.brand_id],  // Send brand_id (NOT name)
+                // Deprecated backward compat (will be removed)
                 brands: [current.brand_name],
+                // UI overrides
                 watermark_scale: current.overrides.watermark_scale,
                 watermark_opacity: current.overrides.watermark_opacity,
                 logo_scale: current.overrides.logo_scale,
@@ -1538,7 +1565,10 @@ async function processAllBrands() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     source_path: currentFile,
+                    brand_ids: [item.brand_id],  // Send brand_id (NOT name)
+                    // Deprecated backward compat (will be removed)
                     brands: [item.brand_name],
+                    // UI overrides
                     watermark_scale: item.overrides.watermark_scale,
                     watermark_opacity: item.overrides.watermark_opacity,
                     logo_scale: item.overrides.logo_scale,
@@ -1766,9 +1796,13 @@ function updateConfirmationSummary() {
         parts.push(`<strong>Video:</strong> <span style="color:#ff9800;">No video selected</span>`);
     }
     
-    // Brands status
-    if (selectedBrands.length > 0) {
-        parts.push(`<strong>Brands:</strong> ${selectedBrands.join(', ')}`);
+    // Brands status (use brand_ids, display names from cache)
+    if (selectedBrandIds.length > 0) {
+        const brandNames = selectedBrandIds.map(id => {
+            const brand = brandDataCache[id];
+            return brand ? brand.display_name : `Brand #${id}`;
+        });
+        parts.push(`<strong>Brands:</strong> ${brandNames.join(', ')}`);
     } else {
         parts.push(`<strong>Brands:</strong> <span style="color:#ff9800;">None selected</span>`);
     }

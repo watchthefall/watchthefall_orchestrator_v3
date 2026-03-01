@@ -455,7 +455,7 @@
                     <!-- Logo Controls -->
                     <div class="control-section">
                         <h3>🎨 Logo</h3>
-                        <input type="file" id="logoUpload" accept="image/png,image/jpeg,image/jpg,image/webp,image/*" capture="environment" onchange="handleLogoUpload(event)">
+                        <input type="file" id="logoUpload" accept="image/png,image/jpeg,image/jpg,image/webp,image/*" onchange="handleLogoUpload(event)">
                         <div id="logoStatus" class="badge-warning" style="display:none; margin-top:8px;">⚠️ No logo uploaded</div>
                         
                         <!-- Background Removal Options -->
@@ -493,7 +493,7 @@
                     <!-- Watermark Controls -->
                     <div class="control-section">
                         <h3>💧 Watermark</h3>
-                        <input type="file" id="watermarkUpload" accept="image/png,image/jpeg,image/jpg,image/webp,image/*" capture="environment" onchange="handleWatermarkUpload(event)">
+                        <input type="file" id="watermarkUpload" accept="image/png,image/jpeg,image/jpg,image/webp,image/*" onchange="handleWatermarkUpload(event)">
                         <div id="watermarkStatus" class="badge-warning" style="display:none; margin-top:8px;">⚠️ No watermark uploaded</div>
                         <div class="mode-toggle">
                             <button type="button" class="mode-btn active" id="wmFullscreenBtn" onclick="setWatermarkMode('fullscreen')">Fullscreen</button>

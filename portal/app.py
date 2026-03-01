@@ -561,11 +561,23 @@ def downloader_dashboard():
 @app.route('/api/videos/process_brands', methods=['POST'])
 @login_required
 def process_branded_videos():
-    """Process video with selected brand overlays"""
+    """Process video with selected brand overlays (brand_id-first)"""
     try:
         data = request.get_json(force=True) or {}
         url = data.get('url')
-        selected_brands = data.get('brands', [])
+        
+        # Accept brand_ids (NEW) or brands (DEPRECATED)
+        brand_ids = data.get('brand_ids', [])
+        selected_brands = data.get('brands', [])  # Deprecated
+        
+        if brand_ids:
+            print(f"[PROCESS BRANDS] Using brand_ids: {brand_ids}")
+        elif selected_brands:
+            print(f"[PROCESS BRANDS] WARNING: Using deprecated 'brands' parameter (names). Migrate to 'brand_ids'.")
+            print(f"[PROCESS BRANDS] Received brand names: {selected_brands}")
+        else:
+            print(f"[PROCESS BRANDS] ERROR: No brands selected")
+            return jsonify({'success': False, 'error': 'brand_ids or brands is required'}), 400
         
         # Optional branding configuration overrides
         watermark_scale = data.get('watermark_scale', 1.15)
@@ -581,19 +593,13 @@ def process_branded_videos():
         print(f"[PROCESS BRANDS] ========== NEW REQUEST ==========")
         print(f"[PROCESS BRANDS] Raw request data: {data}")
         print(f"[PROCESS BRANDS] URL: {url}")
-        print(f"[PROCESS BRANDS] Selected brands: {selected_brands}")
+        print(f"[PROCESS BRANDS] Brand IDs: {brand_ids}")
+        print(f"[PROCESS BRANDS] Brand Names (deprecated): {selected_brands}")
         print(f"[PROCESS BRANDS] ========================================")
 
         if not url:
             print(f"[PROCESS BRANDS] ERROR: No URL provided")
             return jsonify({'success': False, 'error': 'URL or source_path is required'}), 400
-
-        if not selected_brands:
-            print(f"[PROCESS BRANDS] ERROR: No brands selected")
-            return jsonify({'success': False, 'error': 'At least one brand must be selected'}), 400
-        
-        print(f"[PROCESS BRANDS] URL: {url[:50]}...")
-        print(f"[PROCESS BRANDS] Selected brands: {selected_brands}")
         
         # Check if url is actually a local file path (doesn't start with http)
         if url.startswith('http'):
@@ -745,50 +751,67 @@ def process_branded_videos():
             
             print(f"[PROCESS BRANDS] Found local file: {video_filepath}")
         
-        # 2. Load brand configurations
-        user_id = session.get('user_id')
-        brand_configs = get_available_brands(os.path.dirname(os.path.abspath(__file__)), user_id=user_id)
-        
-        print(f"[PROCESS BRANDS] Loaded {len(brand_configs)} brands for user {user_id}")
-        print(f"[PROCESS BRANDS] Available brand names: {[b['name'] for b in brand_configs]}")
-        
-        # Filter to only selected brands
-        selected_brand_configs = [brand for brand in brand_configs if brand['name'] in selected_brands]
-        
-        print(f"[PROCESS BRANDS] Selected brand configs: {[b['name'] for b in selected_brand_configs]}")
-        
-        if not selected_brand_configs:
-            print(f"[PROCESS BRANDS ERROR] No matching brands found!")
-            print(f"[PROCESS BRANDS ERROR] Requested: {selected_brands}")
-            print(f"[PROCESS BRANDS ERROR] Available: {[brand['name'] for brand in brand_configs]}")
-            return jsonify({
-                'success': False,
-                'error': 'No valid brands selected',
-                'requested_brands': selected_brands,
-                'available_brands': [brand['name'] for brand in brand_configs]
-            }), 400
-        
-        # Validate brand readiness with HARD FAIL (no defaults)
-        from .database import get_brand
+        # 2. Load and validate brands (brand_id-first with backward compat)
+        from .database import get_brand, get_all_brands
         from .config import STORAGE_ROOT
         user_id = session.get('user_id')
+        
+        # Resolve brands: prioritize brand_ids, fallback to names
+        resolved_brands = []
+        
+        if brand_ids:
+            # NEW: Resolve by brand_id (secure, immutable)
+            print(f"[PROCESS BRANDS] Resolving {len(brand_ids)} brands by ID")
+            for brand_id in brand_ids:
+                db_brand = get_brand(brand_id=brand_id, user_id=user_id)
+                if db_brand:
+                    print(f"[PROCESS BRANDS] ✓ Brand #{brand_id}: {db_brand.get('display_name')}")
+                    resolved_brands.append(db_brand)
+                else:
+                    print(f"[PROCESS BRANDS] ✗ Brand #{brand_id} not found or not owned by user #{user_id}")
+                    return jsonify({
+                        'success': False,
+                        'code': 'BRAND_VALIDATION_FAILED',
+                        'error': f'Brand #{brand_id} not found or access denied',
+                        'brand_id': brand_id,
+                        'fix': 'Brand may have been deleted. Refresh brand list.',
+                        'fix_url': '/portal/brands'
+                    }), 404
+        elif selected_brands:
+            # DEPRECATED: Resolve by name (for backward compat only)
+            print(f"[PROCESS BRANDS] Resolving {len(selected_brands)} brands by NAME (deprecated)")
+            all_user_brands = get_all_brands(user_id=user_id, include_system=False)
+            for brand_name in selected_brands:
+                db_brand = next((b for b in all_user_brands if b['name'] == brand_name), None)
+                if db_brand:
+                    print(f"[PROCESS BRANDS] ✓ Brand '{brand_name}': #{db_brand['id']}")
+                    resolved_brands.append(db_brand)
+                else:
+                    print(f"[PROCESS BRANDS] ✗ Brand '{brand_name}' not found for user #{user_id}")
+                    return jsonify({
+                        'success': False,
+                        'code': 'BRAND_VALIDATION_FAILED',
+                        'error': f"Brand '{brand_name}' not found",
+                        'brand': brand_name,
+                        'fix': 'Recreate this brand in Manage Brands',
+                        'fix_url': '/portal/brands'
+                    }), 404
+        
+        # Validate brand readiness with HARD FAIL (no defaults)
+        # resolved_brands are already fetched from DB with ownership verified
         validation_errors = []
         
-        for brand_config in selected_brand_configs:
-            brand_name = brand_config.get('name')
-            db_brand = get_brand(name=brand_name, user_id=user_id)
-            
-            if not db_brand:
-                validation_errors.append({
-                    'brand': brand_name,
-                    'error': 'Brand not found in database',
-                    'fix': 'Recreate this brand in Manage Brands'
-                })
-                continue
+        print(f"[PROCESS BRANDS] Validating {len(resolved_brands)} brands")
+        
+        for db_brand in resolved_brands:
+            brand_id = db_brand.get('id')
+            brand_name = db_brand.get('display_name') or db_brand.get('name')
+            print(f"[PROCESS BRANDS] Validating Brand #{brand_id} ({brand_name})")
             
             # Check is_ready flag first
             if not db_brand.get('is_ready'):
                 validation_errors.append({
+                    'brand_id': brand_id,
                     'brand': brand_name,
                     'error': 'Brand is incomplete',
                     'fix': 'Upload logo or watermark in Manage Brands',
@@ -800,6 +823,7 @@ def process_branded_videos():
             wm_path = db_brand.get('watermark_path') or db_brand.get('watermark_vertical')
             if not wm_path:
                 validation_errors.append({
+                    'brand_id': brand_id,
                     'brand': brand_name,
                     'error': 'Watermark missing',
                     'fix': 'Upload watermark in Manage Brands',
@@ -811,6 +835,7 @@ def process_branded_videos():
             wm_full_path = os.path.join(STORAGE_ROOT, wm_path)
             if not os.path.exists(wm_full_path):
                 validation_errors.append({
+                    'brand_id': brand_id,
                     'brand': brand_name,
                     'error': f'Watermark file not found on disk: {wm_path}',
                     'fix': 'Re-upload watermark in Manage Brands',
@@ -819,13 +844,13 @@ def process_branded_videos():
                 continue
             
             # Validate logo if logo overlay is being used
-            # (Check if logo_path exists in config - if yes, validate it)
             logo_path = db_brand.get('logo_path')
             logo_scale = db_brand.get('logo_scale', 0)
             
             # If logo is configured (non-zero scale) but path missing → fail
             if logo_scale > 0 and not logo_path:
                 validation_errors.append({
+                    'brand_id': brand_id,
                     'brand': brand_name,
                     'error': 'Logo overlay enabled but logo file missing',
                     'fix': 'Upload logo in Manage Brands or set logo scale to 0',
@@ -838,6 +863,7 @@ def process_branded_videos():
                 logo_full_path = os.path.join(STORAGE_ROOT, logo_path)
                 if not os.path.exists(logo_full_path):
                     validation_errors.append({
+                        'brand_id': brand_id,
                         'brand': brand_name,
                         'error': f'Logo file not found on disk: {logo_path}',
                         'fix': 'Re-upload logo in Manage Brands',
@@ -851,6 +877,7 @@ def process_branded_videos():
             
             if wm_scale is None or wm_scale <= 0:
                 validation_errors.append({
+                    'brand_id': brand_id,
                     'brand': brand_name,
                     'error': 'Invalid watermark scale (must be > 0)',
                     'fix': 'Edit brand settings in Manage Brands',
@@ -860,12 +887,15 @@ def process_branded_videos():
             
             if wm_opacity is None or wm_opacity < 0 or wm_opacity > 1:
                 validation_errors.append({
+                    'brand_id': brand_id,
                     'brand': brand_name,
                     'error': 'Invalid watermark opacity (must be 0-1)',
                     'fix': 'Edit brand settings in Manage Brands',
                     'fix_url': '/portal/brands'
                 })
                 continue
+            
+            print(f"[PROCESS BRANDS] ✓ Brand #{brand_id} ({brand_name}) validation passed")
         
         # Hard fail if any validation errors
         if validation_errors:
@@ -876,12 +906,13 @@ def process_branded_videos():
                 'error': f"{first_error['brand']}: {first_error['error']}",
                 'code': 'BRAND_VALIDATION_FAILED',
                 'brand': first_error['brand'],
+                'brand_id': first_error.get('brand_id'),
                 'fix': first_error['fix'],
                 'fix_url': first_error.get('fix_url'),
                 'all_errors': validation_errors
             }), 400
         
-        print(f"[PROCESS BRANDS] Processing {len(selected_brand_configs)} brands sequentially")
+        print(f"[PROCESS BRANDS] Processing {len(resolved_brands)} brands sequentially")
         
         # Normalize video timestamps to fix corrupted Instagram videos
         print(f"[PROCESS BRANDS] Normalizing video timestamps: {video_filepath}")
@@ -891,45 +922,17 @@ def process_branded_videos():
         # 3. Process video with selected brands ONE AT A TIME
         processor = VideoProcessor(normalized_video_path, OUTPUT_DIR)
         
-        # Import database functions for per-brand config
-        from .database import get_brand
-        
         output_paths = []
         
-        total_brands = len(selected_brand_configs)
-        for i, brand_config in enumerate(selected_brand_configs, 1):
-            brand_name = brand_config.get('name', 'Unknown')
-            print(f"[PROCESS BRANDS] PROCESSING BRAND {i} of {total_brands}: {brand_name}")
+        total_brands = len(resolved_brands)
+        for i, db_brand in enumerate(resolved_brands, 1):
+            brand_id = db_brand.get('id')
+            brand_name = db_brand.get('display_name') or db_brand.get('name')
+            print(f"[PROCESS BRANDS] PROCESSING BRAND {i} of {total_brands}: #{brand_id} ({brand_name})")
             
-            # Load brand from NEW unified brands table (includes visual positioning fields)
-            user_id = session.get('user_id')
-            db_brand = get_brand(name=brand_name, user_id=user_id)
-            
-            if db_brand:
-                # Use DB brand config (includes visual fields)
-                print(f"[PROCESS BRANDS] Using brand from database with visual positioning: {brand_name}")
-                # Merge filesystem brand_config with DB brand data
-                merged_config = {**brand_config, **db_brand}
-            else:
-                # Fallback to old behavior if brand not in DB
-                print(f"[PROCESS BRANDS] Brand {brand_name} not in database, using legacy config")
-                merged_config = brand_config
-                
-                # Set legacy processor properties (only for non-DB brands)
-                processor.WATERMARK_SCALE = brand_config.get('watermark_scale', 1.15)
-                processor.WATERMARK_OPACITY = brand_config.get('watermark_opacity', 0.4)
-                processor.LOGO_SCALE = brand_config.get('logo_scale', 0.15)
-                processor.LOGO_PADDING = brand_config.get('logo_padding', 40)
-                processor.TEXT_ENABLED = bool(brand_config.get('text_enabled', False))
-                processor.TEXT_CONTENT = brand_config.get('text_content', '')
-                processor.TEXT_POSITION = brand_config.get('text_position', 'bottom')
-                processor.TEXT_SIZE = brand_config.get('text_size', 48)
-                processor.TEXT_COLOR = brand_config.get('text_color', '#FFFFFF')
-                processor.TEXT_FONT = brand_config.get('text_font', 'Arial')
-                processor.TEXT_BG_ENABLED = bool(brand_config.get('text_bg_enabled', True))
-                processor.TEXT_BG_COLOR = brand_config.get('text_bg_color', '#000000')
-                processor.TEXT_BG_OPACITY = brand_config.get('text_bg_opacity', 0.6)
-                processor.TEXT_MARGIN = brand_config.get('text_margin', 40)
+            # Use DB brand config (resolved_brands are already DB records)
+            print(f"[PROCESS BRANDS] Using brand config from database (brand_id: {brand_id})")
+            merged_config = db_brand
             
             try:
                 output_path = processor.process_brand(merged_config, video_id=video_id)
@@ -1360,33 +1363,34 @@ def get_logo_preview(brand_name):
     return jsonify({'error': 'Logo not found', 'brand': brand_name}), 404
 
 
-@app.route('/api/preview/brand-asset/<brand_name>/<asset_type>')
+@app.route('/api/preview/brand-asset/<int:brand_id>/<asset_type>')
 @login_required
-def get_brand_asset_preview(brand_name, asset_type):
+def get_brand_asset_preview(brand_id, asset_type):
     """
     Serve normalized brand assets (logo/watermark) for UI previews
     Secure: only serves assets owned by logged-in user
+    Uses brand_id (NOT name) for lookup
     """
     try:
-        from .database import get_all_brands
+        from .database import get_brand
         from .config import STORAGE_ROOT
         
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': 'Unauthorized'}), 401
         
-        # Get user's brands to verify ownership
-        brands = get_all_brands(user_id=user_id, include_system=False)
-        brand = next((b for b in brands if b['name'] == brand_name), None)
+        # Get brand by ID with ownership verification
+        brand = get_brand(brand_id=brand_id, user_id=user_id)
         
         if not brand:
+            print(f"[PREVIEW] Brand #{brand_id} not found or not owned by user #{user_id}")
             return jsonify({'error': 'Brand not found or access denied'}), 404
         
         # Determine which asset to serve
         if asset_type == 'logo':
             asset_path = brand.get('logo_path')
         elif asset_type == 'watermark':
-            asset_path = brand.get('watermark_path')
+            asset_path = brand.get('watermark_path') or brand.get('watermark_vertical')
         else:
             return jsonify({'error': 'Invalid asset type'}), 400
         
@@ -1419,7 +1423,7 @@ def get_brand_asset_preview(brand_name, asset_type):
 @app.route('/api/brands/list', methods=['GET'])
 @login_required
 def list_brands():
-    """Get list of user-owned brands (no SYSTEM brands)"""
+    """Get list of user-owned brands with COMPLETE config (brand_id-first)"""
     try:
         from .database import get_all_brands
         
@@ -1428,15 +1432,51 @@ def list_brands():
         # Get only user-owned brands (exclude system brands)
         brands = get_all_brands(user_id=user_id, include_system=False)
         
-        # Format for frontend
+        # Format for frontend with ALL config fields (brand_id-first)
         brand_list = [{
+            # Core Identity (brand_id is primary key)
             'id': brand['id'],
-            'name': brand['name'], 
+            'name': brand['name'],  # Keep for backward compat only
             'display_name': brand.get('display_name', brand['name']),
-            'is_ready': brand.get('is_ready', False),  # Include readiness flag
-            'is_system': brand.get('is_system', False),  # Include system flag for frontend filtering
+            'user_id': brand['user_id'],
+            'is_ready': brand.get('is_ready', False),
+            'is_system': brand.get('is_system', False),
+            
+            # Asset Paths
             'logo_path': brand.get('logo_path'),
-            'watermark_path': brand.get('watermark_path') or brand.get('watermark_vertical')  # Include watermark for preview
+            'watermark_path': brand.get('watermark_path') or brand.get('watermark_vertical'),
+            'watermark_vertical': brand.get('watermark_vertical'),
+            'watermark_square': brand.get('watermark_square'),
+            'watermark_landscape': brand.get('watermark_landscape'),
+            
+            # Watermark Config (wm_* keys are canonical)
+            'wm_mode': brand.get('wm_mode', 'fullscreen'),
+            'wm_scale': brand.get('wm_scale', 1.0),
+            'wm_opacity': brand.get('wm_opacity', 0.10),
+            'wm_x': brand.get('wm_x', 0.5),
+            'wm_y': brand.get('wm_y', 0.5),
+            
+            # Logo Config
+            'logo_scale': brand.get('logo_scale', 0.15),
+            'logo_opacity': brand.get('logo_opacity', 1.0),
+            'logo_x': brand.get('logo_x', 0.85),
+            'logo_y': brand.get('logo_y', 0.85),
+            'logo_padding': brand.get('logo_padding', 40),
+            'logo_shape': brand.get('logo_shape'),
+            
+            # Legacy fields (for backward compat with old code)
+            'watermark_scale': brand.get('watermark_scale', brand.get('wm_scale', 1.15)),
+            'watermark_opacity': brand.get('watermark_opacity', brand.get('wm_opacity', 0.4)),
+            
+            # Text Layer Config
+            'text_enabled': brand.get('text_enabled', False),
+            'text_content': brand.get('text_content', ''),
+            'text_x': brand.get('text_x', 0),
+            'text_y': brand.get('text_y', 0),
+            'text_size': brand.get('text_size', 48),
+            'text_color': brand.get('text_color', '#FFFFFF'),
+            'text_bg_enabled': brand.get('text_bg_enabled', True),
+            'text_bg_opacity': brand.get('text_bg_opacity', 0.6)
         } for brand in brands]
         
         return jsonify({
