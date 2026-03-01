@@ -158,6 +158,27 @@ def _run_migrations():
         conn.commit()
         print("[DATABASE] Migration completed: text_x, text_y added")
     
+    # Migration: Add visual positioning columns for drag-and-drop editor
+    try:
+        c.execute("SELECT logo_x FROM brands LIMIT 1")
+    except sqlite3.OperationalError:
+        print("[DATABASE] Running migration: Adding visual positioning columns")
+        # Logo positioning
+        c.execute("ALTER TABLE brands ADD COLUMN logo_x REAL DEFAULT 0.85")
+        c.execute("ALTER TABLE brands ADD COLUMN logo_y REAL DEFAULT 0.85")
+        c.execute("ALTER TABLE brands ADD COLUMN logo_opacity REAL DEFAULT 1.0")
+        # Watermark positioning
+        c.execute("ALTER TABLE brands ADD COLUMN wm_mode TEXT DEFAULT 'fullscreen'")
+        c.execute("ALTER TABLE brands ADD COLUMN wm_x REAL DEFAULT 0.5")
+        c.execute("ALTER TABLE brands ADD COLUMN wm_y REAL DEFAULT 0.5")
+        c.execute("ALTER TABLE brands ADD COLUMN wm_scale REAL DEFAULT 1.0")
+        c.execute("ALTER TABLE brands ADD COLUMN wm_opacity REAL DEFAULT 0.10")
+        # Text positioning (convert old text_x/text_y to REAL, add new fields)
+        c.execute("ALTER TABLE brands ADD COLUMN text_x_percent REAL DEFAULT 0.5")
+        c.execute("ALTER TABLE brands ADD COLUMN text_y_percent REAL DEFAULT 0.2")
+        conn.commit()
+        print("[DATABASE] Migration completed: visual positioning columns added")
+    
     # Migration: Remove all SYSTEM brands for SaaS model (one-time cleanup)
     try:
         c.execute("SELECT COUNT(*) FROM brands WHERE is_system = 1")
@@ -489,8 +510,11 @@ def create_brand(name, display_name, user_id=None, is_system=False, is_locked=Fa
             watermark_scale, watermark_opacity, logo_scale, logo_padding,
             text_enabled, text_content, text_position, text_x, text_y, text_size, text_color,
             text_font, text_bg_enabled, text_bg_color, text_bg_opacity, text_margin,
+            logo_x, logo_y, logo_opacity,
+            wm_mode, wm_x, wm_y, wm_scale, wm_opacity,
+            text_x_percent, text_y_percent,
             created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         name, display_name, user_id, 1 if is_system else 0, 1 if is_locked else 0,
         watermark_vertical, watermark_square, watermark_landscape, logo_path,
@@ -510,6 +534,17 @@ def create_brand(name, display_name, user_id=None, is_system=False, is_locked=Fa
         config.get('text_bg_color', '#000000'),
         config.get('text_bg_opacity', 0.6),
         config.get('text_margin', 40),
+        # Visual positioning fields
+        config.get('logo_x', 0.85),
+        config.get('logo_y', 0.85),
+        config.get('logo_opacity', 1.0),
+        config.get('wm_mode', 'fullscreen'),
+        config.get('wm_x', 0.5),
+        config.get('wm_y', 0.5),
+        config.get('wm_scale', 1.0),
+        config.get('wm_opacity', 0.10),
+        config.get('text_x_percent', 0.5),
+        config.get('text_y_percent', 0.2),
         now, now
     ))
     
@@ -530,7 +565,11 @@ def update_brand(brand_id, **updates):
         'watermark_vertical', 'watermark_square', 'watermark_landscape', 'logo_path',
         'watermark_scale', 'watermark_opacity', 'logo_scale', 'logo_padding',
         'text_enabled', 'text_content', 'text_position', 'text_x', 'text_y', 'text_size', 'text_color',
-        'text_font', 'text_bg_enabled', 'text_bg_color', 'text_bg_opacity', 'text_margin'
+        'text_font', 'text_bg_enabled', 'text_bg_color', 'text_bg_opacity', 'text_margin',
+        # Visual positioning fields
+        'logo_x', 'logo_y', 'logo_opacity',
+        'wm_mode', 'wm_x', 'wm_y', 'wm_scale', 'wm_opacity',
+        'text_x_percent', 'text_y_percent'
     ]
     
     set_clauses = []

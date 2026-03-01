@@ -1391,7 +1391,18 @@ def create_brand_api():
             text_bg_enabled=data.get('text_bg_enabled', True),
             text_bg_color=data.get('text_bg_color', '#000000'),
             text_bg_opacity=data.get('text_bg_opacity', 0.6),
-            text_margin=data.get('text_margin', 40)
+            text_margin=data.get('text_margin', 40),
+            # Visual positioning fields
+            logo_x=data.get('logo_x', 0.85),
+            logo_y=data.get('logo_y', 0.85),
+            logo_opacity=data.get('logo_opacity', 1.0),
+            wm_mode=data.get('wm_mode', 'fullscreen'),
+            wm_x=data.get('wm_x', 0.5),
+            wm_y=data.get('wm_y', 0.5),
+            wm_scale=data.get('wm_scale', 1.0),
+            wm_opacity=data.get('wm_opacity', 0.10),
+            text_x_percent=data.get('text_x_percent', 0.5),
+            text_y_percent=data.get('text_y_percent', 0.2)
         )
         
         print(f"[BRANDS] Created brand: {name} (id={brand_id})")
