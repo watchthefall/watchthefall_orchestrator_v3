@@ -1220,12 +1220,29 @@ function enterQueueMode() {
     }
     
     // Initialize queue with selected brand IDs
+    // Capture current slider values as initial overrides (user may have adjusted in selection mode)
+    const currentSliderOverrides = {
+        watermark_scale: parseInt(document.getElementById('wmScale').value) / 100,
+        watermark_opacity: parseInt(document.getElementById('wmOpacity').value) / 100,
+        logo_scale: parseInt(document.getElementById('logoScale').value) / 100,
+        text_enabled: document.getElementById('textEnabled').checked,
+        text_content: document.getElementById('textContent').value,
+        text_x: textX,
+        text_y: textY,
+        text_size: parseInt(document.getElementById('textSize').value),
+        text_color: document.getElementById('textColor').value,
+        text_bg_enabled: document.getElementById('textBgEnabled').checked,
+        text_bg_opacity: parseInt(document.getElementById('textBgOpacity').value) / 100
+    };
+    
+    console.log('[BRANDR] Captured slider overrides from selection mode:', currentSliderOverrides);
+    
     processingQueue = selectedBrandIds.map(brandId => {
         const brandData = brandDataCache[brandId];
         return {
             brand_id: brandId,
             brand_name: brandData ? brandData.display_name : `Brand #${brandId}`,  // For display only
-            overrides: null,  // Will be loaded from cached data
+            overrides: currentSliderOverrides,  // Use captured slider values, not null
             status: 'pending'  // pending, editing, processing, done, failed, skipped
         };
     });
