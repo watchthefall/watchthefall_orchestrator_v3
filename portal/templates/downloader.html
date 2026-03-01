@@ -161,6 +161,125 @@
         .btn-success:hover {
             background-color: #218838;
         }
+        .btn-small {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.85rem;
+        }
+        .mode-toggle {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .mode-toggle button {
+            flex: 1;
+            padding: 0.5rem;
+            border: 2px solid #333;
+            background: #222;
+            color: #999;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .mode-toggle button.active {
+            background: #00b7ff;
+            color: #000;
+            border-color: #00b7ff;
+        }
+        .mode-toggle button:hover:not(.active) {
+            border-color: #00b7ff;
+            color: #00b7ff;
+        }
+        textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #222;
+            color: #fff;
+            font-size: 16px;
+            font-family: monospace;
+            resize: vertical;
+            min-height: 150px;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #00b7ff;
+            box-shadow: 0 0 8px #00b7ff33;
+        }
+        .clipboard-note {
+            background: rgba(0, 183, 255, 0.1);
+            border: 1px solid rgba(0, 183, 255, 0.3);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+            color: #00b7ff;
+        }
+        .batch-results {
+            margin-top: 1rem;
+        }
+        .batch-item {
+            background: #1a1a1a;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #00b7ff;
+        }
+        .batch-item.success {
+            border-left-color: #28a745;
+        }
+        .batch-item.error {
+            border-left-color: #dc3545;
+        }
+        .batch-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .batch-item-url {
+            color: #999;
+            font-size: 0.85rem;
+            word-break: break-all;
+            flex: 1;
+        }
+        .batch-item-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 1rem;
+        }
+        .batch-item-status.success {
+            background: #28a745;
+            color: #fff;
+        }
+        .batch-item-status.error {
+            background: #dc3545;
+            color: #fff;
+        }
+        .batch-item-message {
+            color: #ccc;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .batch-item-error {
+            color: #ff6b6b;
+            font-size: 0.85rem;
+        }
+        .progress-bar {
+            background: #333;
+            height: 6px;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+        .progress-fill {
+            background: #00b7ff;
+            height: 100%;
+            transition: width 0.3s;
+        }
         .results {
             margin-top: 1rem;
             padding: 1rem;
@@ -202,18 +321,62 @@
         </div>
         <div class="main-content">
             <div class="section">
-                <h2>Paste Link</h2>
+                <h2>Paste Link(s)</h2>
+                
+                <!-- Clipboard notification -->
+                <div id="clipboardNote" class="clipboard-note" style="display:none;">
+                    📋 Clipboard link detected and pasted!
+                </div>
+                
+                <!-- Fallback paste button (shown if clipboard API blocked) -->
+                <button id="pasteBtn" class="btn btn-secondary btn-small" style="display:none; margin-bottom:1rem;">
+                    📋 Paste from Clipboard
+                </button>
+                
                 <form id="downloadForm">
-                    <div class="form-group">
-                        <label for="videoUrl">TikTok / Instagram / X / YouTube Link:</label>
-                        <input type="url" id="videoUrl" name="videoUrl" placeholder="https://www.tiktok.com/..." required>
+                    <!-- Mode Toggle -->
+                    <div class="mode-toggle">
+                        <button type="button" id="singleModeBtn" class="active" onclick="setDownloadMode('single')">
+                            🔗 Single Link
+                        </button>
+                        <button type="button" id="multiModeBtn" onclick="setDownloadMode('multi')">
+                            📋 Multi Links (Batch)
+                        </button>
                     </div>
-                    <button type="submit" class="btn">Download</button>
+                    
+                    <!-- Single Mode Input -->
+                    <div id="singleModeInput" class="form-group">
+                        <label for="videoUrl">TikTok / Instagram / X / YouTube Link:</label>
+                        <input type="url" id="videoUrl" name="videoUrl" placeholder="https://www.tiktok.com/...">
+                    </div>
+                    
+                    <!-- Multi Mode Input -->
+                    <div id="multiModeInput" class="form-group" style="display:none;">
+                        <label for="videoUrls">Paste Multiple Links (one per line, max 5):</label>
+                        <textarea id="videoUrls" name="videoUrls" placeholder="https://www.tiktok.com/...
+https://www.instagram.com/...
+https://x.com/..."></textarea>
+                        <small style="color:#888; font-size:0.85rem;">Tip: Each link on a new line. Duplicates will be removed automatically.</small>
+                    </div>
+                    
+                    <button type="submit" class="btn">⬇️ Download</button>
                 </form>
             </div>
             
             <div class="section">
                 <h2>Results</h2>
+                
+                <!-- Progress Bar (shown during batch downloads) -->
+                <div id="progressContainer" style="display:none;">
+                    <div style="color:#00b7ff; font-size:0.9rem; margin-bottom:0.5rem;" id="progressText">
+                        Downloading 0/0...
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+                    </div>
+                </div>
+                
+                <!-- Single download result -->
                 <div id="results" class="results" style="display:none;">
                     <p id="resultMessage">Download completed!</p>
                     <div id="downloadButtons" style="display:none;">
@@ -221,6 +384,9 @@
                         <button id="continueToBrandrBtn" class="btn btn-secondary">Continue to Brandr</button>
                     </div>
                 </div>
+                
+                <!-- Batch results -->
+                <div id="batchResults" class="batch-results" style="display:none;"></div>
             </div>
             
             <div class="section">
@@ -235,11 +401,91 @@
     <script>
         let currentDownloadId = null;
         let currentFilePath = null;
+        let downloadMode = 'single';  // 'single' or 'multi'
         
+        // ========== MODE SWITCHING ==========
+        function setDownloadMode(mode) {
+            downloadMode = mode;
+            
+            // Update button states
+            document.getElementById('singleModeBtn').classList.toggle('active', mode === 'single');
+            document.getElementById('multiModeBtn').classList.toggle('active', mode === 'multi');
+            
+            // Toggle inputs
+            document.getElementById('singleModeInput').style.display = mode === 'single' ? 'block' : 'none';
+            document.getElementById('multiModeInput').style.display = mode === 'multi' ? 'block' : 'none';
+            
+            // Hide results when switching modes
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('batchResults').style.display = 'none';
+            document.getElementById('progressContainer').style.display = 'none';
+        }
+        
+        // ========== CLIPBOARD AUTO-PASTE ==========
+        async function attemptClipboardRead() {
+            try {
+                // Attempt to read clipboard on page load
+                const text = await navigator.clipboard.readText();
+                
+                if (text && text.trim()) {
+                    // Check if it's a supported URL
+                    if (isSupportedURL(text.trim())) {
+                        document.getElementById('videoUrl').value = text.trim();
+                        document.getElementById('clipboardNote').style.display = 'block';
+                        console.log('[CLIPBOARD] Auto-pasted URL from clipboard');
+                    }
+                }
+            } catch (err) {
+                // Clipboard API blocked or not available
+                console.log('[CLIPBOARD] Auto-read failed (permission denied or not supported):', err.message);
+                
+                // Show fallback paste button
+                const pasteBtn = document.getElementById('pasteBtn');
+                pasteBtn.style.display = 'block';
+                pasteBtn.onclick = async function() {
+                    try {
+                        const text = await navigator.clipboard.readText();
+                        if (text && text.trim()) {
+                            if (downloadMode === 'single') {
+                                document.getElementById('videoUrl').value = text.trim();
+                            } else {
+                                document.getElementById('videoUrls').value = text.trim();
+                            }
+                            document.getElementById('clipboardNote').style.display = 'block';
+                            pasteBtn.style.display = 'none';
+                        }
+                    } catch (e) {
+                        alert('Could not read clipboard. Please paste manually.');
+                    }
+                };
+            }
+        }
+        
+        function isSupportedURL(url) {
+            const supported = [
+                'tiktok.com',
+                'instagram.com',
+                'x.com',
+                'twitter.com',
+                'youtube.com',
+                'youtu.be'
+            ];
+            return supported.some(domain => url.includes(domain));
+        }
+        
+        // ========== FORM SUBMISSION ==========
         document.getElementById('downloadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const videoUrl = document.getElementById('videoUrl').value;
+            if (downloadMode === 'single') {
+                await handleSingleDownload();
+            } else {
+                await handleBatchDownload();
+            }
+        });
+        
+        async function handleSingleDownload() {
+            const videoUrl = document.getElementById('videoUrl').value.trim();
             const resultsDiv = document.getElementById('results');
             const resultMessage = document.getElementById('resultMessage');
             const downloadButtons = document.getElementById('downloadButtons');
@@ -248,6 +494,14 @@
                 alert('Please enter a valid URL');
                 return;
             }
+            
+            if (!isSupportedURL(videoUrl)) {
+                alert('Unsupported URL. Please use TikTok, Instagram, X/Twitter, or YouTube links.');
+                return;
+            }
+            
+            // Hide batch results
+            document.getElementById('batchResults').style.display = 'none';
             
             // Show loading state
             resultMessage.textContent = 'Downloading...';
@@ -258,12 +512,8 @@
                 // Fetch video from URL
                 const response = await fetch('/api/videos/fetch', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        urls: [videoUrl]
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ urls: [videoUrl] })
                 });
                 
                 const data = await response.json();
@@ -274,9 +524,7 @@
                         // Save download to database
                         const saveResponse = await fetch('/api/videos/save-download', {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 source_url: videoUrl,
                                 filename: result.filename,
@@ -290,7 +538,7 @@
                             currentDownloadId = saveData.download_id;
                             currentFilePath = result.local_path;
                             
-                            resultMessage.textContent = 'Download completed successfully!';
+                            resultMessage.textContent = '✅ Download completed successfully!';
                             downloadButtons.style.display = 'block';
                             
                             // Set up button click handlers
@@ -299,35 +547,166 @@
                             };
                             
                             document.getElementById('continueToBrandrBtn').onclick = function() {
-                                // Store only the filename for Brandr to access
                                 sessionStorage.setItem('lastDownloadFilename', result.filename);
                                 window.location.href = "{{ url_for('brand_video') }}";
                             };
                         } else {
-                            resultMessage.textContent = 'Download completed but failed to save: ' + (saveData.error || 'Unknown error');
+                            resultMessage.textContent = '❌ Download completed but failed to save: ' + (saveData.error || 'Unknown error');
                         }
                     } else {
-                        resultMessage.textContent = 'Download failed: ' + (result.error || 'Unknown error');
+                        resultMessage.textContent = '❌ Download failed: ' + (result.error || 'Unknown error');
                     }
                 } else {
-                    resultMessage.textContent = 'Download failed: ' + (data.error || 'Unknown error');
+                    resultMessage.textContent = '❌ Download failed: ' + (data.error || 'Unknown error');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                resultMessage.textContent = 'An error occurred: ' + error.message;
+                resultMessage.textContent = '❌ An error occurred: ' + error.message;
             }
             
             // Refresh recent downloads
             loadRecentDownloads();
-        });
+        }
         
+        async function handleBatchDownload() {
+            const videoUrlsText = document.getElementById('videoUrls').value.trim();
+            const batchResultsDiv = document.getElementById('batchResults');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressText = document.getElementById('progressText');
+            const progressFill = document.getElementById('progressFill');
+            
+            if (!videoUrlsText) {
+                alert('Please enter at least one URL');
+                return;
+            }
+            
+            // Parse URLs: split by newline, trim, filter empty, dedupe
+            const rawUrls = videoUrlsText.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+            const uniqueUrls = [...new Set(rawUrls)];
+            
+            // Validate URLs
+            const validUrls = uniqueUrls.filter(url => isSupportedURL(url));
+            const invalidUrls = uniqueUrls.filter(url => !isSupportedURL(url));
+            
+            if (validUrls.length === 0) {
+                alert('No valid URLs found. Please check your links.');
+                return;
+            }
+            
+            if (validUrls.length > 5) {
+                alert('Maximum 5 URLs allowed at once. Please reduce the number of links.');
+                return;
+            }
+            
+            if (invalidUrls.length > 0) {
+                const proceed = confirm(`Found ${invalidUrls.length} unsupported URL(s). Continue with ${validUrls.length} valid URLs?`);
+                if (!proceed) return;
+            }
+            
+            // Hide single result
+            document.getElementById('results').style.display = 'none';
+            
+            // Show progress
+            progressContainer.style.display = 'block';
+            batchResultsDiv.style.display = 'block';
+            batchResultsDiv.innerHTML = '<p style="color:#888;">🚀 Starting batch download...</p>';
+            
+            progressText.textContent = `Downloading 0/${validUrls.length}...`;
+            progressFill.style.width = '0%';
+            
+            try {
+                // Send batch request
+                const response = await fetch('/api/videos/fetch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ urls: validUrls })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.results) {
+                    const results = data.results;
+                    
+                    // Update progress
+                    const successCount = results.filter(r => r.success).length;
+                    progressText.textContent = `Completed: ${successCount}/${validUrls.length} successful`;
+                    progressFill.style.width = '100%';
+                    
+                    // Render results
+                    renderBatchResults(results);
+                    
+                    // Save successful downloads to database
+                    for (const result of results) {
+                        if (result.success) {
+                            try {
+                                await fetch('/api/videos/save-download', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        source_url: result.url,
+                                        filename: result.filename,
+                                        file_path: result.local_path
+                                    })
+                                });
+                            } catch (e) {
+                                console.error('Failed to save download:', e);
+                            }
+                        }
+                    }
+                } else {
+                    batchResultsDiv.innerHTML = `<p style="color:#ff6b6b;">❌ Batch download failed: ${data.error || 'Unknown error'}</p>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                batchResultsDiv.innerHTML = `<p style="color:#ff6b6b;">❌ An error occurred: ${error.message}</p>`;
+            }
+            
+            // Refresh recent downloads
+            loadRecentDownloads();
+        }
+        
+        function renderBatchResults(results) {
+            const container = document.getElementById('batchResults');
+            let html = '';
+            
+            results.forEach((result, index) => {
+                const itemClass = result.success ? 'batch-item success' : 'batch-item error';
+                const statusClass = result.success ? 'batch-item-status success' : 'batch-item-status error';
+                const statusText = result.success ? '✅ Success' : '❌ Failed';
+                
+                html += `<div class="${itemClass}">`;
+                html += '<div class="batch-item-header">';
+                html += `<div class="batch-item-url">${result.url}</div>`;
+                html += `<div class="${statusClass}">${statusText}</div>`;
+                html += '</div>';
+                
+                if (result.success) {
+                    html += `<div class="batch-item-message">📦 ${result.filename} (${result.size_mb} MB)</div>`;
+                    html += '<div>';
+                    html += `<button class="btn btn-success btn-small" onclick="window.open('/api/videos/download/${result.filename}', '_blank')" style="margin-right:0.5rem;">Download MP4</button>`;
+                    html += `<button class="btn btn-secondary btn-small" onclick="continueToBrandrFromFilename('${result.filename}')">Continue to Brandr</button>`;
+                    html += '</div>';
+                } else {
+                    html += `<div class="batch-item-error">⚠️ ${result.error || 'Unknown error'}</div>`;
+                }
+                
+                html += '</div>';
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function continueToBrandrFromFilename(filename) {
+            sessionStorage.setItem('lastDownloadFilename', filename);
+            window.location.href = "{{ url_for('brand_video') }}";
+        }
+        
+        // ========== RECENT DOWNLOADS ==========
         async function loadRecentDownloads() {
             try {
                 const response = await fetch('/api/downloads/recent', {
                     method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+                    headers: { 'Content-Type': 'application/json' }
                 });
                 
                 const data = await response.json();
@@ -352,26 +731,26 @@
             }
             
             let html = '<table style="width:100%; border-collapse: collapse;">';
-            html += '<tr style="background-color: #f0f0f0;">';
-            html += '<th style="padding: 8px; border: 1px solid #ddd;">Source URL</th>';
-            html += '<th style="padding: 8px; border: 1px solid #ddd;">Date</th>';
-            html += '<th style="padding: 8px; border: 1px solid #ddd;">Actions</th>';
+            html += '<tr style="background-color: #222;">';
+            html += '<th style="padding: 8px; border: 1px solid #333; color:#00b7ff;">Source URL</th>';
+            html += '<th style="padding: 8px; border: 1px solid #333; color:#00b7ff;">Date</th>';
+            html += '<th style="padding: 8px; border: 1px solid #333; color:#00b7ff;">Actions</th>';
             html += '</tr>';
             
             downloads.forEach(download => {
                 const truncatedUrl = download.source_url.length > 30 ? download.source_url.substring(0, 30) + '...' : download.source_url;
                 const date = new Date(download.created_at).toLocaleString();
                 
-                html += '<tr>';
-                html += `<td style="padding: 8px; border: 1px solid #ddd;">${truncatedUrl}</td>`;
-                html += `<td style="padding: 8px; border: 1px solid #ddd;">${date}</td>`;
-                html += '<td style="padding: 8px; border: 1px solid #ddd;">';
+                html += '<tr style="background:#1a1a1a;">';
+                html += `<td style="padding: 8px; border: 1px solid #333; color:#ccc;">${truncatedUrl}</td>`;
+                html += `<td style="padding: 8px; border: 1px solid #333; color:#ccc;">${date}</td>`;
+                html += '<td style="padding: 8px; border: 1px solid #333;">';
                 
                 if (download.file_exists) {
-                    html += `<button class="btn btn-success" onclick="downloadOriginal(${download.id})" style="margin-right: 5px;">Download</button>`;
-                    html += `<button class="btn btn-secondary" onclick="continueToBrandrFromDownload('${download.file_path}', '${download.filename}')">Brandr</button>`;
+                    html += `<button class="btn btn-success btn-small" onclick="downloadOriginal(${download.id})" style="margin-right: 5px;">Download</button>`;
+                    html += `<button class="btn btn-secondary btn-small" onclick="continueToBrandrFromDownload('${download.file_path}', '${download.filename}')">Brandr</button>`;
                 } else {
-                    html += '<span style="color: #666;">Expired</span>';
+                    html += '<span style="color: #666;">⏰ Expired</span>';
                 }
                 
                 html += '</td>';
@@ -387,14 +766,17 @@
         }
         
         function continueToBrandrFromDownload(filePath, filename) {
-            // Store only the filename for Brandr to access
             sessionStorage.setItem('lastDownloadFilename', filename);
             window.location.href = "{{ url_for('brand_video') }}";
         }
         
-        // Load recent downloads when page loads
+        // ========== INITIALIZATION ==========
         document.addEventListener('DOMContentLoaded', function() {
+            // Load recent downloads
             loadRecentDownloads();
+            
+            // Attempt clipboard auto-paste (only once on load)
+            attemptClipboardRead();
         });
     </script>
 </body>
