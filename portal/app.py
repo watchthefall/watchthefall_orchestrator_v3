@@ -53,7 +53,8 @@ def hash_password(password):
 
 def init_users_db():
     """Initialize the users database table"""
-    conn = sqlite3.connect('portal/db/users.db')
+    from .config import DB_PATH
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,7 +68,8 @@ def init_users_db():
 
 def authenticate_user(email, password):
     """Authenticate a user by email and password"""
-    conn = sqlite3.connect('portal/db/users.db')
+    from .config import DB_PATH
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('SELECT id, password_hash FROM users WHERE email = ?', (email,))
     result = c.fetchone()
@@ -82,8 +84,9 @@ def authenticate_user(email, password):
 
 def register_user(email, password):
     """Register a new user"""
+    from .config import DB_PATH
     try:
-        conn = sqlite3.connect('portal/db/users.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         password_hash = hash_password(password)
         c.execute('INSERT INTO users (email, password_hash) VALUES (?, ?)', (email, password_hash))

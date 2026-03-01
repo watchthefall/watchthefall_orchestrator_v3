@@ -89,8 +89,24 @@ portal/
    - `WTF_PORTAL_KEY`: Your secret authentication key
    - `WTF_SECRET_KEY`: Flask session secret
    - `FFMPEG_PATH`: /usr/bin/ffmpeg (auto-installed by render-build.sh)
+   - `DB_PATH`: `/var/data/wtf_studio.db` (for persistent disk)
+   - `STORAGE_ROOT`: `/var/data/storage` (for persistent disk)
 
-4. The `render-build.sh` script automatically installs FFmpeg during deployment
+4. **Render Persistent Disk** (IMPORTANT for data persistence):
+   - Attach a persistent disk to your Render service at mount path: `/var/data`
+   - Set environment variables in Render dashboard:
+     ```
+     DB_PATH=/var/data/wtf_studio.db
+     STORAGE_ROOT=/var/data/storage
+     ```
+   - This ensures:
+     - ✅ User accounts survive deploys
+     - ✅ Downloaded videos persist
+     - ✅ Branded outputs persist
+     - ✅ User brand assets persist
+   - Without this, all data is lost on each deploy (ephemeral filesystem)
+
+5. The `render-build.sh` script automatically installs FFmpeg during deployment
 
 #### Option 1: Manual Upload (FTP/SFTP)
 1. Upload entire `portal/` directory to server
