@@ -1260,6 +1260,59 @@ def get_logo_preview(brand_name):
     
     return jsonify({'error': 'Logo not found', 'brand': brand_name}), 404
 
+
+@app.route('/api/preview/brand-asset/<brand_name>/<asset_type>')
+@login_required
+def get_brand_asset_preview(brand_name, asset_type):
+    """
+    Serve normalized brand assets (logo/watermark) for UI previews
+    Secure: only serves assets owned by logged-in user
+    """
+    try:
+        from .database import get_all_brands
+        from .config import STORAGE_ROOT
+        
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        # Get user's brands to verify ownership
+        brands = get_all_brands(user_id=user_id, include_system=False)
+        brand = next((b for b in brands if b['name'] == brand_name), None)
+        
+        if not brand:
+            return jsonify({'error': 'Brand not found or access denied'}), 404
+        
+        # Determine which asset to serve
+        if asset_type == 'logo':
+            asset_path = brand.get('logo_path')
+        elif asset_type == 'watermark':
+            asset_path = brand.get('watermark_path')
+        else:
+            return jsonify({'error': 'Invalid asset type'}), 400
+        
+        if not asset_path:
+            return jsonify({'error': f'{asset_type.capitalize()} not found'}), 404
+        
+        # Construct full path from storage root
+        full_path = os.path.join(STORAGE_ROOT, asset_path)
+        
+        # Security: prevent path traversal
+        full_path = os.path.abspath(full_path)
+        if not full_path.startswith(os.path.abspath(STORAGE_ROOT)):
+            return jsonify({'error': 'Invalid path'}), 403
+        
+        if not os.path.exists(full_path):
+            return jsonify({'error': f'{asset_type.capitalize()} file not found on disk'}), 404
+        
+        # Serve the file
+        return send_from_directory(os.path.dirname(full_path), os.path.basename(full_path))
+        
+    except Exception as e:
+        import traceback
+        print(f"[PREVIEW ERROR] {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
 # ============================================================================
 # API: BRANDS (Static JSON)
 # ============================================================================

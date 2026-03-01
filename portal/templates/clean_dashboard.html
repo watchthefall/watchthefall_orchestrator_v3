@@ -162,6 +162,7 @@
         margin: 10px 0;
     }
     .brand-btn {
+        position: relative;
         padding: 12px 8px;
         background: #222;
         border: 2px solid #333;
@@ -171,11 +172,64 @@
         cursor: pointer;
         transition: all 0.2s;
         text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 70px;
+    }
+    .brand-btn .brand-logo-preview {
+        width: 40px;
+        height: 40px;
+        object-fit: contain;
+        border-radius: 4px;
+        background: rgba(255,255,255,0.05);
+        padding: 4px;
+    }
+    .brand-btn .brand-info {
+        flex: 1;
+        text-align: left;
+    }
+    .brand-btn .brand-name {
+        display: block;
+        font-weight: 600;
+    }
+    .brand-btn .brand-assets {
+        display: flex;
+        gap: 4px;
+        margin-top: 4px;
+        font-size: 10px;
+    }
+    .brand-btn .asset-badge {
+        background: rgba(0, 183, 255, 0.2);
+        color: #00b7ff;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+    .brand-btn .check-icon {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 20px;
+        height: 20px;
+        background: #00b7ff;
+        border-radius: 50%;
+        color: #000;
+        font-size: 14px;
+        font-weight: bold;
+        display: none;
+        align-items: center;
+        justify-content: center;
     }
     .brand-btn.selected {
         background: #003355;
         border-color: #00b7ff;
         color: #00b7ff;
+        transform: scale(1.02);
+        box-shadow: 0 0 15px rgba(0, 183, 255, 0.3);
+    }
+    .brand-btn.selected .check-icon {
+        display: flex;
     }
     .brand-btn.brand-incomplete {
         background: #3a2a00;
@@ -183,6 +237,10 @@
         color: #ff9800;
         opacity: 0.7;
         cursor: not-allowed;
+    }
+    .brand-btn:not(.brand-incomplete):hover {
+        border-color: #00b7ff;
+        transform: translateY(-2px);
     }
     .brand-btn:active {
         transform: scale(0.98);
@@ -586,6 +644,12 @@
     
     </div><!-- End overrideControls -->
     
+    <!-- Confirmation Summary (above Start Branding button) -->
+    <div id="confirmationSummary" style="background: rgba(0, 183, 255, 0.1); border: 1px solid rgba(0, 183, 255, 0.3); border-radius: 8px; padding: 12px; margin: 15px 0; font-size: 13px; line-height: 1.6;">
+        <div style="color: #00b7ff; font-weight: 600; margin-bottom: 6px;">⚡ Ready to Process:</div>
+        <div id="summaryText" style="color: #ccc;"></div>
+    </div>
+    
     <!-- Selection Mode Button -->
     <div id="selectionModeActions">
         <button onclick="enterQueueMode()" id="startBrandingBtn" style="background:#00b7ff; margin-top:15px;">🚀 Start Branding</button>
@@ -934,15 +998,40 @@ async function loadBrands() {
             const isReady = b.is_ready || false;
             
             btn.className = isReady ? 'brand-btn' : 'brand-btn brand-incomplete';
-            btn.innerHTML = isReady 
-                ? b.display_name
-                : `${b.display_name} <span style="font-size:16px;">⚠️</span>`;
+            
+            // Build brand tile with logo preview and asset badges
+            let html = '';
+            
+            // Logo preview (if exists)
+            if (b.logo_path) {
+                html += `<img src="${apiBase}/api/preview/brand-asset/${b.name}/logo" class="brand-logo-preview" onerror="this.style.display='none'" alt="Logo">`;
+            }
+            
+            // Brand info
+            html += '<div class="brand-info">';
+            html += `<span class="brand-name">${b.display_name}</span>`;
+            
+            // Asset badges
+            html += '<div class="brand-assets">';
+            if (b.logo_path) html += '<span class="asset-badge">🎨 Logo</span>';
+            if (b.watermark_path) html += '<span class="asset-badge">🔍 WM</span>';
+            if (!isReady) html += '<span class="asset-badge" style="background: rgba(255, 152, 0, 0.2); color: #ff9800;">⚠️ Incomplete</span>';
+            html += '</div>';
+            html += '</div>';
+            
+            // Check icon for selection
+            html += '<span class="check-icon">✓</span>';
+            
+            btn.innerHTML = html;
             btn.dataset.brand = b.name;
             btn.dataset.ready = isReady;
             btn.title = isReady ? '' : 'Incomplete: Upload logo or watermark in Manage Brands';
             btn.onclick = () => selectBrand(b.name, btn, isReady);
             box.appendChild(btn);
         });
+        
+        // Update confirmation summary
+        updateConfirmationSummary();
     } catch (err) {
         console.error('[BRANDR] Load brands error:', err);
         box.innerHTML = '<span style="color:#f66">Error loading brands</span>';
@@ -972,6 +1061,9 @@ function selectBrand(brandName, btnEl, isReady) {
         loadBrandAssets(selectedBrands[0]);
         loadBrandConfig(selectedBrands[0]);
     }
+    
+    // Update confirmation summary
+    updateConfirmationSummary();
 }
 
 async function loadBrandConfig(brandName) {
@@ -1606,6 +1698,40 @@ async function loadBrandIntegrity() {
 loadBrands();
 updateCanvasPreview();
 
+// ========== CONFIRMATION SUMMARY ==========
+function updateConfirmationSummary() {
+    const summaryEl = document.getElementById('summaryText');
+    const confirmBox = document.getElementById('confirmationSummary');
+    
+    if (!summaryEl) return;
+    
+    // Build summary parts
+    const parts = [];
+    
+    // Video status
+    if (currentFile) {
+        parts.push(`<strong>Video:</strong> ${currentFile}`);
+    } else {
+        parts.push(`<strong>Video:</strong> <span style="color:#ff9800;">No video selected</span>`);
+    }
+    
+    // Brands status
+    if (selectedBrands.length > 0) {
+        parts.push(`<strong>Brands:</strong> ${selectedBrands.join(', ')}`);
+    } else {
+        parts.push(`<strong>Brands:</strong> <span style="color:#ff9800;">None selected</span>`);
+    }
+    
+    // Watermark mode (not applicable in selection mode, but show for completeness)
+    // parts.push(`<strong>Mode:</strong> Preview`);
+    
+    summaryEl.innerHTML = parts.join(' <span style="color:#666;">|</span> ');
+    
+    // Show/hide confirmation box based on whether we're in selection mode
+    const inSelectionMode = document.getElementById('selectionModeActions').style.display !== 'none';
+    confirmBox.style.display = inSelectionMode ? 'block' : 'none';
+}
+
 // Check for file passed from downloader
 const lastDownloadFilename = sessionStorage.getItem('lastDownloadFilename');
 
@@ -1622,10 +1748,16 @@ if (lastDownloadFilename) {
     document.getElementById('videoStatusIcon').textContent = '✅';
     document.getElementById('videoStatusText').textContent = 'Video selected: ' + lastDownloadFilename;
     document.getElementById('videoSourceStatus').querySelector('button').style.display = 'none';
+    
+    // Update confirmation summary
+    updateConfirmationSummary();
 } else {
     // No video selected - show prompt to go to downloader
     document.getElementById('videoStatusIcon').textContent = '⚠️';
     document.getElementById('videoStatusText').textContent = 'No video selected';
+    
+    // Update confirmation summary
+    updateConfirmationSummary();
 }
 </script>
 
