@@ -1104,10 +1104,23 @@ async function loadBrandConfig(brandId) {
         document.getElementById('logoScale').value = Math.round(cfg.logo_scale * 100);
         document.getElementById('logoScaleVal').textContent = Math.round(cfg.logo_scale * 100) + '%';
         
-        // Load logo position if saved (convert percentage to canvas pixels)
-        if (cfg.logo_x !== undefined && cfg.logo_y !== undefined) {
-            logoX = cfg.logo_x * canvas.width;
-            logoY = cfg.logo_y * canvas.height;
+        // Load logo position if saved
+        // Database stores CENTER coordinates as percentages (0-1)
+        // Need to convert to TOP-LEFT pixel coordinates for rendering
+        if (cfg.logo_x !== undefined && cfg.logo_y !== undefined && cfg.logo_x > 0 && cfg.logo_y > 0) {
+            // Calculate logo size first
+            const logoScalePct = cfg.logo_scale; // Already a decimal 0-1
+            const logoSize = canvas.width * logoScalePct;
+            
+            // Convert center percentage to center pixels
+            const centerX = cfg.logo_x * canvas.width;
+            const centerY = cfg.logo_y * canvas.height;
+            
+            // Convert center to top-left by subtracting half size
+            logoX = centerX - logoSize / 2;
+            logoY = centerY - logoSize / 2;
+            
+            console.log(`[UI] Loaded logo position: center (${Math.round(cfg.logo_x*100)}%, ${Math.round(cfg.logo_y*100)}%) -> top-left (${Math.round(logoX)}px, ${Math.round(logoY)}px) size ${Math.round(logoSize)}px`);
         } else {
             logoX = 0;  // Will use default position
             logoY = 0;
