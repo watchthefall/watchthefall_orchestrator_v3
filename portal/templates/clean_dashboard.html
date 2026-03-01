@@ -231,6 +231,19 @@
     .brand-btn.selected .check-icon {
         display: flex;
     }
+    .brand-btn.active-preview {
+        box-shadow: 0 0 20px rgba(0, 183, 255, 0.5), 0 0 40px rgba(0, 183, 255, 0.2);
+        border-color: #00d4ff;
+        transform: scale(1.04);
+    }
+    .brand-btn.active-preview::before {
+        content: '👁️';
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        font-size: 16px;
+        filter: drop-shadow(0 0 4px rgba(0, 183, 255, 0.8));
+    }
     .brand-btn.brand-incomplete {
         background: #3a2a00;
         border-color: #665500;
@@ -688,6 +701,7 @@ const apiBase = window.location.origin;
 // ========== STATE ==========
 let currentFile = null;
 let selectedBrandIds = [];  // Use brand IDs (not names) for selection
+let activePreviewBrandId = null;  // Track which brand's preview is currently shown
 let brandDataCache = {};    // Cache full brand objects by ID
 let frameData = null;
 let watermarkImg = null;
@@ -1056,19 +1070,48 @@ function selectBrand(brandId, btnEl, isReady) {
     
     // Toggle brand selection (multi-select) using brand_id
     const idx = selectedBrandIds.indexOf(brandId);
-    if (idx > -1) {
+    const wasSelected = idx > -1;
+    
+    if (wasSelected) {
         selectedBrandIds.splice(idx, 1);  // Deselect
         btnEl.classList.remove('selected');
+        
+        // If unselecting the active preview brand, switch to another selected brand or clear
+        if (activePreviewBrandId === brandId) {
+            if (selectedBrandIds.length > 0) {
+                // Switch to last selected brand
+                activePreviewBrandId = selectedBrandIds[selectedBrandIds.length - 1];
+                console.log(`[BRANDR] Active preview switched to brand #${activePreviewBrandId} after deselecting #${brandId}`);
+            } else {
+                // No brands selected anymore
+                activePreviewBrandId = null;
+                console.log(`[BRANDR] Active preview cleared (no brands selected)`);
+            }
+        }
     } else {
         selectedBrandIds.push(brandId);  // Select
         btnEl.classList.add('selected');
+        
+        // Set this brand as the active preview (always update when clicking a brand)
+        activePreviewBrandId = brandId;
+        console.log(`[BRANDR] Active preview set to brand #${brandId} (${brandDataCache[brandId]?.display_name})`);
     }
     
-    // Load brand assets and saved config for preview (use first selected brand)
-    if (selectedBrandIds.length > 0) {
-        const firstBrandId = selectedBrandIds[0];
-        loadBrandAssets(firstBrandId);
-        loadBrandConfig(firstBrandId);
+    // Update visual "Active" indicator on tiles
+    document.querySelectorAll('.brand-btn').forEach(btn => {
+        btn.classList.remove('active-preview');
+    });
+    if (activePreviewBrandId) {
+        const activeTile = document.querySelector(`.brand-btn[data-brand-id="${activePreviewBrandId}"]`);
+        if (activeTile) {
+            activeTile.classList.add('active-preview');
+        }
+    }
+    
+    // Load brand assets and saved config for preview (use activePreviewBrandId)
+    if (activePreviewBrandId) {
+        loadBrandAssets(activePreviewBrandId);
+        loadBrandConfig(activePreviewBrandId);
         
         // Show preview canvas and sliders immediately when brand selected
         document.getElementById('previewContainer').style.display = 'block';
