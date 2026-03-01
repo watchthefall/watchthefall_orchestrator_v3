@@ -567,7 +567,10 @@ function renderBrands(brands) {
 
 function openCreateModal() {
     document.getElementById('createModal').classList.add('active');
-    document.getElementById('createForm').reset();
+    const form = document.getElementById('createForm');
+    form.reset();
+    form.dataset.mode = 'create';
+    delete form.dataset.brandId;
     document.getElementById('modalStatus').innerHTML = '';
     
     // Initialize editor
@@ -575,10 +578,16 @@ function openCreateModal() {
         editor = initBrandEditor();
     }
     
+    // Re-enable brand name field
+    document.getElementById('brandName').disabled = false;
+    
     // Reset UI controls
     document.getElementById('textControls').style.display = 'none';
     document.getElementById('wmFullscreenBtn').classList.add('active');
     document.getElementById('wmPositionedBtn').classList.remove('active');
+    
+    // Reset button text
+    form.querySelector('button[type="submit"]').textContent = 'Create Brand';
 }
 
 // Control handlers
@@ -671,31 +680,48 @@ function closeCreateModal() {
 async function createBrand(e) {
     e.preventDefault();
     
+    const form = document.getElementById('createForm');
+    const mode = form.dataset.mode || 'create';
+    const brandId = form.dataset.brandId;
     const status = document.getElementById('modalStatus');
-    status.innerHTML = '<div class="status-msg info">Creating brand...</div>';
+    
+    status.innerHTML = `<div class="status-msg info">${mode === 'edit' ? 'Saving changes...' : 'Creating brand...'}</div>`;
     
     try {
         // Get editor state
         const editorState = editor ? editor.exportState() : {};
         
-        const res = await fetch(`${apiBase}/api/brands`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                name: document.getElementById('brandName').value,
-                display_name: document.getElementById('displayName').value,
-                // Visual positioning from editor
-                ...editorState
-            })
-        });
+        const payload = {
+            name: document.getElementById('brandName').value,
+            display_name: document.getElementById('displayName').value,
+            // Visual positioning from editor
+            ...editorState
+        };
+        
+        let res;
+        if (mode === 'edit') {
+            // PUT to update existing brand
+            res = await fetch(`${apiBase}/api/brands/${brandId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } else {
+            // POST to create new brand
+            res = await fetch(`${apiBase}/api/brands`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        }
         
         const data = await res.json();
         
         if (!data.success) {
-            throw new Error(data.error || 'Failed to create brand');
+            throw new Error(data.error || `Failed to ${mode} brand`);
         }
         
-        status.innerHTML = '<div class="status-msg success">✅ Brand created successfully!</div>';
+        status.innerHTML = `<div class="status-msg success">✅ Brand ${mode === 'edit' ? 'updated' : 'created'} successfully!</div>`;
         setTimeout(() => {
             closeCreateModal();
             loadBrands();
@@ -707,7 +733,76 @@ async function createBrand(e) {
 }
 
 function editBrand(brandId) {
-    alert('Edit functionality coming soon!');
+    // Fetch brand data and open editor
+    fetch(`${apiBase}/api/brands/${brandId}`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to load brand');
+            }
+            
+            const brand = data.brand;
+            
+            // Open modal
+            document.getElementById('createModal').classList.add('active');
+            document.getElementById('modalStatus').innerHTML = '';
+            
+            // Initialize editor if needed
+            if (!editor) {
+                editor = initBrandEditor();
+            }
+            
+            // Set form to edit mode
+            const form = document.getElementById('createForm');
+            form.dataset.mode = 'edit';
+            form.dataset.brandId = brandId;
+            
+            // Populate fields
+            document.getElementById('brandName').value = brand.name;
+            document.getElementById('brandName').disabled = true; // Can't change slug
+            document.getElementById('displayName').value = brand.display_name;
+            
+            // Load editor state
+            editor.loadState(brand);
+            
+            // Update UI controls to match loaded state
+            document.getElementById('logoScale').value = (brand.logo_scale || 0.15) * 100;
+            document.getElementById('logoScaleVal').textContent = Math.round((brand.logo_scale || 0.15) * 100) + '%';
+            document.getElementById('logoOpacity').value = (brand.logo_opacity || 1.0) * 100;
+            document.getElementById('logoOpacityVal').textContent = Math.round((brand.logo_opacity || 1.0) * 100) + '%';
+            
+            const wmMode = brand.wm_mode || 'fullscreen';
+            if (wmMode === 'fullscreen') {
+                document.getElementById('wmFullscreenBtn').classList.add('active');
+                document.getElementById('wmPositionedBtn').classList.remove('active');
+            } else {
+                document.getElementById('wmFullscreenBtn').classList.remove('active');
+                document.getElementById('wmPositionedBtn').classList.add('active');
+            }
+            
+            document.getElementById('wmScale').value = (brand.wm_scale || 1.0) * 100;
+            document.getElementById('wmScaleVal').textContent = Math.round((brand.wm_scale || 1.0) * 100) + '%';
+            document.getElementById('wmOpacity').value = (brand.wm_opacity || 0.10) * 100;
+            document.getElementById('wmOpacityVal').textContent = Math.round((brand.wm_opacity || 0.10) * 100) + '%';
+            
+            const textEnabled = brand.text_enabled || false;
+            document.getElementById('textEnabled').checked = textEnabled;
+            document.getElementById('textControls').style.display = textEnabled ? 'block' : 'none';
+            
+            if (textEnabled) {
+                document.getElementById('textContent').value = brand.text_content || '';
+                document.getElementById('textSize').value = brand.text_size || 48;
+                document.getElementById('textSizeVal').textContent = (brand.text_size || 48) + 'px';
+                document.getElementById('textColor').value = brand.text_color || '#FFFFFF';
+            }
+            
+            // Change button text
+            const submitBtn = form.querySelector('button[type="submit"]');
+            submitBtn.textContent = 'Save Changes';
+        })
+        .catch(err => {
+            alert('Error loading brand: ' + err.message);
+        });
 }
 
 async function deleteBrand(brandId, brandName) {
