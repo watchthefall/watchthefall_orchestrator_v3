@@ -470,60 +470,78 @@ def brands_page():
 @app.route('/portal/profile')
 @login_required
 def profile_page():
-    """User profile page"""
+    """User profile page with graceful error handling"""
     from .database import get_db, get_all_brands
     from datetime import datetime
     
-    user_id = session.get('user_id')
-    email = session.get('email', 'User')
-    
-    # Get user info from database
-    conn = get_db()
-    c = conn.cursor()
-    c.execute('SELECT created_at, tier FROM users WHERE id = ?', (user_id,))
-    user = c.fetchone()
-    conn.close()
-    
-    # Format created date
-    created_at = 'Recently'
-    if user and user['created_at']:
-        try:
-            created_dt = datetime.fromisoformat(user['created_at'])
-            created_at = created_dt.strftime('%B %Y')
-        except:
-            pass
-    
-    # Get actual tier from database (or default to Explorer)
-    tier = user['tier'] if user and user.get('tier') else 'Explorer'
-    
-    # Get actual brand count
-    user_brands = get_all_brands(user_id=user_id, include_system=False)
-    brand_configs = len(user_brands)
-    
-    # TODO: Get actual usage stats when usage tracking is implemented
-    downloads_used = 0
-    brands_used = 0
-    
-    # Tier limits
-    tier_limits = {
-        'Explorer': {'downloads': 50, 'brands': 50, 'configs': 1},
-        'Creator': {'downloads': 500, 'brands': 500, 'configs': 5},
-        'Studio': {'downloads': 'Unlimited', 'brands': 'Unlimited', 'configs': 'Unlimited'}
-    }
-    
-    limits = tier_limits.get(tier, tier_limits['Explorer'])
-    
-    return render_template('profile.html',
-        email=email,
-        created_at=created_at,
-        tier=tier,
-        downloads_used=downloads_used,
-        downloads_limit=limits['downloads'],
-        brands_used=brands_used,
-        brands_limit=limits['brands'],
-        brand_configs=brand_configs,
-        brand_configs_limit=limits['configs']
-    )
+    try:
+        user_id = session.get('user_id')
+        email = session.get('email', 'User')
+        
+        # Get user info from database
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('SELECT created_at, tier FROM users WHERE id = ?', (user_id,))
+        user = c.fetchone()
+        conn.close()
+        
+        # Format created date
+        created_at = 'Recently'
+        if user and user['created_at']:
+            try:
+                created_dt = datetime.fromisoformat(user['created_at'])
+                created_at = created_dt.strftime('%B %Y')
+            except:
+                pass
+        
+        # Get actual tier from database (or default to Explorer)
+        tier = user['tier'] if user and user.get('tier') else 'Explorer'
+        
+        # Get actual brand count
+        user_brands = get_all_brands(user_id=user_id, include_system=False)
+        brand_configs = len(user_brands)
+        
+        # TODO: Get actual usage stats when usage tracking is implemented
+        downloads_used = 0
+        brands_used = 0
+        
+        # Tier limits
+        tier_limits = {
+            'Explorer': {'downloads': 50, 'brands': 50, 'configs': 1},
+            'Creator': {'downloads': 500, 'brands': 500, 'configs': 5},
+            'Studio': {'downloads': 'Unlimited', 'brands': 'Unlimited', 'configs': 'Unlimited'}
+        }
+        
+        limits = tier_limits.get(tier, tier_limits['Explorer'])
+        
+        return render_template('profile.html',
+            email=email,
+            created_at=created_at,
+            tier=tier,
+            downloads_used=downloads_used,
+            downloads_limit=limits['downloads'],
+            brands_used=brands_used,
+            brands_limit=limits['brands'],
+            brand_configs=brand_configs,
+            brand_configs_limit=limits['configs']
+        )
+    except Exception as e:
+        print(f"[PROFILE ERROR] Failed to load profile page: {e}")
+        import traceback
+        traceback.print_exc()
+        # Return graceful fallback instead of 500
+        return render_template('profile.html',
+            email=session.get('email', 'User'),
+            created_at='Recently',
+            tier='Explorer',
+            downloads_used=0,
+            downloads_limit=50,
+            brands_used=0,
+            brands_limit=50,
+            brand_configs=0,
+            brand_configs_limit=1,
+            error_message='Some profile data could not be loaded. Please try again later.'
+        ), 200
 
 @app.route('/portal/shipr')
 @login_required

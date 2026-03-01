@@ -384,8 +384,36 @@ class BrandEditor {
         this.state.textSize = brand.text_size || 48;
         this.state.textColor = brand.text_color || '#FFFFFF';
         
-        // TODO: Load existing logo/watermark images if paths exist
-        // This requires fetching from backend
+        // Load existing logo/watermark images from secure endpoints
+        const apiBase = window.location.origin;
+        
+        if (brand.logo_path && brand.id) {
+            const logoImg = new Image();
+            logoImg.crossOrigin = 'anonymous';
+            logoImg.onload = () => {
+                this.state.logoImg = logoImg;
+                this.state.logoFile = null;  // Existing file, not newly uploaded
+                this.render();
+            };
+            logoImg.onerror = () => {
+                console.warn(`[BRAND EDITOR] Failed to load existing logo for brand ${brand.id}`);
+            };
+            logoImg.src = `${apiBase}/api/preview/brand-asset/${brand.id}/logo`;
+        }
+        
+        if (brand.watermark_path && brand.id) {
+            const wmImg = new Image();
+            wmImg.crossOrigin = 'anonymous';
+            wmImg.onload = () => {
+                this.state.watermarkImg = wmImg;
+                this.state.watermarkFile = null;  // Existing file, not newly uploaded
+                this.render();
+            };
+            wmImg.onerror = () => {
+                console.warn(`[BRAND EDITOR] Failed to load existing watermark for brand ${brand.id}`);
+            };
+            wmImg.src = `${apiBase}/api/preview/brand-asset/${brand.id}/watermark`;
+        }
         
         this.render();
     }
