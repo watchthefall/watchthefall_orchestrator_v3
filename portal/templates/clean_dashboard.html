@@ -900,13 +900,21 @@ async function loadBrands() {
         const res = await fetch(`${apiBase}/api/brands/list`);
         const data = await res.json();
         
+        // Defensive logging
+        console.log('[BRANDR] brands payload:', data);
+        
         if (!data.success) {
             box.innerHTML = '<span style="color:#f66">Failed to load brands</span>';
             return;
         }
         
-        // Filter out SYSTEM brands - only show user-owned brands
-        const userBrands = data.brands.filter(b => !b.name.includes('SYSTEM') && !b.name.includes('WTF'));
+        // Extract brands array defensively
+        const brands = Array.isArray(data.brands) ? data.brands : [];
+        console.log('[BRANDR] brands length:', brands.length);
+        
+        // Filter out SYSTEM brands using is_system flag (NOT name matching)
+        const userBrands = brands.filter(b => !b.is_system);
+        console.log('[BRANDR] user brands after filtering:', userBrands.length);
         
         if (userBrands.length === 0) {
             // Show "no brands" state
@@ -936,6 +944,7 @@ async function loadBrands() {
             box.appendChild(btn);
         });
     } catch (err) {
+        console.error('[BRANDR] Load brands error:', err);
         box.innerHTML = '<span style="color:#f66">Error loading brands</span>';
     }
 }

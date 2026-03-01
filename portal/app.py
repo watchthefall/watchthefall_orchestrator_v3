@@ -1281,6 +1281,7 @@ def list_brands():
             'name': brand['name'], 
             'display_name': brand.get('display_name', brand['name']),
             'is_ready': brand.get('is_ready', False),  # Include readiness flag
+            'is_system': brand.get('is_system', False),  # Include system flag for frontend filtering
             'logo_path': brand.get('logo_path'),
             'watermark_path': brand.get('watermark_path')
         } for brand in brands]
