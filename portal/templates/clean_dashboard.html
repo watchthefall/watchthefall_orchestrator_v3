@@ -1458,6 +1458,7 @@ function saveCurrentOverridesFromSliders() {
         text_bg_enabled: document.getElementById('textBgEnabled').checked,
         text_bg_opacity: parseInt(document.getElementById('textBgOpacity').value) / 100
     };
+    console.log('[BRANDR] Saved slider overrides:', current.overrides);
 }
 
 async function confirmAndDownload() {
@@ -1488,6 +1489,13 @@ async function processCurrentBrand() {
     
     // Process in background
     try {
+        console.log('[BRANDR] Sending to backend:', {
+            brand_id: current.brand_id,
+            watermark_scale: current.overrides.watermark_scale,
+            watermark_opacity: current.overrides.watermark_opacity,
+            logo_scale: current.overrides.logo_scale
+        });
+        
         const res = await fetch(`${apiBase}/api/videos/process_brands`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
