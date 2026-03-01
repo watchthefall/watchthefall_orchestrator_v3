@@ -1104,6 +1104,15 @@ async function loadBrandConfig(brandId) {
         document.getElementById('logoScale').value = Math.round(cfg.logo_scale * 100);
         document.getElementById('logoScaleVal').textContent = Math.round(cfg.logo_scale * 100) + '%';
         
+        // Load logo position if saved (convert percentage to canvas pixels)
+        if (cfg.logo_x !== undefined && cfg.logo_y !== undefined) {
+            logoX = cfg.logo_x * canvas.width;
+            logoY = cfg.logo_y * canvas.height;
+        } else {
+            logoX = 0;  // Will use default position
+            logoY = 0;
+        }
+        
         // Apply text layer settings
         document.getElementById('textEnabled').checked = !!cfg.text_enabled;
         document.getElementById('textContent').value = cfg.text_content || '';
@@ -1152,7 +1161,7 @@ async function loadBrandAssets(brandId) {
         logoImg = new Image();
         logoImg.crossOrigin = 'anonymous';
         logoImg.onload = () => {
-            logoX = 0; logoY = 0;  // Reset position
+            // Logo position already set by loadBrandConfig(), don't reset
             updateCanvasPreview();
         };
         logoImg.onerror = () => {
