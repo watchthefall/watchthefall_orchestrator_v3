@@ -35,9 +35,9 @@ loglevel = "info"
 # Preload application code before forking worker processes
 preload_app = True
 
-# Take advantage of Render Pro resources
-# Enable worker tmp dir for better performance
-worker_tmp_dir = "/dev/shm"
+# Worker tmp dir - /dev/shm not available on Render Free tier
+# Comment out or use /tmp instead
+# worker_tmp_dir = "/dev/shm"  # Only for Render Pro+
 
 # Increase worker connections for better throughput
 worker_connections = 1000
