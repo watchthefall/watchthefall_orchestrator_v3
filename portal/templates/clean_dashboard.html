@@ -567,14 +567,14 @@
             <span class="slider-label">Scale</span>
             <span class="slider-value" id="wmScaleVal">115%</span>
         </div>
-        <input type="range" id="wmScale" min="100" max="200" value="115">
+        <input type="range" id="wmScale" min="100" max="200" value="115" oninput="document.getElementById('wmScaleVal').textContent = this.value + '%'; updateCanvasPreview();">
     </div>
     <div class="slider-group">
         <div class="slider-header">
             <span class="slider-label">Opacity</span>
             <span class="slider-value" id="wmOpacityVal">40%</span>
         </div>
-        <input type="range" id="wmOpacity" min="10" max="80" value="40">
+        <input type="range" id="wmOpacity" min="10" max="80" value="40" oninput="document.getElementById('wmOpacityVal').textContent = this.value + '%'; updateCanvasPreview();">
     </div>
     <div class="toggle-row">
         <span class="slider-label">Show Bounds</span>
@@ -591,7 +591,7 @@
             <span class="slider-label">Size</span>
             <span class="slider-value" id="logoScaleVal">15%</span>
         </div>
-        <input type="range" id="logoScale" min="8" max="25" value="15">
+        <input type="range" id="logoScale" min="8" max="25" value="15" oninput="document.getElementById('logoScaleVal').textContent = this.value + '%'; updateCanvasPreview();">
     </div>
     <p style="color:#666; font-size:12px; margin:5px 0;">💡 Drag logo on preview to reposition</p>
     
@@ -1069,6 +1069,14 @@ function selectBrand(brandId, btnEl, isReady) {
         const firstBrandId = selectedBrandIds[0];
         loadBrandAssets(firstBrandId);
         loadBrandConfig(firstBrandId);
+        
+        // Show preview canvas and sliders immediately when brand selected
+        document.getElementById('previewContainer').style.display = 'block';
+        document.getElementById('overrideControls').style.display = 'block';
+    } else {
+        // Hide preview when no brands selected
+        document.getElementById('previewContainer').style.display = 'none';
+        document.getElementById('overrideControls').style.display = 'none';
     }
     
     // Update confirmation summary
