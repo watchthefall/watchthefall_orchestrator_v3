@@ -158,6 +158,18 @@ def _run_migrations():
         conn.commit()
         print("[DATABASE] Migration completed: text_x, text_y added")
     
+    # Migration: Remove all SYSTEM brands for SaaS model (one-time cleanup)
+    try:
+        c.execute("SELECT COUNT(*) FROM brands WHERE is_system = 1")
+        system_brand_count = c.fetchone()[0]
+        if system_brand_count > 0:
+            print(f"[DATABASE] Running migration: Removing {system_brand_count} SYSTEM brands for SaaS model")
+            c.execute("DELETE FROM brands WHERE is_system = 1")
+            conn.commit()
+            print(f"[DATABASE] Migration completed: Removed {system_brand_count} SYSTEM brands")
+    except Exception as e:
+        print(f"[DATABASE] Migration warning (system brands cleanup): {e}")
+    
     conn.close()
 
 def get_db():
@@ -752,5 +764,5 @@ def cleanup_old_files(max_age_hours=24):
 # Initialize database on import
 init_db()
 
-# Seed system brands if not already done
-seed_system_brands()
+# DO NOT seed system brands for SaaS - users create their own brands
+# seed_system_brands()  # DISABLED for production SaaS model

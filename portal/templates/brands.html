@@ -319,21 +319,25 @@
 
 <script>
 const apiBase = window.location.origin;
-const mockUserId = 1;  // Mock user for now
+// User ID comes from session on backend - no need to pass explicitly
 
 // Load brands on page load
 loadBrands();
 
 async function loadBrands() {
     try {
-        const res = await fetch(`${apiBase}/api/brands?user_id=${mockUserId}&include_system=true`);
+        // Load ONLY user-owned brands (no SYSTEM brands)
+        const res = await fetch(`${apiBase}/api/brands?include_system=false`);
         const data = await res.json();
         
         if (!data.success) {
             throw new Error(data.error || 'Failed to load brands');
         }
         
-        renderBrands(data.brands);
+        // Safety filter: exclude any SYSTEM brands from display
+        const userBrands = data.brands.filter(b => !b.is_system);
+        
+        renderBrands(userBrands);
     } catch (err) {
         document.getElementById('brandGrid').innerHTML = `<div class="status-msg error">${err.message}</div>`;
     }
@@ -343,13 +347,27 @@ function renderBrands(brands) {
     const grid = document.getElementById('brandGrid');
     grid.innerHTML = '';
     
+    // Handle empty state - new users with zero brands
+    if (brands.length === 0) {
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px;">
+                <div style="font-size: 48px; margin-bottom: 20px;">🎨</div>
+                <h2 style="margin-bottom: 12px;">No Brands Yet</h2>
+                <p style="color: #aaa; margin-bottom: 24px;">Create your first brand to get started with custom watermarks and logos</p>
+                <button class="btn btn-primary" onclick="openCreateModal()">✨ Create Your First Brand</button>
+            </div>
+        `;
+        return;
+    }
+    
     brands.forEach(brand => {
         const card = document.createElement('div');
         card.className = 'brand-card';
         
         const logo = brand.logo_path ? `${apiBase}/api/preview/logo/${brand.name}` : '';
-        const badge = brand.is_system ? '<span class="brand-badge badge-system">SYSTEM</span>' : '<span class="brand-badge badge-user">USER</span>';
-        const deleteBtn = brand.is_system ? '' : `<button class="btn btn-danger" onclick="deleteBrand(${brand.id}, '${brand.name}')">Delete</button>`;
+        // Only show USER badge for user brands (no SYSTEM brands should be here)
+        const badge = '<span class="brand-badge badge-user">USER</span>';
+        const deleteBtn = `<button class="btn btn-danger" onclick="deleteBrand(${brand.id}, '${brand.name}')">Delete</button>`;
         
         card.innerHTML = `
             ${logo ? `<img src="${logo}" class="brand-logo" alt="${brand.display_name}">` : ''}
@@ -388,7 +406,7 @@ async function createBrand(e) {
             body: JSON.stringify({
                 name: document.getElementById('brandName').value,
                 display_name: document.getElementById('displayName').value,
-                user_id: mockUserId,
+                // user_id comes from session on backend
                 watermark_scale: parseInt(document.getElementById('watermarkScale').value) / 100,
                 watermark_opacity: parseInt(document.getElementById('watermarkOpacity').value) / 100,
                 logo_scale: parseInt(document.getElementById('logoScale').value) / 100

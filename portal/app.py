@@ -1240,12 +1240,19 @@ def save_brand_config_api(brand_name):
 @app.route('/api/brands', methods=['GET'])
 @login_required
 def get_all_brands_api():
-    """Get all brands. System brands + user brands if user_id provided."""
+    """Get user-owned brands ONLY (no system brands for SaaS)"""
     try:
         from .database import get_all_brands
-        user_id = request.args.get('user_id', type=int)
-        include_system = request.args.get('include_system', 'true').lower() == 'true'
         
+        # IMPORTANT: user_id comes from session, NOT from query params (security)
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        
+        # Parse include_system from query (default false for SaaS)
+        include_system = request.args.get('include_system', 'false').lower() == 'true'
+        
+        # Get user's brands (exclude system brands by default)
         brands = get_all_brands(user_id=user_id, include_system=include_system)
         
         return jsonify({
@@ -1289,13 +1296,18 @@ def create_brand_api():
         if not name:
             return jsonify({'success': False, 'error': 'name is required'}), 400
         
-        # Create brand
+        # IMPORTANT: user_id comes from session, NOT from request (security)
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        
+        # Create brand for logged-in user
         brand_id = create_brand(
             name=name,
             display_name=display_name,
-            user_id=data.get('user_id'),
-            is_system=data.get('is_system', False),
-            is_locked=data.get('is_locked', False),
+            user_id=user_id,  # Use session user_id, not request data
+            is_system=False,  # Never allow users to create system brands
+            is_locked=False,
             watermark_vertical=data.get('watermark_vertical'),
             watermark_square=data.get('watermark_square'),
             watermark_landscape=data.get('watermark_landscape'),
