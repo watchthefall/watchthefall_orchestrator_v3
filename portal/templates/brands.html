@@ -437,7 +437,7 @@
                     <!-- Logo Controls -->
                     <div class="control-section">
                         <h3>🎨 Logo</h3>
-                        <input type="file" id="logoUpload" accept="image/png,image/jpeg" onchange="handleLogoUpload(event)">
+                        <input type="file" id="logoUpload" accept="image/png,image/jpeg,image/jpg,image/webp,image/*" capture="environment" onchange="handleLogoUpload(event)">
                         <div class="slider-row">
                             <label>Scale <span class="slider-value" id="logoScaleVal">15%</span></label>
                             <input type="range" id="logoScale" min="5" max="50" value="15" oninput="updateLogoScale(this.value)">
@@ -451,7 +451,7 @@
                     <!-- Watermark Controls -->
                     <div class="control-section">
                         <h3>💧 Watermark</h3>
-                        <input type="file" id="watermarkUpload" accept="image/png,image/jpeg" onchange="handleWatermarkUpload(event)">
+                        <input type="file" id="watermarkUpload" accept="image/png,image/jpeg,image/jpg,image/webp,image/*" capture="environment" onchange="handleWatermarkUpload(event)">
                         <div class="mode-toggle">
                             <button type="button" class="mode-btn active" id="wmFullscreenBtn" onclick="setWatermarkMode('fullscreen')">Fullscreen</button>
                             <button type="button" class="mode-btn" id="wmPositionedBtn" onclick="setWatermarkMode('positioned')">Positioned</button>
