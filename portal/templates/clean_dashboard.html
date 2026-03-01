@@ -1857,6 +1857,14 @@ if (lastDownloadFilename) {
     // Update confirmation summary
     updateConfirmationSummary();
 }
+
+// Refresh brands when page becomes visible (e.g., after editing in Manage Brands)
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && !isQueueMode) {
+        console.log('[BRANDR] Page visible again, refreshing brand list...');
+        loadBrands();  // Reload brands to get latest config from database
+    }
+});
 </script>
 
 </body>
