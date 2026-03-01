@@ -582,7 +582,20 @@ https://x.com/..."></textarea>
             
             // Extract URLs using regex (handles messy input: spaces, mixed text, etc.)
             const urlMatches = videoUrlsText.match(/https?:\/\/[^\s]+/g) || [];
-            const rawUrls = urlMatches.map(u => u.trim()).filter(u => u.length > 0);
+            
+            // Clean each URL: remove trailing punctuation from real-world pastes
+            // Handles: "(https://tiktok.com/...)", "https://youtube.com/...,", etc.
+            const cleanedUrls = [];
+            let cleanedCount = 0;
+            
+            urlMatches.forEach(url => {
+                const original = url;
+                const cleaned = url.replace(/[)\]}>"""'.;,!?]+$/g, '').trim();
+                cleanedUrls.push(cleaned);
+                if (original !== cleaned) cleanedCount++;
+            });
+            
+            const rawUrls = cleanedUrls.filter(u => u.length > 0);
             
             // Deduplicate
             const uniqueUrls = [...new Set(rawUrls)];
@@ -612,7 +625,13 @@ https://x.com/..."></textarea>
             // Show progress
             progressContainer.style.display = 'block';
             batchResultsDiv.style.display = 'block';
-            batchResultsDiv.innerHTML = '<p style="color:#888;">🚀 Starting batch download...</p>';
+            
+            // Show cleanup note if URLs were modified
+            let statusHtml = '<p style="color:#888;">🚀 Starting batch download...</p>';
+            if (cleanedCount > 0) {
+                statusHtml += `<p style="color:#00b7ff; font-size:0.9rem; margin-top:0.5rem;">✨ Cleaned ${cleanedCount} link(s) (removed trailing punctuation)</p>`;
+            }
+            batchResultsDiv.innerHTML = statusHtml;
             
             progressText.textContent = `Downloading 0/${validUrls.length}...`;
             progressFill.style.width = '0%';
@@ -627,14 +646,13 @@ https://x.com/..."></textarea>
                 
                 const data = await response.json();
                 
-                // Defensive parsing: ensure data.results exists
-                if (!data || !data.results) {
-                    throw new Error('Backend returned unexpected response structure (missing data.results)');
+                // Defensive parsing: accept multiple possible response keys
+                const results = data?.results || data?.items || data?.data?.results;
+                if (!Array.isArray(results)) {
+                    throw new Error('Backend returned unexpected response structure (missing results array)');
                 }
                 
-                if (data.success && data.results) {
-                    const results = data.results;
-                    
+                if (data.success && results) {
                     // Update progress
                     const successCount = results.filter(r => r.success).length;
                     progressText.textContent = `Completed: ${successCount}/${validUrls.length} successful`;
