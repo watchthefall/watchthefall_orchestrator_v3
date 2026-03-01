@@ -9,7 +9,13 @@ from .config import DB_PATH
 def init_db():
     """Initialize database with required tables"""
     print(f"[DATABASE] Initializing database at {DB_PATH}")
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    
+    # Enable WAL mode for better concurrency
+    conn.execute('PRAGMA journal_mode=WAL')
+    conn.execute('PRAGMA synchronous=NORMAL')
+    conn.execute('PRAGMA busy_timeout=30000')
+    
     c = conn.cursor()
     
     # Jobs table
@@ -145,7 +151,9 @@ def init_db():
 
 def _run_migrations():
     """Run database migrations"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn.execute('PRAGMA journal_mode=WAL')
+    conn.execute('PRAGMA busy_timeout=30000')
     c = conn.cursor()
     
     # Migration: Add text_x and text_y to brands table
@@ -212,9 +220,15 @@ def _run_migrations():
     conn.close()
 
 def get_db():
-    """Get database connection"""
-    conn = sqlite3.connect(DB_PATH)
+    """Get database connection with WAL mode and busy timeout for concurrency"""
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)  # 30s timeout for lock wait
     conn.row_factory = sqlite3.Row
+    
+    # Enable WAL mode for better concurrency (only needs to be set once, persists)
+    conn.execute('PRAGMA journal_mode=WAL')
+    conn.execute('PRAGMA synchronous=NORMAL')  # Trade safety for performance
+    conn.execute('PRAGMA busy_timeout=30000')  # 30s busy timeout (milliseconds)
+    
     return conn
 
 def create_job(job_id, video_filename, template, aspect_ratio='9:16', metadata=None):

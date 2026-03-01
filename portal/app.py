@@ -54,7 +54,9 @@ def hash_password(password):
 def init_users_db():
     """Initialize the users database table"""
     from .config import DB_PATH
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn.execute('PRAGMA journal_mode=WAL')
+    conn.execute('PRAGMA busy_timeout=30000')
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,7 +82,8 @@ def init_users_db():
 def authenticate_user(email, password):
     """Authenticate a user by email and password"""
     from .config import DB_PATH
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn.execute('PRAGMA busy_timeout=30000')
     c = conn.cursor()
     c.execute('SELECT id, password_hash FROM users WHERE email = ?', (email,))
     result = c.fetchone()
@@ -98,7 +101,8 @@ def register_user(email, password):
     from .config import DB_PATH
     import os
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        conn.execute('PRAGMA busy_timeout=30000')
         c = conn.cursor()
         password_hash = hash_password(password)
         
@@ -1618,6 +1622,8 @@ def create_brand_api():
         if not user_id:
             return jsonify({'success': False, 'error': 'Unauthorized'}), 401
         
+        print(f"[BRANDS] Creating brand '{name}' for user #{user_id}")
+        
         # Create brand for logged-in user
         brand_id = create_brand(
             name=name,
@@ -1665,6 +1671,27 @@ def create_brand_api():
             'brand_id': brand_id,
             'message': f'Brand {name} created'
         }), 201
+    except sqlite3.IntegrityError as e:
+        if 'UNIQUE constraint failed' in str(e):
+            print(f"[BRANDS ERROR] Brand name already exists: {e}")
+            return jsonify({
+                'success': False, 
+                'error': 'A brand with this name already exists for your account.',
+                'code': 'DUPLICATE_NAME'
+            }), 409
+        else:
+            raise
+    except sqlite3.OperationalError as e:
+        if 'locked' in str(e).lower():
+            print(f"[BRANDS ERROR] DATABASE LOCKED while creating brand: {e}")
+            print(f"[BRANDS ERROR] This indicates SQLite contention. Check WAL mode and busy_timeout settings.")
+            return jsonify({
+                'success': False, 
+                'error': 'Database is locked. Please try again in a moment.',
+                'code': 'DATABASE_LOCKED'
+            }), 503
+        else:
+            raise
     except Exception as e:
         import traceback
         print(f"[BRANDS ERROR] Create: {traceback.format_exc()}")
@@ -1688,6 +1715,8 @@ def update_brand_api(brand_id):
         
         data = request.get_json(force=True) or {}
         
+        print(f"[BRANDS] Updating brand #{brand_id} ({brand['name']}) with fields: {list(data.keys())}")
+        
         # Update brand
         update_brand(brand_id, **data)
         
@@ -1697,6 +1726,17 @@ def update_brand_api(brand_id):
             'success': True,
             'message': f'Brand {brand["name"]} updated'
         })
+    except sqlite3.OperationalError as e:
+        if 'locked' in str(e).lower():
+            print(f"[BRANDS ERROR] DATABASE LOCKED while updating brand #{brand_id}: {e}")
+            print(f"[BRANDS ERROR] This indicates SQLite contention. Check WAL mode and busy_timeout settings.")
+            return jsonify({
+                'success': False, 
+                'error': 'Database is locked. Please try again in a moment.',
+                'code': 'DATABASE_LOCKED'
+            }), 503
+        else:
+            raise
     except Exception as e:
         import traceback
         print(f"[BRANDS ERROR] Update: {traceback.format_exc()}")
