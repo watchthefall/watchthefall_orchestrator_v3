@@ -598,9 +598,8 @@ def create_brand(name, display_name, user_id=None, is_system=False, is_locked=Fa
     return brand_id
 
 def update_brand(brand_id, **updates):
-    """Update a brand's properties"""
-    conn = get_db()
-    c = conn.cursor()
+    """Update a brand's properties with retry on database lock"""
+    import time
     now = datetime.utcnow().isoformat()
     
     # Build dynamic update query
@@ -629,20 +628,51 @@ def update_brand(brand_id, **updates):
             params.append(value)
     
     if not set_clauses:
-        conn.close()
         return False
     
     set_clauses.append('updated_at = ?')
     params.append(now)
     params.append(brand_id)
     
-    c.execute(f'''
-        UPDATE brands SET {', '.join(set_clauses)} WHERE id = ?
-    ''', params)
+    query = f"UPDATE brands SET {', '.join(set_clauses)} WHERE id = ?"
     
-    conn.commit()
-    conn.close()
-    return True
+    # Retry logic with exponential backoff
+    max_retries = 5
+    backoff_times = [0.2, 0.4, 0.8, 1.6, 3.2]  # seconds
+    
+    for attempt in range(max_retries):
+        conn = None
+        try:
+            conn = get_db()
+            c = conn.cursor()
+            
+            # Use immediate transaction for write
+            c.execute('BEGIN IMMEDIATE')
+            c.execute(query, params)
+            conn.commit()
+            return True
+            
+        except sqlite3.OperationalError as e:
+            if conn:
+                try:
+                    conn.rollback()
+                except:
+                    pass
+            
+            if 'locked' in str(e).lower() and attempt < max_retries - 1:
+                wait_time = backoff_times[attempt]
+                print(f"[DATABASE] Locked on attempt {attempt + 1}/{max_retries}, retrying in {wait_time}s...")
+                time.sleep(wait_time)
+                continue
+            else:
+                # Re-raise if not a lock error or out of retries
+                raise
+        finally:
+            if conn:
+                conn.close()
+    
+    # Should never reach here due to raise in loop
+    return False
 
 def delete_brand(brand_id):
     """Soft delete a brand (set is_active = 0)"""

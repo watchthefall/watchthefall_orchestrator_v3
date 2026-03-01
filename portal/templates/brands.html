@@ -591,7 +591,7 @@ function renderBrands(brands) {
         const card = document.createElement('div');
         card.className = 'brand-card';
         
-        const logo = brand.logo_path ? `${apiBase}/api/preview/logo/${brand.name}` : '';
+        const logo = brand.logo_path ? `${apiBase}/api/preview/brand-asset/${brand.id}/logo` : '';
         
         // Readiness badges
         const isReady = brand.is_ready || false;
@@ -773,6 +773,17 @@ async function createBrand(e) {
     const mode = form.dataset.mode || 'create';
     const brandId = form.dataset.brandId;
     const status = document.getElementById('modalStatus');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    // Prevent duplicate saves - disable button while saving
+    if (submitBtn.disabled) {
+        console.log('[BRANDS] Save already in progress, ignoring duplicate click');
+        return;
+    }
+    
+    submitBtn.disabled = true;
+    const originalBtnText = submitBtn.textContent;
+    submitBtn.textContent = mode === 'edit' ? 'Saving...' : 'Creating...';
     
     status.innerHTML = `<div class="status-msg info">${mode === 'edit' ? 'Saving changes...' : 'Creating brand...'}</div>`;
     
@@ -880,7 +891,17 @@ async function createBrand(e) {
         }, 1000);
         
     } catch (err) {
-        status.innerHTML = `<div class="status-msg error">❌ ${err.message}</div>`;
+        // Re-enable button on error
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalBtnText;
+        
+        // Check if it's a DB_LOCKED error
+        const errorMsg = err.message || String(err);
+        if (errorMsg.includes('Database busy') || errorMsg.includes('DB_LOCKED')) {
+            status.innerHTML = `<div class="status-msg error">❌ Database busy. Wait 2 seconds and click Save again.</div>`;
+        } else {
+            status.innerHTML = `<div class="status-msg error">❌ ${errorMsg}</div>`;
+        }
     }
 }
 

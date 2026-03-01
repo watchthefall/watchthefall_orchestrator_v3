@@ -1728,12 +1728,13 @@ def update_brand_api(brand_id):
         })
     except sqlite3.OperationalError as e:
         if 'locked' in str(e).lower():
-            print(f"[BRANDS ERROR] DATABASE LOCKED while updating brand #{brand_id}: {e}")
-            print(f"[BRANDS ERROR] This indicates SQLite contention. Check WAL mode and busy_timeout settings.")
+            print(f"[BRANDS ERROR] DATABASE STILL LOCKED after retries while updating brand #{brand_id}: {e}")
+            print(f"[BRANDS ERROR] This should be rare with retry logic. Check for concurrent requests.")
             return jsonify({
                 'success': False, 
-                'error': 'Database is locked. Please try again in a moment.',
-                'code': 'DATABASE_LOCKED'
+                'error': 'Database busy, please retry',
+                'code': 'DB_LOCKED',
+                'fix': 'Wait 2 seconds and click Save again'
             }), 503
         else:
             raise
