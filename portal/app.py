@@ -583,11 +583,8 @@ def process_branded_videos():
             print(f"[PROCESS BRANDS] ERROR: No brands selected")
             return jsonify({'success': False, 'error': 'brand_ids or brands is required'}), 400
         
-        # Optional branding configuration overrides
-        watermark_scale = data.get('watermark_scale', 1.15)
-        watermark_opacity = data.get('watermark_opacity', 0.4)
-        logo_scale = data.get('logo_scale', 0.15)
-        logo_padding = data.get('logo_padding', 40)
+        # Optional branding configuration overrides (applied temporarily per-video)
+        # These are read directly from 'data' dict later, no need to pre-extract
 
         # NEW: accept source_path for local downloaded files
         source_path = data.get("source_path")
@@ -936,7 +933,34 @@ def process_branded_videos():
             
             # Use DB brand config (resolved_brands are already DB records)
             print(f"[PROCESS BRANDS] Using brand config from database (brand_id: {brand_id})")
-            merged_config = db_brand
+            
+            # Merge temporary overrides from sliders (DO NOT save to database)
+            # These are per-video adjustments that should NOT affect the brand's default config
+            merged_config = db_brand.copy()  # Make a copy to avoid modifying DB record
+            
+            # Apply overrides if provided in the request
+            override_applied = False
+            if 'watermark_scale' in data:
+                merged_config['wm_scale'] = data['watermark_scale']
+                override_applied = True
+                print(f"[PROCESS BRANDS] Override: watermark_scale = {data['watermark_scale']} (DB default: {db_brand.get('wm_scale')})")
+            if 'watermark_opacity' in data:
+                merged_config['wm_opacity'] = data['watermark_opacity']
+                override_applied = True
+                print(f"[PROCESS BRANDS] Override: watermark_opacity = {data['watermark_opacity']} (DB default: {db_brand.get('wm_opacity')})")
+            if 'logo_scale' in data:
+                merged_config['logo_scale'] = data['logo_scale']
+                override_applied = True
+                print(f"[PROCESS BRANDS] Override: logo_scale = {data['logo_scale']} (DB default: {db_brand.get('logo_scale')})")
+            if 'logo_padding' in data:
+                merged_config['logo_padding'] = data['logo_padding']
+                override_applied = True
+                print(f"[PROCESS BRANDS] Override: logo_padding = {data['logo_padding']} (DB default: {db_brand.get('logo_padding')})")
+            
+            if override_applied:
+                print(f"[PROCESS BRANDS] ⚠️  Using TEMPORARY overrides for this video only (not saved to brand config)")
+            else:
+                print(f"[PROCESS BRANDS] Using brand defaults (no overrides)")
             
             try:
                 output_path = processor.process_brand(merged_config, video_id=video_id)
