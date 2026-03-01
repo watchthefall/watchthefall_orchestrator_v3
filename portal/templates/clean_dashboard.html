@@ -1600,6 +1600,25 @@ if (lastFile) {
     // Don't show canvas until queue mode
     extractFrame(lastFile);
 }
+
+// Check for file passed from downloader
+const lastDownloadFilename = sessionStorage.getItem('lastDownloadFilename');
+
+if (lastDownloadFilename) {
+    // Use the file from the downloader - filename only, server constructs path
+    currentFile = lastDownloadFilename;
+    document.getElementById('previewSection').style.display = 'block';
+    extractFrame(lastDownloadFilename);
+    
+    // Clear the session storage to prevent reuse
+    sessionStorage.removeItem('lastDownloadFilename');
+    
+    // Update the video URL field if empty
+    const videoUrlInput = document.getElementById('videoUrl');
+    if (videoUrlInput && !videoUrlInput.value) {
+        videoUrlInput.placeholder = 'Using file from downloader: ' + lastDownloadFilename;
+    }
+}
 </script>
 
 </body>

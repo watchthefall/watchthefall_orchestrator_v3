@@ -38,7 +38,7 @@ from .brand_loader import get_available_brands
 
 # Import configuration
 from .config import (
-    SECRET_KEY, PORTAL_AUTH_KEY, OUTPUT_DIR,
+    SECRET_KEY, PORTAL_AUTH_KEY, OUTPUT_DIR, RAW_DIR,
     MAX_UPLOAD_SIZE, BRANDS_DIR
 )
 from .database import log_event
@@ -510,7 +510,7 @@ def process_branded_videos():
                 try:
                     # Configure yt_dlp with enhanced fallback options for Instagram
                     ydl_opts = {
-                        'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
+                        'outtmpl': os.path.join(RAW_DIR, '%(id)s.%(ext)s'),
                         'merge_output_format': 'mp4',
                         'format': 'bv*+ba/best',  # Better fallback for Instagram
                         'prefer_ffmpeg': True,
@@ -634,8 +634,14 @@ def process_branded_videos():
         else:
             # URL is actually a local file path
             print(f"[PROCESS BRANDS] Processing local file: {url}")
-            # Construct the full path to the file in OUTPUT_DIR
-            video_filepath = os.path.join(OUTPUT_DIR, url)
+            
+            # First check if it's in RAW_DIR
+            video_filepath = os.path.join(RAW_DIR, url)
+            
+            # If not in the new location, check the old OUTPUT_DIR
+            if not os.path.exists(video_filepath):
+                video_filepath = os.path.join(OUTPUT_DIR, url)
+            
             video_id = os.path.splitext(url)[0]
             
             # Check if file exists
@@ -790,7 +796,7 @@ def fetch_videos_from_urls():
             try:
                 # Configure yt_dlp with enhanced fallback options for Instagram
                 ydl_opts = {
-                    'outtmpl': os.path.join(OUTPUT_DIR, '%(id)s.%(ext)s'),
+                    'outtmpl': os.path.join(RAW_DIR, '%(id)s.%(ext)s'),
                     'merge_output_format': 'mp4',
                     'format': 'bv*+ba/best',  # Better fallback for Instagram
                     'prefer_ffmpeg': True,
@@ -953,23 +959,36 @@ def fetch_videos_from_urls():
 def download_video(filename):
     """Download processed video"""
     try:
-        # Look for the file in the main output directory only
-        filepath = os.path.join(OUTPUT_DIR, filename)
+        # Sanitize filename to prevent path traversal
+        filename = os.path.basename(filename)
+        
+        # First check RAW_DIR
+        filepath = os.path.join(RAW_DIR, filename)
+        
+        # If not in the new location, check the old OUTPUT_DIR
+        if not os.path.exists(filepath):
+            filepath = os.path.join(OUTPUT_DIR, filename)
         
         print(f"[DEBUG] Looking for file at: {filepath}")
         
         # Check if file exists
         if not os.path.exists(filepath):
             print(f"[DOWNLOAD ERROR] File not found: {filepath}")
-            # List contents of output directory for debugging
+            # List contents of both directories for debugging
             try:
+                if os.path.exists(RAW_DIR):
+                    raw_contents = os.listdir(RAW_DIR)
+                    print(f"[DOWNLOAD DEBUG] Contents of RAW_DIR ({RAW_DIR}): {raw_contents[:10]}...")  # First 10 files
+                else:
+                    print(f"[DOWNLOAD DEBUG] RAW_DIR does not exist: {RAW_DIR}")
+                
                 if os.path.exists(OUTPUT_DIR):
                     output_contents = os.listdir(OUTPUT_DIR)
-                    print(f"[DOWNLOAD DEBUG] Contents of OUTPUT_DIR ({OUTPUT_DIR}): {output_contents}")
+                    print(f"[DOWNLOAD DEBUG] Contents of OUTPUT_DIR ({OUTPUT_DIR}): {output_contents[:10]}...")  # First 10 files
                 else:
                     print(f"[DOWNLOAD DEBUG] OUTPUT_DIR does not exist: {OUTPUT_DIR}")
             except Exception as e:
-                print(f"[DOWNLOAD DEBUG] Could not list contents of OUTPUT_DIR: {e}")
+                print(f"[DOWNLOAD DEBUG] Could not list contents of directories: {e}")
             return jsonify({'error': 'File not found', 'path': filepath, 'filename': filename}), 404
         
         file_size = os.path.getsize(filepath)
@@ -1013,8 +1032,13 @@ def extract_frame():
         if not filename:
             return jsonify({'success': False, 'error': 'No filename provided'}), 400
         
-        # Find the video file
-        video_path = os.path.join(OUTPUT_DIR, filename)
+        # Sanitize filename to prevent path traversal
+        filename = os.path.basename(filename)
+        
+        # Find the video file - check RAW_DIR first, then OUTPUT_DIR
+        video_path = os.path.join(RAW_DIR, filename)
+        if not os.path.exists(video_path):
+            video_path = os.path.join(OUTPUT_DIR, filename)
         if not os.path.exists(video_path):
             return jsonify({'success': False, 'error': f'File not found: {filename}'}), 404
         
@@ -1641,6 +1665,115 @@ def debug_build_filter(brand_name):
 # WTF DOWNLOADER ENDPOINTS
 # ================================================================
 
+@app.route('/api/videos/download-original/<int:download_id>')
+@login_required
+def download_original_file(download_id):
+    """Download original video file from downloads table"""
+    from .database import get_download
+    import os
+    from flask import send_from_directory
+    
+    user_id = session['user_id']
+    
+    # Get download record for this user
+    download_record = get_download(download_id, user_id)
+    if not download_record:
+        return jsonify({'error': 'Download not found or unauthorized'}), 404
+    
+    file_path = download_record['file_path']
+    filename = download_record['filename']
+    
+    # Verify file exists
+    if not os.path.exists(file_path):
+        # Check if file exists in alternative locations
+        # First check RAW_DIR
+        alt_path = os.path.join(RAW_DIR, filename)
+        
+        if os.path.exists(alt_path):
+            file_path = alt_path
+        else:
+            # Also check the old OUTPUT_DIR
+            alt_path = os.path.join(OUTPUT_DIR, filename)
+            if os.path.exists(alt_path):
+                file_path = alt_path
+            else:
+                return jsonify({'error': 'File has expired or been deleted'}), 404
+    
+    # Send file
+    directory = os.path.dirname(file_path)
+    return send_from_directory(directory, os.path.basename(file_path), as_attachment=True)
+
+
+@app.route('/api/videos/save-download', methods=['POST'])
+@login_required
+def save_video_download():
+    """Save a video download record to the database"""
+    from .database import save_download
+    import os
+    
+    data = request.get_json(force=True) or {}
+    source_url = data.get('source_url')
+    filename = data.get('filename')
+    file_path = data.get('file_path')
+    
+    if not all([source_url, filename, file_path]):
+        return jsonify({'error': 'source_url, filename, and file_path are required'}), 400
+    
+    user_id = session['user_id']
+    
+    # Verify file exists
+    if not os.path.exists(file_path):
+        return jsonify({'error': 'File does not exist at specified path'}), 400
+    
+    download_id = save_download(user_id, source_url, filename, file_path)
+    
+    return jsonify({
+        'success': True,
+        'download_id': download_id,
+        'message': 'Download saved successfully'
+    })
+
+
+@app.route('/api/downloads/recent', methods=['GET'])
+@login_required
+def get_recent_downloads():
+    """Get recent downloads for the current user"""
+    from .database import get_user_downloads
+    
+    user_id = session['user_id']
+    limit = request.args.get('limit', 10, type=int)
+    
+    downloads = get_user_downloads(user_id, limit)
+    
+    # Check if files exist
+    for download in downloads:
+        import os
+        download['file_exists'] = os.path.exists(download['file_path'])
+    
+    return jsonify({
+        'success': True,
+        'downloads': downloads,
+        'count': len(downloads)
+    })
+
+
+@app.route('/api/downloads/cleanup', methods=['POST'])
+@login_required
+def cleanup_downloads():
+    """Cleanup old downloads"""
+    from .database import cleanup_old_downloads
+    
+    data = request.get_json(force=True) or {}
+    max_age_hours = data.get('max_age_hours', 24)
+    
+    deleted_count = cleanup_old_downloads(max_age_hours)
+    
+    return jsonify({
+        'success': True,
+        'deleted_count': deleted_count,
+        'message': f'Deleted {deleted_count} old downloads'
+    })
+
 @app.route('/api/detect-platform', methods=['POST'])
 def api_detect_platform():
     """Detect the platform from a URL."""
@@ -1696,42 +1829,31 @@ def api_download_batch():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/portal/download_file/<path:filename>")
-def download_file(filename):
-    """
-    Serve downloaded video files. Checks actual storage paths used by downloader.
-    """
-    from flask import send_file, jsonify
-    import os
 
-    # Absolute paths for safety
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    storage_raw = os.path.join(base_dir, 'storage', 'raw')
-    portal_outputs = os.path.join(base_dir, 'portal', 'outputs')
+def schedule_cleanup():
+    """Schedule periodic cleanup of old files"""
+    import time
+    import threading
+    from .database import cleanup_old_downloads
+    
+    def cleanup_worker():
+        while True:
+            try:
+                # Run cleanup every 6 hours
+                deleted_count = cleanup_old_downloads(24)  # Delete files older than 24 hours
+                print(f"[CLEANUP] Deleted {deleted_count} old downloads and files")
+                time.sleep(6 * 60 * 60)  # 6 hours
+            except Exception as e:
+                print(f"[CLEANUP] Error during cleanup: {e}")
+                time.sleep(60 * 60)  # Wait 1 hour before trying again
+    
+    # Start cleanup thread
+    cleanup_thread = threading.Thread(target=cleanup_worker, daemon=True)
+    cleanup_thread.start()
 
-    # Construct actual expected file paths
-    candidates = [
-        os.path.join(storage_raw, filename),        # Primary location used by downloader
-        os.path.join(portal_outputs, filename),     # Legacy location
-    ]
 
-    # Find file that exists
-    for path in candidates:
-        if os.path.isfile(path):
-            return send_file(
-                path,
-                as_attachment=True,
-                mimetype='video/mp4',
-                download_name=filename,
-                conditional=True
-            )
-
-    # If none exist, return helpful error
-    return jsonify({
-        "success": False,
-        "error": "File not found",
-        "searched": candidates
-    }), 404
+# Schedule periodic cleanup
+schedule_cleanup()
 
 
 if __name__ == '__main__':

@@ -180,31 +180,187 @@
             <div class="section">
                 <h2>Results</h2>
                 <div id="results" class="results" style="display:none;">
-                    <p>Download completed!</p>
-                    <button class="btn btn-success">Download Original MP4</button>
-                    <button class="btn btn-secondary" onclick="continueToBrandr()">Continue to Brandr</button>
+                    <p id="resultMessage">Download completed!</p>
+                    <div id="downloadButtons" style="display:none;">
+                        <button id="downloadOriginalBtn" class="btn btn-success">Download Original MP4</button>
+                        <button id="continueToBrandrBtn" class="btn btn-secondary">Continue to Brandr</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>Recent Downloads</h2>
+                <div id="recentDownloads" class="results">
+                    <p>Loading recent downloads...</p>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        document.getElementById('downloadForm').addEventListener('submit', function(e) {
+        let currentDownloadId = null;
+        let currentFilePath = null;
+        
+        document.getElementById('downloadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const videoUrl = document.getElementById('videoUrl').value;
+            const resultsDiv = document.getElementById('results');
+            const resultMessage = document.getElementById('resultMessage');
+            const downloadButtons = document.getElementById('downloadButtons');
             
-            // In a real implementation, you would make an API call here
-            // For now, we'll just show the results div
-            setTimeout(function() {
-                document.getElementById('results').style.display = 'block';
-            }, 1000);
+            if (!videoUrl) {
+                alert('Please enter a valid URL');
+                return;
+            }
+            
+            // Show loading state
+            resultMessage.textContent = 'Downloading...';
+            resultsDiv.style.display = 'block';
+            downloadButtons.style.display = 'none';
+            
+            try {
+                // Fetch video from URL
+                const response = await fetch('/api/videos/fetch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        urls: [videoUrl]
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.results && data.results.length > 0) {
+                    const result = data.results[0];
+                    if (result.success) {
+                        // Save download to database
+                        const saveResponse = await fetch('/api/videos/save-download', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                source_url: videoUrl,
+                                filename: result.filename,
+                                file_path: result.local_path
+                            })
+                        });
+                        
+                        const saveData = await saveResponse.json();
+                        
+                        if (saveData.success) {
+                            currentDownloadId = saveData.download_id;
+                            currentFilePath = result.local_path;
+                            
+                            resultMessage.textContent = 'Download completed successfully!';
+                            downloadButtons.style.display = 'block';
+                            
+                            // Set up button click handlers
+                            document.getElementById('downloadOriginalBtn').onclick = function() {
+                                window.open(`/api/videos/download-original/${currentDownloadId}`, '_blank');
+                            };
+                            
+                            document.getElementById('continueToBrandrBtn').onclick = function() {
+                                // Store only the filename for Brandr to access
+                                sessionStorage.setItem('lastDownloadFilename', result.filename);
+                                window.location.href = "{{ url_for('brand_video') }}";
+                            };
+                        } else {
+                            resultMessage.textContent = 'Download completed but failed to save: ' + (saveData.error || 'Unknown error');
+                        }
+                    } else {
+                        resultMessage.textContent = 'Download failed: ' + (result.error || 'Unknown error');
+                    }
+                } else {
+                    resultMessage.textContent = 'Download failed: ' + (data.error || 'Unknown error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultMessage.textContent = 'An error occurred: ' + error.message;
+            }
+            
+            // Refresh recent downloads
+            loadRecentDownloads();
         });
         
-        function continueToBrandr() {
-            // Redirect to the brandr page
+        async function loadRecentDownloads() {
+            try {
+                const response = await fetch('/api/downloads/recent', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayRecentDownloads(data.downloads);
+                } else {
+                    document.getElementById('recentDownloads').innerHTML = '<p>Error loading recent downloads: ' + (data.error || 'Unknown error') + '</p>';
+                }
+            } catch (error) {
+                console.error('Error loading recent downloads:', error);
+                document.getElementById('recentDownloads').innerHTML = '<p>Error loading recent downloads: ' + error.message + '</p>';
+            }
+        }
+        
+        function displayRecentDownloads(downloads) {
+            const container = document.getElementById('recentDownloads');
+            
+            if (downloads.length === 0) {
+                container.innerHTML = '<p>No recent downloads found.</p>';
+                return;
+            }
+            
+            let html = '<table style="width:100%; border-collapse: collapse;">';
+            html += '<tr style="background-color: #f0f0f0;">';
+            html += '<th style="padding: 8px; border: 1px solid #ddd;">Source URL</th>';
+            html += '<th style="padding: 8px; border: 1px solid #ddd;">Date</th>';
+            html += '<th style="padding: 8px; border: 1px solid #ddd;">Actions</th>';
+            html += '</tr>';
+            
+            downloads.forEach(download => {
+                const truncatedUrl = download.source_url.length > 30 ? download.source_url.substring(0, 30) + '...' : download.source_url;
+                const date = new Date(download.created_at).toLocaleString();
+                
+                html += '<tr>';
+                html += `<td style="padding: 8px; border: 1px solid #ddd;">${truncatedUrl}</td>`;
+                html += `<td style="padding: 8px; border: 1px solid #ddd;">${date}</td>`;
+                html += '<td style="padding: 8px; border: 1px solid #ddd;">';
+                
+                if (download.file_exists) {
+                    html += `<button class="btn btn-success" onclick="downloadOriginal(${download.id})" style="margin-right: 5px;">Download</button>`;
+                    html += `<button class="btn btn-secondary" onclick="continueToBrandrFromDownload('${download.file_path}', '${download.filename}')">Brandr</button>`;
+                } else {
+                    html += '<span style="color: #666;">Expired</span>';
+                }
+                
+                html += '</td>';
+                html += '</tr>';
+            });
+            
+            html += '</table>';
+            container.innerHTML = html;
+        }
+        
+        function downloadOriginal(downloadId) {
+            window.open(`/api/videos/download-original/${downloadId}`, '_blank');
+        }
+        
+        function continueToBrandrFromDownload(filePath, filename) {
+            // Store only the filename for Brandr to access
+            sessionStorage.setItem('lastDownloadFilename', filename);
             window.location.href = "{{ url_for('brand_video') }}";
         }
+        
+        // Load recent downloads when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRecentDownloads();
+        });
     </script>
 </body>
 </html>

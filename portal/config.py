@@ -10,9 +10,11 @@ PROJECT_ROOT = os.path.dirname(PORTAL_ROOT)
 # Database
 DB_PATH = os.path.join(PORTAL_ROOT, 'db', 'portal.db')
 
-# Upload and output directories
-UPLOAD_DIR = os.path.join(PORTAL_ROOT, 'uploads')
-OUTPUT_DIR = os.path.join(PORTAL_ROOT, 'outputs')
+# Storage root - canonical location for all user files
+STORAGE_ROOT = os.path.join(PORTAL_ROOT, 'private', 'storage')
+RAW_DIR = os.path.join(STORAGE_ROOT, 'raw')  # Downloaded original videos
+OUTPUT_DIR = os.path.join(STORAGE_ROOT, 'outputs')  # Branded videos
+UPLOAD_DIR = os.path.join(PORTAL_ROOT, 'uploads')  # Legacy uploads
 TEMP_DIR = os.path.join(PORTAL_ROOT, 'temp')
 
 # Logs
@@ -37,5 +39,5 @@ ALLOWED_EXTENSIONS = {'mp4', 'mov', 'avi'}
 CLEANUP_TEMP_AFTER_HOURS = 24
 
 # Ensure directories exist
-for directory in [UPLOAD_DIR, OUTPUT_DIR, TEMP_DIR, LOG_DIR, os.path.dirname(DB_PATH)]:
+for directory in [STORAGE_ROOT, RAW_DIR, OUTPUT_DIR, UPLOAD_DIR, TEMP_DIR, LOG_DIR, os.path.dirname(DB_PATH)]:
     os.makedirs(directory, exist_ok=True)

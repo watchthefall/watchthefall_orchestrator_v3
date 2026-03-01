@@ -120,6 +120,18 @@ def init_db():
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             UNIQUE(name, user_id)
+        ''')
+    
+    # Downloads table - track user downloads
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS downloads (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            source_url TEXT,
+            filename TEXT,
+            file_path TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
     
@@ -636,6 +648,105 @@ def seed_system_brands():
     conn.commit()
     conn.close()
     print(f"[DATABASE] Seeded {seeded} system brands")
+
+
+def save_download(user_id, source_url, filename, file_path):
+    """Save a download record"""
+    conn = get_db()
+    c = conn.cursor()
+    
+    c.execute('''
+        INSERT INTO downloads (user_id, source_url, filename, file_path, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (user_id, source_url, filename, file_path, datetime.utcnow().isoformat()))
+    
+    download_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    
+    return download_id
+
+def get_user_downloads(user_id, limit=10):
+    """Get recent downloads for a user"""
+    conn = get_db()
+    c = conn.cursor()
+    
+    c.execute('''
+        SELECT * FROM downloads 
+        WHERE user_id = ? 
+        ORDER BY created_at DESC 
+        LIMIT ?
+    ''', (user_id, limit))
+    
+    rows = c.fetchall()
+    conn.close()
+    
+    return [dict(row) for row in rows]
+
+def get_download(download_id, user_id):
+    """Get a specific download for a user"""
+    conn = get_db()
+    c = conn.cursor()
+    
+    c.execute('''
+        SELECT * FROM downloads 
+        WHERE id = ? AND user_id = ?
+    ''', (download_id, user_id))
+    
+    row = c.fetchone()
+    conn.close()
+    
+    return dict(row) if row else None
+
+def cleanup_old_downloads(max_age_hours=24):
+    """Delete downloads older than max_age_hours"""
+    from datetime import datetime, timedelta
+    import os
+    
+    cutoff_time = datetime.utcnow() - timedelta(hours=max_age_hours)
+    conn = get_db()
+    c = conn.cursor()
+    
+    c.execute('''
+        DELETE FROM downloads 
+        WHERE created_at < ?
+    ''', (cutoff_time.isoformat(),))
+    
+    deleted_count = c.rowcount
+    conn.commit()
+    conn.close()
+    
+    # Also clean up old files from the storage directory
+    cleanup_old_files(max_age_hours)
+    
+    return deleted_count
+
+def cleanup_old_files(max_age_hours=24):
+    """Delete old files from storage directories"""
+    import os
+    from datetime import datetime, timedelta
+    from .config import RAW_DIR, OUTPUT_DIR
+    
+    cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
+    
+    deleted_count = 0
+    
+    # Clean up both directories
+    for directory in [RAW_DIR, OUTPUT_DIR]:
+        if os.path.exists(directory):
+            for filename in os.listdir(directory):
+                filepath = os.path.join(directory, filename)
+                if os.path.isfile(filepath):
+                    # Check file modification time
+                    file_modified = datetime.fromtimestamp(os.path.getmtime(filepath))
+                    if file_modified < cutoff_time:
+                        try:
+                            os.remove(filepath)
+                            deleted_count += 1
+                        except OSError as e:
+                            print(f"[CLEANUP] Error deleting {filepath}: {e}")
+    
+    return deleted_count
 
 # Initialize database on import
 init_db()
