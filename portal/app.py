@@ -424,13 +424,77 @@ def download():
 @login_required
 def brand_video():
     """Brand a video page"""
-    return render_template('clean_dashboard.html')
+    try:
+        return render_template('clean_dashboard.html')
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[BRANDR ERROR] Failed to render clean_dashboard.html: {error_trace}")
+        return jsonify({
+            'error': 'Failed to load Brandr page',
+            'details': str(e),
+            'trace': error_trace
+        }), 500
 
 @app.route('/portal/brands')
 @login_required
 def brands_page():
     """Brand management page"""
     return render_template('brands.html')
+
+@app.route('/portal/profile')
+@login_required
+def profile_page():
+    """User profile page"""
+    from .database import get_db
+    from datetime import datetime
+    
+    user_id = session.get('user_id')
+    email = session.get('email', 'User')
+    
+    # Get user info from database
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('SELECT created_at FROM users WHERE id = ?', (user_id,))
+    user = c.fetchone()
+    conn.close()
+    
+    # Format created date
+    created_at = 'Recently'
+    if user and user['created_at']:
+        try:
+            created_dt = datetime.fromisoformat(user['created_at'])
+            created_at = created_dt.strftime('%B %Y')
+        except:
+            pass
+    
+    # TODO: Get actual usage stats from database when tier system is implemented
+    # For now, show placeholder data
+    tier = 'Explorer'  # Default tier
+    downloads_used = 0
+    brands_used = 0
+    brand_configs = 0  # Count of user's brands
+    
+    # Tier limits
+    tier_limits = {
+        'Explorer': {'downloads': 50, 'brands': 50, 'configs': 1},
+        'Creator': {'downloads': 500, 'brands': 500, 'configs': 5},
+        'Studio': {'downloads': 'Unlimited', 'brands': 'Unlimited', 'configs': 'Unlimited'}
+    }
+    
+    limits = tier_limits.get(tier, tier_limits['Explorer'])
+    
+    return render_template('profile.html',
+        email=email,
+        created_at=created_at,
+        tier=tier,
+        downloads_used=downloads_used,
+        downloads_limit=limits['downloads'],
+        brands_used=brands_used,
+        brands_limit=limits['brands'],
+        brand_configs=brand_configs,
+        brand_configs_limit=limits['configs']
+    )
 
 @app.route('/portal/shipr')
 @login_required
