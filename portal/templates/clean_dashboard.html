@@ -450,7 +450,7 @@
             <span id="videoStatusIcon">⚠️</span>
             <span id="videoStatusText">No video selected</span>
         </p>
-        <button onclick="window.location.href='{{ url_for('download_video_page') }}'" style="background:#00b7ff;">
+        <button onclick="window.location.href='{{ url_for('download') }}'" style="background:#00b7ff;">
             📥 Go to Downloader
         </button>
     </div>
@@ -463,7 +463,7 @@
     <!-- No Brands State -->
     <div id="noBrandsState" style="display:none; text-align:center; padding:30px 20px;">
         <p style="color:#666; font-size:16px; margin-bottom:20px;">🎭 You have no brands yet</p>
-        <button onclick="window.location.href='{{ url_for('manage_brands') }}'" style="background:#00b7ff;">
+        <button onclick="window.location.href='{{ url_for('brands_page') }}'" style="background:#00b7ff;">
             ✨ Create Your First Brand
         </button>
     </div>
