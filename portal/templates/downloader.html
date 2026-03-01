@@ -473,6 +473,48 @@ https://x.com/..."></textarea>
             return supported.some(domain => url.includes(domain));
         }
         
+        // Shared URL parser: extracts, sanitizes, normalizes, dedupes
+        // Used by: single download, batch download, retry failed
+        function parseAndCleanUrls(textInput) {
+            // Extract protocol URLs + protocol-less www.* URLs (Safari-safe)
+            const protocolUrls = (textInput.match(/https?:\/\/[^\s]+/g) || []);
+            const wwwUrls = (textInput.match(/\bwww\.[^\s]+/gi) || []);
+            const allMatches = [...protocolUrls, ...wwwUrls];
+            
+            let cleanedCount = 0;
+            let normalizedCount = 0;
+            
+            const cleaned = allMatches.map((url) => {
+                const original = url;
+                
+                let c = url
+                    .replace(/^[("'[\u201C\u201D\u2018\u2019\[{<]+/g, '')
+                    .replace(/[)\]}>\[\u201C\u201D\u2018\u2019"'.;,!?]+$/g, '')
+                    .trim();
+                
+                if (/^www\./i.test(c)) {
+                    c = 'https://' + c;
+                    normalizedCount++;
+                }
+                
+                if (original !== c && !/^www\./i.test(original)) cleanedCount++;
+                
+                return c;
+            }).filter(Boolean);
+            
+            // Deduplicate while preserving order
+            const seen = new Set();
+            const unique = [];
+            for (const u of cleaned) {
+                if (!seen.has(u)) {
+                    seen.add(u);
+                    unique.push(u);
+                }
+            }
+            
+            return { uniqueUrls: unique, cleanedCount, normalizedCount };
+        }
+        
         // ========== FORM SUBMISSION ==========
         document.getElementById('downloadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -495,7 +537,16 @@ https://x.com/..."></textarea>
                 return;
             }
             
-            if (!isSupportedURL(videoUrl)) {
+            // Parse and clean URL
+            const { uniqueUrls } = parseAndCleanUrls(videoUrl);
+            const cleanedSingle = uniqueUrls[0] || '';
+            
+            if (!cleanedSingle) {
+                alert('Please enter a valid URL');
+                return;
+            }
+            
+            if (!isSupportedURL(cleanedSingle)) {
                 alert('Unsupported URL. Please use TikTok, Instagram, X/Twitter, or YouTube links.');
                 return;
             }
@@ -513,7 +564,7 @@ https://x.com/..."></textarea>
                 const response = await fetch('/api/videos/fetch', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ urls: [videoUrl] })
+                    body: JSON.stringify({ urls: [cleanedSingle] })
                 });
                 
                 const data = await response.json();
@@ -526,7 +577,7 @@ https://x.com/..."></textarea>
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                source_url: videoUrl,
+                                source_url: cleanedSingle,
                                 filename: result.filename,
                                 file_path: result.local_path
                             })
@@ -568,6 +619,9 @@ https://x.com/..."></textarea>
             loadRecentDownloads();
         }
         
+        // Global failed URLs tracker
+        let lastFailedUrls = [];
+        
         async function handleBatchDownload() {
             const videoUrlsText = document.getElementById('videoUrls').value.trim();
             const batchResultsDiv = document.getElementById('batchResults');
@@ -580,25 +634,8 @@ https://x.com/..."></textarea>
                 return;
             }
             
-            // Extract URLs using regex (handles messy input: spaces, mixed text, etc.)
-            const urlMatches = videoUrlsText.match(/https?:\/\/[^\s]+/g) || [];
-            
-            // Clean each URL: remove trailing punctuation from real-world pastes
-            // Handles: "(https://tiktok.com/...)", "https://youtube.com/...,", etc.
-            const cleanedUrls = [];
-            let cleanedCount = 0;
-            
-            urlMatches.forEach(url => {
-                const original = url;
-                const cleaned = url.replace(/[)\]}>"""'.;,!?]+$/g, '').trim();
-                cleanedUrls.push(cleaned);
-                if (original !== cleaned) cleanedCount++;
-            });
-            
-            const rawUrls = cleanedUrls.filter(u => u.length > 0);
-            
-            // Deduplicate
-            const uniqueUrls = [...new Set(rawUrls)];
+            // Parse and clean URLs using shared parser
+            const { uniqueUrls, cleanedCount, normalizedCount } = parseAndCleanUrls(videoUrlsText);
             
             // Validate URLs
             const validUrls = uniqueUrls.filter(url => isSupportedURL(url));
@@ -626,10 +663,13 @@ https://x.com/..."></textarea>
             progressContainer.style.display = 'block';
             batchResultsDiv.style.display = 'block';
             
-            // Show cleanup note if URLs were modified
+            // Show cleanup/normalization notes if URLs were modified
             let statusHtml = '<p style="color:#888;">🚀 Starting batch download...</p>';
+            if (normalizedCount > 0) {
+                statusHtml += `<p style="color:#00b7ff; font-size:0.9rem; margin-top:0.5rem;">✨ Normalized ${normalizedCount} link(s) (added https://)</p>`;
+            }
             if (cleanedCount > 0) {
-                statusHtml += `<p style="color:#00b7ff; font-size:0.9rem; margin-top:0.5rem;">✨ Cleaned ${cleanedCount} link(s) (removed trailing punctuation)</p>`;
+                statusHtml += `<p style="color:#00b7ff; font-size:0.9rem; margin-top:0.5rem;">✨ Cleaned ${cleanedCount} link(s) (removed punctuation)</p>`;
             }
             batchResultsDiv.innerHTML = statusHtml;
             
@@ -657,6 +697,12 @@ https://x.com/..."></textarea>
                     const successCount = results.filter(r => r.success).length;
                     progressText.textContent = `Completed: ${successCount}/${validUrls.length} successful`;
                     progressFill.style.width = '100%';
+                    
+                    // Store failed URLs for retry
+                    lastFailedUrls = results
+                        .filter(r => !r.success)
+                        .map(r => r.url || r.source_url)
+                        .filter(Boolean);
                     
                     // Render results
                     renderBatchResults(results);
@@ -720,6 +766,44 @@ https://x.com/..."></textarea>
             });
             
             container.innerHTML = html;
+            
+            // Show retry button if there are failures
+            if (lastFailedUrls.length > 0) {
+                const retryHtml = `
+                    <div style="margin-top:1rem; padding:1rem; background:#2a1a1a; border-radius:8px; border-left:4px solid #ff6b6b;">
+                        <div style="display:flex; align-items:center; justify-content:space-between;">
+                            <span style="color:#ff9800; font-weight:500;">❌ ${lastFailedUrls.length} failed</span>
+                            <button class="btn btn-secondary btn-small" onclick="retryFailedDownloads()" style="background:#ff6b6b; border-color:#ff6b6b;">
+                                🔄 Retry Failed (${lastFailedUrls.length})
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += retryHtml;
+            }
+        }
+        
+        async function retryFailedDownloads() {
+            if (lastFailedUrls.length === 0) {
+                alert('No failed downloads to retry');
+                return;
+            }
+            
+            // Store failed URLs to retry
+            const urlsToRetry = [...lastFailedUrls];
+            
+            // Clear previous failed state before retry
+            lastFailedUrls = [];
+            
+            // Sanitize failed URLs in case backend returned punctuation
+            const { uniqueUrls } = parseAndCleanUrls(urlsToRetry.join('\n'));
+            
+            // Switch to multi mode and populate textarea
+            document.getElementById('multiModeBtn').click();
+            document.getElementById('videoUrls').value = uniqueUrls.join('\n');
+            
+            // Trigger batch download
+            await handleBatchDownload();
         }
         
         function continueToBrandrFromFilename(filename) {
