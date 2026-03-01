@@ -1161,6 +1161,9 @@ async function loadBrandAssets(brandId) {
 // ========== QUEUE MODE FUNCTIONS ==========
 
 function enterQueueMode() {
+    console.log('[BRANDR] === START BRANDING BUTTON CLICKED ===' );
+    console.log('[BRANDR] Current state - currentFile:', currentFile, 'selectedBrandIds:', selectedBrandIds, 'brandDataCache keys:', Object.keys(brandDataCache));
+    
     const result = document.getElementById('processResult');
     
     // Defensive check: try to recover from sessionStorage if currentFile is null
@@ -1201,7 +1204,8 @@ function enterQueueMode() {
     
     // Clear sessionStorage now that branding has started
     sessionStorage.removeItem('lastDownloadFilename');
-    console.log('[BRANDR] Entering queue mode with', selectedBrands.length, 'brands');
+    console.log('[BRANDR] Entering queue mode with', processingQueue.length, 'brands');
+    console.log('[BRANDR] Processing queue:', processingQueue);
     
     // Hide selection mode, show queue mode (with defensive null checks)
     const videoSourceSection = document.getElementById('videoSourceSection');
