@@ -1142,18 +1142,30 @@ def get_logo_preview(brand_name):
 # ============================================================================
 
 @app.route('/api/brands/list', methods=['GET'])
+@login_required
 def list_brands():
-    """Get list of available brands"""
+    """Get list of user-owned brands (no SYSTEM brands)"""
     try:
-        brand_configs = get_available_brands(os.path.dirname(os.path.abspath(__file__)))
-        brands = [{'name': brand['name'], 'display_name': brand['display_name']} 
-                 for brand in brand_configs]
+        from .database import get_all_brands
+        
+        user_id = session.get('user_id')
+        
+        # Get only user-owned brands (exclude system brands)
+        brands = get_all_brands(user_id=user_id, include_system=False)
+        
+        # Format for frontend
+        brand_list = [{
+            'name': brand['name'], 
+            'display_name': brand.get('display_name', brand['name'])
+        } for brand in brands]
         
         return jsonify({
             'success': True,
-            'brands': brands
+            'brands': brand_list
         })
     except Exception as e:
+        import traceback
+        print(f"[BRANDS ERROR] List brands: {traceback.format_exc()}")
         return jsonify({
             'success': False,
             'error': str(e)

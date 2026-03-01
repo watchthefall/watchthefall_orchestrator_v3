@@ -442,17 +442,31 @@
 
 <h1><span class="glitch">WTF STUDIO</span></h1>
 
-<!-- ========== SECTION 1: DOWNLOAD ========== -->
-<div class="section" id="downloadSection">
-    <h2>1. Get Video</h2>
-    <input id="videoUrl" type="text" placeholder="Paste TikTok / Instagram / X link...">
-    <button onclick="fetchVideo()" id="downloadBtn">⬇ Download</button>
-    <div id="downloadStatus"></div>
+<!-- ========== SECTION 1: VIDEO SOURCE ========== -->
+<div class="section" id="videoSourceSection">
+    <h2>Selected Video</h2>
+    <div id="videoSourceStatus">
+        <p style="color:#666; font-size:14px; text-align:center; padding:20px;">
+            <span id="videoStatusIcon">⚠️</span>
+            <span id="videoStatusText">No video selected</span>
+        </p>
+        <button onclick="window.location.href='{{ url_for('download_video_page') }}'" style="background:#00b7ff;">
+            📥 Go to Downloader
+        </button>
+    </div>
 </div>
 
 <!-- ========== SECTION 2: PREVIEW & CONFIGURE ========== -->
 <div class="section" id="previewSection" style="display:none;">
-    <h2>2. Configure Branding</h2>
+    <h2>Brand Configuration</h2>
+    
+    <!-- No Brands State -->
+    <div id="noBrandsState" style="display:none; text-align:center; padding:30px 20px;">
+        <p style="color:#666; font-size:16px; margin-bottom:20px;">🎭 You have no brands yet</p>
+        <button onclick="window.location.href='{{ url_for('manage_brands') }}'" style="background:#00b7ff;">
+            ✨ Create Your First Brand
+        </button>
+    </div>
     
     <!-- Canvas Preview -->
     <div class="preview-container" id="previewContainer" style="display:none;">
@@ -871,9 +885,10 @@ document.getElementById('logoScale').addEventListener('input', (e) => {
 });
 document.getElementById('showBounds').addEventListener('change', updateCanvasPreview);
 
-// ========== LOAD BRANDS ==========
+// ========== LOAD BRANDS (USER-OWNED ONLY) ==========
 async function loadBrands() {
     const box = document.getElementById('brandsBox');
+    const noBrandsState = document.getElementById('noBrandsState');
     try {
         const res = await fetch(`${apiBase}/api/brands/list`);
         const data = await res.json();
@@ -883,8 +898,23 @@ async function loadBrands() {
             return;
         }
         
+        // Filter out SYSTEM brands - only show user-owned brands
+        const userBrands = data.brands.filter(b => !b.name.includes('SYSTEM') && !b.name.includes('WTF'));
+        
+        if (userBrands.length === 0) {
+            // Show "no brands" state
+            noBrandsState.style.display = 'block';
+            box.style.display = 'none';
+            document.getElementById('selectionModeHeader').style.display = 'none';
+            document.getElementById('selectionModeActions').style.display = 'none';
+            return;
+        }
+        
+        // User has brands - show them
+        noBrandsState.style.display = 'none';
+        box.style.display = 'grid';
         box.innerHTML = '';
-        data.brands.forEach(b => {
+        userBrands.forEach(b => {
             const btn = document.createElement('div');
             btn.className = 'brand-btn';
             btn.textContent = b.display_name;
@@ -1456,7 +1486,6 @@ function exitQueueMode() {
     isQueueMode = false;
     
     // Show selection mode, hide queue mode
-    document.getElementById('downloadSection').style.display = 'block';  // Show download section
     document.getElementById('selectionModeHeader').style.display = 'block';
     document.getElementById('brandsBox').style.display = 'grid';
     document.getElementById('selectionModeActions').style.display = 'block';
@@ -1487,52 +1516,8 @@ function exitQueueMode() {
     });
 }
 
-// ========== DOWNLOAD VIDEO ==========
-async function fetchVideo() {
-    const url = document.getElementById('videoUrl').value.trim();
-    const btn = document.getElementById('downloadBtn');
-    const status = document.getElementById('downloadStatus');
-    
-    if (!url) {
-        status.innerHTML = '<div class="status-msg error">Enter a URL</div>';
-        return;
-    }
-    
-    btn.disabled = true;
-    btn.textContent = 'Downloading...';
-    status.innerHTML = '<div class="status-msg info">⏳ Fetching video...</div>';
-    
-    try {
-        const res = await fetch(`${apiBase}/api/videos/fetch`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ urls: [url] })
-        });
-        
-        const data = await res.json();
-        
-        if (!data.success || !data.results[0]?.success) {
-            throw new Error(data.results?.[0]?.error || 'Download failed');
-        }
-        
-        currentFile = data.results[0].filename;
-        localStorage.setItem('last_downloaded_file', currentFile);
-        
-        status.innerHTML = `<div class="status-msg success">✅ Downloaded: ${currentFile}</div>`;
-        
-        // Show preview section (but NOT canvas - that shows in queue mode)
-        document.getElementById('previewSection').style.display = 'block';
-        
-        // Extract frame for preview (stores frameData for later use)
-        extractFrame(currentFile);
-        
-    } catch (err) {
-        status.innerHTML = `<div class="status-msg error">❌ ${err.message}</div>`;
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '⬇ Download';
-    }
-}
+// ========== DOWNLOAD VIDEO (REMOVED - USE DOWNLOADER) ==========
+// fetchVideo() removed - use Downloader tool instead
 
 async function extractFrame(filename) {
     try {
@@ -1592,15 +1577,6 @@ async function loadBrandIntegrity() {
 loadBrands();
 updateCanvasPreview();
 
-// Check for previously downloaded file
-const lastFile = localStorage.getItem('last_downloaded_file');
-if (lastFile) {
-    currentFile = lastFile;
-    document.getElementById('previewSection').style.display = 'block';
-    // Don't show canvas until queue mode
-    extractFrame(lastFile);
-}
-
 // Check for file passed from downloader
 const lastDownloadFilename = sessionStorage.getItem('lastDownloadFilename');
 
@@ -1613,11 +1589,14 @@ if (lastDownloadFilename) {
     // Clear the session storage to prevent reuse
     sessionStorage.removeItem('lastDownloadFilename');
     
-    // Update the video URL field if empty
-    const videoUrlInput = document.getElementById('videoUrl');
-    if (videoUrlInput && !videoUrlInput.value) {
-        videoUrlInput.placeholder = 'Using file from downloader: ' + lastDownloadFilename;
-    }
+    // Update video status to show file selected
+    document.getElementById('videoStatusIcon').textContent = '✅';
+    document.getElementById('videoStatusText').textContent = 'Video selected: ' + lastDownloadFilename;
+    document.getElementById('videoSourceStatus').querySelector('button').style.display = 'none';
+} else {
+    // No video selected - show prompt to go to downloader
+    document.getElementById('videoStatusIcon').textContent = '⚠️';
+    document.getElementById('videoStatusText').textContent = 'No video selected';
 }
 </script>
 
