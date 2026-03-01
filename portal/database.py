@@ -120,7 +120,8 @@ def init_db():
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             UNIQUE(name, user_id)
-        ''')
+        )
+    ''')
     
     # Downloads table - track user downloads
     c.execute('''
