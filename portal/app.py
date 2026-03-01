@@ -1,7 +1,7 @@
 """
 WatchTheFall Portal - Flask Application
 """
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template, send_from_directory, redirect, url_for, session, flash
 import os
 import json
 import uuid
@@ -11,6 +11,9 @@ import subprocess
 import tempfile
 import threading
 from yt_dlp import YoutubeDL
+import hashlib
+import sqlite3
+from functools import wraps
 
 def ensure_video_stream(path):
     import subprocess, json, os
@@ -41,6 +44,68 @@ from .config import (
 from .database import log_event
 
 
+# Authentication functions
+
+def hash_password(password):
+    """Hash a password using SHA256"""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
+def init_users_db():
+    """Initialize the users database table"""
+    conn = sqlite3.connect('portal/db/users.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.commit()
+    conn.close()
+
+
+def authenticate_user(email, password):
+    """Authenticate a user by email and password"""
+    conn = sqlite3.connect('portal/db/users.db')
+    c = conn.cursor()
+    c.execute('SELECT id, password_hash FROM users WHERE email = ?', (email,))
+    result = c.fetchone()
+    conn.close()
+    
+    if result:
+        user_id, stored_hash = result
+        if stored_hash == hash_password(password):
+            return user_id
+    return None
+
+
+def register_user(email, password):
+    """Register a new user"""
+    try:
+        conn = sqlite3.connect('portal/db/users.db')
+        c = conn.cursor()
+        password_hash = hash_password(password)
+        c.execute('INSERT INTO users (email, password_hash) VALUES (?, ?)', (email, password_hash))
+        conn.commit()
+        user_id = c.lastrowid
+        conn.close()
+        return user_id
+    except sqlite3.IntegrityError:
+        # Email already exists
+        return None
+
+
+def login_required(f):
+    """Decorator to require login for certain routes"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 app = Flask(__name__, 
             template_folder='templates',
             static_folder='static',
@@ -48,9 +113,62 @@ app = Flask(__name__,
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE
 
-# Initialize database
+# Initialize databases
 from .database import init_db
 init_db()
+init_users_db()
+
+# Authentication routes
+@app.route('/portal/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        
+        user_id = register_user(email, password)
+        if user_id:
+            session['user_id'] = user_id
+            session['email'] = email
+            flash('Registration successful!', 'success')
+            return redirect(url_for('download'))
+        else:
+            flash('Email already exists or registration failed', 'error')
+    
+    return render_template('register.html')
+
+@app.route('/portal/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        
+        user_id = authenticate_user(email, password)
+        if user_id:
+            session['user_id'] = user_id
+            session['email'] = email
+            flash('Login successful!', 'success')
+            return redirect(url_for('download'))
+        else:
+            flash('Invalid email or password', 'error')
+    
+    return render_template('login.html')
+
+@app.route('/portal/logout')
+def logout():
+    session.pop('user_id', None)
+    session.pop('email', None)
+    flash('You have been logged out', 'info')
+    return redirect(url_for('login'))
+
+
+# Default routing based on login status
+@app.route('/portal/')
+def portal_home():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    else:
+        return redirect(url_for('download'))
+
 
 # Debug endpoint to verify app is loading routes correctly
 @app.route("/__debug_alive")
@@ -293,30 +411,32 @@ def api_root():
 # FRONTEND ROUTES
 # ============================================================================
 
-@app.route('/portal/')
-def portal_landing():
-    """Landing hub - redirects to brand for now"""
-    return render_template('clean_dashboard.html')
+@app.route('/portal/download')
+@login_required
+def download():
+    """Downloader page - main entry point"""
+    return render_template('downloader.html')
 
 @app.route('/portal/brand')
+@login_required
 def brand_video():
     """Brand a video page"""
     return render_template('clean_dashboard.html')
 
 @app.route('/portal/brands')
+@login_required
 def brands_page():
     """Brand management page"""
     return render_template('brands.html')
 
-@app.route("/portal/downloader_dashboard")
-def downloader_dashboard():
-    return render_template("downloader_dashboard.html")
-
-@app.route("/portal")
-def portal_home():
-    return portal_landing()
+@app.route('/portal/shipr')
+@login_required
+def shipr_page():
+    """Coming soon page"""
+    return render_template('shipr.html')
 
 @app.route('/portal/test')
+@login_required
 def test_page():
     """Test page to verify portal is online"""
     return jsonify({
@@ -332,11 +452,22 @@ def test_page():
         ]
     })
 
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Render"""
+    return jsonify({'status': 'healthy', 'message': 'WTF Studio is running'}), 200
+
+@app.route('/portal/downloader_dashboard')
+@login_required
+def downloader_dashboard():
+    return render_template("downloader_dashboard.html")
+
 # ============================================================================
 # API: VIDEO PROCESSING
 # ============================================================================
 
 @app.route('/api/videos/process_brands', methods=['POST'])
+@login_required
 def process_branded_videos():
     """Process video with selected brand overlays"""
     try:
@@ -636,6 +767,7 @@ def process_branded_videos():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/videos/fetch', methods=['POST'])
+@login_required
 def fetch_videos_from_urls():
     """Download videos from URLs (TikTok, Instagram, X) - up to 5 at a time"""
     try:
@@ -817,6 +949,7 @@ def fetch_videos_from_urls():
 # Status endpoint removed - no server-side job queue
 
 @app.route('/api/videos/download/<filename>', methods=['GET'])
+@login_required
 def download_video(filename):
     """Download processed video"""
     try:
@@ -1019,6 +1152,7 @@ def get_brand_config_api(brand_name):
         }), 500
 
 @app.route('/api/brands/<brand_name>/config', methods=['POST'])
+@login_required
 def save_brand_config_api(brand_name):
     """Save configuration for a brand"""
     try:
@@ -1065,6 +1199,7 @@ def save_brand_config_api(brand_name):
 # ============================================================================
 
 @app.route('/api/brands', methods=['GET'])
+@login_required
 def get_all_brands_api():
     """Get all brands. System brands + user brands if user_id provided."""
     try:
@@ -1083,6 +1218,7 @@ def get_all_brands_api():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/brands/<int:brand_id>', methods=['GET'])
+@login_required
 def get_single_brand_api(brand_id):
     """Get a single brand by ID"""
     try:
@@ -1100,6 +1236,7 @@ def get_single_brand_api(brand_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/brands', methods=['POST'])
+@login_required
 def create_brand_api():
     """Create a new brand"""
     try:
@@ -1155,6 +1292,7 @@ def create_brand_api():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/brands/<int:brand_id>', methods=['PUT'])
+@login_required
 def update_brand_api(brand_id):
     """Update a brand's settings and/or assets"""
     try:
@@ -1186,6 +1324,7 @@ def update_brand_api(brand_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/brands/<int:brand_id>', methods=['DELETE'])
+@login_required
 def delete_brand_api(brand_id):
     """Soft delete a brand (set is_active = 0)"""
     try:
@@ -1218,6 +1357,7 @@ def delete_brand_api(brand_id):
 # ============================================================================
 
 @app.route('/api/videos/convert-watermark', methods=['POST'])
+@login_required
 def convert_watermark():
     """Queue a watermark conversion job (async, non-blocking)"""
     try:
@@ -1396,6 +1536,7 @@ def _watermark_conversion_worker(job_id, temp_webm, output_path, mp4_filename):
 
 
 @app.route('/api/videos/convert-status/<job_id>', methods=['GET'])
+@login_required
 def get_conversion_status(job_id):
     """Poll conversion job status (non-blocking)"""
     if job_id not in watermark_jobs:

@@ -215,14 +215,54 @@
             background: #00b7ff;
             color: #000;
         }
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background: rgba(26, 26, 46, 0.95);
+            min-width: 160px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            z-index: 1;
+            top: 100%;
+            right: 0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .dropdown-content a {
+            color: #aaa;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+        }
+        .dropdown-content a:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: #00b7ff;
+        }
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
     </style>
 </head>
 <body>
 
 <!-- Navigation Bar -->
 <nav class="nav-bar">
-    <a href="/portal/brand" class="nav-btn">🎬 Brand a Video</a>
-    <a href="/portal/brands" class="nav-btn active">📁 Manage Brands</a>
+    <div style="display: flex; gap: 10px;">
+        <a href="/portal/download" class="nav-btn">📥 Downloader</a>
+        <a href="/portal/brand" class="nav-btn">🎬 Brand a Video</a>
+        <a href="/portal/brands" class="nav-btn active">📁 Manage Brands</a>
+        <a href="/portal/shipr" class="nav-btn">🚢 Shipr (Coming Soon)</a>
+    </div>
+    <div class="dropdown">
+        <a href="#" class="nav-btn">👤 Account</a>
+        <div class="dropdown-content">
+            <a href="#">Profile</a>
+            <a href="/portal/logout">Logout</a>
+        </div>
+    </div>
 </nav>
 
 <div class="container">

@@ -13,6 +13,6 @@ pycryptodomex
 yt-dlp
 websockets
 brotli
-psutil==5.9.8
+psutil>=5.9.8
 pyjwt
 cryptography
