@@ -709,10 +709,10 @@ let logoImg = null;
 let videoWidth = 720;
 let videoHeight = 1280;
 
-// Logo drag state
+// Logo drag state (use CENTER coordinates as single source of truth)
 let logoDragging = false;
-let logoX = 0;
-let logoY = 0;
+let logoCenterXPercent = 0;  // Center X as percentage 0-1
+let logoCenterYPercent = 0;  // Center Y as percentage 0-1
 let logoDragStart = { x: 0, y: 0 };
 
 // Text drag state
@@ -777,21 +777,30 @@ function drawOverlays() {
         ctx.globalAlpha = 1.0;
     }
     
-    // Draw logo
+    // Draw logo (anchored to CENTER coordinates)
     if (logoImg && logoImg.complete) {
         const logoW = canvas.width * logoScalePct;
         const logoH = (logoImg.height / logoImg.width) * logoW;
         
-        // Default position: bottom-left (user can drag to reposition)
-        if (logoX === 0 && logoY === 0) {
-            logoX = 20;  // Small left margin
-            logoY = canvas.height - logoH - 20;  // Small bottom margin
+        // Default position: bottom-left if no custom position set
+        if (logoCenterXPercent === 0 && logoCenterYPercent === 0) {
+            // Calculate default center: 20px from left + half logo width
+            const defaultLeftMargin = 20;
+            const defaultBottomMargin = 20;
+            logoCenterXPercent = (defaultLeftMargin + logoW / 2) / canvas.width;
+            logoCenterYPercent = (canvas.height - defaultBottomMargin - logoH / 2) / canvas.height;
         }
         
-        ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+        // Calculate draw position from center (center - half size)
+        const centerX = logoCenterXPercent * canvas.width;
+        const centerY = logoCenterYPercent * canvas.height;
+        const drawX = centerX - logoW / 2;
+        const drawY = centerY - logoH / 2;
+        
+        ctx.drawImage(logoImg, drawX, drawY, logoW, logoH);
         
         // Store logo bounds for hit testing
-        canvas._logoBounds = { x: logoX, y: logoY, w: logoW, h: logoH };
+        canvas._logoBounds = { x: drawX, y: drawY, w: logoW, h: logoH };
     }
     
     // Draw text layer
@@ -928,7 +937,10 @@ function startDrag(e) {
         const b = canvas._logoBounds;
         if (pos.x >= b.x && pos.x <= b.x + b.w && pos.y >= b.y && pos.y <= b.y + b.h) {
             logoDragging = true;
-            logoDragStart = { x: pos.x - logoX, y: pos.y - logoY };
+            // Store offset from center (not top-left)
+            const centerX = logoCenterXPercent * canvas.width;
+            const centerY = logoCenterYPercent * canvas.height;
+            logoDragStart = { x: pos.x - centerX, y: pos.y - centerY };
             canvas.style.cursor = 'grabbing';
         }
     }
@@ -942,8 +954,23 @@ function drag(e) {
         updateCanvasPreview();
     } else if (logoDragging) {
         const pos = getCanvasCoords(e);
-        logoX = pos.x - logoDragStart.x;
-        logoY = pos.y - logoDragStart.y;
+        // Update center position as percentage
+        const centerX = pos.x - logoDragStart.x;
+        const centerY = pos.y - logoDragStart.y;
+        logoCenterXPercent = centerX / canvas.width;
+        logoCenterYPercent = centerY / canvas.height;
+        
+        // Clamp to keep logo fully onscreen (considering half-size)
+        const logoScalePct = parseInt(document.getElementById('logoScale').value) / 100;
+        const logoW = canvas.width * logoScalePct;
+        const logoH = logoImg ? (logoImg.height / logoImg.width) * logoW : logoW;
+        const minPercent = (logoW / 2) / canvas.width;
+        const maxPercentX = 1 - (logoW / 2) / canvas.width;
+        const maxPercentY = 1 - (logoH / 2) / canvas.height;
+        
+        logoCenterXPercent = Math.max(minPercent, Math.min(maxPercentX, logoCenterXPercent));
+        logoCenterYPercent = Math.max(minPercent, Math.min(maxPercentY, logoCenterYPercent));
+        
         updateCanvasPreview();
     }
 }
@@ -965,8 +992,7 @@ document.getElementById('wmOpacity').addEventListener('input', (e) => {
 });
 document.getElementById('logoScale').addEventListener('input', (e) => {
     document.getElementById('logoScaleVal').textContent = e.target.value + '%';
-    // Reset logo position when scale changes
-    logoX = 0; logoY = 0;
+    // Logo stays anchored to center - no position reset needed
     updateCanvasPreview();
 });
 document.getElementById('showBounds').addEventListener('change', updateCanvasPreview);
@@ -1147,26 +1173,14 @@ async function loadBrandConfig(brandId) {
         document.getElementById('logoScale').value = Math.round(cfg.logo_scale * 100);
         document.getElementById('logoScaleVal').textContent = Math.round(cfg.logo_scale * 100) + '%';
         
-        // Load logo position if saved
-        // Database stores CENTER coordinates as percentages (0-1)
-        // Need to convert to TOP-LEFT pixel coordinates for rendering
+        // Load logo position if saved (stored as CENTER percentages)
         if (cfg.logo_x !== undefined && cfg.logo_y !== undefined && cfg.logo_x > 0 && cfg.logo_y > 0) {
-            // Calculate logo size first
-            const logoScalePct = cfg.logo_scale; // Already a decimal 0-1
-            const logoSize = canvas.width * logoScalePct;
-            
-            // Convert center percentage to center pixels
-            const centerX = cfg.logo_x * canvas.width;
-            const centerY = cfg.logo_y * canvas.height;
-            
-            // Convert center to top-left by subtracting half size
-            logoX = centerX - logoSize / 2;
-            logoY = centerY - logoSize / 2;
-            
-            console.log(`[UI] Loaded logo position: center (${Math.round(cfg.logo_x*100)}%, ${Math.round(cfg.logo_y*100)}%) -> top-left (${Math.round(logoX)}px, ${Math.round(logoY)}px) size ${Math.round(logoSize)}px`);
+            logoCenterXPercent = cfg.logo_x;  // Already percentage 0-1
+            logoCenterYPercent = cfg.logo_y;  // Already percentage 0-1
+            console.log(`[UI] Loaded logo position: center (${Math.round(cfg.logo_x*100)}%, ${Math.round(cfg.logo_y*100)}%)`);
         } else {
-            logoX = 0;  // Will use default position
-            logoY = 0;
+            logoCenterXPercent = 0;  // Will use default position
+            logoCenterYPercent = 0;
         }
         
         // Apply text layer settings
@@ -1496,8 +1510,9 @@ function loadOverridesIntoSliders(overrides) {
     // Show/hide text controls
     document.getElementById('textControls').style.display = overrides.text_enabled ? 'block' : 'none';
     
-    // Reset logo position and update preview
-    logoX = 0; logoY = 0;
+    // Reset logo position (will use default on next render)
+    logoCenterXPercent = 0;
+    logoCenterYPercent = 0;
     updateCanvasPreview();
 }
 
