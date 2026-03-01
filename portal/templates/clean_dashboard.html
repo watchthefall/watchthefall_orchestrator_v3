@@ -1482,10 +1482,31 @@ async function processCurrentBrand() {
     } catch (err) {
         current.status = 'failed';
         renderBrandPills();
-        
+            
         if (processingQueue[currentQueueIndex] === current) {
-            result.innerHTML = `<div class="status-msg error">\u274C ${current.brand_name}: ${err.message}</div>
-                                <button onclick="retryBrand(${processingQueue.indexOf(current)})" style="margin-top:10px; background:#f90;">Retry</button>`;
+            // Try to parse backend validation error
+            let errorHtml = `<div class="status-msg error">❌ ${current.brand_name}: ${err.message}</div>`;
+                
+            // Check if this is a validation error with fix info
+            try {
+                const errorResponse = await res.json();
+                if (errorResponse.code === 'BRAND_VALIDATION_FAILED' && errorResponse.fix) {
+                    errorHtml = `
+                        <div class="status-msg error">
+                            ❌ <strong>${errorResponse.brand}</strong>: ${errorResponse.error}
+                        </div>
+                        <div style="margin-top:10px; padding:10px; background: rgba(255, 152, 0, 0.1); border-left: 3px solid #ff9800; border-radius: 4px;">
+                            <div style="color:#ff9800; font-weight:600; margin-bottom:5px;">🛠️ How to fix:</div>
+                            <div style="color:#ccc; margin-bottom:10px;">${errorResponse.fix}</div>
+                            ${errorResponse.fix_url ? `<a href="${errorResponse.fix_url}" style="color:#00b7ff; text-decoration:underline;">➡️ Go to Manage Brands</a>` : ''}
+                        </div>
+                    `;
+                }
+            } catch (parseErr) {
+                // Fallback to original error
+            }
+                
+            result.innerHTML = errorHtml + `<button onclick="retryBrand(${processingQueue.indexOf(current)})" style="margin-top:10px; background:#f90;">Retry</button>`;
         }
     }
 }

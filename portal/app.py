@@ -768,28 +768,117 @@ def process_branded_videos():
                 'available_brands': [brand['name'] for brand in brand_configs]
             }), 400
         
-        # Validate brand readiness (check if brands have required assets)
+        # Validate brand readiness with HARD FAIL (no defaults)
         from .database import get_brand
+        from .config import STORAGE_ROOT
         user_id = session.get('user_id')
-        incomplete_brands = []
+        validation_errors = []
         
         for brand_config in selected_brand_configs:
             brand_name = brand_config.get('name')
             db_brand = get_brand(name=brand_name, user_id=user_id)
             
-            if db_brand:
-                # Check if brand has at least one asset (logo OR watermark)
-                is_ready = bool(db_brand.get('logo_path') or db_brand.get('watermark_path'))
-                if not is_ready:
-                    incomplete_brands.append(brand_name)
+            if not db_brand:
+                validation_errors.append({
+                    'brand': brand_name,
+                    'error': 'Brand not found in database',
+                    'fix': 'Recreate this brand in Manage Brands'
+                })
+                continue
+            
+            # Check is_ready flag first
+            if not db_brand.get('is_ready'):
+                validation_errors.append({
+                    'brand': brand_name,
+                    'error': 'Brand is incomplete',
+                    'fix': 'Upload logo or watermark in Manage Brands',
+                    'fix_url': '/portal/brands'
+                })
+                continue
+            
+            # Validate watermark exists (required for ALL brands)
+            wm_path = db_brand.get('watermark_path') or db_brand.get('watermark_vertical')
+            if not wm_path:
+                validation_errors.append({
+                    'brand': brand_name,
+                    'error': 'Watermark missing',
+                    'fix': 'Upload watermark in Manage Brands',
+                    'fix_url': '/portal/brands'
+                })
+                continue
+            
+            # Validate watermark file exists on disk
+            wm_full_path = os.path.join(STORAGE_ROOT, wm_path)
+            if not os.path.exists(wm_full_path):
+                validation_errors.append({
+                    'brand': brand_name,
+                    'error': f'Watermark file not found on disk: {wm_path}',
+                    'fix': 'Re-upload watermark in Manage Brands',
+                    'fix_url': '/portal/brands'
+                })
+                continue
+            
+            # Validate logo if logo overlay is being used
+            # (Check if logo_path exists in config - if yes, validate it)
+            logo_path = db_brand.get('logo_path')
+            logo_scale = db_brand.get('logo_scale', 0)
+            
+            # If logo is configured (non-zero scale) but path missing → fail
+            if logo_scale > 0 and not logo_path:
+                validation_errors.append({
+                    'brand': brand_name,
+                    'error': 'Logo overlay enabled but logo file missing',
+                    'fix': 'Upload logo in Manage Brands or set logo scale to 0',
+                    'fix_url': '/portal/brands'
+                })
+                continue
+            
+            # If logo path exists, validate file on disk
+            if logo_path:
+                logo_full_path = os.path.join(STORAGE_ROOT, logo_path)
+                if not os.path.exists(logo_full_path):
+                    validation_errors.append({
+                        'brand': brand_name,
+                        'error': f'Logo file not found on disk: {logo_path}',
+                        'fix': 'Re-upload logo in Manage Brands',
+                        'fix_url': '/portal/brands'
+                    })
+                    continue
+            
+            # Validate critical config values
+            wm_scale = db_brand.get('wm_scale')
+            wm_opacity = db_brand.get('wm_opacity')
+            
+            if wm_scale is None or wm_scale <= 0:
+                validation_errors.append({
+                    'brand': brand_name,
+                    'error': 'Invalid watermark scale (must be > 0)',
+                    'fix': 'Edit brand settings in Manage Brands',
+                    'fix_url': '/portal/brands'
+                })
+                continue
+            
+            if wm_opacity is None or wm_opacity < 0 or wm_opacity > 1:
+                validation_errors.append({
+                    'brand': brand_name,
+                    'error': 'Invalid watermark opacity (must be 0-1)',
+                    'fix': 'Edit brand settings in Manage Brands',
+                    'fix_url': '/portal/brands'
+                })
+                continue
         
-        if incomplete_brands:
+        # Hard fail if any validation errors
+        if validation_errors:
+            first_error = validation_errors[0]
+            print(f"[PROCESS BRANDS] Validation failed: {validation_errors}")
             return jsonify({
                 'success': False,
-                'error': f'BRAND_INCOMPLETE: {incomplete_brands[0]}',
-                'code': 'BRAND_INCOMPLETE',
-                'message': f'Brand "{incomplete_brands[0]}" is incomplete. Upload at least a logo or watermark in Manage Brands.',
-                'incomplete_brands': incomplete_brands
+                'error': f"{first_error['brand']}: {first_error['error']}",
+                'code': 'BRAND_VALIDATION_FAILED',
+                'brand': first_error['brand'],
+                'fix': first_error['fix'],
+                'fix_url': first_error.get('fix_url'),
+                'all_errors': validation_errors
             }), 400
         
         print(f"[PROCESS BRANDS] Processing {len(selected_brand_configs)} brands sequentially")
