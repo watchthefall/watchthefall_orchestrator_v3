@@ -191,6 +191,15 @@ def _run_migrations():
     except Exception as e:
         print(f"[DATABASE] Migration warning (system brands cleanup): {e}")
     
+    # Migration: Add watermark_path for unified watermark asset storage
+    try:
+        c.execute("SELECT watermark_path FROM brands LIMIT 1")
+    except sqlite3.OperationalError:
+        print("[DATABASE] Running migration: Adding watermark_path column")
+        c.execute("ALTER TABLE brands ADD COLUMN watermark_path TEXT DEFAULT NULL")
+        conn.commit()
+        print("[DATABASE] Migration completed: watermark_path added")
+    
     conn.close()
 
 def get_db():
@@ -562,7 +571,7 @@ def update_brand(brand_id, **updates):
     # Build dynamic update query
     allowed_fields = [
         'name', 'display_name', 'is_active', 'is_locked',
-        'watermark_vertical', 'watermark_square', 'watermark_landscape', 'logo_path',
+        'watermark_vertical', 'watermark_square', 'watermark_landscape', 'logo_path', 'watermark_path',
         'watermark_scale', 'watermark_opacity', 'logo_scale', 'logo_padding',
         'text_enabled', 'text_content', 'text_position', 'text_x', 'text_y', 'text_size', 'text_color',
         'text_font', 'text_bg_enabled', 'text_bg_color', 'text_bg_opacity', 'text_margin',

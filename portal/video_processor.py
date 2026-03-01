@@ -184,19 +184,32 @@ class VideoProcessor:
     
     def resolve_watermark_path(self, brand_name: str, brand_config: Dict = None) -> Optional[str]:
         """
-        Resolve watermark path - first from database config, then from master assets.
+        Resolve watermark path - from database uploaded watermark or master assets.
         
         Priority:
-        1. DB-stored path based on orientation (watermark_vertical, watermark_square, watermark_landscape)
-        2. Fallback to master assets filesystem resolution
+        1. DB watermark_path (uploaded SaaS watermark)
+        2. DB-stored path based on orientation (legacy: watermark_vertical, watermark_square, watermark_landscape)
+        3. Fallback to master assets filesystem resolution
         
         Args:
             brand_name: Name of the brand
             brand_config: Optional brand config dict with DB-stored paths
         """
-        orientation = self.detect_orientation()
+        from .config import STORAGE_ROOT
         
-        # 1. Try DB-stored path based on orientation
+        # 1. Try new uploaded watermark_path (SaaS model)
+        if brand_config:
+            watermark_path = brand_config.get('watermark_path')
+            if watermark_path:
+                # Path is relative to STORAGE_ROOT
+                full_path = os.path.join(STORAGE_ROOT, watermark_path)
+                if os.path.exists(full_path):
+                    print(f"[DEBUG] Using uploaded watermark: {full_path}")
+                    return full_path
+                print(f"[DEBUG] Uploaded watermark path not found: {full_path}")
+        
+        # 2. Try legacy DB-stored path based on orientation
+        orientation = self.detect_orientation()
         if brand_config:
             orientation_key = {
                 'Vertical_HD': 'watermark_vertical',
@@ -214,7 +227,7 @@ class VideoProcessor:
                     return full_path
                 print(f"[DEBUG] DB watermark path not found: {full_path}")
         
-        # 2. Fallback to master assets filesystem resolution
+        # 3. Fallback to master assets filesystem resolution
         watermark_dir = os.path.join(self.WATERMARKS_DIR, orientation)
         
         # Clean brand name (remove 'WTF' suffix if present)
@@ -240,26 +253,28 @@ class VideoProcessor:
     
     def resolve_logo_path(self, brand_name: str, brand_config: Dict = None) -> Optional[str]:
         """
-        Resolve logo path - first from database config, then from master assets.
+        Resolve logo path - from database uploaded logo or master assets.
         
         Priority:
-        1. DB-stored path (logo_path)
+        1. DB-stored logo_path (uploaded SaaS logo)
         2. Fallback to master assets Circle folder
         
         Args:
             brand_name: Name of the brand
             brand_config: Optional brand config dict with DB-stored paths
         """
-        # 1. Try DB-stored path
+        from .config import STORAGE_ROOT
+        
+        # 1. Try DB-stored logo_path (SaaS model)
         if brand_config:
             db_path = brand_config.get('logo_path')
             if db_path:
-                from .config import PROJECT_ROOT
-                full_path = os.path.join(PROJECT_ROOT, db_path)
+                # Path is relative to STORAGE_ROOT
+                full_path = os.path.join(STORAGE_ROOT, db_path)
                 if os.path.exists(full_path):
-                    print(f"[DEBUG] Using DB logo path: {full_path}")
+                    print(f"[DEBUG] Using uploaded logo: {full_path}")
                     return full_path
-                print(f"[DEBUG] DB logo path not found: {full_path}")
+                print(f"[DEBUG] Uploaded logo path not found: {full_path}")
         
         # 2. Fallback to master assets Circle folder
         logo_filename = f"{brand_name}_logo.png"

@@ -698,14 +698,20 @@ async function createBrand(e) {
             ...editorState
         };
         
-        let res;
+        let res, data;
+        let createdBrandId = brandId;
+        
         if (mode === 'edit') {
-            // PUT to update existing brand
+            // PUT to update existing brand preset
             res = await fetch(`${apiBase}/api/brands/${brandId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+            data = await res.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to update brand');
+            }
         } else {
             // POST to create new brand
             res = await fetch(`${apiBase}/api/brands`, {
@@ -713,12 +719,45 @@ async function createBrand(e) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+            data = await res.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to create brand');
+            }
+            createdBrandId = data.brand_id;
         }
         
-        const data = await res.json();
+        // Upload logo if file selected
+        const logoFile = document.getElementById('logoUpload').files[0];
+        if (logoFile) {
+            status.innerHTML = `<div class="status-msg info">Uploading logo...</div>`;
+            const logoForm = new FormData();
+            logoForm.append('file', logoFile);
+            
+            const logoRes = await fetch(`${apiBase}/api/brands/${createdBrandId}/upload_logo`, {
+                method: 'POST',
+                body: logoForm
+            });
+            const logoData = await logoRes.json();
+            if (!logoData.success) {
+                throw new Error('Failed to upload logo: ' + logoData.error);
+            }
+        }
         
-        if (!data.success) {
-            throw new Error(data.error || `Failed to ${mode} brand`);
+        // Upload watermark if file selected
+        const wmFile = document.getElementById('watermarkUpload').files[0];
+        if (wmFile) {
+            status.innerHTML = `<div class="status-msg info">Uploading watermark...</div>`;
+            const wmForm = new FormData();
+            wmForm.append('file', wmFile);
+            
+            const wmRes = await fetch(`${apiBase}/api/brands/${createdBrandId}/upload_watermark`, {
+                method: 'POST',
+                body: wmForm
+            });
+            const wmData = await wmRes.json();
+            if (!wmData.success) {
+                throw new Error('Failed to upload watermark: ' + wmData.error);
+            }
         }
         
         status.innerHTML = `<div class="status-msg success">✅ Brand ${mode === 'edit' ? 'updated' : 'created'} successfully!</div>`;

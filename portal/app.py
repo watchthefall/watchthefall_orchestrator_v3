@@ -60,7 +60,7 @@ def init_users_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
-        tier TEXT DEFAULT 'Studio',
+        tier TEXT DEFAULT 'Explorer',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
@@ -69,11 +69,9 @@ def init_users_db():
         c.execute("SELECT tier FROM users LIMIT 1")
     except sqlite3.OperationalError:
         print("[DATABASE] Running migration: Adding tier column to users table")
-        c.execute("ALTER TABLE users ADD COLUMN tier TEXT DEFAULT 'Studio'")
-        # Update all existing users to Studio tier (you're admin)
-        c.execute("UPDATE users SET tier = 'Studio'")
+        c.execute("ALTER TABLE users ADD COLUMN tier TEXT DEFAULT 'Explorer'")
         conn.commit()
-        print("[DATABASE] Migration completed: tier column added, all users set to Studio")
+        print("[DATABASE] Migration completed: tier column added with Explorer default")
     
     conn.commit()
     conn.close()
@@ -98,14 +96,24 @@ def authenticate_user(email, password):
 def register_user(email, password):
     """Register a new user"""
     from .config import DB_PATH
+    import os
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         password_hash = hash_password(password)
-        c.execute('INSERT INTO users (email, password_hash) VALUES (?, ?)', (email, password_hash))
+        
+        # Determine tier based on ADMIN_EMAILS env var
+        admin_emails = os.environ.get('ADMIN_EMAILS', '').split(',')
+        admin_emails = [e.strip().lower() for e in admin_emails if e.strip()]
+        
+        tier = 'Studio' if email.lower() in admin_emails else 'Explorer'
+        
+        c.execute('INSERT INTO users (email, password_hash, tier) VALUES (?, ?, ?)', (email, password_hash, tier))
         conn.commit()
         user_id = c.lastrowid
         conn.close()
+        
+        print(f"[AUTH] Registered user: {email} with tier: {tier}")
         return user_id
     except sqlite3.IntegrityError:
         # Email already exists
@@ -1500,6 +1508,126 @@ def delete_brand_api(brand_id):
     except Exception as e:
         import traceback
         print(f"[BRANDS ERROR] Delete: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/brands/<int:brand_id>/upload_logo', methods=['POST'])
+@login_required
+def upload_brand_logo(brand_id):
+    """Upload logo for a brand"""
+    try:
+        from .database import get_brand, update_brand
+        from .config import BRANDS_DIR
+        from werkzeug.utils import secure_filename
+        
+        user_id = session.get('user_id')
+        
+        # Check brand exists and belongs to user
+        brand = get_brand(brand_id=brand_id)
+        if not brand:
+            return jsonify({'success': False, 'error': 'Brand not found'}), 404
+        
+        if brand['user_id'] != user_id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+        
+        # Check file uploaded
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'Empty filename'}), 400
+        
+        # Validate file type
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'webp'}
+        ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        if ext not in allowed_extensions:
+            return jsonify({'success': False, 'error': f'Invalid file type. Allowed: {allowed_extensions}'}), 400
+        
+        # Create brand directory: /var/data/storage/brands/{user_id}/{brand_id}/
+        brand_dir = os.path.join(BRANDS_DIR, str(user_id), str(brand_id))
+        os.makedirs(brand_dir, exist_ok=True)
+        
+        # Save with consistent name: logo.png
+        logo_filename = f'logo.{ext}'
+        logo_path = os.path.join(brand_dir, logo_filename)
+        file.save(logo_path)
+        
+        # Store relative path from STORAGE_ROOT
+        relative_path = os.path.relpath(logo_path, STORAGE_ROOT)
+        
+        # Update database
+        update_brand(brand_id, logo_path=relative_path)
+        
+        print(f"[BRANDS] Uploaded logo for brand {brand_id}: {relative_path}")
+        
+        return jsonify({
+            'success': True,
+            'logo_path': relative_path,
+            'message': 'Logo uploaded successfully'
+        })
+    except Exception as e:
+        import traceback
+        print(f"[BRANDS ERROR] Upload logo: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/brands/<int:brand_id>/upload_watermark', methods=['POST'])
+@login_required
+def upload_brand_watermark(brand_id):
+    """Upload watermark for a brand"""
+    try:
+        from .database import get_brand, update_brand
+        from .config import BRANDS_DIR
+        from werkzeug.utils import secure_filename
+        
+        user_id = session.get('user_id')
+        
+        # Check brand exists and belongs to user
+        brand = get_brand(brand_id=brand_id)
+        if not brand:
+            return jsonify({'success': False, 'error': 'Brand not found'}), 404
+        
+        if brand['user_id'] != user_id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+        
+        # Check file uploaded
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'Empty filename'}), 400
+        
+        # Validate file type
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'webp'}
+        ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        if ext not in allowed_extensions:
+            return jsonify({'success': False, 'error': f'Invalid file type. Allowed: {allowed_extensions}'}), 400
+        
+        # Create brand directory: /var/data/storage/brands/{user_id}/{brand_id}/
+        brand_dir = os.path.join(BRANDS_DIR, str(user_id), str(brand_id))
+        os.makedirs(brand_dir, exist_ok=True)
+        
+        # Save with consistent name: watermark.png
+        watermark_filename = f'watermark.{ext}'
+        watermark_path = os.path.join(brand_dir, watermark_filename)
+        file.save(watermark_path)
+        
+        # Store relative path from STORAGE_ROOT
+        relative_path = os.path.relpath(watermark_path, STORAGE_ROOT)
+        
+        # Update database
+        update_brand(brand_id, watermark_path=relative_path)
+        
+        print(f"[BRANDS] Uploaded watermark for brand {brand_id}: {relative_path}")
+        
+        return jsonify({
+            'success': True,
+            'watermark_path': relative_path,
+            'message': 'Watermark uploaded successfully'
+        })
+    except Exception as e:
+        import traceback
+        print(f"[BRANDS ERROR] Upload watermark: {traceback.format_exc()}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # ============================================================================
