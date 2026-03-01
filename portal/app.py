@@ -60,8 +60,21 @@ def init_users_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
+        tier TEXT DEFAULT 'Studio',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
+    
+    # Migration: Add tier column if missing
+    try:
+        c.execute("SELECT tier FROM users LIMIT 1")
+    except sqlite3.OperationalError:
+        print("[DATABASE] Running migration: Adding tier column to users table")
+        c.execute("ALTER TABLE users ADD COLUMN tier TEXT DEFAULT 'Studio'")
+        # Update all existing users to Studio tier (you're admin)
+        c.execute("UPDATE users SET tier = 'Studio'")
+        conn.commit()
+        print("[DATABASE] Migration completed: tier column added, all users set to Studio")
+    
     conn.commit()
     conn.close()
 
@@ -446,7 +459,7 @@ def brands_page():
 @login_required
 def profile_page():
     """User profile page"""
-    from .database import get_db
+    from .database import get_db, get_all_brands
     from datetime import datetime
     
     user_id = session.get('user_id')
@@ -455,7 +468,7 @@ def profile_page():
     # Get user info from database
     conn = get_db()
     c = conn.cursor()
-    c.execute('SELECT created_at FROM users WHERE id = ?', (user_id,))
+    c.execute('SELECT created_at, tier FROM users WHERE id = ?', (user_id,))
     user = c.fetchone()
     conn.close()
     
@@ -468,12 +481,16 @@ def profile_page():
         except:
             pass
     
-    # TODO: Get actual usage stats from database when tier system is implemented
-    # For now, show placeholder data
-    tier = 'Explorer'  # Default tier
+    # Get actual tier from database (or default to Explorer)
+    tier = user['tier'] if user and user.get('tier') else 'Explorer'
+    
+    # Get actual brand count
+    user_brands = get_all_brands(user_id=user_id, include_system=False)
+    brand_configs = len(user_brands)
+    
+    # TODO: Get actual usage stats when usage tracking is implemented
     downloads_used = 0
     brands_used = 0
-    brand_configs = 0  # Count of user's brands
     
     # Tier limits
     tier_limits = {
