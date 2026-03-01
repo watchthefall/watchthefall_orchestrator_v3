@@ -465,6 +465,14 @@
                             <label>Opacity <span class="slider-value" id="logoOpacityVal">100%</span></label>
                             <input type="range" id="logoOpacity" min="0" max="100" value="100" oninput="updateLogoOpacity(this.value)">
                         </div>
+                        <div class="slider-row">
+                            <label>Shape</label>
+                            <div class="mode-toggle" style="margin-top:8px;">
+                                <button type="button" class="mode-btn active" id="logoShapeOriginal" onclick="setLogoShape('original')">Original</button>
+                                <button type="button" class="mode-btn" id="logoShapeCircle" onclick="setLogoShape('circle')">Circle</button>
+                                <button type="button" class="mode-btn" id="logoShapeSquare" onclick="setLogoShape('square')">Square</button>
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- Watermark Controls -->
@@ -651,6 +659,17 @@ function updateLogoOpacity(value) {
     document.getElementById('logoOpacityVal').textContent = value + '%';
     if (editor) {
         editor.updateState({ logoOpacity: parseFloat(value) / 100 });
+    }
+}
+
+function setLogoShape(shape) {
+    // Update button states
+    document.getElementById('logoShapeOriginal').classList.toggle('active', shape === 'original');
+    document.getElementById('logoShapeCircle').classList.toggle('active', shape === 'circle');
+    document.getElementById('logoShapeSquare').classList.toggle('active', shape === 'square');
+    
+    if (editor) {
+        editor.updateState({ logoShape: shape });
     }
 }
 

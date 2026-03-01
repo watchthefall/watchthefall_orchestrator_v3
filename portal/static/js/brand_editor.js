@@ -28,6 +28,7 @@ class BrandEditor {
             logoY: 0.85,
             logoScale: 0.15,
             logoOpacity: 1.0,
+            logoShape: 'original', // 'original', 'circle', 'square'
             
             // Watermark
             watermarkFile: null,
@@ -250,7 +251,40 @@ class BrandEditor {
         const x = this.state.logoX * this.CANVAS_WIDTH;
         const y = this.state.logoY * this.CANVAS_HEIGHT;
         
+        const shape = this.state.logoShape || 'original';
+        
+        // Save context for clipping
+        this.ctx.save();
+        
+        if (shape === 'circle') {
+            // Create circular clip path
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, size/2, 0, Math.PI * 2);
+            this.ctx.closePath();
+            this.ctx.clip();
+        } else if (shape === 'square') {
+            // Create square clip path with rounded corners
+            const radius = size * 0.1; // 10% corner radius
+            this.ctx.beginPath();
+            this.ctx.moveTo(x - size/2 + radius, y - size/2);
+            this.ctx.lineTo(x + size/2 - radius, y - size/2);
+            this.ctx.quadraticCurveTo(x + size/2, y - size/2, x + size/2, y - size/2 + radius);
+            this.ctx.lineTo(x + size/2, y + size/2 - radius);
+            this.ctx.quadraticCurveTo(x + size/2, y + size/2, x + size/2 - radius, y + size/2);
+            this.ctx.lineTo(x - size/2 + radius, y + size/2);
+            this.ctx.quadraticCurveTo(x - size/2, y + size/2, x - size/2, y + size/2 - radius);
+            this.ctx.lineTo(x - size/2, y - size/2 + radius);
+            this.ctx.quadraticCurveTo(x - size/2, y - size/2, x - size/2 + radius, y - size/2);
+            this.ctx.closePath();
+            this.ctx.clip();
+        }
+        // For 'original' shape, no clipping applied
+        
         this.ctx.drawImage(img, x - size/2, y - size/2, size, size);
+        
+        // Restore context
+        this.ctx.restore();
+        
         this.ctx.globalAlpha = 1.0;
     }
     
@@ -314,6 +348,7 @@ class BrandEditor {
             logo_y: this.state.logoY,
             logo_scale: this.state.logoScale,
             logo_opacity: this.state.logoOpacity,
+            logo_shape: this.state.logoShape,
             wm_mode: this.state.wmMode,
             wm_x: this.state.wmX,
             wm_y: this.state.wmY,
@@ -334,6 +369,7 @@ class BrandEditor {
         this.state.logoY = brand.logo_y || 0.85;
         this.state.logoScale = brand.logo_scale || 0.15;
         this.state.logoOpacity = brand.logo_opacity || 1.0;
+        this.state.logoShape = brand.logo_shape || 'original';
         
         this.state.wmMode = brand.wm_mode || 'fullscreen';
         this.state.wmX = brand.wm_x || 0.5;

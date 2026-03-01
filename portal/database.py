@@ -200,6 +200,15 @@ def _run_migrations():
         conn.commit()
         print("[DATABASE] Migration completed: watermark_path added")
     
+    # Migration: Add logo_shape for circle/square clipping
+    try:
+        c.execute("SELECT logo_shape FROM brands LIMIT 1")
+    except sqlite3.OperationalError:
+        print("[DATABASE] Running migration: Adding logo_shape column")
+        c.execute("ALTER TABLE brands ADD COLUMN logo_shape TEXT DEFAULT 'original'")
+        conn.commit()
+        print("[DATABASE] Migration completed: logo_shape added")
+    
     conn.close()
 
 def get_db():
@@ -588,7 +597,7 @@ def update_brand(brand_id, **updates):
         'text_enabled', 'text_content', 'text_position', 'text_x', 'text_y', 'text_size', 'text_color',
         'text_font', 'text_bg_enabled', 'text_bg_color', 'text_bg_opacity', 'text_margin',
         # Visual positioning fields
-        'logo_x', 'logo_y', 'logo_opacity',
+        'logo_x', 'logo_y', 'logo_opacity', 'logo_shape',
         'wm_mode', 'wm_x', 'wm_y', 'wm_scale', 'wm_opacity',
         'text_x_percent', 'text_y_percent'
     ]
