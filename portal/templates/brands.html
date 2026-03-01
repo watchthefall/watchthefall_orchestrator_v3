@@ -457,6 +457,21 @@
                         <h3>🎨 Logo</h3>
                         <input type="file" id="logoUpload" accept="image/png,image/jpeg,image/jpg,image/webp,image/*" capture="environment" onchange="handleLogoUpload(event)">
                         <div id="logoStatus" class="badge-warning" style="display:none; margin-top:8px;">⚠️ No logo uploaded</div>
+                        
+                        <!-- Background Removal Options -->
+                        <div style="margin-top:12px; padding:10px; background:rgba(0,0,0,0.2); border-radius:6px;">
+                            <label style="display:block; font-size:11px; color:#aaa; margin-bottom:6px;">Smart Background Removal</label>
+                            <div class="mode-toggle" style="margin-bottom:8px;">
+                                <button type="button" class="mode-btn active" id="logoRemoveBgNone" onclick="setLogoRemoveBg('none')">None</button>
+                                <button type="button" class="mode-btn" id="logoRemoveBgDark" onclick="setLogoRemoveBg('dark')">Remove Dark</button>
+                                <button type="button" class="mode-btn" id="logoRemoveBgLight" onclick="setLogoRemoveBg('light')">Remove Light</button>
+                            </div>
+                            <div id="logoRemoveBgSlider" style="display:none;">
+                                <label style="font-size:11px; color:#888;">Strength <span id="logoRemoveBgStrength" style="color:#00b7ff;">30</span></label>
+                                <input type="range" id="logoRemoveBgThreshold" min="10" max="60" value="30" style="width:100%;" oninput="updateLogoRemoveBgStrength(this.value)">
+                            </div>
+                        </div>
+                        
                         <div class="slider-row">
                             <label>Scale <span class="slider-value" id="logoScaleVal">15%</span></label>
                             <input type="range" id="logoScale" min="5" max="50" value="15" oninput="updateLogoScale(this.value)">
@@ -530,6 +545,8 @@
 <script>
 const apiBase = window.location.origin;
 let editor = null;
+let logoRemoveBgMode = 'none';  // 'none', 'dark', 'light'
+let logoRemoveBgThreshold = 30;  // 10-60
 
 // Load brands on page load
 loadBrands();
@@ -673,6 +690,24 @@ function setLogoShape(shape) {
     }
 }
 
+function setLogoRemoveBg(mode) {
+    // Update button states
+    document.getElementById('logoRemoveBgNone').classList.toggle('active', mode === 'none');
+    document.getElementById('logoRemoveBgDark').classList.toggle('active', mode === 'dark');
+    document.getElementById('logoRemoveBgLight').classList.toggle('active', mode === 'light');
+    
+    // Show/hide strength slider
+    const slider = document.getElementById('logoRemoveBgSlider');
+    slider.style.display = (mode !== 'none') ? 'block' : 'none';
+    
+    logoRemoveBgMode = mode;
+}
+
+function updateLogoRemoveBgStrength(value) {
+    document.getElementById('logoRemoveBgStrength').textContent = value;
+    logoRemoveBgThreshold = parseInt(value);
+}
+
 function setWatermarkMode(mode) {
     if (mode === 'fullscreen') {
         document.getElementById('wmFullscreenBtn').classList.add('active');
@@ -783,9 +818,15 @@ async function createBrand(e) {
         // Upload logo if file selected
         const logoFile = document.getElementById('logoUpload').files[0];
         if (logoFile) {
-            status.innerHTML = `<div class="status-msg info">Uploading logo...</div>`;
+            status.innerHTML = `<div class="status-msg info">Uploading & normalizing logo...</div>`;
             const logoForm = new FormData();
             logoForm.append('file', logoFile);
+            
+            // Add background removal parameters
+            if (logoRemoveBgMode !== 'none') {
+                logoForm.append('remove_bg', logoRemoveBgMode);  // 'dark' or 'light'
+                logoForm.append('bg_threshold', logoRemoveBgThreshold);  // 10-60
+            }
             
             const logoRes = await fetch(`${apiBase}/api/brands/${createdBrandId}/upload_logo`, {
                 method: 'POST',

@@ -1574,23 +1574,49 @@ def upload_brand_logo(brand_id):
         brand_dir = os.path.join(BRANDS_DIR, str(user_id), str(brand_id))
         os.makedirs(brand_dir, exist_ok=True)
         
-        # Save with consistent name: logo.png
-        logo_filename = f'logo.{ext}'
-        logo_path = os.path.join(brand_dir, logo_filename)
-        file.save(logo_path)
+        # Save original file first
+        original_filename = f'logo_original.{ext}'
+        original_path = os.path.join(brand_dir, original_filename)
+        file.save(original_path)
         
-        # Store relative path from STORAGE_ROOT
-        relative_path = os.path.relpath(logo_path, STORAGE_ROOT)
+        # Normalize image: convert to PNG, resize, clean alpha
+        from .image_utils import normalize_logo
+        normalized_filename = 'logo_normalized.png'
+        normalized_path = os.path.join(brand_dir, normalized_filename)
+        
+        # Get background removal preferences from request
+        remove_bg = request.form.get('remove_bg')  # 'dark', 'light', or None
+        bg_threshold = int(request.form.get('bg_threshold', 30))  # 0-255
+        
+        norm_result = normalize_logo(
+            original_path, 
+            normalized_path,
+            max_dimension=1024,
+            remove_bg=remove_bg,
+            bg_threshold=bg_threshold
+        )
+        
+        if not norm_result['success']:
+            return jsonify({
+                'success': False, 
+                'error': f'Failed to normalize image: {norm_result.get("error")}'
+            }), 500
+        
+        # Store relative path of NORMALIZED version (this is what VideoProcessor will use)
+        relative_path = os.path.relpath(normalized_path, STORAGE_ROOT)
         
         # Update database
         update_brand(brand_id, logo_path=relative_path)
         
-        print(f"[BRANDS] Uploaded logo for brand {brand_id}: {relative_path}")
+        print(f"[BRANDS] Uploaded & normalized logo for brand {brand_id}: {relative_path}")
+        print(f"[BRANDS] Original: {norm_result.get('original_format')} {norm_result.get('original_size')}")
+        print(f"[BRANDS] Normalized: PNG {norm_result.get('normalized_size')}")
         
         return jsonify({
             'success': True,
             'logo_path': relative_path,
-            'message': 'Logo uploaded successfully'
+            'message': 'Logo uploaded and normalized successfully',
+            'metadata': norm_result
         })
     except Exception as e:
         import traceback
@@ -1634,23 +1660,49 @@ def upload_brand_watermark(brand_id):
         brand_dir = os.path.join(BRANDS_DIR, str(user_id), str(brand_id))
         os.makedirs(brand_dir, exist_ok=True)
         
-        # Save with consistent name: watermark.png
-        watermark_filename = f'watermark.{ext}'
-        watermark_path = os.path.join(brand_dir, watermark_filename)
-        file.save(watermark_path)
+        # Save original file first
+        original_filename = f'watermark_original.{ext}'
+        original_path = os.path.join(brand_dir, original_filename)
+        file.save(original_path)
         
-        # Store relative path from STORAGE_ROOT
-        relative_path = os.path.relpath(watermark_path, STORAGE_ROOT)
+        # Normalize image: convert to PNG, resize, clean alpha
+        from .image_utils import normalize_logo
+        normalized_filename = 'watermark_normalized.png'
+        normalized_path = os.path.join(brand_dir, normalized_filename)
+        
+        # Get background removal preferences from request
+        remove_bg = request.form.get('remove_bg')  # 'dark', 'light', or None
+        bg_threshold = int(request.form.get('bg_threshold', 30))  # 0-255
+        
+        norm_result = normalize_logo(
+            original_path, 
+            normalized_path,
+            max_dimension=2048,  # Watermarks can be larger
+            remove_bg=remove_bg,
+            bg_threshold=bg_threshold
+        )
+        
+        if not norm_result['success']:
+            return jsonify({
+                'success': False, 
+                'error': f'Failed to normalize image: {norm_result.get("error")}'
+            }), 500
+        
+        # Store relative path of NORMALIZED version
+        relative_path = os.path.relpath(normalized_path, STORAGE_ROOT)
         
         # Update database
         update_brand(brand_id, watermark_path=relative_path)
         
-        print(f"[BRANDS] Uploaded watermark for brand {brand_id}: {relative_path}")
+        print(f"[BRANDS] Uploaded & normalized watermark for brand {brand_id}: {relative_path}")
+        print(f"[BRANDS] Original: {norm_result.get('original_format')} {norm_result.get('original_size')}")
+        print(f"[BRANDS] Normalized: PNG {norm_result.get('normalized_size')}")
         
         return jsonify({
             'success': True,
             'watermark_path': relative_path,
-            'message': 'Watermark uploaded successfully'
+            'message': 'Watermark uploaded and normalized successfully',
+            'metadata': norm_result
         })
     except Exception as e:
         import traceback
