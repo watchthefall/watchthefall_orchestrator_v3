@@ -1133,13 +1133,26 @@ async function loadBrandAssets(brandName) {
 function enterQueueMode() {
     const result = document.getElementById('processResult');
     
+    // Defensive check: try to recover from sessionStorage if currentFile is null
+    if (!currentFile) {
+        const recoveredFile = sessionStorage.getItem('lastDownloadFilename');
+        if (recoveredFile) {
+            console.log('[BRANDR] Recovered currentFile from sessionStorage:', recoveredFile);
+            currentFile = recoveredFile;
+        }
+    }
+    
+    console.log('[BRANDR] enterQueueMode check - currentFile:', currentFile, 'selectedBrands:', selectedBrands);
+    
     if (!currentFile) {
         result.innerHTML = '<div class="status-msg error">Download a video first</div>';
+        console.error('[BRANDR] enterQueueMode blocked: No currentFile');
         return;
     }
     
     if (selectedBrands.length === 0) {
         result.innerHTML = '<div class="status-msg error">Select at least one brand</div>';
+        console.error('[BRANDR] enterQueueMode blocked: No brands selected');
         return;
     }
     
@@ -1151,6 +1164,10 @@ function enterQueueMode() {
     }));
     currentQueueIndex = 0;
     isQueueMode = true;
+    
+    // Clear sessionStorage now that branding has started
+    sessionStorage.removeItem('lastDownloadFilename');
+    console.log('[BRANDR] Entering queue mode with', selectedBrands.length, 'brands');
     
     // Hide selection mode, show queue mode
     document.getElementById('downloadSection').style.display = 'none';  // Hide download section
@@ -1741,8 +1758,9 @@ if (lastDownloadFilename) {
     document.getElementById('previewSection').style.display = 'block';
     extractFrame(lastDownloadFilename);
     
-    // Clear the session storage to prevent reuse
-    sessionStorage.removeItem('lastDownloadFilename');
+    // DON'T clear sessionStorage yet - keep it until branding starts
+    // This allows recovery if currentFile gets lost
+    console.log('[BRANDR] Loaded video from downloader:', lastDownloadFilename);
     
     // Update video status to show file selected
     document.getElementById('videoStatusIcon').textContent = '✅';
