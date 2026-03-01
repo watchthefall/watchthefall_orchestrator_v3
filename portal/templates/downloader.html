@@ -580,8 +580,11 @@ https://x.com/..."></textarea>
                 return;
             }
             
-            // Parse URLs: split by newline, trim, filter empty, dedupe
-            const rawUrls = videoUrlsText.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+            // Extract URLs using regex (handles messy input: spaces, mixed text, etc.)
+            const urlMatches = videoUrlsText.match(/https?:\/\/[^\s]+/g) || [];
+            const rawUrls = urlMatches.map(u => u.trim()).filter(u => u.length > 0);
+            
+            // Deduplicate
             const uniqueUrls = [...new Set(rawUrls)];
             
             // Validate URLs
@@ -589,7 +592,7 @@ https://x.com/..."></textarea>
             const invalidUrls = uniqueUrls.filter(url => !isSupportedURL(url));
             
             if (validUrls.length === 0) {
-                alert('No valid URLs found. Please check your links.');
+                alert('No valid URLs found. Please check your links.\n\nSupported: TikTok, Instagram, X/Twitter, YouTube');
                 return;
             }
             
@@ -599,7 +602,7 @@ https://x.com/..."></textarea>
             }
             
             if (invalidUrls.length > 0) {
-                const proceed = confirm(`Found ${invalidUrls.length} unsupported URL(s). Continue with ${validUrls.length} valid URLs?`);
+                const proceed = confirm(`Found ${invalidUrls.length} unsupported URL(s).\n\nContinue with ${validUrls.length} valid URLs?`);
                 if (!proceed) return;
             }
             
@@ -623,6 +626,11 @@ https://x.com/..."></textarea>
                 });
                 
                 const data = await response.json();
+                
+                // Defensive parsing: ensure data.results exists
+                if (!data || !data.results) {
+                    throw new Error('Backend returned unexpected response structure (missing data.results)');
+                }
                 
                 if (data.success && data.results) {
                     const results = data.results;
