@@ -1,0 +1,18 @@
+{# Navigation partial - include with: {% include '_nav.html' %} #}
+{# Set active_page variable before including: {% set active_page = 'download' %} #}
+
+<div class="nav-bar">
+    <ul class="nav-links">
+        <li><a href="{{ url_for('download') }}"{% if active_page == 'download' %} class="active"{% endif %}>Downloader</a></li>
+        <li><a href="{{ url_for('brand_video') }}"{% if active_page == 'brand_video' %} class="active"{% endif %}>Brand a Video</a></li>
+        <li><a href="{{ url_for('brands_page') }}"{% if active_page == 'brands_page' %} class="active"{% endif %}>Manage Brands</a></li>
+        <li><a href="{{ url_for('shipr_page') }}"{% if active_page == 'shipr_page' %} class="active"{% endif %}>Shipr (Coming Soon)</a></li>
+        <li class="dropdown">
+            <a href="#">Account</a>
+            <div class="dropdown-content">
+                <a href="{{ url_for('profile_page') }}">Profile</a>
+                <a href="{{ url_for('logout') }}">Logout</a>
+            </div>
+        </li>
+    </ul>
+</div>
