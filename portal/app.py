@@ -158,7 +158,7 @@ def register():
             session['user_id'] = user_id
             session['email'] = email
             flash('Registration successful!', 'success')
-            return redirect(url_for('download'))
+            return redirect(url_for('dashboard'))
         else:
             flash('Email already exists or registration failed', 'error')
     
@@ -175,7 +175,7 @@ def login():
             session['user_id'] = user_id
             session['email'] = email
             flash('Login successful!', 'success')
-            return redirect(url_for('download'))
+            return redirect(url_for('dashboard'))
         else:
             flash('Invalid email or password', 'error')
     
@@ -189,13 +189,35 @@ def logout():
     return redirect(url_for('login'))
 
 
+# User state detection for Dashboard
+def get_user_state(user_id):
+    """Detect user state: 'no_brand_kit' or 'has_brand_kit'"""
+    from .database import get_all_brands
+    try:
+        user_brands = get_all_brands(user_id=user_id, include_system=False)
+        return 'has_brand_kit' if user_brands else 'no_brand_kit'
+    except Exception as e:
+        print(f"[DASHBOARD] Error detecting user state: {e}")
+        return 'has_brand_kit'  # Default to workspace view on error
+
+
+# Dashboard route - adaptive home based on user state
+@app.route('/portal/dashboard')
+@login_required
+def dashboard():
+    """Adaptive dashboard based on user state"""
+    user_id = session.get('user_id')
+    state = get_user_state(user_id)
+    return render_template('dashboard.html', state=state)
+
+
 # Default routing based on login status
 @app.route('/portal/')
 def portal_home():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     else:
-        return redirect(url_for('download'))
+        return redirect(url_for('dashboard'))
 
 
 # Debug endpoint to verify app is loading routes correctly

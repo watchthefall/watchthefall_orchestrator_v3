@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Brandr</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        /* Onboarding State (no_brand_kit) */
+        .welcome-section {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        .welcome-section h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #ffffff;
+        }
+        .welcome-section .subtitle {
+            font-size: 1.1rem;
+            color: #a0a0a0;
+            margin-bottom: 2.5rem;
+            line-height: 1.6;
+        }
+        .journey-steps {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+        .journey-step {
+            text-align: center;
+            color: #808080;
+            font-size: 0.9rem;
+        }
+        .journey-step .step-number {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #2d2d2d;
+            border: 1px solid #3a3a3a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 8px;
+            font-weight: 600;
+            color: #4ade80;
+        }
+        .primary-cta {
+            display: inline-block;
+            padding: 1rem 2.5rem;
+            background-color: #4ade80;
+            color: #1a1a1a;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: background-color 0.2s ease;
+        }
+        .primary-cta:hover {
+            background-color: #22c55e;
+        }
+        .secondary-links {
+            margin-top: 2rem;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .secondary-links a {
+            color: #4ade80;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        .secondary-links a:hover {
+            color: #22c55e;
+        }
+        
+        /* Workspace State (has_brand_kit) */
+        .workspace-section h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            color: #ffffff;
+        }
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 2rem;
+        }
+        .action-card {
+            background-color: #2d2d2d;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            padding: 24px;
+            text-decoration: none;
+            color: #e0e0e0;
+            transition: all 0.2s ease;
+        }
+        .action-card:hover {
+            border-color: #4ade80;
+            transform: translateY(-2px);
+        }
+        .action-card .card-icon {
+            font-size: 1.5rem;
+            margin-bottom: 12px;
+        }
+        .action-card .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #ffffff;
+        }
+        .action-card .card-desc {
+            font-size: 0.85rem;
+            color: #808080;
+            line-height: 1.4;
+        }
+        .action-card.primary-action {
+            border-color: #4ade80;
+            background-color: rgba(74, 222, 128, 0.08);
+        }
+        
+        /* Account link */
+        .account-link {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            color: #808080;
+            text-decoration: none;
+            font-size: 0.9rem;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        .account-link:hover {
+            color: #e0e0e0;
+            background-color: #2d2d2d;
+        }
+    </style>
+</head>
+<body>
+    <a href="{{ url_for('profile_page') }}" class="account-link">Account</a>
+    
+    <div class="container">
+        {% if state == 'no_brand_kit' %}
+        <!-- Onboarding State -->
+        <div class="welcome-section">
+            <h1>Welcome to Brandr</h1>
+            <p class="subtitle">
+                Set up your Brand Kit, create branded content,<br>
+                manage it in your Library, then ship when ready.
+            </p>
+            
+            <div class="journey-steps">
+                <div class="journey-step">
+                    <div class="step-number">1</div>
+                    <span>Brand Kit</span>
+                </div>
+                <div class="journey-step">
+                    <div class="step-number">2</div>
+                    <span>Create</span>
+                </div>
+                <div class="journey-step">
+                    <div class="step-number">3</div>
+                    <span>Library</span>
+                </div>
+                <div class="journey-step">
+                    <div class="step-number">4</div>
+                    <span>Ship</span>
+                </div>
+            </div>
+            
+            <a href="{{ url_for('brands_page') }}" class="primary-cta">Set up Brand Kit</a>
+            
+            <div class="secondary-links">
+                <a href="{{ url_for('download') }}">Explore the app</a>
+            </div>
+        </div>
+        
+        {% else %}
+        <!-- Workspace State (has_brand_kit) -->
+        <div class="workspace-section">
+            <h1>Welcome back</h1>
+            
+            <div class="quick-actions">
+                <a href="{{ url_for('brand_video') }}" class="action-card primary-action">
+                    <div class="card-icon">✨</div>
+                    <div class="card-title">Create</div>
+                    <div class="card-desc">Brand a video with your kit</div>
+                </a>
+                
+                <a href="{{ url_for('brands_page') }}" class="action-card">
+                    <div class="card-icon">🎨</div>
+                    <div class="card-title">Brand Kit</div>
+                    <div class="card-desc">Manage your brand identity</div>
+                </a>
+                
+                <a href="{{ url_for('download') }}" class="action-card">
+                    <div class="card-icon">📁</div>
+                    <div class="card-title">Library</div>
+                    <div class="card-desc">View downloads and outputs</div>
+                </a>
+                
+                <a href="{{ url_for('shipr_page') }}" class="action-card">
+                    <div class="card-icon">🚀</div>
+                    <div class="card-title">Shipr</div>
+                    <div class="card-desc">Ship your content (coming soon)</div>
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
