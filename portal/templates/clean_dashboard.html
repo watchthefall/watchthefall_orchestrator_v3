@@ -436,65 +436,63 @@
     
     /* ========== NAV BAR ========== */
     .nav-bar {
-        display: flex;
-        justify-content: center;
-        gap: 10px;
-        padding: 15px;
-        background: rgba(0, 0, 0, 0.8);
-        border-bottom: 1px solid #333;
+        background-color: #111;
+        padding: 0.5rem;
         position: sticky;
         top: 0;
         z-index: 100;
+        border-bottom: 1px solid #333;
     }
-    .nav-btn {
-        padding: 10px 20px;
-        background: transparent;
-        border: 2px solid #333;
-        color: #888;
-        font-size: 14px;
-        font-weight: 600;
-        border-radius: 20px;
-        width: auto;
+    .nav-bar .nav-links {
+        display: flex;
+        list-style: none;
         margin: 0;
-        transition: all 0.2s;
+        padding: 0;
+        flex-wrap: wrap;
+        justify-content: center;
     }
-    .nav-btn:hover {
-        border-color: #00b7ff;
+    .nav-bar .nav-links li {
+        margin: 0.25rem;
+    }
+    .nav-bar .nav-links a {
         color: #00b7ff;
-        background: transparent;
+        text-decoration: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        transition: background-color 0.3s;
+        display: block;
     }
-    .nav-btn.active {
-        border-color: #00b7ff;
-        background: #00b7ff;
-        color: #000;
+    .nav-bar .nav-links a:hover {
+        background-color: #333;
     }
-    .dropdown {
+    .nav-bar .nav-links .active {
+        background-color: #003355;
+    }
+    .nav-bar .dropdown {
         position: relative;
         display: inline-block;
     }
-    .dropdown-content {
+    .nav-bar .dropdown-content {
         display: none;
         position: absolute;
-        background: #222;
+        background-color: #222;
         min-width: 160px;
         box-shadow: 0 8px 16px rgba(0,0,0,0.5);
         z-index: 1;
-        top: 100%;
         right: 0;
         border-radius: 8px;
         overflow: hidden;
     }
-    .dropdown-content a {
-        color: #888;
+    .nav-bar .dropdown-content a {
+        color: #00b7ff;
         padding: 12px 16px;
         text-decoration: none;
         display: block;
     }
-    .dropdown-content a:hover {
+    .nav-bar .dropdown-content a:hover {
         background-color: #333;
-        color: #00b7ff;
     }
-    .dropdown:hover .dropdown-content {
+    .nav-bar .dropdown:hover .dropdown-content {
         display: block;
     }
 </style>
@@ -502,21 +500,8 @@
 <body>
 
 <!-- Navigation Bar -->
-<nav class="nav-bar">
-    <div style="display: flex; gap: 10px;">
-        <a href="/portal/download" class="nav-btn">📥 Downloader</a>
-        <a href="/portal/brand" class="nav-btn active">🎬 Brand a Video</a>
-        <a href="/portal/brands" class="nav-btn">📁 Manage Brands</a>
-        <a href="/portal/shipr" class="nav-btn">🚢 Shipr (Coming Soon)</a>
-    </div>
-    <div class="dropdown">
-        <a href="#" class="nav-btn">👤 Account</a>
-        <div class="dropdown-content">
-            <a href="/portal/profile">Profile</a>
-            <a href="/portal/logout">Logout</a>
-        </div>
-    </div>
-</nav>
+{% set active_page = 'brand_video' %}
+{% include '_nav.html' %}
 
 <h1><span class="glitch">BRANDR STUDIO</span></h1>
 
