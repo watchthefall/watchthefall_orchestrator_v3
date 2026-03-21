@@ -671,8 +671,10 @@ def process_branded_videos():
                         }
                     
                     # Apply TikTok impersonation for TikTok URLs
-                    if is_tiktok:
-                        ydl_opts['impersonate'] = 'chrome'
+                    # Note: impersonation requires curl_cffi and specific target format
+                    # Temporarily disabled until proper integration is tested
+                    # if is_tiktok:
+                    #     ydl_opts['impersonate'] = ('chrome', '110', 'windows')
                     
                     # Only add cookiefile if the file exists and is readable
                     cookie_file = './portal/data/cookies.txt'
@@ -1121,8 +1123,10 @@ def fetch_videos_from_urls():
                     }
                 
                 # Apply TikTok impersonation for TikTok URLs
-                if is_tiktok:
-                    ydl_opts['impersonate'] = 'chrome'
+                # Note: impersonation requires curl_cffi and specific target format
+                # Temporarily disabled until proper integration is tested
+                # if is_tiktok:
+                #     ydl_opts['impersonate'] = ('chrome', '110', 'windows')
                 
                 # Only add cookiefile if the file exists and is readable
                 cookie_file = './portal/data/cookies.txt'
@@ -1225,18 +1229,18 @@ def fetch_videos_from_urls():
                 print(f"[FETCH ERROR] {url_input}: {str(e)}")
                 import traceback
                 traceback.print_exc()
-            # Try to get more detailed error information
-            error_details = str(e)
-            if hasattr(e, 'msg'):
-                error_details += f"; msg: {e.msg}"
-            if hasattr(e, 'reason'):
-                error_details += f"; reason: {e.reason}"
-            return {
-                'url': url_input,
-                'error': error_details,
-                'success': False,
-                'details': traceback.format_exc()
-            }
+                # Try to get more detailed error information
+                error_details = str(e)
+                if hasattr(e, 'msg'):
+                    error_details += f"; msg: {e.msg}"
+                if hasattr(e, 'reason'):
+                    error_details += f"; reason: {e.reason}"
+                return {
+                    'url': url_input,
+                    'error': error_details,
+                    'success': False,
+                    'details': traceback.format_exc()
+                }
         
         # Download sequentially to keep memory low
         results = []
