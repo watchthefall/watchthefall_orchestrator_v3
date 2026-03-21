@@ -16,3 +16,4 @@ brotli
 psutil>=5.9.8
 pyjwt
 cryptography
+curl_cffi

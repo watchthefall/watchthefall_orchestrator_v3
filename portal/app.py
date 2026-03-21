@@ -644,16 +644,23 @@ def process_branded_videos():
             # 1. Download the video from URL
             def download_video(url_input):
                 try:
-                    # Configure yt_dlp with enhanced fallback options for Instagram
+                    # Configure yt_dlp with platform-specific options
+                    is_instagram = 'instagram.com' in url_input.lower()
+                    is_tiktok = 'tiktok.com' in url_input.lower()
+                    
                     ydl_opts = {
                         'outtmpl': os.path.join(RAW_DIR, '%(id)s.%(ext)s'),
                         'merge_output_format': 'mp4',
-                        'format': 'bv*+ba/best',  # Better fallback for Instagram
+                        'format': 'bv*+ba/best',
                         'prefer_ffmpeg': True,
                         'retries': 5,
                         'fragment_retries': 5,
                         'socket_timeout': 300,
-                        'http_headers': {
+                    }
+                    
+                    # Apply Instagram-specific headers only for Instagram URLs
+                    if is_instagram:
+                        ydl_opts['http_headers'] = {
                             'User-Agent': 'Instagram 271.1.0.21.84 Android',
                             'X-IG-App-ID': '567067343352427',
                             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -662,7 +669,10 @@ def process_branded_videos():
                             'Connection': 'keep-alive',
                             'Upgrade-Insecure-Requests': '1',
                         }
-                    }
+                    
+                    # Apply TikTok impersonation for TikTok URLs
+                    if is_tiktok:
+                        ydl_opts['impersonate'] = 'chrome'
                     
                     # Only add cookiefile if the file exists and is readable
                     cookie_file = './portal/data/cookies.txt'
@@ -1084,16 +1094,23 @@ def fetch_videos_from_urls():
         
         def download_one(url_input):
             try:
-                # Configure yt_dlp with enhanced fallback options for Instagram
+                # Configure yt_dlp with platform-specific options
+                is_instagram = 'instagram.com' in url_input.lower()
+                is_tiktok = 'tiktok.com' in url_input.lower()
+                
                 ydl_opts = {
                     'outtmpl': os.path.join(RAW_DIR, '%(id)s.%(ext)s'),
                     'merge_output_format': 'mp4',
-                    'format': 'bv*+ba/best',  # Better fallback for Instagram
+                    'format': 'bv*+ba/best',
                     'prefer_ffmpeg': True,
                     'retries': 5,
                     'fragment_retries': 5,
                     'socket_timeout': 300,
-                    'http_headers': {
+                }
+                
+                # Apply Instagram-specific headers only for Instagram URLs
+                if is_instagram:
+                    ydl_opts['http_headers'] = {
                         'User-Agent': 'Instagram 271.1.0.21.84 Android',
                         'X-IG-App-ID': '567067343352427',
                         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -1102,7 +1119,10 @@ def fetch_videos_from_urls():
                         'Connection': 'keep-alive',
                         'Upgrade-Insecure-Requests': '1',
                     }
-                }
+                
+                # Apply TikTok impersonation for TikTok URLs
+                if is_tiktok:
+                    ydl_opts['impersonate'] = 'chrome'
                 
                 # Only add cookiefile if the file exists and is readable
                 cookie_file = './portal/data/cookies.txt'
