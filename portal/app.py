@@ -493,7 +493,7 @@ def brands_page():
 @login_required
 def profile_page():
     """User profile page with graceful error handling"""
-    from .database import get_db, get_all_brands
+    from .database import get_db, get_all_brands, get_user_downloads
     from datetime import datetime
     
     try:
@@ -523,8 +523,11 @@ def profile_page():
         user_brands = get_all_brands(user_id=user_id, include_system=False)
         brand_configs = len(user_brands)
         
-        # TODO: Get actual usage stats when usage tracking is implemented
-        downloads_used = 0
+        # Get actual download count for this user
+        user_downloads = get_user_downloads(user_id, limit=10000)
+        downloads_used = len(user_downloads)
+        
+        # TODO: Get actual brands_used when branding usage tracking is implemented
         brands_used = 0
         
         # Tier limits
