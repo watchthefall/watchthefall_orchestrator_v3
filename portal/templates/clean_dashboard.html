@@ -781,6 +781,7 @@
         <div class="tab-switcher">
             <button class="tab-btn active" data-tab="library" onclick="switchTab('library')">From Library</button>
             <button class="tab-btn" data-tab="upload" onclick="switchTab('upload')">Upload New</button>
+            <button class="tab-btn" data-tab="download" onclick="goToDownload()">Get Media</button>
         </div>
         <div class="tab-content">
             <!-- Tab 1: Library -->
@@ -2440,6 +2441,11 @@ function changeVideo() {
 function goToLibrary() {
     // Navigate to library page
     window.location.href = '/portal/library';
+}
+
+function goToDownload() {
+    // Navigate to download page to paste a link
+    window.location.href = '/portal/download';
 }
 
 function clearVideo() {
