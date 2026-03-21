@@ -505,6 +505,263 @@
     .nav-bar .dropdown:hover .dropdown-content {
         display: block;
     }
+
+    /* ========== INTAKE LAYER ========== */
+    .tab-switcher {
+        display: flex;
+        background: #222;
+        border-radius: 8px;
+        padding: 4px;
+        margin-bottom: 15px;
+    }
+    .tab-btn {
+        flex: 1;
+        width: auto;
+        margin-top: 0;
+        padding: 10px;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        color: #888;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .tab-btn.active {
+        background: #00b7ff;
+        color: #000;
+    }
+    .tab-btn:not(.active):hover {
+        color: #fff;
+        background: #333;
+    }
+
+    /* Library grid */
+    .library-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .library-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #222;
+        border: 1px solid #333;
+        border-radius: 8px;
+        padding: 10px 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .library-item:hover {
+        border-color: #00b7ff;
+        background: #1a1a2e;
+    }
+    .library-item .source-icon {
+        font-size: 20px;
+        flex-shrink: 0;
+        width: 28px;
+        text-align: center;
+    }
+    .library-item .item-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .library-item .item-filename {
+        display: block;
+        font-size: 13px;
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .library-item .item-date {
+        display: block;
+        font-size: 11px;
+        color: #666;
+        margin-top: 2px;
+    }
+    .library-item .item-select-btn {
+        padding: 6px 12px;
+        border-radius: 6px;
+        background: rgba(0,183,255,0.15);
+        color: #00b7ff;
+        border: 1px solid rgba(0,183,255,0.3);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        width: auto;
+        margin-top: 0;
+        flex-shrink: 0;
+    }
+    .library-item .item-select-btn:hover {
+        background: #00b7ff;
+        color: #000;
+    }
+    .library-item.unavailable {
+        opacity: 0.4;
+        pointer-events: none;
+    }
+    .library-footer {
+        text-align: center;
+        margin-top: 10px;
+        font-size: 13px;
+    }
+    .library-footer a {
+        color: #00b7ff;
+        text-decoration: none;
+    }
+    .library-footer a:hover {
+        text-decoration: underline;
+    }
+
+    /* Upload dropzone */
+    .upload-dropzone {
+        border: 2px dashed #444;
+        border-radius: 12px;
+        padding: 40px 20px;
+        text-align: center;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+    .upload-dropzone:hover,
+    .upload-dropzone.drag-over {
+        border-color: #00b7ff;
+        background: rgba(0,183,255,0.05);
+    }
+    .upload-dropzone .drop-icon {
+        font-size: 40px;
+        display: block;
+        margin-bottom: 10px;
+    }
+    .upload-dropzone .drop-text {
+        font-size: 15px;
+        color: #aaa;
+        margin-bottom: 5px;
+    }
+    .upload-browse-btn {
+        background: transparent;
+        border: 1px solid #00b7ff;
+        color: #00b7ff;
+        width: auto;
+        display: inline-block;
+        padding: 8px 20px;
+        margin-top: 12px;
+        font-size: 14px;
+    }
+    .upload-browse-btn:hover {
+        background: #00b7ff;
+        color: #000;
+    }
+    .upload-hint {
+        color: #666;
+        font-size: 12px;
+        margin-top: 12px;
+        text-align: center;
+    }
+    .upload-alt {
+        color: #555;
+        font-size: 12px;
+        margin-top: 8px;
+        text-align: center;
+    }
+    .upload-alt a {
+        color: #00b7ff;
+        text-decoration: none;
+    }
+    .upload-progress {
+        margin-top: 15px;
+    }
+    .upload-progress-bar {
+        height: 6px;
+        background: #333;
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    .upload-progress-fill {
+        height: 100%;
+        background: #00b7ff;
+        width: 0%;
+        transition: width 0.3s;
+    }
+    .upload-progress-text {
+        font-size: 12px;
+        color: #888;
+        margin-top: 6px;
+        text-align: center;
+    }
+
+    /* Selected video display */
+    .selected-video-display {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .selected-video-display .source-icon {
+        font-size: 24px;
+        flex-shrink: 0;
+    }
+    .selected-video-meta {
+        flex: 1;
+        min-width: 0;
+    }
+    .selected-filename {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .selected-source {
+        display: block;
+        font-size: 11px;
+        color: #666;
+        margin-top: 2px;
+    }
+    .selected-video-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+    }
+    .selected-video-actions button {
+        width: auto;
+        display: inline-block;
+        padding: 8px 16px;
+        font-size: 13px;
+        margin-top: 0;
+    }
+    #replaceVideoBtn {
+        background: #333;
+        color: #aaa;
+    }
+    #replaceVideoBtn:hover {
+        background: #444;
+        color: #fff;
+    }
+    #clearVideoBtn {
+        background: transparent;
+        border: 1px solid #444;
+        color: #888;
+    }
+    #clearVideoBtn:hover {
+        border-color: #666;
+        color: #fff;
+    }
+
+    /* Debug demotion */
+    #debugSection {
+        margin-top: 30px;
+        opacity: 0.7;
+    }
+    #debugSection h2 {
+        font-size: 14px;
+        color: #666;
+    }
 </style>
 </head>
 <body>
@@ -518,15 +775,66 @@
 <!-- ========== SECTION 1: VIDEO SOURCE ========== -->
 <div class="section" id="videoSourceSection">
     <h2>Selected Video</h2>
-    <div id="videoSourceStatus">
-        <p style="color:#666; font-size:14px; text-align:center; padding:20px;">
-            <span id="videoStatusIcon">⚠️</span>
-            <span id="videoStatusText">No video selected</span>
-        </p>
-        <button onclick="window.location.href='{{ url_for('download') }}'" style="background:#00b7ff;">
-            📥 Get Media
-        </button>
+
+    <!-- Intake Layer: shown when no video is selected -->
+    <div id="intakeLayer">
+        <div class="tab-switcher">
+            <button class="tab-btn active" data-tab="library" onclick="switchTab('library')">From Library</button>
+            <button class="tab-btn" data-tab="upload" onclick="switchTab('upload')">Upload New</button>
+        </div>
+        <div class="tab-content">
+            <!-- Tab 1: Library -->
+            <div id="tabLibrary">
+                <div id="libraryLoading" style="text-align:center; padding:20px; color:#888;">Loading library...</div>
+                <div id="libraryGrid" class="library-grid" style="display:none;"></div>
+                <div id="libraryEmpty" style="display:none; text-align:center; padding:20px;">
+                    <div style="font-size:32px; margin-bottom:8px;">📁</div>
+                    <p style="color:#888; margin-bottom:10px;">No media in your library yet</p>
+                    <a href="{{ url_for('download') }}" style="color:#00b7ff; text-decoration:none; font-size:13px;">Get Media &rarr;</a>
+                </div>
+                <div class="library-footer" id="libraryFooter" style="display:none;">
+                    <a href="{{ url_for('library') }}">View full library &rarr;</a>
+                </div>
+            </div>
+            <!-- Tab 2: Upload -->
+            <div id="tabUpload" style="display:none;">
+                <div class="upload-dropzone" id="uploadDropzone">
+                    <span class="drop-icon">📂</span>
+                    <div class="drop-text">Drag &amp; drop a video here</div>
+                    <div style="color:#555; font-size:12px; margin:8px 0;">or</div>
+                    <button class="upload-browse-btn" type="button" onclick="document.getElementById('uploadFileInput').click()">Browse Files</button>
+                    <input type="file" id="uploadFileInput" accept=".mp4,.mov,.avi" style="display:none;">
+                </div>
+                <p class="upload-hint">MP4, MOV, AVI &mdash; Max 500 MB</p>
+                <p class="upload-alt">or <a href="{{ url_for('download') }}">paste a link in Get Media</a></p>
+                <div id="uploadProgress" class="upload-progress" style="display:none;">
+                    <div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div>
+                    <div class="upload-progress-text" id="uploadProgressText">Uploading...</div>
+                </div>
+                <div id="uploadError" style="display:none; color:#ff6b6b; font-size:13px; text-align:center; margin-top:10px;"></div>
+            </div>
+        </div>
     </div>
+
+    <!-- Selected Video Info: shown after a video is picked -->
+    <div id="selectedVideoInfo" style="display:none;">
+        <div class="selected-video-display">
+            <span class="source-icon" id="selectedSourceIcon"></span>
+            <div class="selected-video-meta">
+                <span class="selected-filename" id="selectedFilename"></span>
+                <span class="selected-source" id="selectedSource"></span>
+            </div>
+        </div>
+        <div class="selected-video-actions">
+            <button id="changeVideoBtn" onclick="changeVideo()" class="btn-primary" style="font-size:13px; padding:6px 12px;">Change Video</button>
+            <button id="libraryBtn" onclick="goToLibrary()" class="btn-secondary" style="font-size:13px; padding:6px 12px; margin-left:8px;">Library</button>
+            <button id="clearVideoBtn" onclick="clearVideo()" class="btn-text" style="font-size:13px; padding:6px 12px; margin-left:8px; color:#888;">Clear</button>
+        </div>
+    </div>
+
+    <!-- Preserved for enterQueueMode contract -->
+    <span id="videoStatusIcon" style="display:none;">⚠️</span>
+    <span id="videoStatusText" style="display:none;">No video selected</span>
 </div>
 
 <!-- ========== SECTION 2: PREVIEW & CONFIGURE ========== -->
@@ -1887,6 +2195,264 @@ async function loadBrandIntegrity() {
     }
 }
 
+// ========== INTAKE LAYER ==========
+
+function getPlatformIcon(sourceUrl) {
+    if (!sourceUrl) return '🔗';
+    const url = sourceUrl.toLowerCase();
+    if (url.startsWith('upload://')) return '📤';
+    if (url.includes('tiktok')) return '🎵';
+    if (url.includes('instagram')) return '📸';
+    if (url.includes('youtube') || url.includes('youtu.be')) return '▶️';
+    if (url.includes('x.com') || url.includes('twitter')) return '🐦';
+    return '🔗';
+}
+
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
+    });
+    document.getElementById('tabLibrary').style.display = tabName === 'library' ? 'block' : 'none';
+    document.getElementById('tabUpload').style.display = tabName === 'upload' ? 'block' : 'none';
+}
+
+function showIntakeLayer() {
+    document.getElementById('intakeLayer').style.display = 'block';
+    document.getElementById('selectedVideoInfo').style.display = 'none';
+    loadLibraryItems();
+}
+
+async function loadLibraryItems() {
+    const loading = document.getElementById('libraryLoading');
+    const grid = document.getElementById('libraryGrid');
+    const empty = document.getElementById('libraryEmpty');
+    const footer = document.getElementById('libraryFooter');
+
+    loading.style.display = 'block';
+    grid.style.display = 'none';
+    empty.style.display = 'none';
+    footer.style.display = 'none';
+
+    try {
+        const res = await fetch('/api/downloads/recent?limit=12');
+        if (!res.ok) throw new Error('Failed to load library');
+        const data = await res.json();
+        const downloads = (data.downloads || []).filter(d => d.file_exists);
+
+        loading.style.display = 'none';
+
+        if (downloads.length === 0) {
+            empty.style.display = 'block';
+            return;
+        }
+
+        let html = '';
+        downloads.forEach(dl => {
+            const icon = getPlatformIcon(dl.source_url);
+            const date = dl.created_at ? new Date(dl.created_at).toLocaleDateString() : '';
+            const fname = dl.filename || 'Unknown file';
+            const safeFilename = fname.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const safeSource = (dl.source_url || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            html += `<div class="library-item" onclick="selectVideoFromLibrary('${safeFilename}', '${safeSource}')">
+                <span class="source-icon">${icon}</span>
+                <div class="item-info">
+                    <span class="item-filename">${fname}</span>
+                    <span class="item-date">${date}</span>
+                </div>
+                <button class="item-select-btn" type="button">Select</button>
+            </div>`;
+        });
+
+        grid.innerHTML = html;
+        grid.style.display = 'flex';
+        footer.style.display = 'block';
+    } catch (err) {
+        loading.style.display = 'none';
+        grid.innerHTML = '<div style="text-align:center; padding:15px; color:#ff6b6b;">Could not load library. <button onclick="loadLibraryItems()" style="color:#00b7ff; background:transparent; border:1px solid #00b7ff; padding:4px 10px; border-radius:4px; cursor:pointer; width:auto; margin-top:6px; display:inline-block;">Retry</button></div>';
+        grid.style.display = 'flex';
+    }
+}
+
+function selectVideoFromLibrary(filename, sourceUrl) {
+    selectVideo(filename, { source_url: sourceUrl });
+}
+
+function selectVideo(filename, meta) {
+    meta = meta || {};
+    currentFile = filename;
+    sessionStorage.setItem('lastDownloadFilename', filename);
+
+    // Hide intake, show selected info
+    document.getElementById('intakeLayer').style.display = 'none';
+    const info = document.getElementById('selectedVideoInfo');
+    info.style.display = 'block';
+
+    // Populate selected display
+    document.getElementById('selectedSourceIcon').textContent = getPlatformIcon(meta.source_url);
+    document.getElementById('selectedFilename').textContent = filename;
+    const sourceUrl = meta.source_url || '';
+    if (sourceUrl && !sourceUrl.startsWith('upload://')) {
+        const truncated = sourceUrl.length > 50 ? sourceUrl.substring(0, 50) + '...' : sourceUrl;
+        document.getElementById('selectedSource').textContent = truncated;
+    } else if (sourceUrl.startsWith('upload://')) {
+        document.getElementById('selectedSource').textContent = 'Uploaded file';
+    } else {
+        document.getElementById('selectedSource').textContent = '';
+    }
+
+    // Preserve contract for enterQueueMode
+    document.getElementById('videoStatusIcon').textContent = '✅';
+    document.getElementById('videoStatusText').textContent = 'Video selected: ' + filename;
+
+    // Show preview section and extract first frame
+    document.getElementById('previewSection').style.display = 'block';
+    extractFrame(filename);
+    updateConfirmationSummary();
+}
+
+function initUploadDropzone() {
+    const dropzone = document.getElementById('uploadDropzone');
+    const fileInput = document.getElementById('uploadFileInput');
+
+    dropzone.addEventListener('dragenter', function(e) {
+        e.preventDefault();
+        dropzone.classList.add('drag-over');
+    });
+    dropzone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropzone.classList.add('drag-over');
+    });
+    dropzone.addEventListener('dragleave', function(e) {
+        dropzone.classList.remove('drag-over');
+    });
+    dropzone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropzone.classList.remove('drag-over');
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleUpload(e.dataTransfer.files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', function() {
+        if (fileInput.files && fileInput.files.length > 0) {
+            handleUpload(fileInput.files[0]);
+        }
+    });
+}
+
+async function handleUpload(file) {
+    const errorEl = document.getElementById('uploadError');
+    const progressEl = document.getElementById('uploadProgress');
+    const progressFill = document.getElementById('uploadProgressFill');
+    const progressText = document.getElementById('uploadProgressText');
+
+    errorEl.style.display = 'none';
+    errorEl.textContent = '';
+
+    // Validate extension
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['mp4', 'mov', 'avi'].includes(ext)) {
+        errorEl.textContent = 'Unsupported format. Use MP4, MOV, or AVI.';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    // Validate size (500MB)
+    if (file.size > 524288000) {
+        errorEl.textContent = 'File is too large (max 500 MB).';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    // Show progress
+    progressEl.style.display = 'block';
+    progressFill.style.width = '0%';
+    progressText.textContent = 'Uploading...';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        // Use XMLHttpRequest for upload progress
+        const result = await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/videos/upload');
+            xhr.upload.addEventListener('progress', function(e) {
+                if (e.lengthComputable) {
+                    const pct = Math.round((e.loaded / e.total) * 100);
+                    progressFill.style.width = pct + '%';
+                    progressText.textContent = 'Uploading... ' + pct + '%';
+                }
+            });
+            xhr.onload = function() {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    if (xhr.status >= 200 && xhr.status < 300 && data.success) {
+                        resolve(data);
+                    } else {
+                        reject(new Error(data.error || 'Upload failed'));
+                    }
+                } catch (e) {
+                    reject(new Error('Invalid server response'));
+                }
+            };
+            xhr.onerror = function() {
+                reject(new Error('Network error — check your connection'));
+            };
+            xhr.send(formData);
+        });
+
+        progressEl.style.display = 'none';
+        selectVideo(result.filename, { source_url: 'upload://' + file.name });
+    } catch (err) {
+        progressEl.style.display = 'none';
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+    }
+}
+
+function replaceVideo() {
+    currentFile = null;
+    frameData = null;
+    document.getElementById('previewSection').style.display = 'none';
+    showIntakeLayer();
+    updateConfirmationSummary();
+}
+
+function changeVideo() {
+    // Clear session storage and current state
+    sessionStorage.removeItem('lastDownloadFilename');
+    currentFile = null;
+    frameData = null;
+    
+    // Hide preview section
+    document.getElementById('previewSection').style.display = 'none';
+    
+    // Show the intake layer (empty state with Get Media prompt)
+    showIntakeLayer();
+    
+    // Update confirmation summary
+    updateConfirmationSummary();
+    
+    console.log('[BRANDR] Video changed - returned to intake layer');
+}
+
+function goToLibrary() {
+    // Navigate to library page
+    window.location.href = '/portal/library';
+}
+
+function clearVideo() {
+    // Same as changeVideo but stay on current page
+    sessionStorage.removeItem('lastDownloadFilename');
+    currentFile = null;
+    frameData = null;
+    document.getElementById('previewSection').style.display = 'none';
+    showIntakeLayer();
+    updateConfirmationSummary();
+    console.log('[BRANDR] Video cleared');
+}
+
 // ========== INIT ==========
 loadBrands();
 updateCanvasPreview();
@@ -1929,34 +2495,21 @@ function updateConfirmationSummary() {
     confirmBox.style.display = inSelectionMode ? 'block' : 'none';
 }
 
-// Check for file passed from downloader
+// Check for file passed from downloader or show intake layer
 const lastDownloadFilename = sessionStorage.getItem('lastDownloadFilename');
 
 if (lastDownloadFilename) {
-    // Use the file from the downloader - filename only, server constructs path
-    currentFile = lastDownloadFilename;
-    document.getElementById('previewSection').style.display = 'block';
-    extractFrame(lastDownloadFilename);
-    
-    // DON'T clear sessionStorage yet - keep it until branding starts
-    // This allows recovery if currentFile gets lost
+    // Video already selected (arriving from Library or Downloader)
+    selectVideo(lastDownloadFilename, { source_url: '' });
     console.log('[BRANDR] Loaded video from downloader:', lastDownloadFilename);
-    
-    // Update video status to show file selected
-    document.getElementById('videoStatusIcon').textContent = '✅';
-    document.getElementById('videoStatusText').textContent = 'Video selected: ' + lastDownloadFilename;
-    document.getElementById('videoSourceStatus').querySelector('button').style.display = 'none';
-    
-    // Update confirmation summary
-    updateConfirmationSummary();
 } else {
-    // No video selected - show prompt to go to downloader
-    document.getElementById('videoStatusIcon').textContent = '⚠️';
-    document.getElementById('videoStatusText').textContent = 'No video selected';
-    
-    // Update confirmation summary
+    // No video selected - show intake layer
+    showIntakeLayer();
     updateConfirmationSummary();
 }
+
+// Initialize drag-and-drop upload
+initUploadDropzone();
 
 // Refresh brands when page becomes visible (e.g., after editing in Manage Brands)
 document.addEventListener('visibilitychange', function() {
