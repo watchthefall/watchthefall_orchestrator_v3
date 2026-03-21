@@ -677,7 +677,7 @@ def process_branded_videos():
                     #     ydl_opts['impersonate'] = ('chrome', '110', 'windows')
                     
                     # Only add cookiefile if the file exists and is readable
-                    cookie_file = './portal/data/cookies.txt'
+                    from .config import COOKIE_FILE as cookie_file
                     try:
                         if os.path.exists(cookie_file) and os.path.isfile(cookie_file):
                             # Test if file is readable and has valid content
@@ -1129,7 +1129,7 @@ def fetch_videos_from_urls():
                 #     ydl_opts['impersonate'] = ('chrome', '110', 'windows')
                 
                 # Only add cookiefile if the file exists and is readable
-                cookie_file = './portal/data/cookies.txt'
+                from .config import COOKIE_FILE as cookie_file
                 try:
                     if os.path.exists(cookie_file) and os.path.isfile(cookie_file):
                         # Test if file is readable and has valid content

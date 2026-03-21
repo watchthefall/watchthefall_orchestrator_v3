@@ -53,3 +53,20 @@ print(f"[CONFIG] STORAGE_ROOT: {STORAGE_ROOT}")
 print(f"[CONFIG] RAW_DIR: {RAW_DIR}")
 print(f"[CONFIG] OUTPUT_DIR: {OUTPUT_DIR}")
 print(f"[CONFIG] BRANDS_DIR: {BRANDS_DIR}")
+
+# Cookie configuration - supports Render env var bootstrap
+COOKIE_DIR = os.path.join(PORTAL_ROOT, 'data')
+COOKIE_FILE = os.path.join(COOKIE_DIR, 'cookies.txt')
+os.makedirs(COOKIE_DIR, exist_ok=True)
+
+# Bootstrap cookies from environment variable (for Render/Production)
+INSTAGRAM_COOKIES = os.environ.get('INSTAGRAM_COOKIES', '')
+if INSTAGRAM_COOKIES:
+    try:
+        with open(COOKIE_FILE, 'w', encoding='utf-8') as f:
+            f.write(INSTAGRAM_COOKIES)
+        print(f"[CONFIG] Cookies written to: {COOKIE_FILE}")
+    except Exception as e:
+        print(f"[CONFIG] Warning: Failed to write cookies: {e}")
+else:
+    print(f"[CONFIG] No INSTAGRAM_COOKIES env var set, using existing cookie file if present")
