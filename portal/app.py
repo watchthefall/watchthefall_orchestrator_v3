@@ -467,6 +467,12 @@ def download():
     """Downloader page - main entry point"""
     return render_template('downloader.html')
 
+@app.route('/portal/library')
+@login_required
+def library():
+    """Library page - view saved source media"""
+    return render_template('library.html')
+
 @app.route('/portal/brand')
 @login_required
 def brand_video():

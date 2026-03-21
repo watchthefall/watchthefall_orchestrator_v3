@@ -4,7 +4,7 @@
 <div class="nav-bar">
     <ul class="nav-links">
         <li><a href="{{ url_for('dashboard') }}"{% if active_page == 'dashboard' %} class="active"{% endif %}>Dashboard</a></li>
-        <li><a href="{{ url_for('download') }}"{% if active_page == 'download' %} class="active"{% endif %}>Downloader</a></li>
+        <li><a href="{{ url_for('library') }}"{% if active_page == 'library' %} class="active"{% endif %}>Library</a></li>
         <li><a href="{{ url_for('brand_video') }}"{% if active_page == 'brand_video' %} class="active"{% endif %}>Create</a></li>
         <li><a href="{{ url_for('brands_page') }}"{% if active_page == 'brands_page' %} class="active"{% endif %}>Brand Kit</a></li>
         <li><a href="{{ url_for('shipr_page') }}"{% if active_page == 'shipr_page' %} class="active"{% endif %}>Shipr</a></li>
