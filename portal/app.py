@@ -2375,6 +2375,61 @@ def save_video_download():
     })
 
 
+@app.route('/api/videos/upload', methods=['POST'])
+@login_required
+def upload_video():
+    """Upload a video file directly to RAW_DIR"""
+    from .database import save_download
+    from .config import RAW_DIR, ALLOWED_EXTENSIONS, MAX_UPLOAD_SIZE
+    import os
+    import uuid
+    
+    # Check if file is present
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['file']
+    
+    # Check if file has a name
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    # Validate file extension
+    ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+    if ext not in ALLOWED_EXTENSIONS:
+        return jsonify({'error': f'Invalid file type. Allowed: {", ".join(ALLOWED_EXTENSIONS)}'}), 400
+    
+    # Generate safe unique filename
+    safe_filename = f"{uuid.uuid4().hex}.{ext}"
+    file_path = os.path.join(RAW_DIR, safe_filename)
+    
+    # Save the file
+    try:
+        file.save(file_path)
+    except Exception as e:
+        return jsonify({'error': f'Failed to save file: {str(e)}'}), 500
+    
+    # Verify file was saved and check size
+    if not os.path.exists(file_path):
+        return jsonify({'error': 'File was not saved successfully'}), 500
+    
+    file_size = os.path.getsize(file_path)
+    if file_size > MAX_UPLOAD_SIZE:
+        os.remove(file_path)
+        return jsonify({'error': f'File exceeds maximum size of {MAX_UPLOAD_SIZE // (1024*1024)}MB'}), 400
+    
+    # Save download record so it appears in Library
+    user_id = session['user_id']
+    source_url = f"upload://{file.filename}"  # Mark as upload source
+    download_id = save_download(user_id, source_url, safe_filename, file_path)
+    
+    return jsonify({
+        'success': True,
+        'filename': safe_filename,
+        'download_id': download_id,
+        'message': 'File uploaded successfully'
+    })
+
 @app.route('/api/downloads/recent', methods=['GET'])
 @login_required
 def get_recent_downloads():
