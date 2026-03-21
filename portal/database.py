@@ -136,6 +136,7 @@ def init_db():
             user_id INTEGER,
             source_url TEXT,
             filename TEXT,
+            display_name TEXT,
             file_path TEXT,
             created_at TEXT NOT NULL,
             FOREIGN KEY (user_id) REFERENCES users (id)
@@ -216,6 +217,18 @@ def _run_migrations():
         c.execute("ALTER TABLE brands ADD COLUMN logo_shape TEXT DEFAULT 'original'")
         conn.commit()
         print("[DATABASE] Migration completed: logo_shape added")
+    
+    # Migration: Add display_name to downloads table
+    try:
+        c.execute("SELECT display_name FROM downloads LIMIT 1")
+    except sqlite3.OperationalError:
+        print("[DATABASE] Running migration: Adding display_name to downloads")
+        c.execute("ALTER TABLE downloads ADD COLUMN display_name TEXT DEFAULT NULL")
+        conn.commit()
+        # Backfill: Set display_name to filename for existing rows
+        c.execute("UPDATE downloads SET display_name = filename WHERE display_name IS NULL")
+        conn.commit()
+        print("[DATABASE] Migration completed: display_name added and backfilled")
     
     conn.close()
 
@@ -776,21 +789,46 @@ def seed_system_brands():
     print(f"[DATABASE] Seeded {seeded} system brands")
 
 
-def save_download(user_id, source_url, filename, file_path):
+def save_download(user_id, source_url, filename, file_path, display_name=None):
     """Save a download record"""
     conn = get_db()
     c = conn.cursor()
     
+    # Use filename as default display_name if not provided
+    if display_name is None:
+        display_name = filename
+    
     c.execute('''
-        INSERT INTO downloads (user_id, source_url, filename, file_path, created_at)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (user_id, source_url, filename, file_path, datetime.utcnow().isoformat()))
+        INSERT INTO downloads (user_id, source_url, filename, display_name, file_path, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (user_id, source_url, filename, display_name, file_path, datetime.utcnow().isoformat()))
     
     download_id = c.lastrowid
     conn.commit()
     conn.close()
     
     return download_id
+
+def update_display_name(download_id, user_id, display_name):
+    """Update the display_name for a download (UI-only rename)"""
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Verify ownership
+    c.execute('SELECT id FROM downloads WHERE id = ? AND user_id = ?', (download_id, user_id))
+    if not c.fetchone():
+        conn.close()
+        return False
+    
+    c.execute('''
+        UPDATE downloads 
+        SET display_name = ? 
+        WHERE id = ? AND user_id = ?
+    ''', (display_name, download_id, user_id))
+    
+    conn.commit()
+    conn.close()
+    return True
 
 def get_user_downloads(user_id, limit=10):
     """Get recent downloads for a user"""

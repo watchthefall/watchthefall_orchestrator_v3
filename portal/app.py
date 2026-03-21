@@ -2368,6 +2368,7 @@ def save_video_download():
     source_url = data.get('source_url')
     filename = data.get('filename')
     file_path = data.get('file_path')
+    display_name = data.get('display_name')  # Optional UI display name
     
     if not all([source_url, filename, file_path]):
         return jsonify({'error': 'source_url, filename, and file_path are required'}), 400
@@ -2378,7 +2379,7 @@ def save_video_download():
     if not os.path.exists(file_path):
         return jsonify({'error': 'File does not exist at specified path'}), 400
     
-    download_id = save_download(user_id, source_url, filename, file_path)
+    download_id = save_download(user_id, source_url, filename, file_path, display_name)
     
     return jsonify({
         'success': True,
@@ -2433,13 +2434,41 @@ def upload_video():
     # Save download record so it appears in Library
     user_id = session['user_id']
     source_url = f"upload://{file.filename}"  # Mark as upload source
-    download_id = save_download(user_id, source_url, safe_filename, file_path)
+    # Use original filename as display_name for uploads
+    display_name = file.filename
+    download_id = save_download(user_id, source_url, safe_filename, file_path, display_name)
     
     return jsonify({
         'success': True,
-        'filename': safe_filename,
+        'filename': safe_filename,  # Internal filename (source of truth)
+        'display_name': display_name,  # UI display name
         'download_id': download_id,
         'message': 'File uploaded successfully'
+    })
+
+@app.route('/api/downloads/<int:download_id>/rename', methods=['PUT'])
+@login_required
+def rename_download(download_id):
+    """Rename a download's display_name (UI-only, doesn't change disk filename)"""
+    from .database import update_display_name
+    
+    data = request.get_json(force=True) or {}
+    display_name = data.get('display_name')
+    
+    if not display_name or not display_name.strip():
+        return jsonify({'error': 'display_name is required'}), 400
+    
+    user_id = session['user_id']
+    success = update_display_name(download_id, user_id, display_name.strip())
+    
+    if not success:
+        return jsonify({'error': 'Download not found or access denied'}), 404
+    
+    return jsonify({
+        'success': True,
+        'download_id': download_id,
+        'display_name': display_name.strip(),
+        'message': 'Display name updated successfully'
     })
 
 @app.route('/api/downloads/recent', methods=['GET'])
