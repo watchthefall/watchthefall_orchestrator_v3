@@ -208,6 +208,8 @@
             top: 0;
             z-index: 100;
             border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
         }
         .nav-links {
             display: flex;
@@ -215,7 +217,8 @@
             margin: 0;
             padding: 0;
             flex-wrap: nowrap;
-            justify-content: center;
+            flex: 1;
+            min-width: 0;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: none;

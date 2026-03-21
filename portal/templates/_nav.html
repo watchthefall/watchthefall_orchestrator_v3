@@ -8,12 +8,12 @@
         <li><a href="{{ url_for('brand_video') }}"{% if active_page == 'brand_video' %} class="active"{% endif %}>Create</a></li>
         <li><a href="{{ url_for('brands_page') }}"{% if active_page == 'brands_page' %} class="active"{% endif %}>Brand Kit</a></li>
         <li><a href="{{ url_for('shipr_page') }}"{% if active_page == 'shipr_page' %} class="active"{% endif %}>Shipr</a></li>
-        <li class="dropdown">
-            <a href="#">Account</a>
-            <div class="dropdown-content">
-                <a href="{{ url_for('profile_page') }}">Profile</a>
-                <a href="{{ url_for('logout') }}">Logout</a>
-            </div>
-        </li>
     </ul>
+    <div class="dropdown">
+        <a href="#">Account</a>
+        <div class="dropdown-content">
+            <a href="{{ url_for('profile_page') }}">Profile</a>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        </div>
+    </div>
 </div>
