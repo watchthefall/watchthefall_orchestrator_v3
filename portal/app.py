@@ -392,20 +392,8 @@ watermark_jobs = {}
 
 @app.route('/')
 def index():
-    return jsonify({
-        "message": "WTF Portal running",
-        "status": "ok",
-        "api_endpoints": [
-            "POST /api/videos/process_brands",
-            "POST /api/videos/fetch",
-            "GET /api/videos/download/<filename>",
-            "GET /api/brands/list",
-            "POST /api/videos/convert-watermark",
-            "GET /api/videos/convert-status/<job_id>",
-            "GET /api/debug/brand-integrity",
-            "GET /api/debug/build-filter/<brand_name>"
-        ]
-    })
+    """Redirect root to portal"""
+    return redirect(url_for('portal_home'))
 
 @app.route('/api')
 def api_root():
