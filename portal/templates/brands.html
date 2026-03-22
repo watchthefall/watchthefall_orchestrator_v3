@@ -616,6 +616,11 @@
                             <button type="button" class="option-btn" data-cleanup="dark" onclick="setWizardLogoCleanup('dark')">Remove Dark BG</button>
                             <button type="button" class="option-btn" data-cleanup="light" onclick="setWizardLogoCleanup('light')">Remove Light BG</button>
                         </div>
+                        <!-- Background Removal Strength (hidden when 'none') -->
+                        <div id="wizardBgStrengthContainer" style="display:none; margin-top:12px; padding:10px; background:rgba(0,0,0,0.2); border-radius:6px;">
+                            <label style="display:block; font-size:11px; color:#aaa; margin-bottom:6px;">Strength <span id="wizardBgStrengthVal" style="color:#00b7ff;">30</span></label>
+                            <input type="range" id="wizardBgStrength" min="10" max="60" value="30" style="width:100%;" oninput="updateWizardBgStrength(this.value)">
+                        </div>
                     </div>
                     
                     <!-- Shape -->
@@ -625,6 +630,18 @@
                             <button type="button" class="option-btn active" data-shape="original" onclick="setWizardLogoShape('original')">Original</button>
                             <button type="button" class="option-btn" data-shape="circle" onclick="setWizardLogoShape('circle')">Circle</button>
                             <button type="button" class="option-btn" data-shape="square" onclick="setWizardLogoShape('square')">Square</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Position Presets -->
+                    <div class="option-group">
+                        <label>Logo Position</label>
+                        <div class="position-grid">
+                            <button type="button" class="position-btn" data-pos="top-left" onclick="setWizardLogoPosition('top-left')">↖</button>
+                            <button type="button" class="position-btn" data-pos="top-right" onclick="setWizardLogoPosition('top-right')">↗</button>
+                            <button type="button" class="position-btn" data-pos="center" onclick="setWizardLogoPosition('center')">•</button>
+                            <button type="button" class="position-btn active" data-pos="bottom-left" onclick="setWizardLogoPosition('bottom-left')">↙</button>
+                            <button type="button" class="position-btn" data-pos="bottom-right" onclick="setWizardLogoPosition('bottom-right')">↘</button>
                         </div>
                     </div>
                     
@@ -639,12 +656,12 @@
                     </div>
                 </div>
                 
-                <!-- Micro Preview -->
-                <div class="micro-preview-container">
+                <!-- 9:16 Preview -->
+                <div class="preview-container">
                     <label>Preview</label>
-                    <div class="micro-preview" id="wizardMicroPreview">
-                        <canvas id="wizardPreviewCanvas" width="200" height="200"></canvas>
-                        <p class="preview-hint">Logo with shape and scale applied</p>
+                    <div class="video-preview" id="wizardVideoPreview">
+                        <canvas id="wizardPreviewCanvas" width="270" height="480"></canvas>
+                        <p class="preview-hint">Logo placement on 9:16 video frame</p>
                     </div>
                 </div>
             </div>
@@ -860,13 +877,44 @@
     width: 100%;
 }
 
-.micro-preview-container {
+.position-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    max-width: 150px;
+}
+
+.position-btn {
+    aspect-ratio: 1;
+    padding: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.position-btn:hover {
+    border-color: #00b7ff;
+}
+
+.position-btn.active {
+    background: #00b7ff;
+    border-color: #00b7ff;
+}
+
+.preview-container {
     margin-top: 20px;
     padding-top: 20px;
     border-top: 1px solid rgba(255,255,255,0.1);
 }
 
-.micro-preview-container label {
+.preview-container label {
     display: block;
     font-size: 13px;
     font-weight: 600;
@@ -874,17 +922,19 @@
     margin-bottom: 10px;
 }
 
-.micro-preview {
+.video-preview {
     background: rgba(0,0,0,0.3);
     border-radius: 12px;
     padding: 20px;
     text-align: center;
 }
 
-.micro-preview canvas {
+.video-preview canvas {
     max-width: 100%;
+    max-height: 50vh;
     height: auto;
     border-radius: 8px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #0f0c29 100%);
 }
 
 .preview-hint {
@@ -1409,9 +1459,13 @@ let wizardState = {
     slug: '',
     logoFile: null,
     logoCleanup: 'none',
+    logoCleanupStrength: 30,
     logoShape: 'original',
     logoScale: 15,
     logoOpacity: 100,
+    logoPosition: 'bottom-left',
+    logoX: 0.15,
+    logoY: 0.85,
     logoPreviewUrl: null
 };
 
@@ -1427,9 +1481,13 @@ function openBrandWizard() {
         slug: '',
         logoFile: null,
         logoCleanup: 'none',
+        logoCleanupStrength: 30,
         logoShape: 'original',
         logoScale: 15,
         logoOpacity: 100,
+        logoPosition: 'bottom-left',
+        logoX: 0.15,
+        logoY: 0.85,
         logoPreviewUrl: null
     };
     
@@ -1445,10 +1503,13 @@ function openBrandWizard() {
     // Reset options
     setWizardLogoCleanup('none');
     setWizardLogoShape('original');
+    setWizardLogoPosition('bottom-left');
     document.getElementById('wizardLogoScale').value = 15;
     document.getElementById('wizardLogoScaleVal').textContent = '15%';
     document.getElementById('wizardLogoOpacity').value = 100;
     document.getElementById('wizardLogoOpacityVal').textContent = '100%';
+    document.getElementById('wizardBgStrength').value = 30;
+    document.getElementById('wizardBgStrengthVal').textContent = '30';
     
     // Show step 1
     showWizardStep(1);
@@ -1580,6 +1641,12 @@ function setWizardLogoCleanup(mode) {
     document.querySelectorAll('[data-cleanup]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.cleanup === mode);
     });
+    
+    // Show/hide strength slider
+    const strengthContainer = document.getElementById('wizardBgStrengthContainer');
+    if (strengthContainer) {
+        strengthContainer.style.display = (mode === 'none') ? 'none' : 'block';
+    }
 }
 
 function setWizardLogoShape(shape) {
@@ -1602,6 +1669,37 @@ function updateWizardLogoOpacity(value) {
     drawWizardPreview();
 }
 
+function updateWizardBgStrength(value) {
+    wizardState.logoCleanupStrength = parseInt(value);
+    document.getElementById('wizardBgStrengthVal').textContent = value;
+}
+
+function setWizardLogoPosition(position) {
+    wizardState.logoPosition = position;
+    
+    // Update UI
+    document.querySelectorAll('.position-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.pos === position);
+    });
+    
+    // Set X,Y coordinates based on position
+    const positions = {
+        'top-left': { x: 0.15, y: 0.15 },
+        'top-right': { x: 0.85, y: 0.15 },
+        'center': { x: 0.5, y: 0.5 },
+        'bottom-left': { x: 0.15, y: 0.85 },
+        'bottom-right': { x: 0.85, y: 0.85 }
+    };
+    
+    const coords = positions[position];
+    if (coords) {
+        wizardState.logoX = coords.x;
+        wizardState.logoY = coords.y;
+    }
+    
+    drawWizardPreview();
+}
+
 function drawWizardPreview() {
     if (!wizardCtx || !wizardCanvas) return;
     
@@ -1611,9 +1709,23 @@ function drawWizardPreview() {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Draw background
-    ctx.fillStyle = '#0f0c29';
+    // Draw 9:16 video frame background (dark gradient to simulate video)
+    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0, '#1a1a2e');
+    gradient.addColorStop(0.5, '#0f0c29');
+    gradient.addColorStop(1, '#1a1a2e');
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw subtle grid lines to indicate video frame
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(canvas.width / 2, 0);
+    ctx.lineTo(canvas.width / 2, canvas.height);
+    ctx.moveTo(0, canvas.height / 2);
+    ctx.lineTo(canvas.width, canvas.height / 2);
+    ctx.stroke();
     
     if (!wizardLogoImage) {
         // Draw placeholder text
@@ -1626,11 +1738,12 @@ function drawWizardPreview() {
     
     // Calculate scaled dimensions
     const scale = wizardState.logoScale / 100;
-    const maxSize = Math.min(canvas.width, canvas.height) * 0.8;
-    const size = maxSize * scale;
+    const baseSize = Math.min(canvas.width, canvas.height) * 0.25;
+    const size = baseSize * scale;
     
-    const x = (canvas.width - size) / 2;
-    const y = (canvas.height - size) / 2;
+    // Calculate position based on X,Y percentages
+    const x = (canvas.width * wizardState.logoX) - (size / 2);
+    const y = (canvas.height * wizardState.logoY) - (size / 2);
     
     // Apply opacity
     ctx.globalAlpha = wizardState.logoOpacity / 100;
@@ -1639,7 +1752,7 @@ function drawWizardPreview() {
     ctx.save();
     if (wizardState.logoShape === 'circle') {
         ctx.beginPath();
-        ctx.arc(canvas.width / 2, canvas.height / 2, size / 2, 0, Math.PI * 2);
+        ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
         ctx.clip();
     } else if (wizardState.logoShape === 'square') {
         const cornerRadius = size * 0.1;
@@ -1706,6 +1819,7 @@ async function saveWizardBrand() {
             const logoForm = new FormData();
             logoForm.append('file', wizardState.logoFile);
             logoForm.append('remove_bg_mode', wizardState.logoCleanup);
+            logoForm.append('remove_bg_threshold', wizardState.logoCleanupStrength);
             logoForm.append('logo_scale', wizardState.logoScale / 100);
             logoForm.append('logo_opacity', wizardState.logoOpacity / 100);
             logoForm.append('logo_shape', wizardState.logoShape);
@@ -1720,6 +1834,27 @@ async function saveWizardBrand() {
                 console.warn('Logo upload warning:', logoData.error);
                 // Continue anyway - brand is created
             }
+        }
+        
+        // Step 3: Persist logo settings (position, etc.) via PUT
+        status.innerHTML = '<div class="status-msg info">Saving logo settings...</div>';
+        
+        const settingsRes = await fetch(`${apiBase}/api/brands/${brandId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                logo_scale: wizardState.logoScale / 100,
+                logo_opacity: wizardState.logoOpacity / 100,
+                logo_shape: wizardState.logoShape,
+                logo_x: wizardState.logoX,
+                logo_y: wizardState.logoY
+            })
+        });
+        
+        const settingsData = await settingsRes.json();
+        if (!settingsData.success) {
+            console.warn('Logo settings warning:', settingsData.error);
+            // Continue anyway - brand and logo are created
         }
         
         status.innerHTML = '<div class="status-msg success">✅ Brand created successfully!</div>';
