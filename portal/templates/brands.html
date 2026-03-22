@@ -117,6 +117,17 @@
             text-align: center;
         }
         
+        .badge-success {
+            display: block;
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(76, 175, 80, 0.2);
+            border-radius: 6px;
+            font-size: 11px;
+            color: #4caf50;
+            text-align: center;
+        }
+        
         .brand-actions {
             display: flex;
             gap: 8px;
@@ -288,7 +299,7 @@
             position: relative;
             overflow: hidden;
         }
-        #brandCanvas {
+        #brandPreviewCanvas {
             max-width: 100%;
             max-height: 600px;
             cursor: move;
@@ -1113,6 +1124,20 @@
         padding: 12px 8px;
         font-size: 12px;
     }
+    
+    /* Edit modal responsive layout */
+    .editor-layout {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .canvas-container {
+        min-height: 300px;
+    }
+    
+    #brandPreviewCanvas {
+        max-height: 400px;
+    }
 }
 </style>
 
@@ -1512,6 +1537,18 @@ function editBrand(brandId) {
             
             // Load editor state
             editor.loadState(brand);
+            
+            // Update logo status to reflect truth
+            const logoStatus = document.getElementById('logoStatus');
+            if (brand.logo_path) {
+                logoStatus.textContent = '✅ Logo loaded (upload new to replace)';
+                logoStatus.className = 'badge-success';
+                logoStatus.style.display = 'block';
+            } else {
+                logoStatus.textContent = '⚠️ No logo uploaded';
+                logoStatus.className = 'badge-warning';
+                logoStatus.style.display = 'block';
+            }
             
             // Update UI controls to match loaded state
             document.getElementById('logoScale').value = (brand.logo_scale || 0.15) * 100;
