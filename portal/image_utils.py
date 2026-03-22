@@ -41,9 +41,6 @@ def normalize_logo(input_path, output_path, max_dimension=1024, remove_bg=None, 
         if remove_bg in ['dark', 'light']:
             img = remove_background(img, mode=remove_bg, threshold=bg_threshold)
         
-        # Auto-trim transparent/dead space
-        img = trim_transparent_bounds(img, padding=10)
-        
         # Save as clean PNG
         img.save(output_path, 'PNG', optimize=True)
         
@@ -60,53 +57,6 @@ def normalize_logo(input_path, output_path, max_dimension=1024, remove_bg=None, 
             'success': False,
             'error': str(e)
         }
-
-
-def trim_transparent_bounds(img, padding=10):
-    """
-    Trim transparent/dead space around logo while preserving visible content
-    
-    Args:
-        img: PIL Image in RGBA mode
-        padding: Pixels to add as safe margin around trimmed bounds
-    
-    Returns:
-        PIL Image cropped to visible bounds with padding
-    """
-    if img.mode != 'RGBA':
-        return img
-    
-    # Convert to numpy array
-    data = np.array(img)
-    alpha = data[:, :, 3]
-    
-    # Find non-transparent pixels (alpha > 0)
-    non_transparent = alpha > 0
-    
-    if not np.any(non_transparent):
-        # Entirely transparent image, return as-is
-        return img
-    
-    # Find bounding box of non-transparent pixels
-    rows = np.any(non_transparent, axis=1)
-    cols = np.any(non_transparent, axis=0)
-    
-    if not np.any(rows) or not np.any(cols):
-        return img
-    
-    top = np.argmax(rows)
-    bottom = len(rows) - np.argmax(rows[::-1])
-    left = np.argmax(cols)
-    right = len(cols) - np.argmax(cols[::-1])
-    
-    # Add padding
-    left = max(0, left - padding)
-    top = max(0, top - padding)
-    right = min(img.width, right + padding)
-    bottom = min(img.height, bottom + padding)
-    
-    # Crop to bounds
-    return img.crop((left, top, right, bottom))
 
 
 def remove_background(img, mode='dark', threshold=30):

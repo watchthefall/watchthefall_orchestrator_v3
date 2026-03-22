@@ -686,7 +686,7 @@
                         <div class="accordion-content" style="display:none;">
                             <div class="slider-group">
                                 <label>Scale <span id="wizardLogoScaleVal">15%</span></label>
-                                <input type="range" id="wizardLogoScale" min="5" max="100" value="15" oninput="updateWizardLogoScale(this.value)">
+                                <input type="range" id="wizardLogoScale" min="5" max="50" value="15" oninput="updateWizardLogoScale(this.value)">
                             </div>
                             <div class="slider-group">
                                 <label>Opacity <span id="wizardLogoOpacityVal">100%</span></label>
@@ -1927,16 +1927,14 @@ function drawWizardPreview() {
         return;
     }
     
-    // Calculate scaled dimensions using width-based scaling (matches editor pattern)
+    // Calculate scaled dimensions
     const scale = wizardState.logoScale / 100;
-    const baseWidth = canvas.width * 0.3; // 30% of canvas width as base
-    const drawWidth = baseWidth * scale;
-    const aspectRatio = wizardLogoImage.height / wizardLogoImage.width;
-    const drawHeight = drawWidth * aspectRatio;
+    const baseSize = Math.min(canvas.width, canvas.height) * 0.25;
+    const size = baseSize * scale;
     
-    // Calculate position based on X,Y percentages (center anchor)
-    const x = (canvas.width * wizardState.logoX) - (drawWidth / 2);
-    const y = (canvas.height * wizardState.logoY) - (drawHeight / 2);
+    // Calculate position based on X,Y percentages
+    const x = (canvas.width * wizardState.logoX) - (size / 2);
+    const y = (canvas.height * wizardState.logoY) - (size / 2);
     
     // Apply opacity
     ctx.globalAlpha = wizardState.logoOpacity / 100;
@@ -1945,26 +1943,26 @@ function drawWizardPreview() {
     ctx.save();
     if (wizardState.logoShape === 'circle') {
         ctx.beginPath();
-        ctx.arc(x + drawWidth / 2, y + drawHeight / 2, Math.max(drawWidth, drawHeight) / 2, 0, Math.PI * 2);
+        ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
         ctx.clip();
     } else if (wizardState.logoShape === 'square') {
-        const cornerRadius = Math.min(drawWidth, drawHeight) * 0.1;
+        const cornerRadius = size * 0.1;
         ctx.beginPath();
         ctx.moveTo(x + cornerRadius, y);
-        ctx.lineTo(x + drawWidth - cornerRadius, y);
-        ctx.quadraticCurveTo(x + drawWidth, y, x + drawWidth, y + cornerRadius);
-        ctx.lineTo(x + drawWidth, y + drawHeight - cornerRadius);
-        ctx.quadraticCurveTo(x + drawWidth, y + drawHeight, x + drawWidth - cornerRadius, y + drawHeight);
-        ctx.lineTo(x + cornerRadius, y + drawHeight);
-        ctx.quadraticCurveTo(x, y + drawHeight, x, y + drawHeight - cornerRadius);
+        ctx.lineTo(x + size - cornerRadius, y);
+        ctx.quadraticCurveTo(x + size, y, x + size, y + cornerRadius);
+        ctx.lineTo(x + size, y + size - cornerRadius);
+        ctx.quadraticCurveTo(x + size, y + size, x + size - cornerRadius, y + size);
+        ctx.lineTo(x + cornerRadius, y + size);
+        ctx.quadraticCurveTo(x, y + size, x, y + size - cornerRadius);
         ctx.lineTo(x, y + cornerRadius);
         ctx.quadraticCurveTo(x, y, x + cornerRadius, y);
         ctx.closePath();
         ctx.clip();
     }
     
-    // Draw logo with actual aspect ratio
-    ctx.drawImage(wizardLogoImage, x, y, drawWidth, drawHeight);
+    // Draw logo
+    ctx.drawImage(wizardLogoImage, x, y, size, size);
     ctx.restore();
     
     // Reset alpha
@@ -1986,12 +1984,10 @@ function getWizardCanvasPos(e) {
 function isOverWizardLogo(pos) {
     if (!wizardLogoImage) return false;
     const scale = wizardState.logoScale / 100;
-    const baseWidth = 270 * 0.3; // 30% of canvas width
-    const drawWidth = baseWidth * scale;
-    const aspectRatio = wizardLogoImage.height / wizardLogoImage.width;
-    const drawHeight = drawWidth * aspectRatio;
-    const halfW = (drawWidth / 2) / 270;
-    const halfH = (drawHeight / 2) / 480;
+    const baseSize = Math.min(270, 480) * 0.25;
+    const size = baseSize * scale;
+    const halfW = (size / 2) / 270;
+    const halfH = (size / 2) / 480;
     return pos.x >= wizardState.logoX - halfW &&
            pos.x <= wizardState.logoX + halfW &&
            pos.y >= wizardState.logoY - halfH &&
