@@ -52,6 +52,11 @@ class BrandEditor {
         this.dragging = null; // 'logo', 'watermark', 'text', or null
         this.dragStart = { x: 0, y: 0 };
         
+        // Pinch-to-resize state
+        this.pinching = false;
+        this.pinchStartDist = 0;
+        this.pinchStartScale = 0;
+        
         // Setup event listeners
         this.setupEventListeners();
         
@@ -69,7 +74,8 @@ class BrandEditor {
         // Touch events for mobile
         this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
         this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
-        this.canvas.addEventListener('touchend', () => this.handleMouseUp());
+        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
     }
     
     // Get mouse position relative to canvas (as percent 0-1)
@@ -135,12 +141,23 @@ class BrandEditor {
     
     handleMouseUp() {
         this.dragging = null;
+        this.pinching = false;
         this.canvas.style.cursor = 'default';
+    }
+    
+    getTouchDist(t1, t2) {
+        return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
     }
     
     handleTouchStart(e) {
         e.preventDefault();
-        if (e.touches.length > 0) {
+        if (e.touches.length >= 2) {
+            // Enter pinch mode
+            this.pinching = true;
+            this.dragging = null;
+            this.pinchStartDist = this.getTouchDist(e.touches[0], e.touches[1]);
+            this.pinchStartScale = this.state.logoScale;
+        } else if (e.touches.length === 1 && !this.pinching) {
             const touch = e.touches[0];
             this.handleMouseDown({ clientX: touch.clientX, clientY: touch.clientY });
         }
@@ -148,9 +165,30 @@ class BrandEditor {
     
     handleTouchMove(e) {
         e.preventDefault();
-        if (e.touches.length > 0) {
+        if (this.pinching && e.touches.length >= 2) {
+            // Handle pinch zoom
+            const currentDist = this.getTouchDist(e.touches[0], e.touches[1]);
+            const ratio = currentDist / this.pinchStartDist;
+            const newScale = Math.max(0.05, Math.min(1.0, this.pinchStartScale * ratio));
+            this.state.logoScale = newScale;
+            // Sync external slider DOM and label in real time
+            const slider = document.getElementById('logoScale');
+            const label = document.getElementById('logoScaleVal');
+            if (slider) slider.value = Math.round(newScale * 100);
+            if (label) label.textContent = Math.round(newScale * 100) + '%';
+            this.render();
+        } else if (!this.pinching && e.touches.length > 0) {
             const touch = e.touches[0];
             this.handleMouseMove({ clientX: touch.clientX, clientY: touch.clientY });
+        }
+    }
+    
+    handleTouchEnd(e) {
+        if (e.touches.length < 2) {
+            this.pinching = false;
+        }
+        if (e.touches.length === 0) {
+            this.handleMouseUp();
         }
     }
     
