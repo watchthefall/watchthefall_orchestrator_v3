@@ -1217,9 +1217,14 @@ def fetch_videos_from_urls():
                         print(f"[FETCH ERROR DETAIL] yt-dlp errors: {info['errors']}")
                 
                 print(f"[FETCH] Success: {name} ({file_size_mb:.2f}MB)")
+                # Derive display name from yt-dlp title or filename
+                video_title = info.get('title', '') if info else ''
+                default_display_name = video_title if video_title else name.rsplit('.', 1)[0]
+                
                 return {
                     'url': url_input,
                     'filename': name,
+                    'display_name': default_display_name,
                     'local_path': filename,  # Return full path
                     'download_url': f'/api/videos/download/{name}',
                     'size_mb': round(file_size_mb, 2),

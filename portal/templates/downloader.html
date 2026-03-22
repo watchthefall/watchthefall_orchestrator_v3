@@ -307,6 +307,171 @@
         .logout-btn:hover {
             background-color: #c82333;
         }
+
+        /* ========== MOBILE UX ========== */
+
+        /* Platform icon helper */
+        .platform-badge {
+            display: inline-block;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #222;
+            color: #888;
+            white-space: nowrap;
+        }
+
+        /* Recent downloads card layout (mobile-first, table on desktop) */
+        .recent-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .recent-card {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 14px;
+            transition: border-color 0.2s;
+        }
+        .recent-card:hover {
+            border-color: #00b7ff;
+        }
+        .recent-card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+        .recent-card-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .recent-card-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .recent-card-actions .btn {
+            width: 100%;
+            text-align: center;
+            margin: 0;
+            display: block;
+            box-sizing: border-box;
+        }
+        .recent-card-expired {
+            color: #666;
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 4px 0;
+        }
+
+        /* Result action buttons: stacked on mobile */
+        .result-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .result-actions .btn,
+        .result-actions a.btn {
+            width: 100%;
+            text-align: center;
+            margin: 0;
+            display: block;
+            box-sizing: border-box;
+        }
+
+        /* Batch item actions stacked on mobile */
+        .batch-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .batch-actions .btn,
+        .batch-actions a.btn {
+            width: 100%;
+            text-align: center;
+            margin: 0;
+            display: block;
+            box-sizing: border-box;
+        }
+
+        /* Batch item title (display_name first, URL secondary) */
+        .batch-item-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Desktop overrides */
+        @media (min-width: 600px) {
+            .recent-card-actions {
+                flex-direction: row;
+            }
+            .recent-card-actions .btn {
+                width: auto;
+                flex: none;
+            }
+            .result-actions {
+                flex-direction: row;
+            }
+            .result-actions .btn,
+            .result-actions a.btn {
+                width: auto;
+            }
+            .batch-actions {
+                flex-direction: row;
+            }
+            .batch-actions .btn,
+            .batch-actions a.btn {
+                width: auto;
+            }
+        }
+
+        /* Mobile spacing adjustments */
+        @media (max-width: 599px) {
+            .main-content {
+                padding: 1rem;
+            }
+            .section {
+                padding: 1rem;
+                margin-bottom: 1rem;
+            }
+            .section h2 {
+                font-size: 1.1rem;
+                margin: 0 0 0.75rem;
+            }
+            .header {
+                padding: 1rem;
+            }
+            .header h1 {
+                font-size: 1.4rem;
+            }
+            .batch-item {
+                padding: 0.75rem;
+            }
+            .batch-item-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+            .batch-item-status {
+                margin-left: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -388,10 +553,10 @@ https://x.com/..."></textarea>
                 <!-- Single download result -->
                 <div id="results" class="results" style="display:none;">
                     <p id="resultMessage">Download completed!</p>
-                    <div id="downloadButtons" style="display:none;">
-                        <button id="downloadOriginalBtn" class="btn btn-success">Download Original MP4</button>
+                    <div id="downloadButtons" class="result-actions" style="display:none;">
                         <button id="continueToBrandrBtn" class="btn btn-secondary">Open in Create</button>
-                        <a href="{{ url_for('library') }}" class="btn btn-secondary" style="margin-left:0.5rem;">View in Library</a>
+                        <button id="downloadOriginalBtn" class="btn btn-success">Download Original MP4</button>
+                        <a href="{{ url_for('library') }}" class="btn btn-secondary">View in Library</a>
                     </div>
                 </div>
                 
@@ -412,6 +577,24 @@ https://x.com/..."></textarea>
         let currentDownloadId = null;
         let currentFilePath = null;
         let downloadMode = 'single';  // 'single' or 'multi'
+        
+        // ========== HELPERS ==========
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+        
+        function getPlatformLabel(url) {
+            if (!url) return '📤 Upload';
+            if (/tiktok\.com/i.test(url)) return '🎵 TikTok';
+            if (/instagram\.com/i.test(url)) return '📸 Instagram';
+            if (/youtube\.com|youtu\.be/i.test(url)) return '▶️ YouTube';
+            if (/twitter\.com|x\.com/i.test(url)) return '🐦 X';
+            if (/facebook\.com|fb\.watch/i.test(url)) return '📘 Facebook';
+            return '🔗 Link';
+        }
         
         // ========== MODE SWITCHING ==========
         function setDownloadMode(mode) {
@@ -596,6 +779,9 @@ https://x.com/..."></textarea>
                     statusSpan.parentNode.insertBefore(continueBtn, statusSpan.nextSibling);
                     statusSpan.parentNode.insertBefore(libraryBtn, continueBtn.nextSibling);
                     
+                    // Scroll upload result into view
+                    statusSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
                     // Clear file input
                     fileInput.value = '';
                     
@@ -664,7 +850,8 @@ https://x.com/..."></textarea>
                             body: JSON.stringify({
                                 source_url: cleanedSingle,
                                 filename: result.filename,
-                                file_path: result.local_path
+                                file_path: result.local_path,
+                                display_name: result.display_name || result.filename.replace(/\.[^/.]+$/, '')
                             })
                         });
                         
@@ -676,6 +863,9 @@ https://x.com/..."></textarea>
                             
                             resultMessage.textContent = '✅ Download completed successfully!';
                             downloadButtons.style.display = 'block';
+                            
+                            // Scroll result into view
+                            resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             
                             // Set up button click handlers
                             document.getElementById('downloadOriginalBtn').onclick = function() {
@@ -792,6 +982,9 @@ https://x.com/..."></textarea>
                     // Render results
                     renderBatchResults(results);
                     
+                    // Scroll batch results into view
+                    batchResultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    
                     // Save successful downloads to database
                     for (const result of results) {
                         if (result.success) {
@@ -802,7 +995,8 @@ https://x.com/..."></textarea>
                                     body: JSON.stringify({
                                         source_url: result.url,
                                         filename: result.filename,
-                                        file_path: result.local_path
+                                        file_path: result.local_path,
+                                        display_name: result.display_name || result.filename.replace(/\.[^/.]+$/, '')
                                     })
                                 });
                             } catch (e) {
@@ -831,21 +1025,24 @@ https://x.com/..."></textarea>
                 const statusClass = result.success ? 'batch-item-status success' : 'batch-item-status error';
                 const statusText = result.success ? '✅ Success' : '❌ Failed';
                 
+                const displayTitle = result.display_name || (result.filename ? result.filename.replace(/\.[^/.]+$/, '') : result.url || 'Unknown');
+                const platform = getPlatformLabel(result.url || '');
+                
                 html += `<div class="${itemClass}">`;
                 html += '<div class="batch-item-header">';
-                html += `<div class="batch-item-url">${result.url}</div>`;
+                html += `<div class="batch-item-title">${escapeHtml(displayTitle)}</div>`;
                 html += `<div class="${statusClass}">${statusText}</div>`;
                 html += '</div>';
                 
                 if (result.success) {
-                    html += `<div class="batch-item-message">📦 ${result.filename} (${result.size_mb} MB)</div>`;
-                    html += '<div>';
-                    html += `<button class="btn btn-success btn-small" onclick="window.open('/api/videos/download/${result.filename}', '_blank')" style="margin-right:0.5rem;">Download MP4</button>`;
-                    html += `<button class="btn btn-secondary btn-small" onclick="continueToBrandrFromFilename('${result.filename}')">Open in Create</button>`;
-                    html += ` <a href="{{ url_for('library') }}" class="btn btn-secondary btn-small" style="margin-left:0.25rem;">View in Library</a>`;
+                    html += `<div class="batch-item-message"><span class="platform-badge">${platform}</span> ${result.size_mb} MB</div>`;
+                    html += '<div class="batch-actions">';
+                    html += `<button class="btn btn-secondary btn-small" onclick="continueToBrandrFromFilename('${escapeHtml(result.filename)}')">Open in Create</button>`;
+                    html += `<button class="btn btn-success btn-small" onclick="window.open('/api/videos/download/${encodeURIComponent(result.filename)}', '_blank')">Download MP4</button>`;
+                    html += `<a href="{{ url_for('library') }}" class="btn btn-secondary btn-small">View in Library</a>`;
                     html += '</div>';
                 } else {
-                    html += `<div class="batch-item-error">⚠️ ${result.error || 'Unknown error'}</div>`;
+                    html += `<div class="batch-item-error">${escapeHtml(result.error || 'Unknown error')}</div>`;
                 }
                 
                 html += '</div>';
@@ -926,35 +1123,34 @@ https://x.com/..."></textarea>
                 return;
             }
             
-            let html = '<table style="width:100%; border-collapse: collapse;">';
-            html += '<tr style="background-color: #222;">';
-            html += '<th style="padding: 8px; border: 1px solid #333; color:#00b7ff;">Source URL</th>';
-            html += '<th style="padding: 8px; border: 1px solid #333; color:#00b7ff;">Date</th>';
-            html += '<th style="padding: 8px; border: 1px solid #333; color:#00b7ff;">Actions</th>';
-            html += '</tr>';
+            let html = '<div class="recent-cards">';
             
             downloads.forEach(download => {
-                const truncatedUrl = download.source_url.length > 30 ? download.source_url.substring(0, 30) + '...' : download.source_url;
-                const date = new Date(download.created_at).toLocaleString();
+                const title = escapeHtml(download.display_name || download.filename.replace(/\.[^/.]+$/, ''));
+                const platform = getPlatformLabel(download.source_url || '');
+                const date = new Date(download.created_at).toLocaleDateString();
                 
-                html += '<tr style="background:#1a1a1a;">';
-                html += `<td style="padding: 8px; border: 1px solid #333; color:#ccc;">${truncatedUrl}</td>`;
-                html += `<td style="padding: 8px; border: 1px solid #333; color:#ccc;">${date}</td>`;
-                html += '<td style="padding: 8px; border: 1px solid #333;">';
+                html += '<div class="recent-card">';
+                html += `<div class="recent-card-title" title="${escapeHtml(download.filename)}">${title}</div>`;
+                html += '<div class="recent-card-meta">';
+                html += `<span class="platform-badge">${platform}</span>`;
+                html += `<span>${date}</span>`;
+                html += '</div>';
                 
                 if (download.file_exists) {
-                    html += `<button class="btn btn-success btn-small" onclick="downloadOriginal(${download.id})" style="margin-right: 5px;">Download</button>`;
-                    html += `<button class="btn btn-secondary btn-small" onclick="continueToBrandrFromDownload('${download.file_path}', '${download.filename}')">Open in Create</button>`;
-                    html += ` <a href="{{ url_for('library') }}" class="btn btn-secondary btn-small" style="margin-left:0.25rem;">View in Library</a>`;
+                    html += '<div class="recent-card-actions">';
+                    html += `<button class="btn btn-secondary btn-small" onclick="continueToBrandrFromDownload('${escapeHtml(download.file_path)}', '${escapeHtml(download.filename)}')">Open in Create</button>`;
+                    html += `<button class="btn btn-success btn-small" onclick="downloadOriginal(${download.id})">Download</button>`;
+                    html += `<a href="{{ url_for('library') }}" class="btn btn-secondary btn-small">View in Library</a>`;
+                    html += '</div>';
                 } else {
-                    html += '<span style="color: #666;">⏰ Expired</span>';
+                    html += '<div class="recent-card-expired">File expired</div>';
                 }
                 
-                html += '</td>';
-                html += '</tr>';
+                html += '</div>';
             });
             
-            html += '</table>';
+            html += '</div>';
             container.innerHTML = html;
         }
         
