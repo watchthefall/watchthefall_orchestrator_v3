@@ -365,6 +365,12 @@ class BrandEditor {
     
     // Load existing brand data
     loadState(brand) {
+        // Clear previous logo/watermark state to prevent stale data
+        this.state.logoImg = null;
+        this.state.logoFile = null;
+        this.state.watermarkImg = null;
+        this.state.watermarkFile = null;
+        
         this.state.logoX = brand.logo_x || 0.85;
         this.state.logoY = brand.logo_y || 0.85;
         this.state.logoScale = brand.logo_scale || 0.15;
@@ -397,6 +403,8 @@ class BrandEditor {
             };
             logoImg.onerror = () => {
                 console.warn(`[BRAND EDITOR] Failed to load existing logo for brand ${brand.id}`);
+                this.state.logoImg = null;
+                this.render();
             };
             logoImg.src = `${apiBase}/api/preview/brand-asset/${brand.id}/logo`;
         }
@@ -411,6 +419,8 @@ class BrandEditor {
             };
             wmImg.onerror = () => {
                 console.warn(`[BRAND EDITOR] Failed to load existing watermark for brand ${brand.id}`);
+                this.state.watermarkImg = null;
+                this.render();
             };
             wmImg.src = `${apiBase}/api/preview/brand-asset/${brand.id}/watermark`;
         }

@@ -470,7 +470,7 @@
                         
                         <div class="slider-row">
                             <label>Scale <span class="slider-value" id="logoScaleVal">15%</span></label>
-                            <input type="range" id="logoScale" min="5" max="50" value="15" oninput="updateLogoScale(this.value)">
+                            <input type="range" id="logoScale" min="5" max="100" value="15" oninput="updateLogoScale(this.value)">
                         </div>
                         <div class="slider-row">
                             <label>Opacity <span class="slider-value" id="logoOpacityVal">100%</span></label>
@@ -1518,6 +1518,9 @@ function editBrand(brandId) {
             document.getElementById('logoScaleVal').textContent = Math.round((brand.logo_scale || 0.15) * 100) + '%';
             document.getElementById('logoOpacity').value = (brand.logo_opacity || 1.0) * 100;
             document.getElementById('logoOpacityVal').textContent = Math.round((brand.logo_opacity || 1.0) * 100) + '%';
+            
+            // Hydrate logo shape buttons
+            setLogoShape(brand.logo_shape || 'original');
             
             const wmMode = brand.wm_mode || 'fullscreen';
             if (wmMode === 'fullscreen') {
