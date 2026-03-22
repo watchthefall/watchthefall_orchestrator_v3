@@ -409,7 +409,7 @@
 <div class="container">
     <header>
         <h1>Brand Management</h1>
-        <button class="btn btn-primary" onclick="openCreateModal()">+ Create Brand</button>
+        <button class="btn btn-primary" onclick="openBrandWizard()">+ Create Brand</button>
     </header>
     
     <div id="brandGrid" class="brand-grid">
@@ -417,11 +417,11 @@
     </div>
 </div>
 
-<!-- Create Brand Modal -->
+<!-- Create Brand Modal (legacy - for edit mode only) -->
 <div id="createModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>Create New Brand</h2>
+            <h2>Edit Brand</h2>
             <button class="modal-close" onclick="closeCreateModal()">×</button>
         </div>
         
@@ -532,10 +532,420 @@
                 </div>
             </div>
             
-            <button type="submit" class="btn btn-primary" style="width:100%; margin-top:20px;">Create Brand</button>
+            <button type="submit" class="btn btn-primary" style="width:100%; margin-top:20px;">Save Changes</button>
         </form>
     </div>
 </div>
+
+<!-- Brand Creation Wizard (Slice 1: New brands only) -->
+<div id="brandWizard" class="modal">
+    <div class="wizard-content">
+        <!-- Wizard Header -->
+        <div class="wizard-header">
+            <h2>Create New Brand</h2>
+            <button class="modal-close" onclick="closeBrandWizard()">×</button>
+        </div>
+        
+        <!-- Progress Indicator -->
+        <div class="wizard-progress">
+            <div class="progress-step active" data-step="1">
+                <span class="step-number">1</span>
+                <span class="step-label">Identity</span>
+            </div>
+            <div class="progress-line"></div>
+            <div class="progress-step" data-step="2">
+                <span class="step-number">2</span>
+                <span class="step-label">Logo</span>
+            </div>
+        </div>
+        
+        <div id="wizardStatus"></div>
+        
+        <!-- Step 1: Brand Identity -->
+        <div id="wizardStep1" class="wizard-step active">
+            <div class="wizard-step-content">
+                <h3>Name Your Brand</h3>
+                <p class="step-description">This is how your brand will appear throughout Brandr.</p>
+                
+                <div class="form-group">
+                    <label>Brand Name *</label>
+                    <input type="text" id="wizardDisplayName" placeholder="e.g., My Awesome Brand" required>
+                    <small class="input-hint">The human-friendly name for your brand.</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>URL Slug</label>
+                    <input type="text" id="wizardBrandSlug" placeholder="e.g., my-awesome-brand" pattern="[a-z0-9_-]+">
+                    <small class="input-hint">Used in URLs. Auto-generated from name, but you can customize.</small>
+                </div>
+            </div>
+            
+            <div class="wizard-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeBrandWizard()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="wizardNextStep()">Next: Add Logo →</button>
+            </div>
+        </div>
+        
+        <!-- Step 2: Primary Logo -->
+        <div id="wizardStep2" class="wizard-step">
+            <div class="wizard-step-content">
+                <h3>Add Your Logo</h3>
+                <p class="step-description">Upload your logo and configure how it appears on videos.</p>
+                
+                <!-- Logo Upload -->
+                <div class="upload-zone" id="wizardLogoUploadZone">
+                    <input type="file" id="wizardLogoInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden>
+                    <div class="upload-placeholder" onclick="document.getElementById('wizardLogoInput').click()">
+                        <span class="upload-icon">🎨</span>
+                        <p>Click to upload logo</p>
+                        <small>PNG, JPG, WEBP</small>
+                    </div>
+                    <div class="upload-preview" id="wizardLogoPreview" style="display:none;">
+                        <img id="wizardLogoImg" src="" alt="Logo preview">
+                        <button type="button" class="btn-text" onclick="clearWizardLogo()">Change</button>
+                    </div>
+                </div>
+                
+                <!-- Logo Options (appear after upload) -->
+                <div id="wizardLogoOptions" style="display:none;">
+                    <!-- Background Removal -->
+                    <div class="option-group">
+                        <label>Background Cleanup</label>
+                        <div class="option-buttons">
+                            <button type="button" class="option-btn active" data-cleanup="none" onclick="setWizardLogoCleanup('none')">Keep as-is</button>
+                            <button type="button" class="option-btn" data-cleanup="dark" onclick="setWizardLogoCleanup('dark')">Remove Dark BG</button>
+                            <button type="button" class="option-btn" data-cleanup="light" onclick="setWizardLogoCleanup('light')">Remove Light BG</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Shape -->
+                    <div class="option-group">
+                        <label>Logo Shape</label>
+                        <div class="option-buttons">
+                            <button type="button" class="option-btn active" data-shape="original" onclick="setWizardLogoShape('original')">Original</button>
+                            <button type="button" class="option-btn" data-shape="circle" onclick="setWizardLogoShape('circle')">Circle</button>
+                            <button type="button" class="option-btn" data-shape="square" onclick="setWizardLogoShape('square')">Square</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Scale & Opacity -->
+                    <div class="slider-group">
+                        <label>Scale <span id="wizardLogoScaleVal">15%</span></label>
+                        <input type="range" id="wizardLogoScale" min="5" max="50" value="15" oninput="updateWizardLogoScale(this.value)">
+                    </div>
+                    <div class="slider-group">
+                        <label>Opacity <span id="wizardLogoOpacityVal">100%</span></label>
+                        <input type="range" id="wizardLogoOpacity" min="0" max="100" value="100" oninput="updateWizardLogoOpacity(this.value)">
+                    </div>
+                </div>
+                
+                <!-- Micro Preview -->
+                <div class="micro-preview-container">
+                    <label>Preview</label>
+                    <div class="micro-preview" id="wizardMicroPreview">
+                        <canvas id="wizardPreviewCanvas" width="200" height="200"></canvas>
+                        <p class="preview-hint">Logo with shape and scale applied</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="wizard-actions">
+                <button type="button" class="btn btn-secondary" onclick="wizardPrevStep()">← Back</button>
+                <button type="button" class="btn btn-primary" id="wizardSaveBtn" onclick="saveWizardBrand()">Save Brand</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Brand Wizard Styles */
+.wizard-content {
+    background: #1a1a2e;
+    border-radius: 12px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.wizard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.wizard-header h2 {
+    margin: 0;
+    font-size: 20px;
+}
+
+.wizard-progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 24px;
+    gap: 8px;
+}
+
+.progress-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0.5;
+}
+
+.progress-step.active {
+    opacity: 1;
+}
+
+.progress-step.completed .step-number {
+    background: #28a745;
+}
+
+.step-number {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #00b7ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.step-label {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.progress-line {
+    width: 40px;
+    height: 2px;
+    background: rgba(255,255,255,0.2);
+}
+
+.wizard-step {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+}
+
+.wizard-step.active {
+    display: flex;
+}
+
+.wizard-step-content {
+    padding: 0 24px 20px;
+    flex: 1;
+}
+
+.wizard-step-content h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+}
+
+.step-description {
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.input-hint {
+    display: block;
+    color: #666;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.upload-zone {
+    border: 2px dashed rgba(255,255,255,0.2);
+    border-radius: 12px;
+    padding: 30px;
+    text-align: center;
+    margin-bottom: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.upload-zone:hover {
+    border-color: #00b7ff;
+    background: rgba(0,183,255,0.05);
+}
+
+.upload-placeholder .upload-icon {
+    font-size: 40px;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.upload-placeholder p {
+    margin: 0 0 4px;
+    color: #fff;
+}
+
+.upload-placeholder small {
+    color: #666;
+    font-size: 12px;
+}
+
+.upload-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.upload-preview img {
+    max-width: 120px;
+    max-height: 120px;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+.option-group {
+    margin-bottom: 16px;
+}
+
+.option-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #aaa;
+    margin-bottom: 8px;
+}
+
+.option-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.option-btn {
+    padding: 8px 16px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.option-btn:hover {
+    border-color: #00b7ff;
+}
+
+.option-btn.active {
+    background: #00b7ff;
+    border-color: #00b7ff;
+}
+
+.slider-group {
+    margin-bottom: 16px;
+}
+
+.slider-group label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.slider-group input[type="range"] {
+    width: 100%;
+}
+
+.micro-preview-container {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.micro-preview-container label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #aaa;
+    margin-bottom: 10px;
+}
+
+.micro-preview {
+    background: rgba(0,0,0,0.3);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+}
+
+.micro-preview canvas {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
+
+.preview-hint {
+    color: #666;
+    font-size: 12px;
+    margin: 10px 0 0;
+}
+
+.wizard-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 20px 24px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.wizard-actions .btn {
+    flex: 1;
+}
+
+.btn-text {
+    background: none;
+    border: none;
+    color: #00b7ff;
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+/* Mobile optimizations */
+@media (max-width: 480px) {
+    .wizard-content {
+        width: 95%;
+        max-height: 95vh;
+    }
+    
+    .wizard-step-content {
+        padding: 0 16px 16px;
+    }
+    
+    .wizard-actions {
+        padding: 16px;
+        flex-direction: column;
+    }
+    
+    .wizard-actions .btn {
+        width: 100%;
+    }
+    
+    .option-buttons {
+        justify-content: stretch;
+    }
+    
+    .option-btn {
+        flex: 1;
+        min-width: 0;
+        padding: 12px 8px;
+        font-size: 12px;
+    }
+}
+</style>
 
 <script src="{{ url_for('static', filename='js/brand_editor.js') }}"></script>
 <script>
@@ -577,7 +987,7 @@ function renderBrands(brands) {
                 <div style="font-size: 48px; margin-bottom: 20px;">🎨</div>
                 <h2 style="margin-bottom: 12px;">No Brands Yet</h2>
                 <p style="color: #aaa; margin-bottom: 24px;">Create your first brand to get started with custom watermarks and logos</p>
-                <button class="btn btn-primary" onclick="openCreateModal()">✨ Create Your First Brand</button>
+                <button class="btn btn-primary" onclick="openBrandWizard()">✨ Create Your First Brand</button>
             </div>
         `;
         return;
@@ -991,6 +1401,356 @@ async function deleteBrand(brandId, brandName) {
         alert(`Error: ${err.message}`);
     }
 }
+
+// ========== BRAND CREATION WIZARD (Slice 1) ==========
+let wizardState = {
+    step: 1,
+    displayName: '',
+    slug: '',
+    logoFile: null,
+    logoCleanup: 'none',
+    logoShape: 'original',
+    logoScale: 15,
+    logoOpacity: 100,
+    logoPreviewUrl: null
+};
+
+let wizardCanvas = null;
+let wizardCtx = null;
+let wizardLogoImage = null;
+
+function openBrandWizard() {
+    // Reset state
+    wizardState = {
+        step: 1,
+        displayName: '',
+        slug: '',
+        logoFile: null,
+        logoCleanup: 'none',
+        logoShape: 'original',
+        logoScale: 15,
+        logoOpacity: 100,
+        logoPreviewUrl: null
+    };
+    
+    // Reset UI
+    document.getElementById('wizardDisplayName').value = '';
+    document.getElementById('wizardBrandSlug').value = '';
+    document.getElementById('wizardLogoInput').value = '';
+    document.getElementById('wizardLogoPreview').style.display = 'none';
+    document.getElementById('wizardLogoUploadZone').querySelector('.upload-placeholder').style.display = 'block';
+    document.getElementById('wizardLogoOptions').style.display = 'none';
+    document.getElementById('wizardStatus').innerHTML = '';
+    
+    // Reset options
+    setWizardLogoCleanup('none');
+    setWizardLogoShape('original');
+    document.getElementById('wizardLogoScale').value = 15;
+    document.getElementById('wizardLogoScaleVal').textContent = '15%';
+    document.getElementById('wizardLogoOpacity').value = 100;
+    document.getElementById('wizardLogoOpacityVal').textContent = '100%';
+    
+    // Show step 1
+    showWizardStep(1);
+    
+    // Show wizard
+    document.getElementById('brandWizard').classList.add('active');
+    
+    // Init canvas
+    initWizardCanvas();
+}
+
+function closeBrandWizard() {
+    document.getElementById('brandWizard').classList.remove('active');
+    // Clear logo preview URL to prevent memory leaks
+    if (wizardState.logoPreviewUrl) {
+        URL.revokeObjectURL(wizardState.logoPreviewUrl);
+    }
+}
+
+function initWizardCanvas() {
+    wizardCanvas = document.getElementById('wizardPreviewCanvas');
+    if (wizardCanvas) {
+        wizardCtx = wizardCanvas.getContext('2d');
+        drawWizardPreview();
+    }
+}
+
+function showWizardStep(step) {
+    wizardState.step = step;
+    
+    // Update progress indicator
+    document.querySelectorAll('.progress-step').forEach((el, idx) => {
+        el.classList.remove('active', 'completed');
+        if (idx + 1 < step) {
+            el.classList.add('completed');
+        } else if (idx + 1 === step) {
+            el.classList.add('active');
+        }
+    });
+    
+    // Show/hide steps
+    document.getElementById('wizardStep1').classList.toggle('active', step === 1);
+    document.getElementById('wizardStep2').classList.toggle('active', step === 2);
+}
+
+function wizardNextStep() {
+    if (wizardState.step === 1) {
+        // Validate step 1
+        const displayName = document.getElementById('wizardDisplayName').value.trim();
+        if (!displayName) {
+            document.getElementById('wizardStatus').innerHTML = '<div class="status-msg error">Please enter a brand name.</div>';
+            return;
+        }
+        
+        wizardState.displayName = displayName;
+        
+        // Auto-generate slug if empty
+        let slug = document.getElementById('wizardBrandSlug').value.trim();
+        if (!slug) {
+            slug = slugify(displayName);
+            document.getElementById('wizardBrandSlug').value = slug;
+        }
+        wizardState.slug = slug;
+        
+        showWizardStep(2);
+    }
+}
+
+function wizardPrevStep() {
+    if (wizardState.step === 2) {
+        showWizardStep(1);
+    }
+}
+
+function slugify(text) {
+    return text.toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .substring(0, 50);
+}
+
+// Logo input handler
+document.getElementById('wizardLogoInput')?.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        handleWizardLogoUpload(file);
+    }
+});
+
+function handleWizardLogoUpload(file) {
+    wizardState.logoFile = file;
+    
+    // Create preview URL
+    const url = URL.createObjectURL(file);
+    wizardState.logoPreviewUrl = url;
+    
+    // Update UI
+    document.getElementById('wizardLogoImg').src = url;
+    document.getElementById('wizardLogoPreview').style.display = 'flex';
+    document.getElementById('wizardLogoUploadZone').querySelector('.upload-placeholder').style.display = 'none';
+    document.getElementById('wizardLogoOptions').style.display = 'block';
+    
+    // Load image for canvas preview
+    wizardLogoImage = new Image();
+    wizardLogoImage.onload = function() {
+        drawWizardPreview();
+    };
+    wizardLogoImage.src = url;
+}
+
+function clearWizardLogo() {
+    wizardState.logoFile = null;
+    if (wizardState.logoPreviewUrl) {
+        URL.revokeObjectURL(wizardState.logoPreviewUrl);
+        wizardState.logoPreviewUrl = null;
+    }
+    wizardLogoImage = null;
+    
+    document.getElementById('wizardLogoInput').value = '';
+    document.getElementById('wizardLogoPreview').style.display = 'none';
+    document.getElementById('wizardLogoUploadZone').querySelector('.upload-placeholder').style.display = 'block';
+    document.getElementById('wizardLogoOptions').style.display = 'none';
+    
+    drawWizardPreview();
+}
+
+function setWizardLogoCleanup(mode) {
+    wizardState.logoCleanup = mode;
+    document.querySelectorAll('[data-cleanup]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.cleanup === mode);
+    });
+}
+
+function setWizardLogoShape(shape) {
+    wizardState.logoShape = shape;
+    document.querySelectorAll('[data-shape]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.shape === shape);
+    });
+    drawWizardPreview();
+}
+
+function updateWizardLogoScale(value) {
+    wizardState.logoScale = parseInt(value);
+    document.getElementById('wizardLogoScaleVal').textContent = value + '%';
+    drawWizardPreview();
+}
+
+function updateWizardLogoOpacity(value) {
+    wizardState.logoOpacity = parseInt(value);
+    document.getElementById('wizardLogoOpacityVal').textContent = value + '%';
+    drawWizardPreview();
+}
+
+function drawWizardPreview() {
+    if (!wizardCtx || !wizardCanvas) return;
+    
+    const ctx = wizardCtx;
+    const canvas = wizardCanvas;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw background
+    ctx.fillStyle = '#0f0c29';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    if (!wizardLogoImage) {
+        // Draw placeholder text
+        ctx.fillStyle = '#666';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Logo preview', canvas.width / 2, canvas.height / 2);
+        return;
+    }
+    
+    // Calculate scaled dimensions
+    const scale = wizardState.logoScale / 100;
+    const maxSize = Math.min(canvas.width, canvas.height) * 0.8;
+    const size = maxSize * scale;
+    
+    const x = (canvas.width - size) / 2;
+    const y = (canvas.height - size) / 2;
+    
+    // Apply opacity
+    ctx.globalAlpha = wizardState.logoOpacity / 100;
+    
+    // Apply shape clipping
+    ctx.save();
+    if (wizardState.logoShape === 'circle') {
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height / 2, size / 2, 0, Math.PI * 2);
+        ctx.clip();
+    } else if (wizardState.logoShape === 'square') {
+        const cornerRadius = size * 0.1;
+        ctx.beginPath();
+        ctx.moveTo(x + cornerRadius, y);
+        ctx.lineTo(x + size - cornerRadius, y);
+        ctx.quadraticCurveTo(x + size, y, x + size, y + cornerRadius);
+        ctx.lineTo(x + size, y + size - cornerRadius);
+        ctx.quadraticCurveTo(x + size, y + size, x + size - cornerRadius, y + size);
+        ctx.lineTo(x + cornerRadius, y + size);
+        ctx.quadraticCurveTo(x, y + size, x, y + size - cornerRadius);
+        ctx.lineTo(x, y + cornerRadius);
+        ctx.quadraticCurveTo(x, y, x + cornerRadius, y);
+        ctx.closePath();
+        ctx.clip();
+    }
+    
+    // Draw logo
+    ctx.drawImage(wizardLogoImage, x, y, size, size);
+    ctx.restore();
+    
+    // Reset alpha
+    ctx.globalAlpha = 1;
+}
+
+async function saveWizardBrand() {
+    const status = document.getElementById('wizardStatus');
+    const saveBtn = document.getElementById('wizardSaveBtn');
+    
+    // Validate
+    if (!wizardState.displayName || !wizardState.slug) {
+        status.innerHTML = '<div class="status-msg error">Brand name is required.</div>';
+        return;
+    }
+    
+    // Disable button
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+    
+    try {
+        // Step 1: Create brand
+        status.innerHTML = '<div class="status-msg info">Creating brand...</div>';
+        
+        const createRes = await fetch(`${apiBase}/api/brands`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: wizardState.slug,
+                display_name: wizardState.displayName
+            })
+        });
+        
+        const createData = await createRes.json();
+        if (!createData.success) {
+            throw new Error(createData.error || 'Failed to create brand');
+        }
+        
+        const brandId = createData.brand_id;
+        
+        // Step 2: Upload logo if present
+        if (wizardState.logoFile) {
+            status.innerHTML = '<div class="status-msg info">Uploading logo...</div>';
+            
+            const logoForm = new FormData();
+            logoForm.append('file', wizardState.logoFile);
+            logoForm.append('remove_bg_mode', wizardState.logoCleanup);
+            logoForm.append('logo_scale', wizardState.logoScale / 100);
+            logoForm.append('logo_opacity', wizardState.logoOpacity / 100);
+            logoForm.append('logo_shape', wizardState.logoShape);
+            
+            const logoRes = await fetch(`${apiBase}/api/brands/${brandId}/upload_logo`, {
+                method: 'POST',
+                body: logoForm
+            });
+            
+            const logoData = await logoRes.json();
+            if (!logoData.success) {
+                console.warn('Logo upload warning:', logoData.error);
+                // Continue anyway - brand is created
+            }
+        }
+        
+        status.innerHTML = '<div class="status-msg success">✅ Brand created successfully!</div>';
+        
+        setTimeout(() => {
+            closeBrandWizard();
+            loadBrands();
+        }, 1000);
+        
+    } catch (err) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Brand';
+        status.innerHTML = `<div class="status-msg error">❌ ${err.message}</div>`;
+    }
+}
+
+// Auto-slugify on display name input
+document.getElementById('wizardDisplayName')?.addEventListener('input', function(e) {
+    const slugInput = document.getElementById('wizardBrandSlug');
+    if (!slugInput.value || slugInput.dataset.auto === 'true') {
+        slugInput.value = slugify(e.target.value);
+        slugInput.dataset.auto = 'true';
+    }
+});
+
+document.getElementById('wizardBrandSlug')?.addEventListener('input', function(e) {
+    // User manually edited slug, stop auto-updating
+    if (e.target.value !== slugify(document.getElementById('wizardDisplayName').value)) {
+        e.target.dataset.auto = 'false';
+    }
+});
 </script>
 
 </body>
