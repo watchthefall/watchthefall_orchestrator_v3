@@ -1670,6 +1670,7 @@ function initWizardCanvas() {
     if (wizardCanvas) {
         wizardCtx = wizardCanvas.getContext('2d');
         drawWizardPreview();
+        initWizardCanvasDrag();
     }
 }
 
@@ -1756,6 +1757,9 @@ function handleWizardLogoUpload(file) {
     wizardLogoImage = new Image();
     wizardLogoImage.onload = function() {
         drawWizardPreview();
+        // Update hint to indicate drag is available
+        const hint = document.querySelector('#wizardVideoPreview .preview-hint');
+        if (hint) hint.textContent = 'Drag logo to reposition';
     };
     wizardLogoImage.src = url;
 }
@@ -1775,6 +1779,10 @@ function clearWizardLogo() {
     document.getElementById('wizardLogoThumb').src = '';
     document.getElementById('wizardPreviewContainer').style.display = 'none';
     document.getElementById('wizardLogoOptions').style.display = 'none';
+    
+    // Reset hint text
+    const hint = document.querySelector('#wizardVideoPreview .preview-hint');
+    if (hint) hint.textContent = 'Logo placement on 9:16 video frame';
     
     // Reset accordion to default state (Shape & Position open)
     document.querySelectorAll('.accordion-group').forEach(group => {
@@ -1959,6 +1967,84 @@ function drawWizardPreview() {
     
     // Reset alpha
     ctx.globalAlpha = 1;
+}
+
+// --- Drag-to-position on wizard preview canvas ---
+let wizardDragging = false;
+let wizardDragOffset = { x: 0, y: 0 };
+
+function getWizardCanvasPos(e) {
+    const rect = wizardCanvas.getBoundingClientRect();
+    return {
+        x: (e.clientX - rect.left) / rect.width,
+        y: (e.clientY - rect.top) / rect.height
+    };
+}
+
+function isOverWizardLogo(pos) {
+    if (!wizardLogoImage) return false;
+    const scale = wizardState.logoScale / 100;
+    const baseSize = Math.min(270, 480) * 0.25;
+    const size = baseSize * scale;
+    const halfW = (size / 2) / 270;
+    const halfH = (size / 2) / 480;
+    return pos.x >= wizardState.logoX - halfW &&
+           pos.x <= wizardState.logoX + halfW &&
+           pos.y >= wizardState.logoY - halfH &&
+           pos.y <= wizardState.logoY + halfH;
+}
+
+function onWizardDragStart(e) {
+    if (!wizardLogoImage) return;
+    const pos = getWizardCanvasPos(e);
+    if (isOverWizardLogo(pos)) {
+        wizardDragging = true;
+        wizardDragOffset.x = pos.x - wizardState.logoX;
+        wizardDragOffset.y = pos.y - wizardState.logoY;
+    }
+}
+
+function onWizardDragMove(e) {
+    if (!wizardLogoImage) return;
+    const pos = getWizardCanvasPos(e);
+    if (!wizardDragging) {
+        wizardCanvas.style.cursor = isOverWizardLogo(pos) ? 'move' : 'default';
+        return;
+    }
+    wizardState.logoX = Math.max(0.05, Math.min(0.95, pos.x - wizardDragOffset.x));
+    wizardState.logoY = Math.max(0.05, Math.min(0.95, pos.y - wizardDragOffset.y));
+    // Deselect all position presets (custom position)
+    wizardState.logoPosition = 'custom';
+    document.querySelectorAll('.position-btn').forEach(btn => btn.classList.remove('active'));
+    drawWizardPreview();
+}
+
+function onWizardDragEnd() {
+    wizardDragging = false;
+    wizardCanvas.style.cursor = 'default';
+}
+
+function initWizardCanvasDrag() {
+    if (!wizardCanvas) return;
+    // Mouse events
+    wizardCanvas.addEventListener('mousedown', onWizardDragStart);
+    wizardCanvas.addEventListener('mousemove', onWizardDragMove);
+    wizardCanvas.addEventListener('mouseup', onWizardDragEnd);
+    wizardCanvas.addEventListener('mouseleave', onWizardDragEnd);
+    // Touch events
+    wizardCanvas.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        if (e.touches.length > 0) {
+            onWizardDragStart({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
+        }
+    }, { passive: false });
+    wizardCanvas.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        if (e.touches.length > 0) {
+            onWizardDragMove({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
+        }
+    }, { passive: false });
+    wizardCanvas.addEventListener('touchend', onWizardDragEnd);
 }
 
 async function saveWizardBrand() {
