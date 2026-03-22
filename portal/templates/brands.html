@@ -592,7 +592,7 @@
                 <h3>Add Your Logo</h3>
                 <p class="step-description">Upload your logo and configure how it appears on videos.</p>
                 
-                <!-- Logo Upload -->
+                <!-- Logo Upload - Large zone (shown before upload) -->
                 <div class="upload-zone" id="wizardLogoUploadZone">
                     <input type="file" id="wizardLogoInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden>
                     <div class="upload-placeholder" onclick="document.getElementById('wizardLogoInput').click()">
@@ -600,69 +600,101 @@
                         <p>Click to upload logo</p>
                         <small>PNG, JPG, WEBP</small>
                     </div>
-                    <div class="upload-preview" id="wizardLogoPreview" style="display:none;">
-                        <img id="wizardLogoImg" src="" alt="Logo preview">
-                        <button type="button" class="btn-text" onclick="clearWizardLogo()">Change</button>
+                </div>
+                
+                <!-- Compact Upload Row (shown after upload) -->
+                <div class="upload-row" id="wizardLogoRow" style="display:none;">
+                    <img id="wizardLogoThumb" src="" alt="Logo">
+                    <span class="upload-filename" id="wizardLogoFilename">logo.png</span>
+                    <div class="upload-actions">
+                        <button type="button" class="btn-text" onclick="document.getElementById('wizardLogoInput').click()">Change</button>
+                        <button type="button" class="btn-text btn-danger-text" onclick="clearWizardLogo()">Remove</button>
                     </div>
                 </div>
                 
-                <!-- Logo Options (appear after upload) -->
-                <div id="wizardLogoOptions" style="display:none;">
-                    <!-- Background Removal -->
-                    <div class="option-group">
-                        <label>Background Cleanup</label>
-                        <div class="option-buttons">
-                            <button type="button" class="option-btn active" data-cleanup="none" onclick="setWizardLogoCleanup('none')">Keep as-is</button>
-                            <button type="button" class="option-btn" data-cleanup="dark" onclick="setWizardLogoCleanup('dark')">Remove Dark BG</button>
-                            <button type="button" class="option-btn" data-cleanup="light" onclick="setWizardLogoCleanup('light')">Remove Light BG</button>
-                        </div>
-                        <!-- Background Removal Strength (hidden when 'none') -->
-                        <div id="wizardBgStrengthContainer" style="display:none; margin-top:12px; padding:10px; background:rgba(0,0,0,0.2); border-radius:6px;">
-                            <label style="display:block; font-size:11px; color:#aaa; margin-bottom:6px;">Strength <span id="wizardBgStrengthVal" style="color:#00b7ff;">30</span></label>
-                            <input type="range" id="wizardBgStrength" min="10" max="60" value="30" style="width:100%;" oninput="updateWizardBgStrength(this.value)">
-                        </div>
-                    </div>
-                    
-                    <!-- Shape -->
-                    <div class="option-group">
-                        <label>Logo Shape</label>
-                        <div class="option-buttons">
-                            <button type="button" class="option-btn active" data-shape="original" onclick="setWizardLogoShape('original')">Original</button>
-                            <button type="button" class="option-btn" data-shape="circle" onclick="setWizardLogoShape('circle')">Circle</button>
-                            <button type="button" class="option-btn" data-shape="square" onclick="setWizardLogoShape('square')">Square</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Position Presets -->
-                    <div class="option-group">
-                        <label>Logo Position</label>
-                        <div class="position-grid">
-                            <button type="button" class="position-btn" data-pos="top-left" onclick="setWizardLogoPosition('top-left')">↖</button>
-                            <button type="button" class="position-btn" data-pos="top-right" onclick="setWizardLogoPosition('top-right')">↗</button>
-                            <button type="button" class="position-btn" data-pos="center" onclick="setWizardLogoPosition('center')">•</button>
-                            <button type="button" class="position-btn active" data-pos="bottom-left" onclick="setWizardLogoPosition('bottom-left')">↙</button>
-                            <button type="button" class="position-btn" data-pos="bottom-right" onclick="setWizardLogoPosition('bottom-right')">↘</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Scale & Opacity -->
-                    <div class="slider-group">
-                        <label>Scale <span id="wizardLogoScaleVal">15%</span></label>
-                        <input type="range" id="wizardLogoScale" min="5" max="50" value="15" oninput="updateWizardLogoScale(this.value)">
-                    </div>
-                    <div class="slider-group">
-                        <label>Opacity <span id="wizardLogoOpacityVal">100%</span></label>
-                        <input type="range" id="wizardLogoOpacity" min="0" max="100" value="100" oninput="updateWizardLogoOpacity(this.value)">
-                    </div>
-                </div>
-                
-                <!-- 9:16 Preview -->
-                <div class="preview-container">
+                <!-- 9:16 Preview (moved above controls) -->
+                <div class="preview-container" id="wizardPreviewContainer" style="display:none;">
                     <label>Preview</label>
                     <div class="video-preview" id="wizardVideoPreview">
                         <canvas id="wizardPreviewCanvas" width="270" height="480"></canvas>
                         <p class="preview-hint">Logo placement on 9:16 video frame</p>
                     </div>
+                </div>
+                
+                <!-- Logo Options - Accordion Groups (appear after upload) -->
+                <div id="wizardLogoOptions" style="display:none;">
+                    
+                    <!-- Accordion 1: Shape & Position -->
+                    <div class="accordion-group open" data-accordion="shape-position">
+                        <button type="button" class="accordion-header" onclick="toggleAccordion('shape-position')">
+                            <span>Shape & Position</span>
+                            <span class="accordion-icon">▼</span>
+                        </button>
+                        <div class="accordion-content">
+                            <!-- Shape -->
+                            <div class="option-group">
+                                <label>Logo Shape</label>
+                                <div class="option-buttons">
+                                    <button type="button" class="option-btn active" data-shape="original" onclick="setWizardLogoShape('original')">Original</button>
+                                    <button type="button" class="option-btn" data-shape="circle" onclick="setWizardLogoShape('circle')">Circle</button>
+                                    <button type="button" class="option-btn" data-shape="square" onclick="setWizardLogoShape('square')">Square</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Position Presets -->
+                            <div class="option-group">
+                                <label>Logo Position</label>
+                                <div class="position-grid">
+                                    <button type="button" class="position-btn" data-pos="top-left" onclick="setWizardLogoPosition('top-left')">↖</button>
+                                    <button type="button" class="position-btn" data-pos="top-right" onclick="setWizardLogoPosition('top-right')">↗</button>
+                                    <button type="button" class="position-btn" data-pos="center" onclick="setWizardLogoPosition('center')">•</button>
+                                    <button type="button" class="position-btn active" data-pos="bottom-left" onclick="setWizardLogoPosition('bottom-left')">↙</button>
+                                    <button type="button" class="position-btn" data-pos="bottom-right" onclick="setWizardLogoPosition('bottom-right')">↘</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Accordion 2: Background Cleanup -->
+                    <div class="accordion-group" data-accordion="cleanup">
+                        <button type="button" class="accordion-header" onclick="toggleAccordion('cleanup')">
+                            <span>Background Cleanup</span>
+                            <span class="accordion-icon">▼</span>
+                        </button>
+                        <div class="accordion-content" style="display:none;">
+                            <div class="option-group">
+                                <div class="option-buttons">
+                                    <button type="button" class="option-btn active" data-cleanup="none" onclick="setWizardLogoCleanup('none')">Keep as-is</button>
+                                    <button type="button" class="option-btn" data-cleanup="dark" onclick="setWizardLogoCleanup('dark')">Remove Dark BG</button>
+                                    <button type="button" class="option-btn" data-cleanup="light" onclick="setWizardLogoCleanup('light')">Remove Light BG</button>
+                                </div>
+                                <!-- Background Removal Strength (hidden when 'none') -->
+                                <div id="wizardBgStrengthContainer" style="display:none; margin-top:12px; padding:10px; background:rgba(0,0,0,0.2); border-radius:6px;">
+                                    <label style="display:block; font-size:11px; color:#aaa; margin-bottom:6px;">Strength <span id="wizardBgStrengthVal" style="color:#00b7ff;">30</span></label>
+                                    <input type="range" id="wizardBgStrength" min="10" max="60" value="30" style="width:100%;" oninput="updateWizardBgStrength(this.value)">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Accordion 3: Size & Opacity -->
+                    <div class="accordion-group" data-accordion="size-opacity">
+                        <button type="button" class="accordion-header" onclick="toggleAccordion('size-opacity')">
+                            <span>Size & Opacity</span>
+                            <span class="accordion-icon">▼</span>
+                        </button>
+                        <div class="accordion-content" style="display:none;">
+                            <div class="slider-group">
+                                <label>Scale <span id="wizardLogoScaleVal">15%</span></label>
+                                <input type="range" id="wizardLogoScale" min="5" max="50" value="15" oninput="updateWizardLogoScale(this.value)">
+                            </div>
+                            <div class="slider-group">
+                                <label>Opacity <span id="wizardLogoOpacityVal">100%</span></label>
+                                <input type="range" id="wizardLogoOpacity" min="0" max="100" value="100" oninput="updateWizardLogoOpacity(this.value)">
+                            </div>
+                        </div>
+                    </div>
+                    
                 </div>
             </div>
             
@@ -935,6 +967,93 @@
     height: auto;
     border-radius: 8px;
     background: linear-gradient(135deg, #1a1a2e 0%, #0f0c29 100%);
+}
+
+/* Upload Row (compact, shown after upload) */
+.upload-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.upload-row img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.1);
+}
+
+.upload-filename {
+    flex: 1;
+    font-size: 13px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.upload-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.btn-danger-text {
+    color: #ff6b6b !important;
+}
+
+.btn-danger-text:hover {
+    color: #ff4444 !important;
+}
+
+/* Accordion Groups */
+.accordion-group {
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.accordion-header {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.05);
+    border: none;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.accordion-header:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.accordion-icon {
+    font-size: 12px;
+    transition: transform 0.2s;
+}
+
+.accordion-group.open .accordion-icon {
+    transform: rotate(180deg);
+}
+
+.accordion-content {
+    padding: 16px;
+    background: rgba(0,0,0,0.2);
+}
+
+.accordion-content .option-group:last-child,
+.accordion-content .slider-group:last-child {
+    margin-bottom: 0;
 }
 
 .preview-hint {
@@ -1495,10 +1614,27 @@ function openBrandWizard() {
     document.getElementById('wizardDisplayName').value = '';
     document.getElementById('wizardBrandSlug').value = '';
     document.getElementById('wizardLogoInput').value = '';
-    document.getElementById('wizardLogoPreview').style.display = 'none';
-    document.getElementById('wizardLogoUploadZone').querySelector('.upload-placeholder').style.display = 'block';
+    
+    // Reset upload UI
+    document.getElementById('wizardLogoUploadZone').style.display = 'block';
+    document.getElementById('wizardLogoRow').style.display = 'none';
+    document.getElementById('wizardLogoThumb').src = '';
+    document.getElementById('wizardPreviewContainer').style.display = 'none';
     document.getElementById('wizardLogoOptions').style.display = 'none';
     document.getElementById('wizardStatus').innerHTML = '';
+    
+    // Reset accordions - Shape & Position open by default
+    document.querySelectorAll('.accordion-group').forEach(group => {
+        group.classList.remove('open');
+        const content = group.querySelector('.accordion-content');
+        if (content) content.style.display = 'none';
+    });
+    const defaultAccordion = document.querySelector('[data-accordion="shape-position"]');
+    if (defaultAccordion) {
+        defaultAccordion.classList.add('open');
+        const content = defaultAccordion.querySelector('.accordion-content');
+        if (content) content.style.display = 'block';
+    }
     
     // Reset options
     setWizardLogoCleanup('none');
@@ -1606,10 +1742,14 @@ function handleWizardLogoUpload(file) {
     const url = URL.createObjectURL(file);
     wizardState.logoPreviewUrl = url;
     
-    // Update UI
-    document.getElementById('wizardLogoImg').src = url;
-    document.getElementById('wizardLogoPreview').style.display = 'flex';
-    document.getElementById('wizardLogoUploadZone').querySelector('.upload-placeholder').style.display = 'none';
+    // Update UI - hide large upload zone, show compact row
+    document.getElementById('wizardLogoUploadZone').style.display = 'none';
+    document.getElementById('wizardLogoRow').style.display = 'flex';
+    document.getElementById('wizardLogoThumb').src = url;
+    document.getElementById('wizardLogoFilename').textContent = file.name;
+    
+    // Show preview and options
+    document.getElementById('wizardPreviewContainer').style.display = 'block';
     document.getElementById('wizardLogoOptions').style.display = 'block';
     
     // Load image for canvas preview
@@ -1628,10 +1768,26 @@ function clearWizardLogo() {
     }
     wizardLogoImage = null;
     
+    // Reset UI - show large upload zone, hide compact row
     document.getElementById('wizardLogoInput').value = '';
-    document.getElementById('wizardLogoPreview').style.display = 'none';
-    document.getElementById('wizardLogoUploadZone').querySelector('.upload-placeholder').style.display = 'block';
+    document.getElementById('wizardLogoUploadZone').style.display = 'block';
+    document.getElementById('wizardLogoRow').style.display = 'none';
+    document.getElementById('wizardLogoThumb').src = '';
+    document.getElementById('wizardPreviewContainer').style.display = 'none';
     document.getElementById('wizardLogoOptions').style.display = 'none';
+    
+    // Reset accordion to default state (Shape & Position open)
+    document.querySelectorAll('.accordion-group').forEach(group => {
+        group.classList.remove('open');
+        const content = group.querySelector('.accordion-content');
+        if (content) content.style.display = 'none';
+    });
+    const defaultAccordion = document.querySelector('[data-accordion="shape-position"]');
+    if (defaultAccordion) {
+        defaultAccordion.classList.add('open');
+        const content = defaultAccordion.querySelector('.accordion-content');
+        if (content) content.style.display = 'block';
+    }
     
     drawWizardPreview();
 }
@@ -1672,6 +1828,33 @@ function updateWizardLogoOpacity(value) {
 function updateWizardBgStrength(value) {
     wizardState.logoCleanupStrength = parseInt(value);
     document.getElementById('wizardBgStrengthVal').textContent = value;
+}
+
+function toggleAccordion(accordionName) {
+    const group = document.querySelector(`[data-accordion="${accordionName}"]`);
+    if (!group) return;
+    
+    const isOpen = group.classList.contains('open');
+    const content = group.querySelector('.accordion-content');
+    
+    // On mobile (< 768px), close other accordions when opening one
+    const isMobile = window.innerWidth < 768;
+    if (isMobile && !isOpen) {
+        document.querySelectorAll('.accordion-group').forEach(g => {
+            g.classList.remove('open');
+            const c = g.querySelector('.accordion-content');
+            if (c) c.style.display = 'none';
+        });
+    }
+    
+    // Toggle current accordion
+    if (isOpen) {
+        group.classList.remove('open');
+        if (content) content.style.display = 'none';
+    } else {
+        group.classList.add('open');
+        if (content) content.style.display = 'block';
+    }
 }
 
 function setWizardLogoPosition(position) {
