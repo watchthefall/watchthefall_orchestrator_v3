@@ -41,6 +41,18 @@ def normalize_logo(input_path, output_path, max_dimension=1024, remove_bg=None, 
         if remove_bg in ['dark', 'light']:
             img = remove_background(img, mode=remove_bg, threshold=bg_threshold)
         
+        # Auto-trim transparent/dead space around visible content
+        bbox = img.getbbox()
+        if bbox is not None:
+            # Add safe padding margin (10px)
+            padding = 10
+            left = max(0, bbox[0] - padding)
+            top = max(0, bbox[1] - padding)
+            right = min(img.width, bbox[2] + padding)
+            bottom = min(img.height, bbox[3] + padding)
+            img = img.crop((left, top, right, bottom))
+        # If bbox is None, image is fully transparent; save as-is
+        
         # Save as clean PNG
         img.save(output_path, 'PNG', optimize=True)
         
