@@ -26,7 +26,7 @@ class BrandEditor {
             logoImg: null,
             logoX: 0.85,  // percent (0-1)
             logoY: 0.85,
-            logoScale: 0.15,
+            logoScale: 0.25,
             logoOpacity: 1.0,
             logoShape: 'original', // 'original', 'circle', 'square'
             logoRotation: 0.0, // degrees (0-360)

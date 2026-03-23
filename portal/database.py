@@ -78,7 +78,7 @@ def init_db():
             user_id TEXT,
             watermark_scale REAL DEFAULT 1.15,
             watermark_opacity REAL DEFAULT 0.4,
-            logo_scale REAL DEFAULT 0.15,
+            logo_scale REAL DEFAULT 0.25,
             logo_padding INTEGER DEFAULT 40,
             text_enabled INTEGER DEFAULT 0,
             text_content TEXT DEFAULT '',
@@ -111,7 +111,7 @@ def init_db():
             logo_path TEXT,
             watermark_scale REAL DEFAULT 1.15,
             watermark_opacity REAL DEFAULT 0.4,
-            logo_scale REAL DEFAULT 0.15,
+            logo_scale REAL DEFAULT 0.25,
             logo_padding INTEGER DEFAULT 40,
             text_enabled INTEGER DEFAULT 0,
             text_content TEXT DEFAULT '',
@@ -217,6 +217,15 @@ def _run_migrations():
         c.execute("ALTER TABLE brands ADD COLUMN logo_shape TEXT DEFAULT 'original'")
         conn.commit()
         print("[DATABASE] Migration completed: logo_shape added")
+    
+    # Migration: Add logo_rotation for brand-default logo rotation (degrees, 0-360)
+    try:
+        c.execute("SELECT logo_rotation FROM brands LIMIT 1")
+    except sqlite3.OperationalError:
+        print("[DATABASE] Running migration: Adding logo_rotation column")
+        c.execute("ALTER TABLE brands ADD COLUMN logo_rotation REAL DEFAULT 0.0")
+        conn.commit()
+        print("[DATABASE] Migration completed: logo_rotation added")
     
     # Migration: Add display_name to downloads table
     try:
@@ -389,7 +398,7 @@ def get_brand_config(brand_name):
         'brand_name': brand_name,
         'watermark_scale': 1.15,
         'watermark_opacity': 0.4,
-        'logo_scale': 0.15,
+        'logo_scale': 0.25,
         'logo_padding': 40,
         'text_enabled': 0,
         'text_content': '',
@@ -436,7 +445,7 @@ def save_brand_config(brand_name, config):
         ''', (
             config.get('watermark_scale', 1.15),
             config.get('watermark_opacity', 0.4),
-            config.get('logo_scale', 0.15),
+            config.get('logo_scale', 0.25),
             config.get('logo_padding', 40),
             1 if config.get('text_enabled') else 0,
             config.get('text_content', ''),
@@ -464,7 +473,7 @@ def save_brand_config(brand_name, config):
             brand_name,
             config.get('watermark_scale', 1.15),
             config.get('watermark_opacity', 0.4),
-            config.get('logo_scale', 0.15),
+            config.get('logo_scale', 0.25),
             config.get('logo_padding', 40),
             1 if config.get('text_enabled') else 0,
             config.get('text_content', ''),
@@ -567,17 +576,17 @@ def create_brand(name, display_name, user_id=None, is_system=False, is_locked=Fa
             watermark_scale, watermark_opacity, logo_scale, logo_padding,
             text_enabled, text_content, text_position, text_x, text_y, text_size, text_color,
             text_font, text_bg_enabled, text_bg_color, text_bg_opacity, text_margin,
-            logo_x, logo_y, logo_opacity,
+            logo_x, logo_y, logo_opacity, logo_rotation,
             wm_mode, wm_x, wm_y, wm_scale, wm_opacity,
             text_x_percent, text_y_percent,
             created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         name, display_name, user_id, 1 if is_system else 0, 1 if is_locked else 0,
         watermark_vertical, watermark_square, watermark_landscape, logo_path,
         config.get('watermark_scale', 1.15),
         config.get('watermark_opacity', 0.4),
-        config.get('logo_scale', 0.15),
+        config.get('logo_scale', 0.25),
         config.get('logo_padding', 40),
         1 if config.get('text_enabled') else 0,
         config.get('text_content', ''),
@@ -595,6 +604,7 @@ def create_brand(name, display_name, user_id=None, is_system=False, is_locked=Fa
         config.get('logo_x', 0.85),
         config.get('logo_y', 0.85),
         config.get('logo_opacity', 1.0),
+        config.get('logo_rotation', 0.0),
         config.get('wm_mode', 'fullscreen'),
         config.get('wm_x', 0.5),
         config.get('wm_y', 0.5),
@@ -623,7 +633,7 @@ def update_brand(brand_id, **updates):
         'text_enabled', 'text_content', 'text_position', 'text_x', 'text_y', 'text_size', 'text_color',
         'text_font', 'text_bg_enabled', 'text_bg_color', 'text_bg_opacity', 'text_margin',
         # Visual positioning fields
-        'logo_x', 'logo_y', 'logo_opacity', 'logo_shape',
+        'logo_x', 'logo_y', 'logo_opacity', 'logo_shape', 'logo_rotation',
         'wm_mode', 'wm_x', 'wm_y', 'wm_scale', 'wm_opacity',
         'text_x_percent', 'text_y_percent'
     ]

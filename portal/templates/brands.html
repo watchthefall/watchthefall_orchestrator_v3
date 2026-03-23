@@ -700,8 +700,8 @@
                         </button>
                         <div class="accordion-content" style="display:none;">
                             <div class="slider-group">
-                                <label>Scale <span id="wizardLogoScaleVal">15%</span></label>
-                                <input type="range" id="wizardLogoScale" min="5" max="100" value="15" oninput="updateWizardLogoScale(this.value)">
+                                <label>Scale <span id="wizardLogoScaleVal">25%</span></label>
+                                <input type="range" id="wizardLogoScale" min="5" max="100" value="25" oninput="updateWizardLogoScale(this.value)">
                             </div>
                             <div class="slider-group">
                                 <label>Rotation <span id="wizardLogoRotationVal">0°</span></label>
@@ -1637,7 +1637,7 @@ let wizardState = {
     logoCleanup: 'none',
     logoCleanupStrength: 30,
     logoShape: 'original',
-    logoScale: 15,
+    logoScale: 25,
     logoRotation: 0,
     logoOpacity: 100,
     logoPosition: 'bottom-left',
@@ -1660,7 +1660,7 @@ function openBrandWizard() {
         logoCleanup: 'none',
         logoCleanupStrength: 30,
         logoShape: 'original',
-        logoScale: 15,
+        logoScale: 25,
         logoRotation: 0,
         logoOpacity: 100,
         logoPosition: 'bottom-left',
@@ -1699,8 +1699,8 @@ function openBrandWizard() {
     setWizardLogoCleanup('none');
     setWizardLogoShape('original');
     setWizardLogoPosition('bottom-left');
-    document.getElementById('wizardLogoScale').value = 15;
-    document.getElementById('wizardLogoScaleVal').textContent = '15%';
+    document.getElementById('wizardLogoScale').value = 25;
+    document.getElementById('wizardLogoScaleVal').textContent = '25%';
     document.getElementById('wizardLogoOpacity').value = 100;
     document.getElementById('wizardLogoOpacityVal').textContent = '100%';
     document.getElementById('wizardBgStrength').value = 30;
