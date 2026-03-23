@@ -484,6 +484,10 @@
                             <input type="range" id="logoScale" min="5" max="100" value="15" oninput="updateLogoScale(this.value)">
                         </div>
                         <div class="slider-row">
+                            <label>Rotation <span class="slider-value" id="logoRotationVal">0°</span></label>
+                            <input type="range" id="logoRotation" min="0" max="360" value="0" oninput="updateLogoRotation(this.value)">
+                        </div>
+                        <div class="slider-row">
                             <label>Opacity <span class="slider-value" id="logoOpacityVal">100%</span></label>
                             <input type="range" id="logoOpacity" min="0" max="100" value="100" oninput="updateLogoOpacity(this.value)">
                         </div>
@@ -698,6 +702,10 @@
                             <div class="slider-group">
                                 <label>Scale <span id="wizardLogoScaleVal">15%</span></label>
                                 <input type="range" id="wizardLogoScale" min="5" max="100" value="15" oninput="updateWizardLogoScale(this.value)">
+                            </div>
+                            <div class="slider-group">
+                                <label>Rotation <span id="wizardLogoRotationVal">0°</span></label>
+                                <input type="range" id="wizardLogoRotation" min="0" max="360" value="0" oninput="updateWizardLogoRotation(this.value)">
                             </div>
                             <div class="slider-group">
                                 <label>Opacity <span id="wizardLogoOpacityVal">100%</span></label>
@@ -1279,6 +1287,13 @@ function updateLogoOpacity(value) {
     }
 }
 
+function updateLogoRotation(value) {
+    document.getElementById('logoRotationVal').textContent = value + '°';
+    if (editor) {
+        editor.updateState({ logoRotation: parseFloat(value) });
+    }
+}
+
 function setLogoShape(shape) {
     // Update button states
     document.getElementById('logoShapeOriginal').classList.toggle('active', shape === 'original');
@@ -1553,6 +1568,8 @@ function editBrand(brandId) {
             // Update UI controls to match loaded state
             document.getElementById('logoScale').value = (brand.logo_scale || 0.15) * 100;
             document.getElementById('logoScaleVal').textContent = Math.round((brand.logo_scale || 0.15) * 100) + '%';
+            document.getElementById('logoRotation').value = brand.logo_rotation || 0;
+            document.getElementById('logoRotationVal').textContent = Math.round(brand.logo_rotation || 0) + '°';
             document.getElementById('logoOpacity').value = (brand.logo_opacity || 1.0) * 100;
             document.getElementById('logoOpacityVal').textContent = Math.round((brand.logo_opacity || 1.0) * 100) + '%';
             
@@ -1621,6 +1638,7 @@ let wizardState = {
     logoCleanupStrength: 30,
     logoShape: 'original',
     logoScale: 15,
+    logoRotation: 0,
     logoOpacity: 100,
     logoPosition: 'bottom-left',
     logoX: 0.15,
@@ -1643,6 +1661,7 @@ function openBrandWizard() {
         logoCleanupStrength: 30,
         logoShape: 'original',
         logoScale: 15,
+        logoRotation: 0,
         logoOpacity: 100,
         logoPosition: 'bottom-left',
         logoX: 0.15,
@@ -1873,6 +1892,12 @@ function updateWizardLogoOpacity(value) {
     drawWizardPreview();
 }
 
+function updateWizardLogoRotation(value) {
+    wizardState.logoRotation = parseInt(value);
+    document.getElementById('wizardLogoRotationVal').textContent = value + '°';
+    drawWizardPreview();
+}
+
 function updateWizardBgStrength(value) {
     wizardState.logoCleanupStrength = parseInt(value);
     document.getElementById('wizardBgStrengthVal').textContent = value;
@@ -2002,6 +2027,14 @@ function drawWizardPreview() {
         ctx.closePath();
         ctx.clip();
     }
+    
+    // Apply rotation around logo center
+    const rotationRadians = (wizardState.logoRotation * Math.PI) / 180;
+    const centerX = x + drawWidth / 2;
+    const centerY = y + drawHeight / 2;
+    ctx.translate(centerX, centerY);
+    ctx.rotate(rotationRadians);
+    ctx.translate(-centerX, -centerY);
     
     // Draw logo with actual aspect ratio
     ctx.drawImage(wizardLogoImage, x, y, drawWidth, drawHeight);
@@ -2196,6 +2229,7 @@ async function saveWizardBrand() {
             body: JSON.stringify({
                 logo_scale: wizardState.logoScale / 100,
                 logo_opacity: wizardState.logoOpacity / 100,
+                logo_rotation: wizardState.logoRotation,
                 logo_shape: wizardState.logoShape,
                 logo_x: wizardState.logoX,
                 logo_y: wizardState.logoY

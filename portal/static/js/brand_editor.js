@@ -29,6 +29,7 @@ class BrandEditor {
             logoScale: 0.15,
             logoOpacity: 1.0,
             logoShape: 'original', // 'original', 'circle', 'square'
+            logoRotation: 0.0, // degrees (0-360)
             
             // Watermark
             watermarkFile: null,
@@ -291,8 +292,14 @@ class BrandEditor {
         
         const shape = this.state.logoShape || 'original';
         
-        // Save context for clipping
+        // Save context for clipping and rotation
         this.ctx.save();
+        
+        // Apply rotation around logo center BEFORE clipping
+        const rotationRadians = (this.state.logoRotation * Math.PI) / 180;
+        this.ctx.translate(x, y);
+        this.ctx.rotate(rotationRadians);
+        this.ctx.translate(-x, -y);
         
         if (shape === 'circle') {
             // Create circular clip path
@@ -387,6 +394,7 @@ class BrandEditor {
             logo_scale: this.state.logoScale,
             logo_opacity: this.state.logoOpacity,
             logo_shape: this.state.logoShape,
+            logo_rotation: this.state.logoRotation,
             wm_mode: this.state.wmMode,
             wm_x: this.state.wmX,
             wm_y: this.state.wmY,
@@ -414,6 +422,7 @@ class BrandEditor {
         this.state.logoScale = brand.logo_scale || 0.15;
         this.state.logoOpacity = brand.logo_opacity || 1.0;
         this.state.logoShape = brand.logo_shape || 'original';
+        this.state.logoRotation = brand.logo_rotation || 0.0;
         
         this.state.wmMode = brand.wm_mode || 'fullscreen';
         this.state.wmX = brand.wm_x || 0.5;
