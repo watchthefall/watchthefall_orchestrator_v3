@@ -1465,6 +1465,32 @@ async function createBrand(e) {
                 logoStatus.textContent = `❌ ${logoData.error}`;
                 logoStatus.style.display = 'block';
                 throw new Error('Failed to upload logo: ' + logoData.error);
+            } else {
+                // ✅ RELOAD preview with server-normalized logo (truthful preview)
+                if (logoData.logo_path) {
+                    // Revoke old preview URL to free memory
+                    if (wizardState.logoPreviewUrl) {
+                        URL.revokeObjectURL(wizardState.logoPreviewUrl);
+                    }
+                    
+                    // Load normalized version from server with cache-busting
+                    const normalizedUrl = `${apiBase}/${logoData.logo_path}?t=${Date.now()}`;
+                    wizardState.logoPreviewUrl = normalizedUrl;
+                    
+                    // Update thumbnail to show normalized version
+                    document.getElementById('wizardLogoThumb').src = normalizedUrl;
+                    
+                    // Reload canvas preview with normalized image
+                    wizardLogoImage = new Image();
+                    wizardLogoImage.onload = function() {
+                        drawWizardPreview();
+                        const hint = document.querySelector('#wizardVideoPreview .preview-hint');
+                        if (hint) hint.textContent = 'Drag logo to reposition (normalized)';
+                    };
+                    wizardLogoImage.src = normalizedUrl;
+                    
+                    console.log('[WIZARD] Preview now shows server-normalized logo with cleanup applied');
+                }
             }
         }
         
