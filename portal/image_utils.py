@@ -7,7 +7,7 @@ import os
 import numpy as np
 
 
-def normalize_logo(input_path, output_path, max_dimension=1024, remove_bg=None, bg_threshold=30):
+def normalize_logo(input_path, output_path, max_dimension=1024, remove_bg=None, bg_strength=50):
     """
     Normalize uploaded logo for consistent rendering
     
@@ -16,7 +16,7 @@ def normalize_logo(input_path, output_path, max_dimension=1024, remove_bg=None, 
         output_path: Path to save normalized PNG
         max_dimension: Maximum width/height (default 1024px)
         remove_bg: 'dark', 'light', or None
-        bg_threshold: Sensitivity 0-255 (lower = more aggressive)
+        bg_strength: Aggressiveness 0-150 (higher = more removal)
     
     Returns:
         dict with success status and metadata
@@ -39,7 +39,7 @@ def normalize_logo(input_path, output_path, max_dimension=1024, remove_bg=None, 
         
         # Apply background removal if requested
         if remove_bg in ['dark', 'light']:
-            img = remove_background(img, mode=remove_bg, threshold=bg_threshold)
+            img = remove_background(img, mode=remove_bg, strength=bg_strength)
         
         # Auto-trim transparent/dead space around visible content
         bbox = img.getbbox()
@@ -71,44 +71,84 @@ def normalize_logo(input_path, output_path, max_dimension=1024, remove_bg=None, 
         }
 
 
-def remove_background(img, mode='dark', threshold=30):
+def remove_background(img, mode='light', strength=30):
     """
-    Remove solid backgrounds using color threshold
+    Aggressive color-distance background removal.
+    
+    Key improvements:
+    - No early validation bailouts - always attempts removal
+    - Non-linear tolerance curve for aggressive cleanup at high values
+    - Works on off-white, beige, gray, and colored backgrounds
     
     Args:
-        img: PIL Image in RGBA mode
-        mode: 'dark' (remove black/dark) or 'light' (remove white/bright)
-        threshold: 0-255, lower = more aggressive removal
+        img: PIL Image (any mode)
+        mode: 'light' (remove bright), 'dark' (remove dark), or 'none'
+        strength: 0-150+ (higher = more aggressive removal)
     
     Returns:
-        PIL Image with background removed
+        PIL Image with background made transparent
     """
-    # Convert to numpy array for pixel manipulation
+    if mode == 'none' or not img:
+        return img
+    
+    # Convert to RGBA for alpha channel manipulation
+    img = img.convert("RGBA")
     data = np.array(img)
     
-    # Extract RGB channels
-    r, g, b, a = data[:, :, 0], data[:, :, 1], data[:, :, 2], data[:, :, 3]
+    # Sample all 4 corners to estimate background color
+    # Using mean instead of median for speed (corner pixels usually uniform)
+    h, w = data.shape[0], data.shape[1]
+    corner_pixels = [
+        data[0, 0],                    # Top-left
+        data[0, w-1],                  # Top-right  
+        data[h-1, 0],                  # Bottom-left
+        data[h-1, w-1]                 # Bottom-right
+    ]
     
-    if mode == 'dark':
-        # Remove dark pixels (black backgrounds)
-        # Calculate brightness (average of RGB)
-        brightness = (r.astype(int) + g.astype(int) + b.astype(int)) / 3
-        # Set alpha to 0 where brightness is below threshold
-        mask = brightness < threshold
-        a[mask] = 0
-        
-    elif mode == 'light':
-        # Remove light pixels (white backgrounds)
-        brightness = (r.astype(int) + g.astype(int) + b.astype(int)) / 3
-        # Set alpha to 0 where brightness is above threshold
-        mask = brightness > (255 - threshold)
-        a[mask] = 0
+    # Average the corner colors (ignore alpha for RGB calculation)
+    bg_color = np.mean([p[:3] for p in corner_pixels], axis=0)
+    bg_brightness = np.mean(bg_color)
     
-    # Update alpha channel
-    data[:, :, 3] = a
+    # Calculate effective tolerance based on strength
+    # Non-linear curve: 0-100 is linear, 100+ adds exponential boost
+    if strength <= 100:
+        # Linear mapping: strength 50 → tolerance ~90
+        effective_tolerance = (strength / 100.0) * 180.0
+    else:
+        # Aggressive mode: strength 150 → tolerance ~270
+        base_tolerance = 180.0  # At strength=100
+        extra_boost = (strength - 100) * 1.8
+        effective_tolerance = base_tolerance + extra_boost
     
-    # Convert back to PIL Image
-    return Image.fromarray(data, 'RGBA')
+    # Clamp to reasonable range (never go below 10 or above 380)
+    effective_tolerance = max(10, min(effective_tolerance, 380))
+    
+    # Extract RGB channels (ignore existing alpha)
+    rgb = data[:, :, :3]
+    
+    # Calculate Euclidean distance from background color
+    # This measures "how similar" each pixel is to the corners
+    distance = np.linalg.norm(rgb - bg_color, axis=2)
+    
+    # Create mask: pixels close enough to background color get removed
+    # For light mode: also check that pixel is actually bright
+    # For dark mode: also check that pixel is actually dark
+    if mode == 'light':
+        # Remove bright pixels similar to corners
+        brightness = np.mean(rgb, axis=2)
+        mask = (distance < effective_tolerance) & (brightness > 128)
+    elif mode == 'dark':
+        # Remove dark pixels similar to corners
+        brightness = np.mean(rgb, axis=2)
+        mask = (distance < effective_tolerance) & (brightness < 128)
+    else:
+        # Unknown mode - just use distance
+        mask = distance < effective_tolerance
+    
+    # Apply transparency to matched pixels
+    data[mask, 3] = 0
+    
+    return Image.fromarray(data)
 
 
 def detect_solid_background(img_path):
