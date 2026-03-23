@@ -603,6 +603,7 @@
             
             <div class="wizard-actions">
                 <button type="button" class="btn btn-secondary" onclick="closeBrandWizard()">Cancel</button>
+                <button type="button" class="btn btn-secondary" onclick="saveWizardFromAnyStep()">Save Brand</button>
                 <button type="button" class="btn btn-primary" onclick="wizardNextStep()">Next: Add Logo →</button>
             </div>
         </div>
@@ -726,6 +727,7 @@
             
             <div class="wizard-actions">
                 <button type="button" class="btn btn-secondary" onclick="wizardPrevStep()">← Back</button>
+                <button type="button" class="btn btn-secondary" onclick="saveWizardFromAnyStep()">Save Brand</button>
                 <button type="button" class="btn btn-primary" onclick="wizardNextStep()">Next: Watermark →</button>
             </div>
         </div>
@@ -1804,6 +1806,7 @@ function openBrandWizard() {
         logoY: 0.85,
         logoPreviewUrl: null,
         watermarkFile: null,
+        watermarkMode: 'positioned',
         watermarkScale: 10,
         watermarkOpacity: 20
     };
@@ -2508,9 +2511,28 @@ function skipWatermarkAndSave() {
     saveWizardBrandWithWatermark();
 }
 
+async function saveWizardFromAnyStep() {
+    const status = document.getElementById('wizardStatus');
+    
+    // Validate minimum requirements: brand name is required
+    if (!wizardState.displayName || !wizardState.slug) {
+        status.innerHTML = '<div class="status-msg error">❌ Brand name is required.</div>';
+        return;
+    }
+    
+    // Check if we have at least one asset (logo OR watermark)
+    // For now, just allow saving with whatever state exists
+    // The backend validation will catch truly empty brands
+    
+    // Call the existing save flow - it handles partial data gracefully
+    saveWizardBrandWithWatermark();
+}
+
 async function saveWizardBrandWithWatermark() {
     const status = document.getElementById('wizardStatus');
-    const saveBtn = document.getElementById('wizardWatermarkSaveBtn');
+    
+    // Find the clicked save button (could be in any step)
+    const saveBtn = event?.target?.closest('button') || document.getElementById('wizardWatermarkSaveBtn');
     
     // Validate
     if (!wizardState.displayName || !wizardState.slug) {
@@ -2518,9 +2540,11 @@ async function saveWizardBrandWithWatermark() {
         return;
     }
     
-    // Disable button
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving...';
+    // Disable button if found
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+    }
     
     try {
         // Step 1: Create brand
@@ -2630,8 +2654,11 @@ async function saveWizardBrandWithWatermark() {
         }, 1000);
         
     } catch (err) {
-        saveBtn.disabled = false;
-        saveBtn.textContent = 'Save Brand';
+        // Re-enable button on error
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Brand';
+        }
         status.innerHTML = `<div class="status-msg error">❌ ${err.message}</div>`;
     }
 }
