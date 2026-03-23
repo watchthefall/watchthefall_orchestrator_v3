@@ -726,7 +726,7 @@
             
             <div class="wizard-actions">
                 <button type="button" class="btn btn-secondary" onclick="wizardPrevStep()">← Back</button>
-                <button type="button" class="btn btn-primary" id="wizardSaveBtn" onclick="saveWizardBrand()">Save Brand</button>
+                <button type="button" class="btn btn-primary" onclick="wizardNextStep()">Next: Watermark →</button>
             </div>
         </div>
         
@@ -1887,6 +1887,28 @@ function showWizardStep(step) {
     // Show/hide steps
     document.getElementById('wizardStep1').classList.toggle('active', step === 1);
     document.getElementById('wizardStep2').classList.toggle('active', step === 2);
+    document.getElementById('wizardStep3').classList.toggle('active', step === 3);
+    
+    // Re-render previews when returning to a step
+    if (step === 2 && wizardState.logoFile) {
+        // Returning to Step 2 - ensure logo preview is visible and up-to-date
+        document.getElementById('wizardLogoUploadZone').style.display = 'none';
+        document.getElementById('wizardLogoRow').style.display = 'flex';
+        document.getElementById('wizardPreviewContainer').style.display = 'block';
+        document.getElementById('wizardLogoOptions').style.display = 'block';
+        
+        // Re-draw canvas with current settings
+        drawWizardPreview();
+    } else if (step === 3 && wizardState.watermarkFile) {
+        // Returning to Step 3 - ensure watermark preview is visible and up-to-date
+        document.getElementById('wizardWatermarkUploadZone').style.display = 'none';
+        document.getElementById('wizardWatermarkRow').style.display = 'flex';
+        document.getElementById('wizardWatermarkPreviewContainer').style.display = 'block';
+        document.getElementById('wizardWatermarkOptions').style.display = 'block';
+        
+        // Re-draw watermark canvas with current settings
+        drawWizardWatermarkPreview();
+    }
 }
 
 function wizardNextStep() {
@@ -1909,12 +1931,23 @@ function wizardNextStep() {
         wizardState.slug = slug;
         
         showWizardStep(2);
+    } else if (wizardState.step === 2) {
+        // Validate step 2 - require logo
+        if (!wizardState.logoFile) {
+            document.getElementById('wizardStatus').innerHTML = '<div class="status-msg error">Please upload a logo first.</div>';
+            return;
+        }
+        
+        // Proceed to Step 3 (Watermark)
+        showWizardStep(3);
     }
 }
 
 function wizardPrevStep() {
     if (wizardState.step === 2) {
         showWizardStep(1);
+    } else if (wizardState.step === 3) {
+        showWizardStep(2);
     }
 }
 
