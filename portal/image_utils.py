@@ -96,17 +96,32 @@ def remove_background(img, mode='light', strength=30):
     data = np.array(img)
     
     # Sample all 4 corners to estimate background color
-    # Using mean instead of median for speed (corner pixels usually uniform)
+    # Using small patches (10x10) instead of single pixels for robustness
     h, w = data.shape[0], data.shape[1]
-    corner_pixels = [
-        data[0, 0],                    # Top-left
-        data[0, w-1],                  # Top-right  
-        data[h-1, 0],                  # Bottom-left
-        data[h-1, w-1]                 # Bottom-right
-    ]
+    patch_size = min(10, h // 4, w // 4)  # Adaptive: max 10x10, scales down for small images
     
-    # Average the corner colors (ignore alpha for RGB calculation)
-    bg_color = np.mean([p[:3] for p in corner_pixels], axis=0)
+    # Collect all corner patch pixels into one array
+    corner_patch_pixels = []
+    
+    # Top-left patch (offset by 2px from edge to avoid compression artifacts)
+    tl_patch = data[2:2+patch_size, 2:2+patch_size]
+    corner_patch_pixels.extend(tl_patch.reshape(-1, 4))
+    
+    # Top-right patch
+    tr_patch = data[2:2+patch_size, -(2+patch_size):-2]
+    corner_patch_pixels.extend(tr_patch.reshape(-1, 4))
+    
+    # Bottom-left patch
+    bl_patch = data[-(2+patch_size):-2, 2:2+patch_size]
+    corner_patch_pixels.extend(bl_patch.reshape(-1, 4))
+    
+    # Bottom-right patch
+    br_patch = data[-(2+patch_size):-2, -(2+patch_size):-2]
+    corner_patch_pixels.extend(br_patch.reshape(-1, 4))
+    
+    # Calculate median RGB from all corner patch pixels (robust to outliers)
+    # Median is better than mean when there might be logo elements in corners
+    bg_color = np.median([p[:3] for p in corner_patch_pixels], axis=0)
     bg_brightness = np.mean(bg_color)
     
     # Calculate effective tolerance based on strength
