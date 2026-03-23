@@ -733,7 +733,7 @@
         </div>
         
         <!-- Step 3: Watermark (Optional) -->
-        <div id="wizardStep3" class="wizard-step" style="display:none;">
+        <div id="wizardStep3" class="wizard-step">
             <div class="wizard-step-content">
                 <h3>Add Watermark <span style="font-size:14px; color:#888; font-weight:normal;">(Optional)</span></h3>
                 <p class="step-description">Add a subtle watermark overlay to your videos. Skip if you don't need one.</p>
@@ -812,6 +812,7 @@
     max-width: 600px;
     width: 90%;
     max-height: 90vh;
+    min-height: 500px; /* Ensure wizard has enough height for all steps */
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -879,7 +880,7 @@
 .wizard-step {
     display: none;
     flex-direction: column;
-    flex: 1;
+    min-height: 400px; /* Ensure step has minimum height for content to render */
 }
 
 .wizard-step.active {
@@ -1905,36 +1906,57 @@ function showWizardStep(step) {
     // Re-render previews when returning to a step
     if (step === 2 && wizardState.logoFile) {
         // Returning to Step 2 - ensure logo preview is visible and up-to-date
-        document.getElementById('wizardLogoUploadZone').style.display = 'none';
-        document.getElementById('wizardLogoRow').style.display = 'flex';
-        document.getElementById('wizardPreviewContainer').style.display = 'block';
-        document.getElementById('wizardLogoOptions').style.display = 'block';
-        
-        // Re-draw canvas with current settings
-        drawWizardPreview();
+        const logoZone = document.getElementById('wizardLogoUploadZone');
+        const logoRow = document.getElementById('wizardLogoRow');
+        const logoPreview = document.getElementById('wizardPreviewContainer');
+        const logoOptions = document.getElementById('wizardLogoOptions');
+        if (logoZone && logoRow && logoPreview && logoOptions) {
+            logoZone.style.display = 'none';
+            logoRow.style.display = 'flex';
+            logoPreview.style.display = 'block';
+            logoOptions.style.display = 'block';
+            
+            // Re-draw canvas with current settings
+            drawWizardPreview();
+        }
     } else if (step === 2) {
         // Step 2 without logo - show upload zone
-        document.getElementById('wizardLogoUploadZone').style.display = 'block';
-        document.getElementById('wizardLogoRow').style.display = 'none';
-        document.getElementById('wizardPreviewContainer').style.display = 'none';
-        document.getElementById('wizardLogoOptions').style.display = 'none';
+        const logoZone = document.getElementById('wizardLogoUploadZone');
+        const logoRow = document.getElementById('wizardLogoRow');
+        const logoPreview = document.getElementById('wizardPreviewContainer');
+        const logoOptions = document.getElementById('wizardLogoOptions');
+        if (logoZone && logoRow && logoPreview && logoOptions) {
+            logoZone.style.display = 'block';
+            logoRow.style.display = 'none';
+            logoPreview.style.display = 'none';
+            logoOptions.style.display = 'none';
+        }
     }
     
-    if (step === 3 && wizardState.watermarkFile) {
-        // Returning to Step 3 - ensure watermark preview is visible and up-to-date
-        document.getElementById('wizardWatermarkUploadZone').style.display = 'none';
-        document.getElementById('wizardWatermarkRow').style.display = 'flex';
-        document.getElementById('wizardWatermarkPreviewContainer').style.display = 'block';
-        document.getElementById('wizardWatermarkOptions').style.display = 'block';
+    if (step === 3) {
+        const wmZone = document.getElementById('wizardWatermarkUploadZone');
+        const wmRow = document.getElementById('wizardWatermarkRow');
+        const wmPreview = document.getElementById('wizardWatermarkPreviewContainer');
+        const wmOptions = document.getElementById('wizardWatermarkOptions');
         
-        // Re-draw watermark canvas with current settings
-        drawWizardWatermarkPreview();
-    } else if (step === 3) {
-        // Step 3 without watermark - show upload zone
-        document.getElementById('wizardWatermarkUploadZone').style.display = 'block';
-        document.getElementById('wizardWatermarkRow').style.display = 'none';
-        document.getElementById('wizardWatermarkPreviewContainer').style.display = 'none';
-        document.getElementById('wizardWatermarkOptions').style.display = 'none';
+        if (wmZone && wmRow && wmPreview && wmOptions) {
+            if (wizardState.watermarkFile) {
+                // Returning to Step 3 - ensure watermark preview is visible and up-to-date
+                wmZone.style.display = 'none';
+                wmRow.style.display = 'flex';
+                wmPreview.style.display = 'block';
+                wmOptions.style.display = 'block';
+                
+                // Re-draw watermark canvas with current settings
+                drawWizardWatermarkPreview();
+            } else {
+                // Step 3 without watermark - show upload zone
+                wmZone.style.display = 'block';
+                wmRow.style.display = 'none';
+                wmPreview.style.display = 'none';
+                wmOptions.style.display = 'none';
+            }
+        }
     }
 }
 
