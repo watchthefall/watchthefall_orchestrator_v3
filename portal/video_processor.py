@@ -339,6 +339,7 @@ class VideoProcessor:
         logo_y_pct = brand_config.get('logo_y', 0.85)
         logo_scale_pct = brand_config.get('logo_scale', 0.15)
         logo_opacity = brand_config.get('logo_opacity', 1.0)
+        logo_rotation = brand_config.get('logo_rotation', 0.0)  # degrees (0-360)
         
         wm_mode = brand_config.get('wm_mode', 'fullscreen')
         wm_x_pct = brand_config.get('wm_x', 0.5)
@@ -353,7 +354,7 @@ class VideoProcessor:
         text_size = brand_config.get('text_size', 48)
         text_color = brand_config.get('text_color', '#FFFFFF')
         
-        print(f"[VISUAL_PRESET] Logo: x={logo_x_pct:.2f}, y={logo_y_pct:.2f}, scale={logo_scale_pct:.2f}, opacity={logo_opacity:.2f}")
+        print(f"[VISUAL_PRESET] Logo: x={logo_x_pct:.2f}, y={logo_y_pct:.2f}, scale={logo_scale_pct:.2f}, opacity={logo_opacity:.2f}, rotation={logo_rotation}°")
         print(f"[VISUAL_PRESET] Watermark: mode={wm_mode}, x={wm_x_pct:.2f}, y={wm_y_pct:.2f}, scale={wm_scale_pct:.2f}, opacity={wm_opacity:.2f}")
         print(f"[VISUAL_PRESET] Text: enabled={text_enabled}, content='{text_content[:30]}', x={text_x_pct:.2f}, y={text_y_pct:.2f}")
         
@@ -396,9 +397,21 @@ class VideoProcessor:
             logo_y_px = int(logo_y_pct * H) - logo_target_w // 2
             
             print(f"[VISUAL_PRESET] Adding logo: {logo_path}")
-            print(f"[VISUAL_PRESET] Logo: width={logo_target_w}px, pos=({logo_x_px},{logo_y_px}), opacity={logo_opacity:.2f}")
+            print(f"[VISUAL_PRESET] Logo: width={logo_target_w}px, pos=({logo_x_px},{logo_y_px}), opacity={logo_opacity:.2f}, rotation={logo_rotation}°")
             
-            filters.append(f"movie='{logo_path}',scale={logo_target_w}:-1,format=rgba,colorchannelmixer=aa={logo_opacity}[logo]")
+            # Build logo filter with optional rotation
+            if logo_rotation != 0.0:
+                # Convert degrees to radians for FFmpeg rotate filter
+                rotation_rad = (logo_rotation * 3.14159265359) / 180.0
+                print(f"[VISUAL_PRESET] Applying rotation: {logo_rotation}° = {rotation_rad:.4f} radians")
+                
+                # Apply scale -> rotate -> opacity in sequence
+                filters.append(f"movie='{logo_path}',scale={logo_target_w}:-1,format=rgba,rotate={rotation_rad}:ow=hypot(iw,ih):oh=ow:fillcolor=0x00000000[logo_rotated]")
+                filters.append(f"[logo_rotated]colorchannelmixer=aa={logo_opacity}[logo]")
+            else:
+                # No rotation - simple path
+                filters.append(f"movie='{logo_path}',scale={logo_target_w}:-1,format=rgba,colorchannelmixer=aa={logo_opacity}[logo]")
+            
             filters.append(f"[{current_input}][logo]overlay={logo_x_px}:{logo_y_px}[v2]")
             current_input = 'v2'
         else:
