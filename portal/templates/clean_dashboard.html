@@ -919,6 +919,13 @@
         </div>
         <input type="range" id="logoScale" min="8" max="25" value="15" oninput="document.getElementById('logoScaleVal').textContent = this.value + '%'; updateCanvasPreview();">
     </div>
+    <div class="slider-group">
+        <div class="slider-header">
+            <span class="slider-label">Rotation</span>
+            <span class="slider-value" id="logoRotationVal">0°</span>
+        </div>
+        <input type="range" id="logoRotation" min="0" max="360" value="0" oninput="document.getElementById('logoRotationVal').textContent = this.value + '°'; logoRotationDegrees = parseInt(this.value); updateCanvasPreview();">
+    </div>
     <p style="color:#666; font-size:12px; margin:5px 0;">💡 Drag logo on preview to reposition</p>
     
     <!-- Text Layer Controls -->
@@ -1026,6 +1033,7 @@ let videoHeight = 1280;
 let logoDragging = false;
 let logoCenterXPercent = 0;  // Center X as percentage 0-1
 let logoCenterYPercent = 0;  // Center Y as percentage 0-1
+let logoRotationDegrees = 0;  // Logo rotation in degrees (0-360)
 let logoDragStart = { x: 0, y: 0 };
 
 // Text drag state
@@ -1110,7 +1118,15 @@ function drawOverlays() {
         const drawX = centerX - logoW / 2;
         const drawY = centerY - logoH / 2;
         
+        // Apply rotation around logo center
+        ctx.save();
+        const rotationRad = (logoRotationDegrees * Math.PI) / 180;
+        ctx.translate(centerX, centerY);
+        ctx.rotate(rotationRad);
+        ctx.translate(-centerX, -centerY);
+        
         ctx.drawImage(logoImg, drawX, drawY, logoW, logoH);
+        ctx.restore();
         
         // Store logo bounds for hit testing
         canvas._logoBounds = { x: drawX, y: drawY, w: logoW, h: logoH };
@@ -1496,6 +1512,14 @@ async function loadBrandConfig(brandId) {
             logoCenterYPercent = 0;
         }
         
+        // Load logo rotation if saved
+        if (cfg.logo_rotation !== undefined) {
+            logoRotationDegrees = cfg.logo_rotation || 0;
+            document.getElementById('logoRotation').value = cfg.logo_rotation || 0;
+            document.getElementById('logoRotationVal').textContent = (cfg.logo_rotation || 0) + '°';
+            console.log(`[UI] Loaded logo rotation: ${cfg.logo_rotation || 0}°`);
+        }
+        
         // Apply text layer settings
         document.getElementById('textEnabled').checked = !!cfg.text_enabled;
         document.getElementById('textContent').value = cfg.text_content || '';
@@ -1594,6 +1618,9 @@ function enterQueueMode() {
     const currentSliderOverrides = {
         watermark_scale: parseInt(document.getElementById('wmScale').value) / 100,
         watermark_opacity: parseInt(document.getElementById('wmOpacity').value) / 100,
+        logo_x: logoCenterXPercent,  // Capture dragged position to prevent jump
+        logo_y: logoCenterYPercent,  // Capture dragged position to prevent jump
+        logo_rotation: logoRotationDegrees,  // Capture rotation for parity
         logo_scale: parseInt(document.getElementById('logoScale').value) / 100,
         text_enabled: document.getElementById('textEnabled').checked,
         text_content: document.getElementById('textContent').value,
