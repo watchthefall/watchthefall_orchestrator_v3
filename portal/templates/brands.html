@@ -1992,10 +1992,9 @@ function drawWizardPreview() {
         return;
     }
     
-    // Calculate scaled dimensions using width-based scaling with aspect ratio preservation
+    // Calculate scaled dimensions using unified width-based scaling (no reference factor)
     const scale = wizardState.logoScale / 100;
-    const baseWidth = canvas.width * 0.35; // 35% of canvas width as base (larger default)
-    const drawWidth = baseWidth * scale;
+    const drawWidth = canvas.width * scale;
     const aspectRatio = wizardLogoImage.height / wizardLogoImage.width;
     const drawHeight = drawWidth * aspectRatio;
     
