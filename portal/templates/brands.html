@@ -1465,6 +1465,60 @@ async function createBrand(e) {
                 logoStatus.textContent = `❌ ${logoData.error}`;
                 logoStatus.style.display = 'block';
                 throw new Error('Failed to upload logo: ' + logoData.error);
+            } else {
+                // ✅ SAFELY reload preview with server-normalized logo (truthful preview)
+                // Only attempt if we have a valid brand ID and logo path
+                if (createdBrandId && logoData.logo_path) {
+                    try {
+                        // Use the secure preview endpoint instead of raw storage path
+                        // This endpoint handles authentication and path validation
+                        const normalizedPreviewUrl = `${apiBase}/api/preview/brand-asset/${createdBrandId}/logo?t=${Date.now()}`;
+                        
+                        // Create new image object for normalized version
+                        const normalizedImg = new Image();
+                        
+                        // Set up onload handler BEFORE setting src (defensive pattern)
+                        normalizedImg.onload = function() {
+                            console.log('[WIZARD] Successfully loaded normalized logo preview');
+                            
+                            // Replace wizardLogoImage with normalized version
+                            wizardLogoImage = normalizedImg;
+                            
+                            // Redraw preview with normalized image
+                            drawWizardPreview();
+                            
+                            // Update thumbnail to show normalized version
+                            const thumbEl = document.getElementById('wizardLogoThumb');
+                            if (thumbEl) {
+                                thumbEl.src = normalizedPreviewUrl;
+                            }
+                            
+                            // Update hint text to indicate normalized state
+                            const hint = document.querySelector('#wizardVideoPreview .preview-hint');
+                            if (hint) {
+                                hint.textContent = 'Drag logo to reposition (normalized)';
+                            }
+                            
+                            console.log('[WIZARD] Preview now shows server-normalized logo with cleanup applied');
+                        };
+                        
+                        // Handle load errors gracefully (don't break the app)
+                        normalizedImg.onerror = function() {
+                            console.warn('[WIZARD] Failed to load normalized preview, keeping original');
+                            // Keep using existing wizardLogoImage - don't break anything
+                        };
+                        
+                        // Start loading normalized image
+                        normalizedImg.src = normalizedPreviewUrl;
+                        
+                    } catch (err) {
+                        // Defensive: if anything goes wrong, keep existing preview
+                        console.warn('[WIZARD] Error setting up normalized preview:', err.message);
+                        // Continue with original preview - app still works
+                    }
+                } else {
+                    console.log('[WIZARD] No normalized path available, using original preview');
+                }
             }
         }
         
