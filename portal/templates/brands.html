@@ -583,7 +583,7 @@
         <div id="wizardStatus"></div>
         
         <!-- Step 1: Brand Identity -->
-        <div id="wizardStep1" class="wizard-step active">
+        <div id="wizardStep1" class="wizard-step">
             <div class="wizard-step-content">
                 <h3>Name Your Brand</h3>
                 <p class="step-description">This is how your brand will appear throughout Brandr.</p>
@@ -1858,8 +1858,8 @@ function openBrandWizard() {
     document.getElementById('wizardBgStrength').value = 50;
     document.getElementById('wizardBgStrengthVal').textContent = '50';
     
-    // Show step 1
-    showWizardStep(1);
+    // Show step 1 (make it visible initially)
+    document.getElementById('wizardStep1').classList.add('active');
     
     // Show wizard
     document.getElementById('brandWizard').classList.add('active');
@@ -1898,42 +1898,44 @@ function showWizardStep(step) {
         }
     });
     
-    // Show/hide steps
-    document.getElementById('wizardStep1').classList.toggle('active', step === 1);
-    document.getElementById('wizardStep2').classList.toggle('active', step === 2);
-    document.getElementById('wizardStep3').classList.toggle('active', step === 3);
+    // Hide all steps first
+    document.getElementById('wizardStep1').classList.remove('active');
+    document.getElementById('wizardStep2').classList.remove('active');
+    document.getElementById('wizardStep3').classList.remove('active');
     
-    // Re-render previews when returning to a step
-    if (step === 2 && wizardState.logoFile) {
-        // Returning to Step 2 - ensure logo preview is visible and up-to-date
-        const logoZone = document.getElementById('wizardLogoUploadZone');
-        const logoRow = document.getElementById('wizardLogoRow');
-        const logoPreview = document.getElementById('wizardPreviewContainer');
-        const logoOptions = document.getElementById('wizardLogoOptions');
-        if (logoZone && logoRow && logoPreview && logoOptions) {
-            logoZone.style.display = 'none';
-            logoRow.style.display = 'flex';
-            logoPreview.style.display = 'block';
-            logoOptions.style.display = 'block';
-            
-            // Re-draw canvas with current settings
-            drawWizardPreview();
-        }
+    // Show only the current step
+    if (step === 1) {
+        document.getElementById('wizardStep1').classList.add('active');
     } else if (step === 2) {
-        // Step 2 without logo - show upload zone
-        const logoZone = document.getElementById('wizardLogoUploadZone');
-        const logoRow = document.getElementById('wizardLogoRow');
-        const logoPreview = document.getElementById('wizardPreviewContainer');
-        const logoOptions = document.getElementById('wizardLogoOptions');
-        if (logoZone && logoRow && logoPreview && logoOptions) {
-            logoZone.style.display = 'block';
-            logoRow.style.display = 'none';
-            logoPreview.style.display = 'none';
-            logoOptions.style.display = 'none';
+        document.getElementById('wizardStep2').classList.add('active');
+        // Re-render previews when entering Step 2
+        if (wizardState.logoFile) {
+            const logoZone = document.getElementById('wizardLogoUploadZone');
+            const logoRow = document.getElementById('wizardLogoRow');
+            const logoPreview = document.getElementById('wizardPreviewContainer');
+            const logoOptions = document.getElementById('wizardLogoOptions');
+            if (logoZone && logoRow && logoPreview && logoOptions) {
+                logoZone.style.display = 'none';
+                logoRow.style.display = 'flex';
+                logoPreview.style.display = 'block';
+                logoOptions.style.display = 'block';
+                drawWizardPreview();
+            }
+        } else {
+            const logoZone = document.getElementById('wizardLogoUploadZone');
+            const logoRow = document.getElementById('wizardLogoRow');
+            const logoPreview = document.getElementById('wizardPreviewContainer');
+            const logoOptions = document.getElementById('wizardLogoOptions');
+            if (logoZone && logoRow && logoPreview && logoOptions) {
+                logoZone.style.display = 'block';
+                logoRow.style.display = 'none';
+                logoPreview.style.display = 'none';
+                logoOptions.style.display = 'none';
+            }
         }
-    }
-    
-    if (step === 3) {
+    } else if (step === 3) {
+        document.getElementById('wizardStep3').classList.add('active');
+        // Re-render previews when entering Step 3
         const wmZone = document.getElementById('wizardWatermarkUploadZone');
         const wmRow = document.getElementById('wizardWatermarkRow');
         const wmPreview = document.getElementById('wizardWatermarkPreviewContainer');
@@ -1941,16 +1943,12 @@ function showWizardStep(step) {
         
         if (wmZone && wmRow && wmPreview && wmOptions) {
             if (wizardState.watermarkFile) {
-                // Returning to Step 3 - ensure watermark preview is visible and up-to-date
                 wmZone.style.display = 'none';
                 wmRow.style.display = 'flex';
                 wmPreview.style.display = 'block';
                 wmOptions.style.display = 'block';
-                
-                // Re-draw watermark canvas with current settings
                 drawWizardWatermarkPreview();
             } else {
-                // Step 3 without watermark - show upload zone
                 wmZone.style.display = 'block';
                 wmRow.style.display = 'none';
                 wmPreview.style.display = 'none';
