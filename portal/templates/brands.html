@@ -1519,7 +1519,7 @@ async function createBrand(e) {
             // Add background removal parameters
             if (logoRemoveBgMode !== 'none') {
                 logoForm.append('remove_bg', logoRemoveBgMode);  // 'dark' or 'light'
-                logoForm.append('bg_threshold', logoRemoveBgThreshold);  // 20-150
+                logoForm.append('bg_strength', logoRemoveBgThreshold);  // 20-150
             }
             
             const logoRes = await fetch(`${apiBase}/api/brands/${createdBrandId}/upload_logo`, {
@@ -2480,7 +2480,7 @@ async function saveWizardBrandWithWatermark() {
             const logoForm = new FormData();
             logoForm.append('file', wizardState.logoFile);
             logoForm.append('remove_bg_mode', wizardState.logoCleanup);
-            logoForm.append('remove_bg_threshold', wizardState.logoCleanupStrength);
+            logoForm.append('bg_strength', wizardState.logoCleanupStrength);
             logoForm.append('logo_scale', wizardState.logoScale / 100);
             logoForm.append('logo_opacity', wizardState.logoOpacity / 100);
             logoForm.append('logo_shape', wizardState.logoShape);
@@ -2603,7 +2603,7 @@ async function saveWizardBrand() {
             const logoForm = new FormData();
             logoForm.append('file', wizardState.logoFile);
             logoForm.append('remove_bg_mode', wizardState.logoCleanup);
-            logoForm.append('remove_bg_threshold', wizardState.logoCleanupStrength);
+            logoForm.append('bg_strength', wizardState.logoCleanupStrength);
             logoForm.append('logo_scale', wizardState.logoScale / 100);
             logoForm.append('logo_opacity', wizardState.logoOpacity / 100);
             logoForm.append('logo_shape', wizardState.logoShape);

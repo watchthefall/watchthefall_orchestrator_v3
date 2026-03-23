@@ -1917,14 +1917,14 @@ def upload_brand_logo(brand_id):
         
         # Get background removal preferences from request
         remove_bg = request.form.get('remove_bg')  # 'dark', 'light', or None
-        bg_threshold = int(request.form.get('bg_threshold', 30))  # 0-255
+        bg_strength = int(request.form.get('bg_strength', 50))  # 0-150
         
         norm_result = normalize_logo(
             original_path, 
             normalized_path,
             max_dimension=1024,
             remove_bg=remove_bg,
-            bg_threshold=bg_threshold
+            bg_strength=bg_strength
         )
         
         if not norm_result['success']:
@@ -2003,14 +2003,14 @@ def upload_brand_watermark(brand_id):
         
         # Get background removal preferences from request
         remove_bg = request.form.get('remove_bg')  # 'dark', 'light', or None
-        bg_threshold = int(request.form.get('bg_threshold', 30))  # 0-255
+        bg_strength = int(request.form.get('bg_strength', 50))  # 0-150
         
         norm_result = normalize_logo(
             original_path, 
             normalized_path,
             max_dimension=2048,  # Watermarks can be larger
             remove_bg=remove_bg,
-            bg_threshold=bg_threshold
+            bg_strength=bg_strength
         )
         
         if not norm_result['success']:
