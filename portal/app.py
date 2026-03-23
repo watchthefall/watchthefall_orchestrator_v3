@@ -1557,6 +1557,7 @@ def list_brands():
             'logo_y': brand.get('logo_y', 0.85),
             'logo_padding': brand.get('logo_padding', 40),
             'logo_shape': brand.get('logo_shape'),
+            'logo_rotation': brand.get('logo_rotation', 0.0),
             
             # Legacy fields (for backward compat with old code)
             'watermark_scale': brand.get('watermark_scale', brand.get('wm_scale', 1.15)),
@@ -1745,6 +1746,7 @@ def create_brand_api():
             logo_x=data.get('logo_x', 0.85),
             logo_y=data.get('logo_y', 0.85),
             logo_opacity=data.get('logo_opacity', 1.0),
+            logo_rotation=data.get('logo_rotation', 0.0),
             wm_mode=data.get('wm_mode', 'fullscreen'),
             wm_x=data.get('wm_x', 0.5),
             wm_y=data.get('wm_y', 0.5),

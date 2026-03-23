@@ -474,8 +474,9 @@
                                 <button type="button" class="mode-btn" id="logoRemoveBgLight" onclick="setLogoRemoveBg('light')">Remove Light</button>
                             </div>
                             <div id="logoRemoveBgSlider" style="display:none;">
-                                <label style="font-size:11px; color:#888;">Strength <span id="logoRemoveBgStrength" style="color:#00b7ff;">30</span></label>
-                                <input type="range" id="logoRemoveBgThreshold" min="10" max="60" value="30" style="width:100%;" oninput="updateLogoRemoveBgStrength(this.value)">
+                                <label style="font-size:11px; color:#888;">Removal Strength <span id="logoRemoveBgStrength" style="color:#00b7ff;">50</span></label>
+                                <input type="range" id="logoRemoveBgThreshold" min="20" max="150" value="50" style="width:100%;" oninput="updateLogoRemoveBgStrength(this.value)">
+                                <p style="font-size:11px; color:#888; margin-top:6px;">Higher values remove backgrounds more aggressively (may affect light logo elements)</p>
                             </div>
                         </div>
                         
@@ -685,8 +686,9 @@
                                 </div>
                                 <!-- Background Removal Strength (hidden when 'none') -->
                                 <div id="wizardBgStrengthContainer" style="display:none; margin-top:12px; padding:10px; background:rgba(0,0,0,0.2); border-radius:6px;">
-                                    <label style="display:block; font-size:11px; color:#aaa; margin-bottom:6px;">Strength <span id="wizardBgStrengthVal" style="color:#00b7ff;">30</span></label>
-                                    <input type="range" id="wizardBgStrength" min="10" max="60" value="30" style="width:100%;" oninput="updateWizardBgStrength(this.value)">
+                                    <label style="display:block; font-size:11px; color:#aaa; margin-bottom:6px;">Removal Strength <span id="wizardBgStrengthVal" style="color:#00b7ff;">50</span></label>
+                                    <input type="range" id="wizardBgStrength" min="20" max="150" value="50" style="width:100%;" oninput="updateWizardBgStrength(this.value)">
+                                    <p style="font-size:11px; color:#888; margin-top:6px;">Higher values remove backgrounds more aggressively (may affect light logo elements)</p>
                                 </div>
                             </div>
                         </div>
@@ -1154,7 +1156,7 @@
 const apiBase = window.location.origin;
 let editor = null;
 let logoRemoveBgMode = 'none';  // 'none', 'dark', 'light'
-let logoRemoveBgThreshold = 30;  // 10-60
+let logoRemoveBgThreshold = 50;  // 20-150
 
 // Load brands on page load
 loadBrands();
@@ -1451,7 +1453,7 @@ async function createBrand(e) {
             // Add background removal parameters
             if (logoRemoveBgMode !== 'none') {
                 logoForm.append('remove_bg', logoRemoveBgMode);  // 'dark' or 'light'
-                logoForm.append('bg_threshold', logoRemoveBgThreshold);  // 10-60
+                logoForm.append('bg_threshold', logoRemoveBgThreshold);  // 20-150
             }
             
             const logoRes = await fetch(`${apiBase}/api/brands/${createdBrandId}/upload_logo`, {
@@ -1757,8 +1759,8 @@ function openBrandWizard() {
     document.getElementById('wizardLogoScaleVal').textContent = '25%';
     document.getElementById('wizardLogoOpacity').value = 100;
     document.getElementById('wizardLogoOpacityVal').textContent = '100%';
-    document.getElementById('wizardBgStrength').value = 30;
-    document.getElementById('wizardBgStrengthVal').textContent = '30';
+    document.getElementById('wizardBgStrength').value = 50;
+    document.getElementById('wizardBgStrengthVal').textContent = '50';
     
     // Show step 1
     showWizardStep(1);
