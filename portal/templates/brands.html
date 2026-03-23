@@ -768,6 +768,15 @@
                 <!-- Watermark Options (appear after upload) -->
                 <div id="wizardWatermarkOptions" style="display:none; margin-top:20px;">
                     
+                    <!-- Mode Toggle -->
+                    <div class="option-group">
+                        <label>Watermark Mode</label>
+                        <div class="option-buttons">
+                            <button type="button" class="option-btn active" data-mode="positioned" onclick="setWizardWatermarkMode('positioned')">Positioned</button>
+                            <button type="button" class="option-btn" data-mode="fullscreen" onclick="setWizardWatermarkMode('fullscreen')">Fullscreen</button>
+                        </div>
+                    </div>
+                    
                     <!-- Scale Slider -->
                     <div class="slider-group">
                         <label>Scale <span id="wizardWatermarkScaleVal">10%</span></label>
@@ -1768,6 +1777,7 @@ let wizardState = {
     logoPreviewUrl: null,
     // Watermark (Step 3)
     watermarkFile: null,
+    watermarkMode: 'positioned',
     watermarkScale: 10,
     watermarkOpacity: 20
 };
@@ -2379,31 +2389,90 @@ function drawWizardWatermarkPreview() {
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Calculate scale and position
+    // Get current mode and settings
+    const mode = wizardState.watermarkMode || 'positioned';
     const scale = wizardState.watermarkScale / 100;
     const opacity = wizardState.watermarkOpacity / 100;
     
-    // Safe default: bottom-right corner
-    const margin = 20;
-    const baseSize = Math.min(canvas.width, canvas.height) * 0.15; // Base size relative to canvas
-    const wmWidth = baseSize * scale * 2.5; // Scale factor
-    const wmHeight = wmHeight || (img.height / img.width) * wmWidth;
+    if (mode === 'fullscreen') {
+        // Fullscreen mode: tile across entire canvas at low opacity
+        const baseSize = Math.max(canvas.width, canvas.height);
+        const wmWidth = baseSize * scale * 0.5; // Larger for fullscreen
+        const wmHeight = (img.height / img.width) * wmWidth;
+        
+        // Save context state
+        ctx.save();
+        
+        // Apply opacity (lower for fullscreen)
+        ctx.globalAlpha = opacity * 0.5; // Reduce alpha further for fullscreen
+        
+        // Draw centered
+        const x = (canvas.width - wmWidth) / 2;
+        const y = (canvas.height - wmHeight) / 2;
+        
+        ctx.drawImage(img, x, y, wmWidth, wmHeight);
+        
+        // Restore context
+        ctx.restore();
+        
+    } else {
+        // Positioned mode: place in corner
+        const margin = 20;
+        const baseSize = Math.min(canvas.width, canvas.height) * 0.15;
+        const wmWidth = baseSize * scale * 2.5;
+        const wmHeight = (img.height / img.width) * wmWidth;
+        
+        // Safe default: bottom-right corner
+        const x = canvas.width - wmWidth - margin;
+        const y = canvas.height - wmHeight - margin;
+        
+        // Save context state
+        ctx.save();
+        
+        // Apply opacity
+        ctx.globalAlpha = opacity;
+        
+        // Draw watermark
+        ctx.drawImage(img, x, y, wmWidth, wmHeight);
+        
+        // Restore context
+        ctx.restore();
+    }
+}
+
+function setWizardWatermarkMode(mode) {
+    wizardState.watermarkMode = mode;
     
-    // Position in bottom-right
-    const x = canvas.width - wmWidth - margin;
-    const y = canvas.height - wmHeight - margin;
+    // Update button states
+    document.querySelectorAll('#wizardWatermarkOptions .option-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.mode === mode) {
+            btn.classList.add('active');
+        }
+    });
     
-    // Save context state
-    ctx.save();
+    // Adjust scale slider range based on mode
+    const scaleSlider = document.getElementById('wizardWatermarkScale');
+    const scaleVal = document.getElementById('wizardWatermarkScaleVal');
     
-    // Apply opacity
-    ctx.globalAlpha = opacity;
+    if (mode === 'fullscreen') {
+        // Fullscreen mode: larger scale range
+        scaleSlider.min = '50';
+        scaleSlider.max = '200';
+        scaleSlider.value = '100';
+        wizardState.watermarkScale = 100;
+        scaleVal.textContent = '100%';
+    } else {
+        // Positioned mode: smaller scale range
+        scaleSlider.min = '5';
+        scaleSlider.max = '25';
+        scaleSlider.value = '10';
+        wizardState.watermarkScale = 10;
+        scaleVal.textContent = '10%';
+    }
     
-    // Draw watermark
-    ctx.drawImage(img, x, y, wmWidth, wmHeight);
-    
-    // Restore context
-    ctx.restore();
+    // Re-draw preview with new mode
+    drawWizardWatermarkPreview();
 }
 
 function updateWizardWatermarkScale(value) {
@@ -2505,6 +2574,7 @@ async function saveWizardBrandWithWatermark() {
             wmForm.append('file', wizardState.watermarkFile);
             wmForm.append('watermark_scale', wizardState.watermarkScale / 100);
             wmForm.append('watermark_opacity', wizardState.watermarkOpacity / 100);
+            wmForm.append('watermark_mode', wizardState.watermarkMode);
             
             const wmRes = await fetch(`${apiBase}/api/brands/${brandId}/upload_watermark`, {
                 method: 'POST',
@@ -2534,6 +2604,10 @@ async function saveWizardBrandWithWatermark() {
         if (wizardState.watermarkFile) {
             settingsPayload.watermark_scale = wizardState.watermarkScale / 100;
             settingsPayload.watermark_opacity = wizardState.watermarkOpacity / 100;
+            settingsPayload.watermark_mode = wizardState.watermarkMode;
+            // Use safe default position for positioned mode
+            settingsPayload.watermark_x = 0.85; // bottom-right (85% from left)
+            settingsPayload.watermark_y = 0.85; // bottom-right (85% from top)
         }
         
         const settingsRes = await fetch(`${apiBase}/api/brands/${brandId}`, {
