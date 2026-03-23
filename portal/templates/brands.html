@@ -1940,6 +1940,7 @@ function showWizardStep(step) {
         const wmRow = document.getElementById('wizardWatermarkRow');
         const wmPreview = document.getElementById('wizardWatermarkPreviewContainer');
         const wmOptions = document.getElementById('wizardWatermarkOptions');
+        const skipBtn = document.querySelector('#wizardStep3 .btn-secondary:nth-of-type(2)'); // "Continue Without Watermark"
         
         if (wmZone && wmRow && wmPreview && wmOptions) {
             if (wizardState.watermarkFile) {
@@ -1947,12 +1948,14 @@ function showWizardStep(step) {
                 wmRow.style.display = 'flex';
                 wmPreview.style.display = 'block';
                 wmOptions.style.display = 'block';
+                if (skipBtn) skipBtn.style.display = 'none'; // Hide skip button when watermark exists
                 drawWizardWatermarkPreview();
             } else {
                 wmZone.style.display = 'block';
                 wmRow.style.display = 'none';
                 wmPreview.style.display = 'none';
                 wmOptions.style.display = 'none';
+                if (skipBtn) skipBtn.style.display = 'block'; // Show skip button when no watermark
             }
         }
     }
@@ -2392,6 +2395,8 @@ document.getElementById('wizardWatermarkInput')?.addEventListener('change', asyn
     const row = document.getElementById('wizardWatermarkRow');
     const previewContainer = document.getElementById('wizardWatermarkPreviewContainer');
     const options = document.getElementById('wizardWatermarkOptions');
+    const uploadZone = document.getElementById('wizardWatermarkUploadZone');
+    const skipBtn = document.querySelector('#wizardStep3 .btn-secondary:nth-of-type(2)'); // "Continue Without Watermark" button
     
     // Create thumbnail preview
     const reader = new FileReader();
@@ -2401,6 +2406,8 @@ document.getElementById('wizardWatermarkInput')?.addEventListener('change', asyn
         row.style.display = 'flex';
         previewContainer.style.display = 'block';
         options.style.display = 'block';
+        uploadZone.style.display = 'none'; // Hide upload zone
+        if (skipBtn) skipBtn.style.display = 'none'; // Hide "Continue Without Watermark"
         
         // Draw on watermark canvas
         drawWizardWatermarkPreview();
@@ -2528,12 +2535,16 @@ function clearWizardWatermark() {
     const row = document.getElementById('wizardWatermarkRow');
     const previewContainer = document.getElementById('wizardWatermarkPreviewContainer');
     const options = document.getElementById('wizardWatermarkOptions');
+    const uploadZone = document.getElementById('wizardWatermarkUploadZone');
     const input = document.getElementById('wizardWatermarkInput');
     const thumb = document.getElementById('wizardWatermarkThumb');
+    const skipBtn = document.querySelector('#wizardStep3 .btn-secondary:nth-of-type(2)'); // "Continue Without Watermark" button
     
     row.style.display = 'none';
     previewContainer.style.display = 'none';
     options.style.display = 'none';
+    uploadZone.style.display = 'block'; // Show upload zone again
+    if (skipBtn) skipBtn.style.display = 'block'; // Show "Continue Without Watermark" again
     thumb.src = '';
     input.value = '';
     
