@@ -1912,7 +1912,15 @@ function showWizardStep(step) {
         
         // Re-draw canvas with current settings
         drawWizardPreview();
-    } else if (step === 3 && wizardState.watermarkFile) {
+    } else if (step === 2) {
+        // Step 2 without logo - show upload zone
+        document.getElementById('wizardLogoUploadZone').style.display = 'block';
+        document.getElementById('wizardLogoRow').style.display = 'none';
+        document.getElementById('wizardPreviewContainer').style.display = 'none';
+        document.getElementById('wizardLogoOptions').style.display = 'none';
+    }
+    
+    if (step === 3 && wizardState.watermarkFile) {
         // Returning to Step 3 - ensure watermark preview is visible and up-to-date
         document.getElementById('wizardWatermarkUploadZone').style.display = 'none';
         document.getElementById('wizardWatermarkRow').style.display = 'flex';
@@ -1921,6 +1929,12 @@ function showWizardStep(step) {
         
         // Re-draw watermark canvas with current settings
         drawWizardWatermarkPreview();
+    } else if (step === 3) {
+        // Step 3 without watermark - show upload zone
+        document.getElementById('wizardWatermarkUploadZone').style.display = 'block';
+        document.getElementById('wizardWatermarkRow').style.display = 'none';
+        document.getElementById('wizardWatermarkPreviewContainer').style.display = 'none';
+        document.getElementById('wizardWatermarkOptions').style.display = 'none';
     }
 }
 
