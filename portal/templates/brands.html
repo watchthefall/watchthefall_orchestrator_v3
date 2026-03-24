@@ -797,8 +797,8 @@
             
             <div class="wizard-actions">
                 <button type="button" class="btn btn-secondary" onclick="wizardPrevStep()">← Back</button>
-                <button type="button" class="btn btn-secondary" onclick="skipWatermarkAndSave()">Continue Without Watermark</button>
-                <button type="button" class="btn btn-primary" id="wizardWatermarkSaveBtn" onclick="saveWizardBrandWithWatermark()">Save Brand</button>
+                <button type="button" class="btn btn-secondary" id="wizardSkipWatermarkBtn" onclick="skipWatermarkAndSave()">Continue Without Watermark</button>
+                <button type="button" class="btn btn-primary" id="wizardWatermarkSaveBtn" onclick="saveWizardFromAnyStep()">Save Brand</button>
             </div>
         </div>
     </div>
@@ -1940,7 +1940,7 @@ function showWizardStep(step) {
         const wmRow = document.getElementById('wizardWatermarkRow');
         const wmPreview = document.getElementById('wizardWatermarkPreviewContainer');
         const wmOptions = document.getElementById('wizardWatermarkOptions');
-        const skipBtn = document.querySelector('#wizardStep3 .btn-secondary:nth-of-type(2)'); // "Continue Without Watermark"
+        const skipBtn = document.getElementById('wizardSkipWatermarkBtn');
         
         if (wmZone && wmRow && wmPreview && wmOptions) {
             if (wizardState.watermarkFile) {
@@ -2396,7 +2396,7 @@ document.getElementById('wizardWatermarkInput')?.addEventListener('change', asyn
     const previewContainer = document.getElementById('wizardWatermarkPreviewContainer');
     const options = document.getElementById('wizardWatermarkOptions');
     const uploadZone = document.getElementById('wizardWatermarkUploadZone');
-    const skipBtn = document.querySelector('#wizardStep3 .btn-secondary:nth-of-type(2)'); // "Continue Without Watermark" button
+    const skipBtn = document.getElementById('wizardSkipWatermarkBtn');
     
     // Create thumbnail preview
     const reader = new FileReader();
@@ -2409,8 +2409,10 @@ document.getElementById('wizardWatermarkInput')?.addEventListener('change', asyn
         uploadZone.style.display = 'none'; // Hide upload zone
         if (skipBtn) skipBtn.style.display = 'none'; // Hide "Continue Without Watermark"
         
-        // Draw on watermark canvas
-        drawWizardWatermarkPreview();
+        // Wait for image to load before drawing
+        thumb.onload = function() {
+            drawWizardWatermarkPreview();
+        };
     };
     reader.readAsDataURL(file);
     
@@ -2462,8 +2464,8 @@ function drawWizardWatermarkPreview() {
     } else {
         // Positioned mode: place in corner
         const margin = 20;
-        const baseSize = Math.min(canvas.width, canvas.height) * 0.15;
-        const wmWidth = baseSize * scale * 2.5;
+        const baseSize = Math.max(canvas.width, canvas.height) * 0.4;
+        const wmWidth = baseSize * scale * 4;
         const wmHeight = (img.height / img.width) * wmWidth;
         
         // Safe default: bottom-right corner
@@ -2538,7 +2540,7 @@ function clearWizardWatermark() {
     const uploadZone = document.getElementById('wizardWatermarkUploadZone');
     const input = document.getElementById('wizardWatermarkInput');
     const thumb = document.getElementById('wizardWatermarkThumb');
-    const skipBtn = document.querySelector('#wizardStep3 .btn-secondary:nth-of-type(2)'); // "Continue Without Watermark" button
+    const skipBtn = document.getElementById('wizardSkipWatermarkBtn');
     
     row.style.display = 'none';
     previewContainer.style.display = 'none';
