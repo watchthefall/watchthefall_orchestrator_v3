@@ -41,6 +41,16 @@
             color: #fff;
         }
         .btn-secondary:hover { background: #555; }
+        .btn-ghost {
+            background: transparent;
+            color: #aaa;
+            border: 1px dashed #666;
+        }
+        .btn-ghost:hover { 
+            background: rgba(255,255,255,0.05); 
+            border-color: #888;
+            color: #ccc;
+        }
         .btn-danger {
             background: #c00;
             color: #fff;
@@ -797,7 +807,7 @@
             
             <div class="wizard-actions">
                 <button type="button" class="btn btn-secondary" onclick="wizardPrevStep()">← Back</button>
-                <button type="button" class="btn btn-secondary" id="wizardSkipWatermarkBtn" onclick="skipWatermarkAndSave()">Continue Without Watermark</button>
+                <button type="button" class="btn btn-ghost" id="wizardStep4PlaceholderBtn" onclick="showStep4Placeholder()">Step 4 (Coming Soon)</button>
                 <button type="button" class="btn btn-primary" id="wizardWatermarkSaveBtn" onclick="saveWizardFromAnyStep()">Save Brand</button>
             </div>
         </div>
@@ -2441,16 +2451,16 @@ function drawWizardWatermarkPreview() {
     const opacity = wizardState.watermarkOpacity / 100;
     
     if (mode === 'fullscreen') {
-        // Fullscreen mode: tile across entire canvas at low opacity
-        const baseSize = Math.max(canvas.width, canvas.height);
-        const wmWidth = baseSize * scale * 0.5; // Larger for fullscreen
+        // Fullscreen mode: centered overlay sized relative to canvas height
+        // Default (35%): ~118px wide on 480px height canvas
+        const wmWidth = canvas.height * (scale / 100) * 0.7;
         const wmHeight = (img.height / img.width) * wmWidth;
         
         // Save context state
         ctx.save();
         
-        // Apply opacity (lower for fullscreen)
-        ctx.globalAlpha = opacity * 0.5; // Reduce alpha further for fullscreen
+        // Apply opacity (lower for fullscreen to stay subtle)
+        ctx.globalAlpha = opacity * 0.5;
         
         // Draw centered
         const x = (canvas.width - wmWidth) / 2;
@@ -2462,10 +2472,10 @@ function drawWizardWatermarkPreview() {
         ctx.restore();
         
     } else {
-        // Positioned mode: place in corner
+        // Positioned mode: small corner watermark sized relative to canvas width
+        // Default (18%): ~49px wide on 270px width canvas
         const margin = 20;
-        const baseSize = Math.max(canvas.width, canvas.height) * 0.4;
-        const wmWidth = baseSize * scale * 4;
+        const wmWidth = canvas.width * (scale / 100);
         const wmHeight = (img.height / img.width) * wmWidth;
         
         // Safe default: bottom-right corner
@@ -2502,19 +2512,19 @@ function setWizardWatermarkMode(mode) {
     const scaleVal = document.getElementById('wizardWatermarkScaleVal');
     
     if (mode === 'fullscreen') {
-        // Fullscreen mode: larger scale range
-        scaleSlider.min = '50';
-        scaleSlider.max = '200';
-        scaleSlider.value = '100';
-        wizardState.watermarkScale = 100;
-        scaleVal.textContent = '100%';
+        // Fullscreen mode: 20-100% range, default 35%
+        scaleSlider.min = '20';
+        scaleSlider.max = '100';
+        scaleSlider.value = '35';
+        wizardState.watermarkScale = 35;
+        scaleVal.textContent = '35%';
     } else {
-        // Positioned mode: smaller scale range
+        // Positioned mode: 5-30% range, default 18%
         scaleSlider.min = '5';
-        scaleSlider.max = '25';
-        scaleSlider.value = '10';
-        wizardState.watermarkScale = 10;
-        scaleVal.textContent = '10%';
+        scaleSlider.max = '30';
+        scaleSlider.value = '18';
+        wizardState.watermarkScale = 18;
+        scaleVal.textContent = '18%';
     }
     
     // Re-draw preview with new mode
@@ -2556,6 +2566,14 @@ function clearWizardWatermark() {
 function skipWatermarkAndSave() {
     // Just call the regular save without watermark
     saveWizardBrandWithWatermark();
+}
+
+function showStep4Placeholder() {
+    const status = document.getElementById('wizardStatus');
+    status.innerHTML = '<div class="status-msg info">ℹ️ Step 4 is coming soon! For now, click "Save Brand" to complete your brand creation.</div>';
+    setTimeout(() => {
+        status.innerHTML = '';
+    }, 5000);
 }
 
 async function saveWizardFromAnyStep() {
