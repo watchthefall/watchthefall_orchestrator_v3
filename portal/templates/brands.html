@@ -2483,8 +2483,24 @@ function drawWizardWatermarkPreview() {
     }
     
     // Layer 2: Draw watermark if exists (from Step 3)
-    const wmImg = wizardWatermarkImage || document.getElementById('wizardWatermarkThumb');
-    if (wmImg && wmImg.src && wmImg.complete && wmImg.naturalWidth > 0) {
+    // Always use persistent wizardWatermarkImage as primary source
+    let wmImg = wizardWatermarkImage;
+    
+    // Fallback only if persistent image doesn't exist yet
+    if (!wmImg) {
+        wmImg = document.getElementById('wizardWatermarkThumb');
+    }
+    
+    // Only draw if we have a valid, loaded image
+    if (wmImg && wmImg.src) {
+        // If image not fully loaded, attach handler and retry when ready
+        if (!wmImg.complete || wmImg.naturalWidth === 0) {
+            wmImg.onload = function() {
+                drawWizardWatermarkPreview();
+            };
+            return; // Exit early - will redraw when image loads
+        }
+        
         // Get current mode and settings
         const mode = wizardState.watermarkMode || 'positioned';
         const scale = wizardState.watermarkScale / 100;
