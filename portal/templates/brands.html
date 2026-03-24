@@ -2422,10 +2422,10 @@ document.getElementById('wizardWatermarkInput')?.addEventListener('change', asyn
         
         // Create persistent Image object for reliable redraws
         wizardWatermarkImage = new Image();
-        wizardWatermarkImage.src = event.target.result;
         wizardWatermarkImage.onload = function() {
             drawWizardWatermarkPreview();
         };
+        wizardWatermarkImage.src = event.target.result;
     };
     reader.readAsDataURL(file);
     
@@ -2441,28 +2441,16 @@ function drawWizardWatermarkPreview() {
     
     // Use persistent image object if available, fallback to DOM thumbnail
     const img = wizardWatermarkImage || document.getElementById('wizardWatermarkThumb');
-    
-    console.log('[Watermark Draw] wizardWatermarkImage exists:', !!wizardWatermarkImage);
-    console.log('[Watermark Draw] img.src exists:', !!(img && img.src));
-    console.log('[Watermark Draw] img.complete:', img ? img.complete : 'N/A');
-    console.log('[Watermark Draw] img.naturalWidth:', img ? img.naturalWidth : 'N/A');
-    
-    if (!img || !img.src) {
-        console.error('[Watermark Draw] ABORTED: No image source');
-        return;
-    }
+    if (!img || !img.src) return;
     
     // Ensure image is loaded before drawing
     if (!img.complete || img.naturalWidth === 0) {
-        console.log('[Watermark Draw] Image not loaded, attaching onload handler');
         // Image not ready - attach onload handler and retry when ready
         img.onload = function() {
             drawWizardWatermarkPreview();
         };
         return;
     }
-    
-    console.log('[Watermark Draw] Drawing watermark...');
     
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -2476,15 +2464,11 @@ function drawWizardWatermarkPreview() {
     const scale = wizardState.watermarkScale / 100;
     const opacity = wizardState.watermarkOpacity / 100;
     
-    console.log('[Watermark Draw] Mode:', mode, 'Scale:', scale, 'Opacity:', opacity);
-    
     if (mode === 'fullscreen') {
         // Fullscreen mode: centered overlay sized relative to canvas height
         // Default (35%): ~118px wide on 480px height canvas
         const wmWidth = canvas.height * (scale / 100) * 0.7;
         const wmHeight = (img.height / img.width) * wmWidth;
-        
-        console.log('[Watermark Draw] Fullscreen - Width:', wmWidth, 'Height:', wmHeight);
         
         // Save context state
         ctx.save();
@@ -2495,8 +2479,6 @@ function drawWizardWatermarkPreview() {
         // Draw centered
         const x = (canvas.width - wmWidth) / 2;
         const y = (canvas.height - wmHeight) / 2;
-        
-        console.log('[Watermark Draw] Fullscreen - X:', x, 'Y:', y);
         
         ctx.drawImage(img, x, y, wmWidth, wmHeight);
         
@@ -2510,13 +2492,9 @@ function drawWizardWatermarkPreview() {
         const wmWidth = canvas.width * (scale / 100);
         const wmHeight = (img.height / img.width) * wmWidth;
         
-        console.log('[Watermark Draw] Positioned - Width:', wmWidth, 'Height:', wmHeight);
-        
         // Safe default: bottom-right corner
         const x = canvas.width - wmWidth - margin;
         const y = canvas.height - wmHeight - margin;
-        
-        console.log('[Watermark Draw] Positioned - X:', x, 'Y:', y);
         
         // Save context state
         ctx.save();
@@ -2530,8 +2508,6 @@ function drawWizardWatermarkPreview() {
         // Restore context
         ctx.restore();
     }
-    
-    console.log('[Watermark Draw] Complete');
 }
 
 function setWizardWatermarkMode(mode) {
