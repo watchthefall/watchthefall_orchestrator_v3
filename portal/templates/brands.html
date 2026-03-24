@@ -1798,6 +1798,7 @@ let wizardState = {
 let wizardCanvas = null;
 let wizardCtx = null;
 let wizardLogoImage = null;
+let wizardWatermarkImage = null;
 
 function openBrandWizard() {
     // Reset state
@@ -2408,7 +2409,7 @@ document.getElementById('wizardWatermarkInput')?.addEventListener('change', asyn
     const uploadZone = document.getElementById('wizardWatermarkUploadZone');
     const skipBtn = document.getElementById('wizardSkipWatermarkBtn');
     
-    // Create thumbnail preview
+    // Create thumbnail preview and persistent image object for redraws
     const reader = new FileReader();
     reader.onload = function(event) {
         thumb.src = event.target.result;
@@ -2419,8 +2420,10 @@ document.getElementById('wizardWatermarkInput')?.addEventListener('change', asyn
         uploadZone.style.display = 'none'; // Hide upload zone
         if (skipBtn) skipBtn.style.display = 'none'; // Hide "Continue Without Watermark"
         
-        // Wait for image to load before drawing
-        thumb.onload = function() {
+        // Create persistent Image object for reliable redraws
+        wizardWatermarkImage = new Image();
+        wizardWatermarkImage.src = event.target.result;
+        wizardWatermarkImage.onload = function() {
             drawWizardWatermarkPreview();
         };
     };
@@ -2435,8 +2438,19 @@ function drawWizardWatermarkPreview() {
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
-    const img = document.getElementById('wizardWatermarkThumb');
+    
+    // Use persistent image object if available, fallback to DOM thumbnail
+    const img = wizardWatermarkImage || document.getElementById('wizardWatermarkThumb');
     if (!img || !img.src) return;
+    
+    // Ensure image is loaded before drawing
+    if (!img.complete || img.naturalWidth === 0) {
+        // Image not ready - attach onload handler and retry when ready
+        img.onload = function() {
+            drawWizardWatermarkPreview();
+        };
+        return;
+    }
     
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -2559,6 +2573,9 @@ function clearWizardWatermark() {
     if (skipBtn) skipBtn.style.display = 'block'; // Show "Continue Without Watermark" again
     thumb.src = '';
     input.value = '';
+    
+    // Clear persistent image object
+    wizardWatermarkImage = null;
     
     wizardState.watermarkFile = null;
 }
