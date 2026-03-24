@@ -791,8 +791,8 @@
                     
                     <!-- Scale Slider -->
                     <div class="slider-group">
-                        <label>Scale <span id="wizardWatermarkScaleVal">10%</span></label>
-                        <input type="range" id="wizardWatermarkScale" min="5" max="25" value="10" style="width:100%;" oninput="updateWizardWatermarkScale(this.value)">
+                        <label>Scale <span id="wizardWatermarkScaleVal">25%</span></label>
+                        <input type="range" id="wizardWatermarkScale" min="10" max="200" value="25" style="width:100%;" oninput="updateWizardWatermarkScale(this.value)">
                     </div>
                     
                     <!-- Opacity Slider -->
@@ -1791,7 +1791,7 @@ let wizardState = {
     // Watermark (Step 3)
     watermarkFile: null,
     watermarkMode: 'positioned',
-    watermarkScale: 10,
+    watermarkScale: 25,
     watermarkOpacity: 20
 };
 
@@ -1819,7 +1819,7 @@ function openBrandWizard() {
         logoPreviewUrl: null,
         watermarkFile: null,
         watermarkMode: 'positioned',
-        watermarkScale: 10,
+        watermarkScale: 25,
         watermarkOpacity: 20
     };
     
@@ -2567,19 +2567,19 @@ function setWizardWatermarkMode(mode) {
     const scaleVal = document.getElementById('wizardWatermarkScaleVal');
     
     if (mode === 'fullscreen') {
-        // Fullscreen mode: 20-100% range, default 35%
+        // Fullscreen mode: 20-100% range, default 50%
         scaleSlider.min = '20';
         scaleSlider.max = '100';
-        scaleSlider.value = '35';
-        wizardState.watermarkScale = 35;
-        scaleVal.textContent = '35%';
+        scaleSlider.value = '50';
+        wizardState.watermarkScale = 50;
+        scaleVal.textContent = '50%';
     } else {
-        // Positioned mode: 5-30% range, default 18%
-        scaleSlider.min = '5';
-        scaleSlider.max = '30';
-        scaleSlider.value = '18';
-        wizardState.watermarkScale = 18;
-        scaleVal.textContent = '18%';
+        // Positioned mode: 10-200% range, default 25%
+        scaleSlider.min = '10';
+        scaleSlider.max = '200';
+        scaleSlider.value = '25';
+        wizardState.watermarkScale = 25;
+        scaleVal.textContent = '25%';
     }
     
     // Re-draw preview with new mode
