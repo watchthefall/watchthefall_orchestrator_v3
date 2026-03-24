@@ -2439,19 +2439,6 @@ function drawWizardWatermarkPreview() {
     
     const ctx = canvas.getContext('2d');
     
-    // Use persistent image object if available, fallback to DOM thumbnail
-    const img = wizardWatermarkImage || document.getElementById('wizardWatermarkThumb');
-    if (!img || !img.src) return;
-    
-    // Ensure image is loaded before drawing
-    if (!img.complete || img.naturalWidth === 0) {
-        // Image not ready - attach onload handler and retry when ready
-        img.onload = function() {
-            drawWizardWatermarkPreview();
-        };
-        return;
-    }
-    
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
@@ -2459,54 +2446,92 @@ function drawWizardWatermarkPreview() {
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Get current mode and settings
-    const mode = wizardState.watermarkMode || 'positioned';
-    const scale = wizardState.watermarkScale / 100;
-    const opacity = wizardState.watermarkOpacity / 100;
-    
-    if (mode === 'fullscreen') {
-        // Fullscreen mode: centered overlay sized relative to canvas height
-        // Default (35%): ~118px wide on 480px height canvas
-        const wmWidth = canvas.height * (scale / 100) * 0.7;
-        const wmHeight = (img.height / img.width) * wmWidth;
+    // Layer 1: Draw logo if exists (from Step 2)
+    if (wizardLogoImage && wizardLogoImage.complete && wizardLogoImage.naturalWidth > 0) {
+        // Calculate scaled dimensions using unified width-based scaling
+        const scale = wizardState.logoScale / 100;
+        const drawWidth = canvas.width * scale;
+        const aspectRatio = wizardLogoImage.height / wizardLogoImage.width;
+        const drawHeight = drawWidth * aspectRatio;
         
-        // Save context state
-        ctx.save();
-        
-        // Apply opacity (lower for fullscreen to stay subtle)
-        ctx.globalAlpha = opacity * 0.5;
-        
-        // Draw centered
-        const x = (canvas.width - wmWidth) / 2;
-        const y = (canvas.height - wmHeight) / 2;
-        
-        ctx.drawImage(img, x, y, wmWidth, wmHeight);
-        
-        // Restore context
-        ctx.restore();
-        
-    } else {
-        // Positioned mode: small corner watermark sized relative to canvas width
-        // Default (18%): ~49px wide on 270px width canvas
-        const margin = 20;
-        const wmWidth = canvas.width * (scale / 100);
-        const wmHeight = (img.height / img.width) * wmWidth;
-        
-        // Safe default: bottom-right corner
-        const x = canvas.width - wmWidth - margin;
-        const y = canvas.height - wmHeight - margin;
-        
-        // Save context state
-        ctx.save();
+        // Calculate position based on X,Y percentages (center anchor)
+        const x = (canvas.width * wizardState.logoX) - (drawWidth / 2);
+        const y = (canvas.height * wizardState.logoY) - (drawHeight / 2);
         
         // Apply opacity
-        ctx.globalAlpha = opacity;
+        ctx.globalAlpha = wizardState.logoOpacity / 100;
         
-        // Draw watermark
-        ctx.drawImage(img, x, y, wmWidth, wmHeight);
+        // Save context for rotation
+        ctx.save();
+        
+        // Apply rotation around logo center
+        const rotationRadians = (wizardState.logoRotation * Math.PI) / 180;
+        const centerX = x + drawWidth / 2;
+        const centerY = y + drawHeight / 2;
+        ctx.translate(centerX, centerY);
+        ctx.rotate(rotationRadians);
+        ctx.translate(-centerX, -centerY);
+        
+        // Draw logo
+        ctx.drawImage(wizardLogoImage, x, y, drawWidth, drawHeight);
         
         // Restore context
         ctx.restore();
+        
+        // Reset alpha
+        ctx.globalAlpha = 1;
+    }
+    
+    // Layer 2: Draw watermark if exists (from Step 3)
+    const wmImg = wizardWatermarkImage || document.getElementById('wizardWatermarkThumb');
+    if (wmImg && wmImg.src && wmImg.complete && wmImg.naturalWidth > 0) {
+        // Get current mode and settings
+        const mode = wizardState.watermarkMode || 'positioned';
+        const scale = wizardState.watermarkScale / 100;
+        const opacity = wizardState.watermarkOpacity / 100;
+        
+        if (mode === 'fullscreen') {
+            // Fullscreen mode: centered overlay sized relative to canvas height
+            const wmWidth = canvas.height * (scale / 100) * 0.7;
+            const wmHeight = (wmImg.height / wmImg.width) * wmWidth;
+            
+            // Save context state
+            ctx.save();
+            
+            // Apply opacity (lower for fullscreen to stay subtle)
+            ctx.globalAlpha = opacity * 0.5;
+            
+            // Draw centered
+            const x = (canvas.width - wmWidth) / 2;
+            const y = (canvas.height - wmHeight) / 2;
+            
+            ctx.drawImage(wmImg, x, y, wmWidth, wmHeight);
+            
+            // Restore context
+            ctx.restore();
+            
+        } else {
+            // Positioned mode: small corner watermark sized relative to canvas width
+            const margin = 20;
+            const wmWidth = canvas.width * (scale / 100);
+            const wmHeight = (wmImg.height / wmImg.width) * wmWidth;
+            
+            // Safe default: bottom-right corner
+            const x = canvas.width - wmWidth - margin;
+            const y = canvas.height - wmHeight - margin;
+            
+            // Save context state
+            ctx.save();
+            
+            // Apply opacity
+            ctx.globalAlpha = opacity;
+            
+            // Draw watermark
+            ctx.drawImage(wmImg, x, y, wmWidth, wmHeight);
+            
+            // Restore context
+            ctx.restore();
+        }
     }
 }
 
