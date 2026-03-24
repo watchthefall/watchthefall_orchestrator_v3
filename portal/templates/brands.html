@@ -2507,8 +2507,8 @@ function drawWizardWatermarkPreview() {
         const opacity = wizardState.watermarkOpacity / 100;
         
         if (mode === 'fullscreen') {
-            // Fullscreen mode: centered overlay sized relative to canvas height
-            const wmWidth = canvas.height * scale * 0.7;
+            // Fullscreen mode: centered overlay sized relative to canvas width (matches backend)
+            const wmWidth = canvas.width * scale;
             const wmHeight = (wmImg.height / wmImg.width) * wmWidth;
             
             // Save context state
@@ -2527,7 +2527,7 @@ function drawWizardWatermarkPreview() {
             ctx.restore();
             
         } else {
-            // Positioned mode: small corner watermark sized relative to canvas width
+            // Positioned mode: small corner watermark sized relative to canvas width (matches backend)
             const margin = 20;
             const wmWidth = canvas.width * scale;
             const wmHeight = (wmImg.height / wmImg.width) * wmWidth;
