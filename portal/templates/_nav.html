@@ -123,6 +123,21 @@
         padding: 10px 12px;
     }
 }
+
+/* Ultra-narrow viewport fix: prevent text clipping on <360px */
+@media screen and (max-width: 360px) {
+    .nav-bar .nav-links a {
+        font-size: 14px;
+        padding: 8px 10px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    
+    .nav-bar .dropdown > a {
+        font-size: 14px;
+        padding: 8px 10px;
+    }
+}
 </style>
 
 <div class="nav-bar">

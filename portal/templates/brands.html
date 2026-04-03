@@ -1160,11 +1160,51 @@
     }
     
     .canvas-container {
-        min-height: 300px;
+        min-height: 250px;
     }
     
     #brandPreviewCanvas {
-        max-height: 400px;
+        max-height: 350px;
+    }
+    
+    /* Compress edit modal vertical bloat */
+    .controls-panel {
+        padding: 12px;
+    }
+    
+    .control-section {
+        margin-bottom: 12px;
+    }
+    
+    .slider-row {
+        margin-bottom: 8px;
+    }
+    
+    /* Grid: Scale + Rotation side-by-side, Opacity + Shape side-by-side */
+    .control-section:first-child .slider-row {
+        display: inline-block;
+        width: calc(50% - 6px);
+        vertical-align: top;
+        margin-right: 4px;
+    }
+    
+    .control-section:first-child .slider-row:nth-child(even) {
+        margin-right: 0;
+        margin-left: 4px;
+    }
+    
+    /* Shape toggles: horizontal row */
+    .control-section .mode-toggle {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 4px !important;
+    }
+    
+    .control-section .mode-toggle .mode-btn {
+        min-height: 40px;
+        padding: 8px 12px;
+        font-size: 12px;
     }
 }
 </style>
