@@ -84,7 +84,8 @@
 .nav-bar .dropdown-content a:hover {
     background-color: rgba(134, 237, 165, 0.15);
 }
-.nav-bar .dropdown:hover .dropdown-content {
+.nav-bar .dropdown:hover .dropdown-content,
+.nav-bar .dropdown:focus-within .dropdown-content {
     display: block;
 }
 
@@ -92,10 +93,8 @@
 @media screen and (max-width: 768px) {
     .nav-bar {
         justify-content: flex-start;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
+        /* overflow-x removed: .nav-links handles scrolling internally;
+           overflow on .nav-bar clips the Account dropdown */
     }
     
     .nav-bar::-webkit-scrollbar {
@@ -149,7 +148,7 @@
         <li><a href="{{ url_for('shipr_page') }}"{% if active_page == 'shipr_page' %} class="active"{% endif %}>Shipr</a></li>
     </ul>
     <div class="dropdown">
-        <a href="#">Account</a>
+        <a href="#" tabindex="0">Account</a>
         <div class="dropdown-content">
             <a href="{{ url_for('profile_page') }}">Profile</a>
             <a href="{{ url_for('logout') }}">Logout</a>
