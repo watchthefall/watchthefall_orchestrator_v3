@@ -11,6 +11,8 @@
             background-color: #1a1a1a;
             color: #e0e0e0;
             min-height: 100vh;
+            margin: 0;
+            padding: 0;
         }
         .container {
             max-width: 800px;
@@ -134,26 +136,11 @@
             background-color: rgba(74, 222, 128, 0.08);
         }
         
-        /* Account link */
-        .account-link {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            color: #808080;
-            text-decoration: none;
-            font-size: 0.9rem;
-            padding: 8px 16px;
-            border-radius: 4px;
-            transition: all 0.2s ease;
-        }
-        .account-link:hover {
-            color: #e0e0e0;
-            background-color: #2d2d2d;
-        }
     </style>
 </head>
 <body>
-    <a href="{{ url_for('profile_page') }}" class="account-link">Account</a>
+    {% set active_page = 'dashboard' %}
+    {% include '_nav.html' %}
     
     <div class="container">
         {% if state == 'no_brand_kit' %}

@@ -1,6 +1,94 @@
 {# Navigation partial - include with: {% include '_nav.html' %} #}
 {# Set active_page variable before including: {% set active_page = 'dashboard' %} #}
 
+<style>
+/* Standardized Navigation - single source of truth */
+.nav-bar {
+    background-color: #111;
+    padding: 0.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 1px solid #333;
+    display: flex;
+    align-items: center;
+}
+.nav-bar .nav-links {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex-wrap: nowrap;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.nav-bar .nav-links::-webkit-scrollbar {
+    display: none;
+}
+.nav-bar .nav-links li {
+    margin: 0.25rem;
+}
+.nav-bar .nav-links a {
+    color: #00b7ff;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+    display: block;
+    white-space: nowrap;
+}
+.nav-bar .nav-links a:hover {
+    background-color: #333;
+}
+.nav-bar .nav-links a.active {
+    background-color: rgba(0, 183, 255, 0.15);
+    color: #00b7ff;
+}
+.nav-bar .dropdown {
+    position: relative;
+    display: inline-block;
+}
+.nav-bar .dropdown > a {
+    color: #00b7ff;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+    display: block;
+    cursor: pointer;
+}
+.nav-bar .dropdown > a:hover {
+    background-color: #333;
+}
+.nav-bar .dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #222;
+    min-width: 160px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+    z-index: 101;
+    right: 0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.nav-bar .dropdown-content a {
+    color: #00b7ff;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+}
+.nav-bar .dropdown-content a:hover {
+    background-color: #333;
+}
+.nav-bar .dropdown:hover .dropdown-content {
+    display: block;
+}
+</style>
+
 <div class="nav-bar">
     <ul class="nav-links">
         <li><a href="{{ url_for('dashboard') }}"{% if active_page == 'dashboard' %} class="active"{% endif %}>Dashboard</a></li>
