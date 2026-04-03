@@ -7,8 +7,8 @@
 <style>
     * { box-sizing: border-box; }
     body {
-        background: #1a1a1a;
-        color: #e0e0e0;
+        background: #121214;
+        color: #EAEAEA;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
         margin: 0;
         padding: 0 0 100px 0;
@@ -30,7 +30,7 @@
         width: 94%;
         max-width: 500px;
         margin: 15px auto;
-        background: #111;
+        background: #202024;
         padding: 18px;
         border-radius: 12px;
     }
@@ -43,7 +43,7 @@
     h3 {
         margin: 18px 0 10px;
         font-size: 15px;
-        color: #00b7ff;
+        color: #86EDA5;
     }
     input[type="text"] {
         width: 100%;
@@ -60,8 +60,8 @@
         padding: 14px;
         margin-top: 10px;
         border: none;
-        background: #00b7ff;
-        color: #000;
+        background: #86EDA5;
+        color: #121214;
         border-radius: 8px;
         font-size: 16px;
         font-weight: bold;
@@ -69,7 +69,7 @@
         transition: background 0.2s;
     }
     button:hover, button:active {
-        background: #0098d8;
+        background: #6BDB8B;
     }
     button:disabled {
         background: #333;
@@ -122,8 +122,8 @@
         font-size: 10px;
     }
     .brand-btn .asset-badge {
-        background: rgba(0, 183, 255, 0.2);
-        color: #00b7ff;
+        background: rgba(134, 237, 165, 0.2);
+        color: #86EDA5;
         padding: 2px 6px;
         border-radius: 3px;
     }
@@ -133,9 +133,9 @@
         right: 6px;
         width: 20px;
         height: 20px;
-        background: #00b7ff;
+        background: #86EDA5;
         border-radius: 50%;
-        color: #000;
+        color: #121214;
         font-size: 14px;
         font-weight: bold;
         display: none;
@@ -143,18 +143,16 @@
         justify-content: center;
     }
     .brand-btn.selected {
-        background: #003355;
-        border-color: #00b7ff;
-        color: #00b7ff;
+        background: rgba(134, 237, 165, 0.1);
+        border-color: #86EDA5;
+        color: #86EDA5;
         transform: scale(1.02);
-        box-shadow: 0 0 15px rgba(0, 183, 255, 0.3);
     }
     .brand-btn.selected .check-icon {
         display: flex;
     }
     .brand-btn.active-preview {
-        box-shadow: 0 0 20px rgba(0, 183, 255, 0.5), 0 0 40px rgba(0, 183, 255, 0.2);
-        border-color: #00d4ff;
+        border-color: #86EDA5;
         transform: scale(1.04);
     }
     .brand-btn.active-preview::before {
@@ -163,7 +161,6 @@
         top: 6px;
         left: 6px;
         font-size: 16px;
-        filter: drop-shadow(0 0 4px rgba(0, 183, 255, 0.8));
     }
     .brand-btn.brand-incomplete {
         background: #3a2a00;
@@ -173,7 +170,7 @@
         cursor: not-allowed;
     }
     .brand-btn:not(.brand-incomplete):hover {
-        border-color: #00b7ff;
+        border-color: #86EDA5;
         transform: translateY(-2px);
     }
     .brand-btn:active {
@@ -203,7 +200,7 @@
     .watermark-bounds {
         position: absolute;
         top: 0; left: 0; right: 0; bottom: 0;
-        border: 2px dashed rgba(0, 183, 255, 0.4);
+        border: 2px dashed rgba(134, 237, 165, 0.4);
         pointer-events: none;
         display: none;
     }
@@ -227,7 +224,7 @@
     }
     .slider-value {
         font-weight: bold;
-        color: #00b7ff;
+        color: #86EDA5;
         min-width: 50px;
         text-align: right;
     }
@@ -243,7 +240,7 @@
         -webkit-appearance: none;
         width: 24px;
         height: 24px;
-        background: #00b7ff;
+        background: #86EDA5;
         border-radius: 50%;
         cursor: pointer;
         border: 2px solid #fff;
@@ -251,7 +248,7 @@
     input[type="range"]::-moz-range-thumb {
         width: 24px;
         height: 24px;
-        background: #00b7ff;
+        background: #86EDA5;
         border-radius: 50%;
         cursor: pointer;
         border: 2px solid #fff;
@@ -295,7 +292,7 @@
         border-radius: 50%;
     }
     input:checked + .toggle-slider {
-        background-color: #00b7ff;
+        background-color: #86EDA5;
     }
     input:checked + .toggle-slider:before {
         transform: translateX(22px);
@@ -306,15 +303,15 @@
         display: block;
         padding: 14px;
         margin-top: 8px;
-        background: #0099cc;
-        color: white;
+        background: #86EDA5;
+        color: #121214;
         text-align: center;
         border-radius: 8px;
         text-decoration: none;
         font-weight: bold;
     }
     .download-link:active {
-        background: #007faa;
+        background: #6BDB8B;
     }
     .status-msg {
         padding: 12px;
@@ -380,8 +377,8 @@
         transition: all 0.2s;
     }
     .tab-btn.active {
-        background: #00b7ff;
-        color: #000;
+        background: #86EDA5;
+        color: #121214;
     }
     .tab-btn:not(.active):hover {
         color: #fff;
@@ -408,8 +405,8 @@
         transition: all 0.2s;
     }
     .library-item:hover {
-        border-color: #00b7ff;
-        background: #1a1a2e;
+        border-color: #86EDA5;
+        background: #1a2420;
     }
     .library-item .source-icon {
         font-size: 20px;
@@ -438,9 +435,9 @@
     .library-item .item-select-btn {
         padding: 6px 12px;
         border-radius: 6px;
-        background: rgba(0,183,255,0.15);
-        color: #00b7ff;
-        border: 1px solid rgba(0,183,255,0.3);
+        background: rgba(134,237,165,0.15);
+        color: #86EDA5;
+        border: 1px solid rgba(134,237,165,0.3);
         font-size: 12px;
         font-weight: 600;
         cursor: pointer;
@@ -449,8 +446,8 @@
         flex-shrink: 0;
     }
     .library-item .item-select-btn:hover {
-        background: #00b7ff;
-        color: #000;
+        background: #86EDA5;
+        color: #121214;
     }
     .library-item.unavailable {
         opacity: 0.4;
@@ -462,7 +459,7 @@
         font-size: 13px;
     }
     .library-footer a {
-        color: #00b7ff;
+        color: #86EDA5;
         text-decoration: none;
     }
     .library-footer a:hover {
@@ -480,8 +477,8 @@
     }
     .upload-dropzone:hover,
     .upload-dropzone.drag-over {
-        border-color: #00b7ff;
-        background: rgba(0,183,255,0.05);
+        border-color: #86EDA5;
+        background: rgba(134,237,165,0.05);
     }
     .upload-dropzone .drop-icon {
         font-size: 40px;
@@ -495,8 +492,8 @@
     }
     .upload-browse-btn {
         background: transparent;
-        border: 1px solid #00b7ff;
-        color: #00b7ff;
+        border: 1px solid #86EDA5;
+        color: #86EDA5;
         width: auto;
         display: inline-block;
         padding: 8px 20px;
@@ -504,8 +501,8 @@
         font-size: 14px;
     }
     .upload-browse-btn:hover {
-        background: #00b7ff;
-        color: #000;
+        background: #86EDA5;
+        color: #121214;
     }
     .upload-hint {
         color: #666;
@@ -520,7 +517,7 @@
         text-align: center;
     }
     .upload-alt a {
-        color: #00b7ff;
+        color: #86EDA5;
         text-decoration: none;
     }
     .upload-progress {
@@ -534,7 +531,7 @@
     }
     .upload-progress-fill {
         height: 100%;
-        background: #00b7ff;
+        background: #86EDA5;
         width: 0%;
         transition: width 0.3s;
     }
@@ -651,7 +648,7 @@
                 <div id="libraryEmpty" style="display:none; text-align:center; padding:20px;">
                     <div style="font-size:32px; margin-bottom:8px;">📁</div>
                     <p style="color:#888; margin-bottom:10px;">No media in your library yet</p>
-                    <a href="{{ url_for('download') }}" style="color:#00b7ff; text-decoration:none; font-size:13px;">Get Media &rarr;</a>
+                    <a href="{{ url_for('download') }}" style="color:#86EDA5; text-decoration:none; font-size:13px;">Get Media &rarr;</a>
                 </div>
                 <div class="library-footer" id="libraryFooter" style="display:none;">
                     <a href="{{ url_for('library') }}">View full library &rarr;</a>
@@ -705,7 +702,7 @@
     <!-- No Brands State -->
     <div id="noBrandsState" style="display:none; text-align:center; padding:30px 20px;">
         <p style="color:#666; font-size:16px; margin-bottom:20px;">🎭 You have no brands yet</p>
-        <button onclick="window.location.href='{{ url_for('brands_page') }}'" style="background:#00b7ff;">
+        <button onclick="window.location.href='{{ url_for('brands_page') }}'" style="background:#86EDA5;">
             ✨ Create Your First Brand
         </button>
     </div>
@@ -829,20 +826,20 @@
     </div><!-- End overrideControls -->
     
     <!-- Confirmation Summary (above Start Branding button) -->
-    <div id="confirmationSummary" style="background: rgba(0, 183, 255, 0.1); border: 1px solid rgba(0, 183, 255, 0.3); border-radius: 8px; padding: 12px; margin: 15px 0; font-size: 13px; line-height: 1.6;">
-        <div style="color: #00b7ff; font-weight: 600; margin-bottom: 6px;">⚡ Ready to Process:</div>
+    <div id="confirmationSummary" style="background: rgba(134, 237, 165, 0.1); border: 1px solid rgba(134, 237, 165, 0.3); border-radius: 8px; padding: 12px; margin: 15px 0; font-size: 13px; line-height: 1.6;">
+        <div style="color: #86EDA5; font-weight: 600; margin-bottom: 6px;">⚡ Ready to Process:</div>
         <div id="summaryText" style="color: #ccc;"></div>
     </div>
     
     <!-- Selection Mode Button -->
     <div id="selectionModeActions">
-        <button onclick="enterQueueMode()" id="startBrandingBtn" style="background:#00b7ff; margin-top:15px;">🚀 Start Branding</button>
+        <button onclick="enterQueueMode()" id="startBrandingBtn" style="background:#86EDA5; margin-top:15px;">🚀 Start Branding</button>
     </div>
     
     <!-- Queue Mode Actions (hidden by default) -->
     <div id="queueModeActions" style="display:none;">
         <button onclick="processCurrentBrand()" id="processCurrentBtn" style="background:#28a745;">⚡ Process This Brand</button>
-        <button onclick="processAllBrands()" id="processAllBtn" style="background:#00b7ff; margin-top:10px;">🚀 Process All Remaining</button>
+        <button onclick="processAllBrands()" id="processAllBtn" style="background:#86EDA5; margin-top:10px;">🚀 Process All Remaining</button>
         <div style="display:flex; gap:10px; margin-top:10px;">
             <button onclick="skipBrand()" style="flex:1; background:#666;">Skip</button>
             <button onclick="exitQueueMode()" style="flex:1; background:#c00;">Exit Queue</button>
@@ -920,7 +917,7 @@ function updateCanvasPreview() {
     } else {
         // Draw placeholder gradient
         const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        gradient.addColorStop(0, '#1a1a2e');
+        gradient.addColorStop(0, '#1a2420');
         gradient.addColorStop(1, '#16213e');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1270,7 +1267,7 @@ function selectBrand(brandId, btnEl, isReady) {
         const result = document.getElementById('processResult');
         const brandData = brandDataCache[brandId];
         const brandName = brandData ? brandData.display_name : `Brand #${brandId}`;
-        result.innerHTML = `<div class="status-msg error">⚠️ Brand "${brandName}" is incomplete. Upload assets in <a href="/portal/brands" style="color:#00b7ff;">Manage Brands</a></div>`;
+        result.innerHTML = `<div class="status-msg error">⚠️ Brand "${brandName}" is incomplete. Upload assets in <a href="/portal/brands" style="color:#86EDA5;">Manage Brands</a></div>`;
         return;
     }
     
@@ -1559,7 +1556,7 @@ function renderBrandPills() {
             statusIcon = '\u2212 ';
             bgColor = '#666';
         } else if (idx === currentQueueIndex) {
-            bgColor = '#00b7ff';  // Active/editing
+            bgColor = '#86EDA5';  // Active/editing
         }
         
         pill.innerHTML = statusIcon + item.brand_name;
@@ -1577,7 +1574,7 @@ function renderBrandPills() {
         
         if (idx === currentQueueIndex) {
             pill.style.transform = 'scale(1.05)';
-            pill.style.boxShadow = '0 0 10px rgba(0, 183, 255, 0.5)';
+            pill.style.boxShadow = '0 0 10px rgba(134, 237, 165, 0.5)';
         }
         
         container.appendChild(pill);
@@ -1833,7 +1830,7 @@ async function processCurrentBrand() {
                         <div style="margin-top:10px; padding:10px; background: rgba(255, 152, 0, 0.1); border-left: 3px solid #ff9800; border-radius: 4px;">
                             <div style="color:#ff9800; font-weight:600; margin-bottom:5px;">🛠️ How to fix:</div>
                             <div style="color:#ccc; margin-bottom:10px;">${errorResponse.fix}</div>
-                            ${errorResponse.fix_url ? `<a href="${errorResponse.fix_url}" style="color:#00b7ff; text-decoration:underline;">➡️ Go to Manage Brands</a>` : ''}
+                            ${errorResponse.fix_url ? `<a href="${errorResponse.fix_url}" style="color:#86EDA5; text-decoration:underline;">➡️ Go to Manage Brands</a>` : ''}
                         </div>
                     `;
                 }
@@ -2171,7 +2168,7 @@ async function loadLibraryItems() {
         footer.style.display = 'block';
     } catch (err) {
         loading.style.display = 'none';
-        grid.innerHTML = '<div style="text-align:center; padding:15px; color:#ff6b6b;">Could not load library. <button onclick="loadLibraryItems()" style="color:#00b7ff; background:transparent; border:1px solid #00b7ff; padding:4px 10px; border-radius:4px; cursor:pointer; width:auto; margin-top:6px; display:inline-block;">Retry</button></div>';
+        grid.innerHTML = '<div style="text-align:center; padding:15px; color:#ff6b6b;">Could not load library. <button onclick="loadLibraryItems()" style="color:#86EDA5; background:transparent; border:1px solid #86EDA5; padding:4px 10px; border-radius:4px; cursor:pointer; width:auto; margin-top:6px; display:inline-block;">Retry</button></div>';
         grid.style.display = 'flex';
     }
 }

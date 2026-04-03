@@ -8,8 +8,8 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #1a1a1a;
-            color: #e0e0e0;
+            background: #121214;
+            color: #EAEAEA;
             padding: 20px;
             min-height: 100vh;
         }
@@ -32,10 +32,10 @@
             transition: all 0.2s;
         }
         .btn-primary {
-            background: #00b7ff;
-            color: #fff;
+            background: #86EDA5;
+            color: #121214;
         }
-        .btn-primary:hover { background: #0099dd; transform: translateY(-2px); }
+        .btn-primary:hover { background: #6BDB8B; transform: translateY(-2px); }
         .btn-secondary {
             background: #666;
             color: #fff;
@@ -105,8 +105,8 @@
             color: #fff;
         }
         .badge-user {
-            background: #00b7ff;
-            color: #fff;
+            background: #86EDA5;
+            color: #121214;
         }
         .badge-ready {
             background: #28a745;
@@ -208,7 +208,7 @@
         }
         .form-group input:focus {
             outline: none;
-            border-color: #00b7ff;
+            border-color: #86EDA5;
         }
         
         .status-msg {
@@ -219,7 +219,7 @@
         }
         .status-msg.success { background: rgba(40, 167, 69, 0.2); color: #28a745; }
         .status-msg.error { background: rgba(204, 0, 0, 0.2); color: #f66; }
-        .status-msg.info { background: rgba(0, 183, 255, 0.2); color: #00b7ff; }
+        .status-msg.info { background: rgba(134, 237, 165, 0.2); color: #86EDA5; }
         
         /* Nav styles provided by _nav.html partial */
         
@@ -259,7 +259,7 @@
         .control-section h3 {
             font-size: 14px;
             margin-bottom: 12px;
-            color: #00b7ff;
+            color: #86EDA5;
         }
         .slider-row {
             margin-bottom: 12px;
@@ -275,14 +275,14 @@
         }
         .slider-value {
             float: right;
-            color: #00b7ff;
+            color: #86EDA5;
             font-weight: 600;
         }
         input[type="file"] {
             width: 100%;
             padding: 8px;
-            background: rgba(0, 183, 255, 0.1);
-            border: 1px solid #00b7ff;
+            background: rgba(134, 237, 165, 0.1);
+            border: 1px solid #86EDA5;
             border-radius: 4px;
             color: #fff;
             font-size: 12px;
@@ -324,7 +324,7 @@
             border-radius: 50%;
         }
         input:checked + .toggle-slider {
-            background-color: #00b7ff;
+            background-color: #86EDA5;
         }
         input:checked + .toggle-slider:before {
             transform: translateX(20px);
@@ -345,9 +345,9 @@
             font-size: 12px;
         }
         .mode-btn.active {
-            background: #00b7ff;
-            color: #000;
-            border-color: #00b7ff;
+            background: #86EDA5;
+            color: #121214;
+            border-color: #86EDA5;
         }
     </style>
 </head>
@@ -414,7 +414,7 @@
                                 <button type="button" class="mode-btn" id="logoRemoveBgLight" onclick="setLogoRemoveBg('light')">Remove Light</button>
                             </div>
                             <div id="logoRemoveBgSlider" style="display:none;">
-                                <label style="font-size:11px; color:#888;">Removal Strength <span id="logoRemoveBgStrength" style="color:#00b7ff;">50</span></label>
+                                <label style="font-size:11px; color:#888;">Removal Strength <span id="logoRemoveBgStrength" style="color:#86EDA5;">50</span></label>
                                 <input type="range" id="logoRemoveBgThreshold" min="20" max="150" value="50" style="width:100%;" oninput="updateLogoRemoveBgStrength(this.value)">
                                 <p style="font-size:11px; color:#888; margin-top:6px;">Higher values remove backgrounds more aggressively (may affect light logo elements)</p>
                             </div>
@@ -632,7 +632,7 @@
                                 </div>
                                 <!-- Background Removal Strength (hidden when 'none') -->
                                 <div id="wizardBgStrengthContainer" style="display:none; margin-top:12px; padding:10px; background:rgba(0,0,0,0.2); border-radius:6px;">
-                                    <label style="display:block; font-size:11px; color:#aaa; margin-bottom:6px;">Removal Strength <span id="wizardBgStrengthVal" style="color:#00b7ff;">50</span></label>
+                                    <label style="display:block; font-size:11px; color:#aaa; margin-bottom:6px;">Removal Strength <span id="wizardBgStrengthVal" style="color:#86EDA5;">50</span></label>
                                     <input type="range" id="wizardBgStrength" min="20" max="150" value="50" style="width:100%;" oninput="updateWizardBgStrength(this.value)">
                                     <p style="font-size:11px; color:#888; margin-top:6px;">Higher values remove backgrounds more aggressively (may affect light logo elements)</p>
                                 </div>
@@ -798,7 +798,7 @@
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: #00b7ff;
+    background: #86EDA5;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -861,8 +861,8 @@
 }
 
 .upload-zone:hover {
-    border-color: #00b7ff;
-    background: rgba(0,183,255,0.05);
+    border-color: #86EDA5;
+    background: rgba(134,237,165,0.05);
 }
 
 .upload-placeholder .upload-icon {
@@ -925,12 +925,12 @@
 }
 
 .option-btn:hover {
-    border-color: #00b7ff;
+    border-color: #86EDA5;
 }
 
 .option-btn.active {
-    background: #00b7ff;
-    border-color: #00b7ff;
+    background: #86EDA5;
+    border-color: #86EDA5;
 }
 
 .slider-group {
@@ -971,12 +971,12 @@
 }
 
 .position-btn:hover {
-    border-color: #00b7ff;
+    border-color: #86EDA5;
 }
 
 .position-btn.active {
-    background: #00b7ff;
-    border-color: #00b7ff;
+    background: #86EDA5;
+    border-color: #86EDA5;
 }
 
 .preview-container {
@@ -1116,7 +1116,7 @@
 .btn-text {
     background: none;
     border: none;
-    color: #00b7ff;
+    color: #86EDA5;
     font-size: 13px;
     cursor: pointer;
     text-decoration: underline;

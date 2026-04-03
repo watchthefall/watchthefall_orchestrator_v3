@@ -39,7 +39,8 @@ from .brand_loader import get_available_brands
 # Import configuration
 from .config import (
     SECRET_KEY, PORTAL_AUTH_KEY, OUTPUT_DIR, RAW_DIR,
-    MAX_UPLOAD_SIZE, BRANDS_DIR
+    MAX_UPLOAD_SIZE, BRANDS_DIR,
+    TIER_CONFIG, DEFAULT_TIER, get_tier_limits
 )
 from .database import log_event
 
@@ -122,6 +123,21 @@ def register_user(email, password):
     except sqlite3.IntegrityError:
         # Email already exists
         return None
+
+
+def get_user_tier(user_id):
+    """Get a user's tier from the database. Returns tier name string."""
+    from .config import DB_PATH
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn.execute('PRAGMA busy_timeout=30000')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute('SELECT tier FROM users WHERE id = ?', (user_id,))
+    row = c.fetchone()
+    conn.close()
+    if row and row['tier']:
+        return row['tier']
+    return DEFAULT_TIER
 
 
 def login_required(f):
@@ -510,56 +526,32 @@ def profile_page():
             except:
                 pass
         
-        # Get actual tier from database (or default to Explorer)
-        tier = user['tier'] if user and user.get('tier') else 'Explorer'
+        # Get tier from database via helper
+        tier = get_user_tier(user_id)
+        limits = get_tier_limits(tier)
         
         # Get actual brand count
         user_brands = get_all_brands(user_id=user_id, include_system=False)
         brand_configs = len(user_brands)
         
-        # Get actual download count for this user
-        user_downloads = get_user_downloads(user_id, limit=10000)
-        downloads_used = len(user_downloads)
-        
-        # TODO: Get actual brands_used when branding usage tracking is implemented
-        brands_used = 0
-        
-        # Tier limits
-        tier_limits = {
-            'Explorer': {'downloads': 50, 'brands': 50, 'configs': 1},
-            'Creator': {'downloads': 500, 'brands': 500, 'configs': 5},
-            'Studio': {'downloads': 'Unlimited', 'brands': 'Unlimited', 'configs': 'Unlimited'}
-        }
-        
-        limits = tier_limits.get(tier, tier_limits['Explorer'])
-        
         return render_template('profile.html',
             email=email,
             created_at=created_at,
             tier=tier,
-            downloads_used=downloads_used,
-            downloads_limit=limits['downloads'],
-            brands_used=brands_used,
-            brands_limit=limits['brands'],
+            limits=limits,
             brand_configs=brand_configs,
-            brand_configs_limit=limits['configs']
         )
     except Exception as e:
         print(f"[PROFILE ERROR] Failed to load profile page: {e}")
         import traceback
         traceback.print_exc()
-        # Return graceful fallback instead of 500
+        fallback_limits = get_tier_limits(DEFAULT_TIER)
         return render_template('profile.html',
             email=session.get('email', 'User'),
             created_at='Recently',
-            tier='Explorer',
-            downloads_used=0,
-            downloads_limit=50,
-            brands_used=0,
-            brands_limit=50,
+            tier=DEFAULT_TIER,
+            limits=fallback_limits,
             brand_configs=0,
-            brand_configs_limit=1,
-            error_message='Some profile data could not be loaded. Please try again later.'
         ), 200
 
 @app.route('/portal/shipr')

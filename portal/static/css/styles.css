@@ -1,8 +1,8 @@
 /* Main Styles for WatchTheFall Portal */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: #1a1a1a;
-    color: #e0e0e0;
+    background: #121214;
+    color: #EAEAEA;
     min-height: 100vh;
     line-height: 1.6;
 }
@@ -23,4 +23,39 @@ body {
 .branding-logo {
     max-width: 200px;
     height: auto;
+}
+
+/* ============================================================================
+   TIER BADGES — Graphite & Mint only. Differentiated by opacity/weight.
+   ============================================================================ */
+.tier-badge {
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.3px;
+    line-height: 1.4;
+    vertical-align: middle;
+}
+
+/* Explorer — muted, low-contrast */
+.tier-explorer {
+    background: rgba(134, 237, 165, 0.08);
+    color: rgba(134, 237, 165, 0.6);
+    border: 1px solid rgba(134, 237, 165, 0.15);
+}
+
+/* Creator — standard mint emphasis */
+.tier-creator {
+    background: rgba(134, 237, 165, 0.12);
+    color: rgba(134, 237, 165, 0.85);
+    border: 1.5px solid rgba(134, 237, 165, 0.3);
+}
+
+/* Studio — strongest presence */
+.tier-studio {
+    background: rgba(134, 237, 165, 0.18);
+    color: #86EDA5;
+    border: 2px solid rgba(134, 237, 165, 0.5);
 }

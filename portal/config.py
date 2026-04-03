@@ -43,6 +43,37 @@ MAX_UPLOAD_SIZE = 500 * 1024 * 1024  # 500MB
 ALLOWED_EXTENSIONS = {'mp4', 'mov', 'avi'}
 CLEANUP_TEMP_AFTER_HOURS = 24
 
+# ============================================================================
+# TIER SYSTEM
+# ============================================================================
+TIER_CONFIG = {
+    'Explorer': {
+        'label': 'Explorer',
+        'branding_jobs_per_day': 20,
+        'max_brands_per_job': 3,
+        'max_brand_configs': 1,
+    },
+    'Creator': {
+        'label': 'Creator',
+        'branding_jobs_per_day': 80,
+        'max_brands_per_job': 7,
+        'max_brand_configs': 5,
+    },
+    'Studio': {
+        'label': 'Studio',
+        'branding_jobs_per_day': 150,
+        'max_brands_per_job': 20,
+        'max_brand_configs': -1,  # unlimited
+    },
+}
+
+DEFAULT_TIER = 'Explorer'
+
+
+def get_tier_limits(tier_name):
+    """Return the limits dict for a given tier. Falls back to Explorer."""
+    return TIER_CONFIG.get(tier_name, TIER_CONFIG[DEFAULT_TIER])
+
 # Ensure directories exist
 for directory in [STORAGE_ROOT, RAW_DIR, OUTPUT_DIR, BRANDS_DIR, UPLOAD_DIR, TEMP_DIR, LOG_DIR, os.path.dirname(DB_PATH)]:
     os.makedirs(directory, exist_ok=True)
