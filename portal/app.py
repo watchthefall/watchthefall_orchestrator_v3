@@ -54,41 +54,36 @@ def hash_password(password):
 
 def init_users_db():
     """Initialize the users database table"""
-    from .config import DB_PATH
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
-    conn.execute('PRAGMA journal_mode=WAL')
-    conn.execute('PRAGMA busy_timeout=30000')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        tier TEXT DEFAULT 'Explorer',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )''')
-    
-    # Migration: Add tier column if missing
-    try:
-        c.execute("SELECT tier FROM users LIMIT 1")
-    except sqlite3.OperationalError:
-        print("[DATABASE] Running migration: Adding tier column to users table")
-        c.execute("ALTER TABLE users ADD COLUMN tier TEXT DEFAULT 'Explorer'")
+    from .database import get_connection
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            tier TEXT DEFAULT 'Explorer',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )''')
+        
+        # Migration: Add tier column if missing
+        try:
+            c.execute("SELECT tier FROM users LIMIT 1")
+        except sqlite3.OperationalError:
+            print("[DATABASE] Running migration: Adding tier column to users table")
+            c.execute("ALTER TABLE users ADD COLUMN tier TEXT DEFAULT 'Explorer'")
+            conn.commit()
+            print("[DATABASE] Migration completed: tier column added with Explorer default")
+        
         conn.commit()
-        print("[DATABASE] Migration completed: tier column added with Explorer default")
-    
-    conn.commit()
-    conn.close()
 
 
 def authenticate_user(email, password):
     """Authenticate a user by email and password"""
-    from .config import DB_PATH
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
-    conn.execute('PRAGMA busy_timeout=30000')
-    c = conn.cursor()
-    c.execute('SELECT id, password_hash FROM users WHERE email = ?', (email,))
-    result = c.fetchone()
-    conn.close()
+    from .database import get_connection
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT id, password_hash FROM users WHERE email = ?', (email,))
+        result = c.fetchone()
     
     if result:
         user_id, stored_hash = result
@@ -99,24 +94,22 @@ def authenticate_user(email, password):
 
 def register_user(email, password):
     """Register a new user"""
-    from .config import DB_PATH
+    from .database import get_connection
     import os
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=30.0)
-        conn.execute('PRAGMA busy_timeout=30000')
-        c = conn.cursor()
-        password_hash = hash_password(password)
-        
-        # Determine tier based on ADMIN_EMAILS env var
-        admin_emails = os.environ.get('ADMIN_EMAILS', '').split(',')
-        admin_emails = [e.strip().lower() for e in admin_emails if e.strip()]
-        
-        tier = 'Studio' if email.lower() in admin_emails else 'Explorer'
-        
-        c.execute('INSERT INTO users (email, password_hash, tier) VALUES (?, ?, ?)', (email, password_hash, tier))
-        conn.commit()
-        user_id = c.lastrowid
-        conn.close()
+        with get_connection() as conn:
+            c = conn.cursor()
+            password_hash = hash_password(password)
+            
+            # Determine tier based on ADMIN_EMAILS env var
+            admin_emails = os.environ.get('ADMIN_EMAILS', '').split(',')
+            admin_emails = [e.strip().lower() for e in admin_emails if e.strip()]
+            
+            tier = 'Studio' if email.lower() in admin_emails else 'Explorer'
+            
+            c.execute('INSERT INTO users (email, password_hash, tier) VALUES (?, ?, ?)', (email, password_hash, tier))
+            conn.commit()
+            user_id = c.lastrowid
         
         print(f"[AUTH] Registered user: {email} with tier: {tier}")
         return user_id
@@ -127,14 +120,11 @@ def register_user(email, password):
 
 def get_user_tier(user_id):
     """Get a user's tier from the database. Returns tier name string."""
-    from .config import DB_PATH
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
-    conn.execute('PRAGMA busy_timeout=30000')
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute('SELECT tier FROM users WHERE id = ?', (user_id,))
-    row = c.fetchone()
-    conn.close()
+    from .database import get_connection
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT tier FROM users WHERE id = ?', (user_id,))
+        row = c.fetchone()
     if row and row['tier']:
         return row['tier']
     return DEFAULT_TIER
@@ -503,7 +493,7 @@ def brands_page():
 @login_required
 def profile_page():
     """User profile page with graceful error handling"""
-    from .database import get_db, get_all_brands, get_user_downloads
+    from .database import get_connection, get_all_brands, get_user_downloads
     from datetime import datetime
     
     try:
@@ -511,11 +501,10 @@ def profile_page():
         email = session.get('email', 'User')
         
         # Get user info from database
-        conn = get_db()
-        c = conn.cursor()
-        c.execute('SELECT created_at, tier FROM users WHERE id = ?', (user_id,))
-        user = c.fetchone()
-        conn.close()
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute('SELECT created_at, tier FROM users WHERE id = ?', (user_id,))
+            user = c.fetchone()
         
         # Format created date
         created_at = 'Recently'
