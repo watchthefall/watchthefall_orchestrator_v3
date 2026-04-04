@@ -148,7 +148,7 @@ def get_effective_limits(tier_name, special_status=None):
 
 def get_badge_info(tier_name, special_status=None):
     """Return badge image path, label, and color for display.
-    Special status with badge_priority overrides tier visually."""
+    Special status with badge_priority shows BOTH status and tier (Option B)."""
     tier_cfg = TIER_CONFIG.get(tier_name, TIER_CONFIG[DEFAULT_TIER])
     result = {
         'image': tier_cfg['badge_image'],
@@ -157,14 +157,19 @@ def get_badge_info(tier_name, special_status=None):
         'accent': tier_cfg['accent'],
         'tier': tier_name,
         'special_status': special_status,
+        # Base tier info always preserved for dual-badge display
+        'tier_label': tier_cfg['label'],
+        'tier_color': tier_cfg['color'],
     }
     if special_status and special_status in SPECIAL_STATUSES:
         status_cfg = SPECIAL_STATUSES[special_status]
         if status_cfg.get('badge_priority'):
+            # Option B: Show special status as primary, tier as secondary
             result['image'] = status_cfg['badge_image']
-            result['label'] = status_cfg['label']
+            result['label'] = status_cfg['label']  # Primary: special status
             result['color'] = status_cfg['color']
             result['accent'] = status_cfg['accent']
+            result['secondary_label'] = tier_cfg['label']  # Secondary: base tier
     return result
 
 
