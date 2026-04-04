@@ -146,24 +146,64 @@
         justify-content: center;
     }
     .brand-btn.selected {
-        background: rgba(134, 237, 165, 0.1);
+        background: rgba(134, 237, 165, 0.08);
         border-color: #86EDA5;
         color: #86EDA5;
-        transform: scale(1.02);
     }
     .brand-btn.selected .check-icon {
         display: flex;
     }
     .brand-btn.active-preview {
         border-color: #86EDA5;
-        transform: scale(1.04);
+        border-width: 2px;
+        background: rgba(134, 237, 165, 0.15);
+        box-shadow: 0 0 12px rgba(134, 237, 165, 0.3), inset 0 0 0 1px rgba(134, 237, 165, 0.1);
+        transform: scale(1.02);
     }
-    .brand-btn.active-preview::before {
-        content: '👁️';
+    .brand-btn.active-preview .preview-indicator {
+        display: flex;
+    }
+    /* Override badge on brand tiles */
+    .brand-btn .override-badge {
         position: absolute;
-        top: 6px;
-        left: 6px;
-        font-size: 16px;
+        bottom: 5px;
+        right: 5px;
+        font-size: 9px;
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+    }
+    .override-badge.badge-defaults {
+        background: rgba(255,255,255,0.06);
+        color: #555;
+        display: none;
+    }
+    .brand-btn.selected .override-badge.badge-defaults {
+        display: block;
+    }
+    .override-badge.badge-edited {
+        background: rgba(245, 166, 35, 0.2);
+        color: #F5A623;
+        display: none;
+    }
+    /* Preview indicator label */
+    .brand-btn .preview-indicator {
+        display: none;
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        right: 0;
+        background: #86EDA5;
+        color: #121214;
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        text-align: center;
+        padding: 2px 0;
+        border-radius: 0 0 6px 6px;
     }
     .brand-btn.brand-incomplete {
         background: #3a2a00;
@@ -639,6 +679,169 @@
         font-size: 14px;
         color: #666;
     }
+
+    /* ========== STEP PROGRESS ========== */
+    .step-progress {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        max-width: 420px;
+        margin: 0 auto 20px;
+        padding: 0 20px;
+    }
+    .step-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: #555;
+        white-space: nowrap;
+        transition: color 0.3s;
+    }
+    .step-dot {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #2a2a2e;
+        color: #555;
+        font-size: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        border: 2px solid #333;
+        transition: all 0.3s;
+    }
+    .step-item.active .step-dot {
+        background: rgba(134, 237, 165, 0.15);
+        border-color: #86EDA5;
+        color: #86EDA5;
+    }
+    .step-item.completed .step-dot {
+        background: #86EDA5;
+        border-color: #86EDA5;
+        color: #121214;
+    }
+    .step-item.active { color: #ccc; }
+    .step-item.completed { color: #888; }
+    .step-line {
+        flex: 1;
+        height: 2px;
+        background: #333;
+        margin: 0 10px;
+        min-width: 20px;
+        transition: background 0.3s;
+    }
+    .step-line.completed { background: #86EDA5; }
+
+    /* ========== ZONE DIVIDERS ========== */
+    .zone-label {
+        font-size: 11px;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin: 16px 0 8px;
+        padding-top: 14px;
+        border-top: 1px solid #2a2a2e;
+    }
+    .zone-label:first-child { border-top: none; padding-top: 0; }
+
+    /* Enhanced preview container */
+    #previewSection .preview-container {
+        max-width: 400px;
+        border: 1px solid #333;
+        border-radius: 10px;
+        margin-top: 12px;
+    }
+
+    /* Enhanced start button */
+    #startBrandingBtn {
+        font-size: 17px;
+        padding: 16px;
+        letter-spacing: 0.5px;
+    }
+
+    /* ========== PREVIEW TARGET BAR ========== */
+    #previewTargetBar {
+        margin: 14px 0 0;
+        padding: 10px 14px;
+        background: rgba(134, 237, 165, 0.05);
+        border: 1px solid rgba(134, 237, 165, 0.15);
+        border-radius: 8px;
+    }
+    .ptb-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+    .ptb-center {
+        text-align: center;
+        flex: 1;
+        min-width: 0;
+    }
+    .ptb-label {
+        font-size: 10px;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .ptb-name {
+        color: #86EDA5;
+        font-size: 15px;
+        font-weight: 700;
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .ptb-override-tag {
+        font-size: 10px;
+        color: #F5A623;
+        margin-top: 2px;
+    }
+    .ptb-nav-btn {
+        width: auto;
+        padding: 6px 12px;
+        margin: 0;
+        background: #333;
+        font-size: 14px;
+        border-radius: 6px;
+        min-width: 36px;
+    }
+    .ptb-nav-btn:disabled {
+        opacity: 0.3;
+    }
+    .ptb-nav-btn:not(:disabled):hover {
+        background: #444;
+    }
+    .ptb-footer {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 8px;
+    }
+    .ptb-counter {
+        font-size: 11px;
+        color: #666;
+    }
+    .ptb-reset-btn {
+        width: auto;
+        padding: 4px 10px;
+        margin: 0;
+        background: transparent;
+        border: 1px solid #444;
+        color: #888;
+        font-size: 11px;
+        border-radius: 4px;
+    }
+    .ptb-reset-btn:hover {
+        border-color: #666;
+        color: #ccc;
+        background: rgba(255,255,255,0.05);
+    }
 </style>
 </head>
 <body>
@@ -649,6 +852,24 @@
 
 <h1><span class="glitch">CREATE</span></h1>
 
+<!-- Step Progress Indicator -->
+<div class="step-progress" id="stepProgress">
+    <div class="step-item active" id="step1">
+        <span class="step-dot">1</span>
+        <span>Video</span>
+    </div>
+    <div class="step-line" id="stepLine1"></div>
+    <div class="step-item" id="step2">
+        <span class="step-dot">2</span>
+        <span>Brands</span>
+    </div>
+    <div class="step-line" id="stepLine2"></div>
+    <div class="step-item" id="step3">
+        <span class="step-dot">3</span>
+        <span>Process</span>
+    </div>
+</div>
+
 <!-- ========== SECTION 1: VIDEO SOURCE ========== -->
 <div class="section" id="videoSourceSection">
     <h2>Selected Video</h2>
@@ -656,7 +877,7 @@
     <!-- Intake Layer: shown when no video is selected -->
     <div id="intakeLayer">
         <div class="tab-switcher">
-            <button class="tab-btn active" data-tab="download" onclick="goToDownload()">Get Media</button>
+            <button class="tab-btn active" data-tab="download" onclick="switchTab('download')">Paste Link</button>
             <button class="tab-btn" data-tab="library" onclick="switchTab('library')">From Library</button>
             <button class="tab-btn" data-tab="upload" onclick="switchTab('upload')">Upload New</button>
         </div>
@@ -728,17 +949,42 @@
 
 <!-- ========== SECTION 2: PREVIEW & CONFIGURE ========== -->
 <div class="section" id="previewSection" style="display:none;">
-    <h2>Brand Configuration</h2>
-    
     <!-- No Brands State -->
     <div id="noBrandsState" style="display:none; text-align:center; padding:30px 20px;">
-        <p style="color:#666; font-size:16px; margin-bottom:20px;">🎭 You have no brands yet</p>
+        <p style="color:#666; font-size:16px; margin-bottom:20px;">You have no brands yet</p>
         <button onclick="window.location.href='{{ url_for('brands_page') }}'" style="background:#86EDA5;">
-            ✨ Create Your First Brand
+            Create Your First Brand
         </button>
     </div>
     
-    <!-- Canvas Preview -->
+    <!-- ===== BRAND SELECTION (shown in selection mode) ===== -->
+    <div id="selectionModeHeader">
+        <h3 style="margin-top:0;">Select Brands <span style="color:#666;font-size:13px;font-weight:400;">(up to {{ max_brands_per_job }} per job)</span></h3>
+        <p style="color:#555; font-size:12px; margin:0 0 10px;">Tap to select, then preview and adjust below</p>
+    </div>
+    <div class="brand-grid" id="brandsBox"
+         data-max-brands="{{ max_brands_per_job }}"
+         {% if next_tier %}data-next-tier="{{ next_tier.name }}" data-next-tier-color="{{ next_tier.color }}" data-next-tier-brands="{{ next_tier.max_brands_per_job }}"{% endif %}
+    >Loading...</div>
+    
+    <!-- ===== PREVIEW TARGET BAR ===== -->
+    <div id="previewTargetBar" style="display:none;">
+        <div class="ptb-row">
+            <button id="prevPreviewBtn" class="ptb-nav-btn" onclick="cyclePreview(-1)">&#9664;</button>
+            <div class="ptb-center">
+                <div class="ptb-label">Previewing</div>
+                <strong id="activePreviewName" class="ptb-name">--</strong>
+                <div id="overrideIndicator" class="ptb-override-tag" style="display:none;">session overrides active</div>
+            </div>
+            <button id="nextPreviewBtn" class="ptb-nav-btn" onclick="cyclePreview(1)">&#9654;</button>
+        </div>
+        <div class="ptb-footer">
+            <span id="previewCounter" class="ptb-counter">1 of 1</span>
+            <button onclick="resetBrandToDefaults()" class="ptb-reset-btn">Reset to Defaults</button>
+        </div>
+    </div>
+    
+    <!-- ===== LIVE PREVIEW ===== -->
     <div class="preview-container" id="previewContainer" style="display:none;">
         <canvas id="previewCanvas" width="360" height="640"></canvas>
         <div class="watermark-bounds" id="watermarkBounds"></div>
@@ -755,18 +1001,10 @@
         <div id="queueStatusSummary" style="text-align:center; font-size:12px; color:#666; margin-bottom:10px;"></div>
     </div>
     
-    <!-- Selection Mode Header (shown by default) -->
-    <div id="selectionModeHeader">
-        <h3>Select Brands <span style="color:#666;font-size:13px;font-weight:400;">(up to {{ max_brands_per_job }} per job)</span></h3>
-        <p style="color:#666; font-size:12px; margin:5px 0 10px;">Click multiple brands, then Start Branding</p>
-    </div>
-    <div class="brand-grid" id="brandsBox"
-         data-max-brands="{{ max_brands_per_job }}"
-         {% if next_tier %}data-next-tier="{{ next_tier.name }}" data-next-tier-color="{{ next_tier.color }}" data-next-tier-brands="{{ next_tier.max_brands_per_job }}"{% endif %}
-    >Loading...</div>
-    
     <!-- Override Controls (hidden in Selection Mode) -->
     <div id="overrideControls" style="display:none;">
+    
+    <div class="zone-label">Adjustments</div>
     
     <!-- Watermark Controls -->
     <h3>🔍 Watermark</h3>
@@ -902,6 +1140,27 @@
 <script>
 const apiBase = window.location.origin;
 
+// ========== STEP PROGRESS ==========
+function updateStepProgress(activeStep) {
+    const steps = [
+        { el: document.getElementById('step1'), line: document.getElementById('stepLine1') },
+        { el: document.getElementById('step2'), line: document.getElementById('stepLine2') },
+        { el: document.getElementById('step3'), line: null }
+    ];
+    steps.forEach((s, i) => {
+        const stepNum = i + 1;
+        s.el.classList.remove('active', 'completed');
+        if (stepNum < activeStep) {
+            s.el.classList.add('completed');
+        } else if (stepNum === activeStep) {
+            s.el.classList.add('active');
+        }
+        if (s.line) {
+            s.line.classList.toggle('completed', stepNum < activeStep);
+        }
+    });
+}
+
 // ========== STATE ==========
 let currentFile = null;
 let selectedBrandIds = [];  // Use brand IDs (not names) for selection
@@ -930,6 +1189,149 @@ let textDragStart = { x: 0, y: 0 };
 let isQueueMode = false;
 let processingQueue = [];
 let currentQueueIndex = 0;
+
+// ========== PER-BRAND OVERRIDE STATE (selection mode) ==========
+let brandOverrides = {};  // { brandId: { watermark_scale, watermark_opacity, logo_x, ... } }
+
+// Capture current slider/drag state as an overrides object
+function captureCurrentSliders() {
+    return {
+        watermark_scale: parseInt(document.getElementById('wmScale').value) / 100,
+        watermark_opacity: parseInt(document.getElementById('wmOpacity').value) / 100,
+        logo_x: logoCenterXPercent,
+        logo_y: logoCenterYPercent,
+        logo_rotation: logoRotationDegrees,
+        logo_scale: parseInt(document.getElementById('logoScale').value) / 100,
+        text_enabled: document.getElementById('textEnabled').checked,
+        text_content: document.getElementById('textContent').value,
+        text_x: textX,
+        text_y: textY,
+        text_size: parseInt(document.getElementById('textSize').value),
+        text_color: document.getElementById('textColor').value,
+        text_bg_enabled: document.getElementById('textBgEnabled').checked,
+        text_bg_opacity: parseInt(document.getElementById('textBgOpacity').value) / 100
+    };
+}
+
+// Extract saved defaults from brandDataCache into overrides format
+function getBrandDefaults(brandId) {
+    const cfg = brandDataCache[brandId];
+    if (!cfg) return getDefaultOverrides();
+    return {
+        watermark_scale: cfg.wm_scale || 1.15,
+        watermark_opacity: cfg.wm_opacity || 0.4,
+        logo_x: cfg.logo_x || 0,
+        logo_y: cfg.logo_y || 0,
+        logo_rotation: cfg.logo_rotation || 0,
+        logo_scale: cfg.logo_scale || 0.15,
+        text_enabled: !!cfg.text_enabled,
+        text_content: cfg.text_content || '',
+        text_x: cfg.text_x || 0,
+        text_y: cfg.text_y || 0,
+        text_size: cfg.text_size || 48,
+        text_color: cfg.text_color || '#FFFFFF',
+        text_bg_enabled: cfg.text_bg_enabled !== false,
+        text_bg_opacity: cfg.text_bg_opacity || 0.6
+    };
+}
+
+// Switch active preview to a different selected brand (without toggling selection)
+function switchActivePreview(brandId) {
+    if (!selectedBrandIds.includes(brandId)) return;
+    if (brandId === activePreviewBrandId) return;
+    
+    // Save current overrides for the brand being switched FROM
+    if (activePreviewBrandId) {
+        brandOverrides[activePreviewBrandId] = captureCurrentSliders();
+    }
+    
+    activePreviewBrandId = brandId;
+    console.log('[BRANDR] Switched active preview to brand #' + brandId);
+    
+    // Update visual active indicator on tiles
+    document.querySelectorAll('.brand-btn').forEach(btn => btn.classList.remove('active-preview'));
+    const activeTile = document.querySelector('.brand-btn[data-brand-id="' + brandId + '"]');
+    if (activeTile) activeTile.classList.add('active-preview');
+    
+    // Load brand assets (watermark, logo images)
+    loadBrandAssets(brandId);
+    
+    // Load overrides (user-adjusted this session) or saved defaults
+    if (brandOverrides[brandId]) {
+        loadOverridesIntoSliders(brandOverrides[brandId]);
+    } else {
+        loadBrandConfig(brandId);
+    }
+    
+    updatePreviewTargetBar();
+    updateConfirmationSummary();
+}
+
+// Cycle through selected brands for preview (prev/next)
+function cyclePreview(direction) {
+    if (selectedBrandIds.length <= 1) return;
+    const currentIdx = selectedBrandIds.indexOf(activePreviewBrandId);
+    let newIdx = currentIdx + direction;
+    if (newIdx < 0) newIdx = selectedBrandIds.length - 1;
+    if (newIdx >= selectedBrandIds.length) newIdx = 0;
+    switchActivePreview(selectedBrandIds[newIdx]);
+}
+
+// Reset current preview brand to its saved defaults (discard session overrides)
+function resetBrandToDefaults() {
+    if (!activePreviewBrandId) return;
+    delete brandOverrides[activePreviewBrandId];
+    loadBrandConfig(activePreviewBrandId);
+    updatePreviewTargetBar();
+}
+
+// Update the Preview Target Bar UI
+function updatePreviewTargetBar() {
+    const bar = document.getElementById('previewTargetBar');
+    if (!bar) return;
+    
+    if (selectedBrandIds.length > 0 && activePreviewBrandId) {
+        bar.style.display = 'block';
+        const brand = brandDataCache[activePreviewBrandId];
+        document.getElementById('activePreviewName').textContent = brand ? brand.display_name : 'Brand #' + activePreviewBrandId;
+        
+        // Override indicator
+        const hasOverrides = !!brandOverrides[activePreviewBrandId];
+        document.getElementById('overrideIndicator').style.display = hasOverrides ? 'inline' : 'none';
+        
+        // Counter
+        const idx = selectedBrandIds.indexOf(activePreviewBrandId);
+        document.getElementById('previewCounter').textContent = (idx + 1) + ' of ' + selectedBrandIds.length;
+        
+        // Disable prev/next if only 1 selected
+        document.getElementById('prevPreviewBtn').disabled = selectedBrandIds.length <= 1;
+        document.getElementById('nextPreviewBtn').disabled = selectedBrandIds.length <= 1;
+    } else {
+        bar.style.display = 'none';
+    }
+    
+    // Always sync badge state when preview bar updates
+    updateBrandBadges();
+}
+
+// Update override badges on brand tiles
+function updateBrandBadges() {
+    document.querySelectorAll('.override-badge').forEach(badge => {
+        const brandId = badge.dataset.badgeFor;
+        if (!brandId) return;
+        const hasOverrides = !!brandOverrides[brandId];
+        if (hasOverrides) {
+            badge.className = 'override-badge badge-edited';
+            badge.textContent = 'Edited';
+            badge.style.display = 'block';
+        } else {
+            badge.className = 'override-badge badge-defaults';
+            badge.textContent = 'Defaults';
+            // badge-defaults visibility controlled by CSS (.selected parent)
+            badge.style.display = '';
+        }
+    });
+}
 
 // ========== CANVAS PREVIEW ==========
 const canvas = document.getElementById('previewCanvas');
@@ -1279,7 +1681,13 @@ async function loadBrands() {
             html += '</div>';
             
             // Check icon for selection
-            html += '<span class="check-icon">✓</span>';
+            html += '<span class="check-icon">\u2713</span>';
+            
+            // Preview indicator (shown only on active-preview via CSS)
+            html += '<span class="preview-indicator">Previewing</span>';
+            
+            // Override badge (updated dynamically by updateBrandBadges)
+            html += '<span class="override-badge badge-defaults" data-badge-for="' + b.id + '">Defaults</span>';
             
             btn.innerHTML = html;
             btn.dataset.brandId = b.id;  // Store brand_id (NOT name)
@@ -1319,32 +1727,38 @@ function selectBrand(brandId, btnEl, isReady) {
         const result = document.getElementById('processResult');
         const brandData = brandDataCache[brandId];
         const brandName = brandData ? brandData.display_name : `Brand #${brandId}`;
-        result.innerHTML = `<div class="status-msg error">⚠️ Brand "${brandName}" is incomplete. Upload assets in <a href="/portal/brands" style="color:#86EDA5;">Manage Brands</a></div>`;
+        result.innerHTML = `<div class="status-msg error">Brand "${brandName}" is incomplete. Upload assets in <a href="/portal/brands" style="color:#86EDA5;">Manage Brands</a></div>`;
         return;
     }
     
-    // Toggle brand selection (multi-select) using brand_id
     const idx = selectedBrandIds.indexOf(brandId);
     const wasSelected = idx > -1;
     
-    if (wasSelected) {
-        selectedBrandIds.splice(idx, 1);  // Deselect
+    if (wasSelected && brandId !== activePreviewBrandId) {
+        // Clicking a selected-but-not-active brand: switch preview to it (don't deselect)
+        switchActivePreview(brandId);
+        updatePreviewTargetBar();
+        updateConfirmationSummary();
+        return;
+    }
+    
+    if (wasSelected && brandId === activePreviewBrandId) {
+        // Clicking the active preview brand: deselect it
+        // Save its overrides before removing
+        brandOverrides[brandId] = captureCurrentSliders();
+        selectedBrandIds.splice(idx, 1);
         btnEl.classList.remove('selected');
+        delete brandOverrides[brandId];  // Clean up since deselected
         
-        // If unselecting the active preview brand, switch to another selected brand or clear
-        if (activePreviewBrandId === brandId) {
-            if (selectedBrandIds.length > 0) {
-                // Switch to last selected brand
-                activePreviewBrandId = selectedBrandIds[selectedBrandIds.length - 1];
-                console.log(`[BRANDR] Active preview switched to brand #${activePreviewBrandId} after deselecting #${brandId}`);
-            } else {
-                // No brands selected anymore
-                activePreviewBrandId = null;
-                console.log(`[BRANDR] Active preview cleared (no brands selected)`);
-            }
+        if (selectedBrandIds.length > 0) {
+            activePreviewBrandId = selectedBrandIds[selectedBrandIds.length - 1];
+            console.log(`[BRANDR] Active preview switched to brand #${activePreviewBrandId} after deselecting #${brandId}`);
+        } else {
+            activePreviewBrandId = null;
+            console.log(`[BRANDR] Active preview cleared (no brands selected)`);
         }
     } else {
-        // Check max_brands_per_job limit before selecting
+        // Clicking an unselected brand: select it
         const maxBrands = parseInt(document.getElementById('brandsBox').dataset.maxBrands) || 999;
         if (selectedBrandIds.length >= maxBrands) {
             if (typeof openUpgradeModal === 'function') {
@@ -1352,12 +1766,16 @@ function selectBrand(brandId, btnEl, isReady) {
             }
             return;
         }
-        selectedBrandIds.push(brandId);  // Select
-        btnEl.classList.add('selected');
         
-        // Set this brand as the active preview (always update when clicking a brand)
+        // Save current preview brand's overrides before switching
+        if (activePreviewBrandId && selectedBrandIds.includes(activePreviewBrandId)) {
+            brandOverrides[activePreviewBrandId] = captureCurrentSliders();
+        }
+        
+        selectedBrandIds.push(brandId);
+        btnEl.classList.add('selected');
         activePreviewBrandId = brandId;
-        console.log(`[BRANDR] Active preview set to brand #${brandId} (${brandDataCache[brandId]?.display_name})`);
+        console.log(`[BRANDR] Selected + active preview set to brand #${brandId} (${brandDataCache[brandId]?.display_name})`);
     }
     
     // Update visual "Active" indicator on tiles
@@ -1371,21 +1789,24 @@ function selectBrand(brandId, btnEl, isReady) {
         }
     }
     
-    // Load brand assets and saved config for preview (use activePreviewBrandId)
+    // Load brand assets and config for the active preview
     if (activePreviewBrandId) {
         loadBrandAssets(activePreviewBrandId);
-        loadBrandConfig(activePreviewBrandId);
+        // Load user overrides if they exist, otherwise brand defaults
+        if (brandOverrides[activePreviewBrandId]) {
+            loadOverridesIntoSliders(brandOverrides[activePreviewBrandId]);
+        } else {
+            loadBrandConfig(activePreviewBrandId);
+        }
         
-        // Show preview canvas and sliders immediately when brand selected
         document.getElementById('previewContainer').style.display = 'block';
         document.getElementById('overrideControls').style.display = 'block';
     } else {
-        // Hide preview when no brands selected
         document.getElementById('previewContainer').style.display = 'none';
         document.getElementById('overrideControls').style.display = 'none';
     }
     
-    // Update confirmation summary
+    updatePreviewTargetBar();
     updateConfirmationSummary();
 }
 
@@ -1521,36 +1942,22 @@ function enterQueueMode() {
         return;
     }
     
-    // Initialize queue with selected brand IDs
-    // Capture current slider values as initial overrides (user may have adjusted in selection mode)
-    const currentSliderOverrides = {
-        watermark_scale: parseInt(document.getElementById('wmScale').value) / 100,
-        watermark_opacity: parseInt(document.getElementById('wmOpacity').value) / 100,
-        logo_x: logoCenterXPercent,  // Capture dragged position to prevent jump
-        logo_y: logoCenterYPercent,  // Capture dragged position to prevent jump
-        logo_rotation: logoRotationDegrees,  // Capture rotation for parity
-        logo_scale: parseInt(document.getElementById('logoScale').value) / 100,
-        text_enabled: document.getElementById('textEnabled').checked,
-        text_content: document.getElementById('textContent').value,
-        text_x: textX,
-        text_y: textY,
-        text_size: parseInt(document.getElementById('textSize').value),
-        text_color: document.getElementById('textColor').value,
-        text_bg_enabled: document.getElementById('textBgEnabled').checked,
-        text_bg_opacity: parseInt(document.getElementById('textBgOpacity').value) / 100
-    };
-    
-    console.log('[BRANDR] Captured slider overrides from selection mode:', currentSliderOverrides);
+    // Initialize queue with per-brand overrides from selection mode
+    // Save current active preview brand's slider state first
+    if (activePreviewBrandId) {
+        brandOverrides[activePreviewBrandId] = captureCurrentSliders();
+    }
     
     processingQueue = selectedBrandIds.map(brandId => {
         const brandData = brandDataCache[brandId];
         return {
             brand_id: brandId,
-            brand_name: brandData ? brandData.display_name : `Brand #${brandId}`,  // For display only
-            overrides: currentSliderOverrides,  // Use captured slider values, not null
-            status: 'pending'  // pending, editing, processing, done, failed, skipped
+            brand_name: brandData ? brandData.display_name : `Brand #${brandId}`,
+            overrides: brandOverrides[brandId] || getBrandDefaults(brandId),
+            status: 'pending'
         };
     });
+    console.log('[BRANDR] Queue initialized with per-brand overrides');
     currentQueueIndex = 0;
     isQueueMode = true;
     
@@ -1558,6 +1965,7 @@ function enterQueueMode() {
     sessionStorage.removeItem('lastDownloadFilename');
     console.log('[BRANDR] Entering queue mode with', processingQueue.length, 'brands');
     console.log('[BRANDR] Processing queue:', processingQueue);
+    updateStepProgress(3);
     
     // Hide selection mode, show queue mode (with defensive null checks)
     const videoSourceSection = document.getElementById('videoSourceSection');
@@ -1577,6 +1985,9 @@ function enterQueueMode() {
     if (queueModeActions) queueModeActions.style.display = 'block';
     if (overrideControls) overrideControls.style.display = 'block';
     if (previewContainer) previewContainer.style.display = 'block';
+    // Hide preview target bar (queue mode has its own pills)
+    const previewTargetBar = document.getElementById('previewTargetBar');
+    if (previewTargetBar) previewTargetBar.style.display = 'none';
     result.innerHTML = '';
     
     // Force canvas redraw now that it's visible
@@ -1758,9 +2169,12 @@ function loadOverridesIntoSliders(overrides) {
     // Show/hide text controls
     document.getElementById('textControls').style.display = overrides.text_enabled ? 'block' : 'none';
     
-    // Reset logo position (will use default on next render)
-    logoCenterXPercent = 0;
-    logoCenterYPercent = 0;
+    // Restore logo position and rotation from overrides
+    logoCenterXPercent = overrides.logo_x || 0;
+    logoCenterYPercent = overrides.logo_y || 0;
+    logoRotationDegrees = overrides.logo_rotation || 0;
+    document.getElementById('logoRotation').value = overrides.logo_rotation || 0;
+    document.getElementById('logoRotationVal').textContent = (overrides.logo_rotation || 0) + '\u00B0';
     updateCanvasPreview();
 }
 
@@ -2068,6 +2482,10 @@ function exitQueueMode() {
     document.getElementById('queueModeActions').style.display = 'none';
     document.getElementById('overrideControls').style.display = 'none';  // Hide sliders
     
+    // Show video source section again
+    document.getElementById('videoSourceSection').style.display = 'block';
+    updateStepProgress(2);
+    
     // Show completion summary
     const result = document.getElementById('processResult');
     const done = processingQueue.filter(q => q.status === 'done').length;
@@ -2080,15 +2498,24 @@ function exitQueueMode() {
         result.innerHTML = '';
     }
     
-    // Reset queue
+    // Reset queue and per-brand overrides
     processingQueue = [];
     currentQueueIndex = 0;
+    brandOverrides = {};
     
     // Clear brand selections
-    selectedBrands = [];
+    selectedBrandIds = [];
+    activePreviewBrandId = null;
     document.querySelectorAll('.brand-btn.selected').forEach(btn => {
         btn.classList.remove('selected');
     });
+    document.querySelectorAll('.brand-btn').forEach(btn => {
+        btn.classList.remove('active-preview');
+    });
+    
+    // Hide preview target bar
+    const previewTargetBar = document.getElementById('previewTargetBar');
+    if (previewTargetBar) previewTargetBar.style.display = 'none';
 }
 
 // ========== DOWNLOAD VIDEO (REMOVED - USE DOWNLOADER) ==========
@@ -2276,6 +2703,7 @@ function selectVideo(filename, meta) {
     document.getElementById('previewSection').style.display = 'block';
     extractFrame(filename);
     updateConfirmationSummary();
+    updateStepProgress(2);
 }
 
 function initUploadDropzone() {
@@ -2385,6 +2813,7 @@ function replaceVideo() {
     document.getElementById('previewSection').style.display = 'none';
     showIntakeLayer();
     updateConfirmationSummary();
+    updateStepProgress(1);
 }
 
 function changeVideo() {
@@ -2403,6 +2832,7 @@ function changeVideo() {
     updateConfirmationSummary();
     
     console.log('[BRANDR] Video changed - returned to intake layer');
+    updateStepProgress(1);
 }
 
 function goToLibrary() {
@@ -2442,14 +2872,9 @@ function inlineFetchVideo() {
     .then(function(data) {
         if (data.success && data.results && data.results[0] && data.results[0].success) {
             var result = data.results[0];
-            currentFile = result.filename;
-            sessionStorage.setItem('lastDownloadFilename', result.filename);
             status.style.color = '#86EDA5';
             status.textContent = 'Ready! Loading preview...';
-            document.getElementById('intakeLayer').style.display = 'none';
-            document.getElementById('selectedVideoInfo').style.display = 'block';
-            document.getElementById('selectedFileName').textContent = result.display_name || result.filename;
-            loadFramePreview(result.filename);
+            selectVideo(result.filename, { source_url: url });
         } else if (data.error === 'DAILY_LIMIT_REACHED') {
             status.style.color = '#ff6b6b';
             status.textContent = data.message || 'Daily download limit reached.';
@@ -2481,6 +2906,7 @@ function clearVideo() {
     showIntakeLayer();
     updateConfirmationSummary();
     console.log('[BRANDR] Video cleared');
+    updateStepProgress(1);
 }
 
 // ========== INIT ==========
@@ -2494,31 +2920,32 @@ function updateConfirmationSummary() {
     
     if (!summaryEl) return;
     
-    // Build summary parts
     const parts = [];
     
     // Video status
     if (currentFile) {
-        parts.push(`<strong>Video:</strong> ${currentFile}`);
+        const shortName = currentFile.length > 40 ? currentFile.substring(0, 40) + '...' : currentFile;
+        parts.push(`<strong>Video:</strong> ${shortName}`);
     } else {
         parts.push(`<strong>Video:</strong> <span style="color:#ff9800;">No video selected</span>`);
     }
     
-    // Brands status (use brand_ids, display names from cache)
+    // Batch output summary
     if (selectedBrandIds.length > 0) {
         const brandNames = selectedBrandIds.map(id => {
             const brand = brandDataCache[id];
             return brand ? brand.display_name : `Brand #${id}`;
         });
-        parts.push(`<strong>Brands:</strong> ${brandNames.join(', ')}`);
+        const overrideCount = selectedBrandIds.filter(id => brandOverrides[id]).length;
+        parts.push(`<strong>${selectedBrandIds.length} brand${selectedBrandIds.length > 1 ? 's' : ''}</strong> &rarr; <strong>${selectedBrandIds.length} output${selectedBrandIds.length > 1 ? 's' : ''}</strong>`);
+        if (overrideCount > 0) {
+            parts.push(`<span style="color:#F5A623; font-size:11px;">${overrideCount} with overrides</span>`);
+        }
     } else {
-        parts.push(`<strong>Brands:</strong> <span style="color:#ff9800;">None selected</span>`);
+        parts.push(`<span style="color:#ff9800;">No brands selected</span>`);
     }
     
-    // Watermark mode (not applicable in selection mode, but show for completeness)
-    // parts.push(`<strong>Mode:</strong> Preview`);
-    
-    summaryEl.innerHTML = parts.join(' <span style="color:#666;">|</span> ');
+    summaryEl.innerHTML = parts.join(' <span style="color:#444;">&middot;</span> ');
     
     // Show/hide confirmation box based on whether we're in selection mode
     const inSelectionMode = document.getElementById('selectionModeActions').style.display !== 'none';
@@ -2536,6 +2963,7 @@ if (lastDownloadFilename) {
     // No video selected - show intake layer
     showIntakeLayer();
     updateConfirmationSummary();
+    updateStepProgress(1);
 }
 
 // Initialize drag-and-drop upload
