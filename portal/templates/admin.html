@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Console | Brandr</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background-color: #121214;
+            color: #EAEAEA;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+        .subtitle {
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+        .admin-card {
+            background: #202024;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .stat-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .stat-box {
+            background: #121214;
+            border: 1px solid #2a2a2e;
+            border-radius: 8px;
+            padding: 16px 20px;
+            flex: 1;
+            min-width: 120px;
+        }
+        .stat-box .stat-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .stat-box .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #EAEAEA;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #333;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #2a2a2e;
+            font-size: 14px;
+        }
+        tr:hover {
+            background: rgba(255,255,255,0.02);
+        }
+        .email-cell {
+            font-weight: 500;
+            color: #fff;
+        }
+        .date-cell {
+            color: #888;
+            font-size: 13px;
+        }
+        select.tier-select {
+            background: #121214;
+            color: #EAEAEA;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        select.tier-select:focus {
+            outline: none;
+            border-color: #86EDA5;
+        }
+        .save-btn {
+            background: #86EDA5;
+            color: #121214;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 8px;
+            display: none;
+        }
+        .save-btn:hover {
+            background: #6BDB8B;
+        }
+        .save-btn.visible {
+            display: inline-block;
+        }
+        .saved-msg {
+            color: #86EDA5;
+            font-size: 12px;
+            margin-left: 8px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .saved-msg.show {
+            opacity: 1;
+        }
+        .search-box {
+            width: 100%;
+            background: #121214;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #EAEAEA;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        .search-box:focus {
+            outline: none;
+            border-color: #86EDA5;
+        }
+        .search-box::placeholder {
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    {% include '_nav.html' %}
+
+    <div class="container">
+        <h1>Admin Console</h1>
+        <p class="subtitle">Manage registered users and their tier assignments.</p>
+
+        <div class="stat-row">
+            <div class="stat-box">
+                <div class="stat-label">Total Users</div>
+                <div class="stat-value">{{ users | length }}</div>
+            </div>
+            {% for t in tiers %}
+            <div class="stat-box">
+                <div class="stat-label">{{ t }}</div>
+                <div class="stat-value">{{ users | selectattr('tier', 'equalto', t) | list | length }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="admin-card">
+            <input type="text" class="search-box" id="searchInput" placeholder="Search by email..." oninput="filterUsers()">
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Email</th>
+                        <th>Tier</th>
+                        <th>Joined</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="userTableBody">
+                    {% for user in users %}
+                    <tr class="user-row" data-email="{{ user.email | lower }}">
+                        <td>{{ user.id }}</td>
+                        <td class="email-cell">{{ user.email }}</td>
+                        <td>
+                            <select class="tier-select" data-user-id="{{ user.id }}" data-original="{{ user.tier }}" onchange="onTierChange(this)">
+                                {% for t in tiers %}
+                                <option value="{{ t }}" {% if t == user.tier %}selected{% endif %}>{{ t }}</option>
+                                {% endfor %}
+                            </select>
+                            <button class="save-btn" onclick="saveTier(this)" data-user-id="{{ user.id }}">Save</button>
+                            <span class="saved-msg">Saved</span>
+                        </td>
+                        <td class="date-cell">{{ user.created_at or '—' }}</td>
+                        <td></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+<script>
+function filterUsers() {
+    var query = document.getElementById('searchInput').value.toLowerCase();
+    var rows = document.querySelectorAll('.user-row');
+    rows.forEach(function(row) {
+        var email = row.getAttribute('data-email');
+        row.style.display = email.indexOf(query) !== -1 ? '' : 'none';
+    });
+}
+
+function onTierChange(select) {
+    var btn = select.parentElement.querySelector('.save-btn');
+    var original = select.getAttribute('data-original');
+    if (select.value !== original) {
+        btn.classList.add('visible');
+    } else {
+        btn.classList.remove('visible');
+    }
+    // Hide any previous saved message
+    select.parentElement.querySelector('.saved-msg').classList.remove('show');
+}
+
+function saveTier(btn) {
+    var userId = btn.getAttribute('data-user-id');
+    var select = btn.parentElement.querySelector('.tier-select');
+    var msg = btn.parentElement.querySelector('.saved-msg');
+    var newTier = select.value;
+
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    fetch('/api/admin/set-tier', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: parseInt(userId), tier: newTier })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            select.setAttribute('data-original', newTier);
+            btn.classList.remove('visible');
+            msg.textContent = 'Saved';
+            msg.classList.add('show');
+            setTimeout(function() { msg.classList.remove('show'); }, 2000);
+        } else {
+            msg.textContent = data.error || 'Error';
+            msg.style.color = '#ff6b6b';
+            msg.classList.add('show');
+        }
+    })
+    .catch(function() {
+        msg.textContent = 'Network error';
+        msg.style.color = '#ff6b6b';
+        msg.classList.add('show');
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Save';
+    });
+}
+</script>
+</body>
+</html>

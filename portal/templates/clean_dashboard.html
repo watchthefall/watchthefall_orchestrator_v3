@@ -1786,7 +1786,8 @@ async function processCurrentBrand() {
         
         if (!data.success) {
             if (data.error === 'DAILY_LIMIT_REACHED' || data.error === 'BRANDS_PER_JOB_LIMIT') {
-                throw new Error(data.message + ' <a href="/portal/profile#upgrade" style="color:#86EDA5;">Upgrade plan</a>');
+                openUpgradeModal('Limit reached', data.message || 'You have reached your plan limit.');
+                throw new Error(data.message || 'Plan limit reached');
             }
             throw new Error(data.error || 'Processing failed');
         }
@@ -1895,7 +1896,8 @@ async function processAllBrands() {
             
             if (!data.success) {
                 if (data.error === 'DAILY_LIMIT_REACHED' || data.error === 'BRANDS_PER_JOB_LIMIT') {
-                    throw new Error(data.message + ' <a href="/portal/profile#upgrade" style="color:#86EDA5;">Upgrade plan</a>');
+                    openUpgradeModal('Limit reached', data.message || 'You have reached your plan limit.');
+                    throw new Error(data.message || 'Plan limit reached');
                 }
                 throw new Error(data.error || 'Processing failed');
             }
@@ -2430,6 +2432,8 @@ document.addEventListener('visibilitychange', function() {
     }
 });
 </script>
+
+{% include '_upgrade_modal.html' %}
 
 </body>
 </html>

@@ -544,7 +544,7 @@
                 const isLimit = data.error === 'DAILY_LIMIT_REACHED' || data.error === 'BRANDS_PER_JOB_LIMIT';
                 const msg = data.message || data.error || 'Unknown error';
                 if (isLimit) {
-                    showError(result, `${msg} <a href="/portal/profile#upgrade" style="color:#86EDA5;">Upgrade plan</a>`);
+                    openUpgradeModal('Limit reached', msg);
                 } else {
                     showError(result, `Branding failed: ${msg}`);
                 }
@@ -556,5 +556,8 @@
         }
     }
 </script>
+
+{% include '_upgrade_modal.html' %}
+
 </body>
 </html>

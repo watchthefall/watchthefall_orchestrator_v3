@@ -159,6 +159,9 @@
         <a href="#" tabindex="0">Account</a>
         <div class="dropdown-content">
             <a href="{{ url_for('profile_page') }}">Profile</a>
+            {% if is_admin_user %}
+            <a href="{{ url_for('admin_console') }}" style="color:#86EDA5;">Admin</a>
+            {% endif %}
             <a href="{{ url_for('logout') }}">Logout</a>
         </div>
     </div>

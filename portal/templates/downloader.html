@@ -805,7 +805,7 @@ https://x.com/..."></textarea>
                     }
                 } else {
                     if (data.error === 'DAILY_LIMIT_REACHED') {
-                        resultMessage.innerHTML = '⚠️ ' + (data.message || 'Daily download limit reached.') + ' <a href="/portal/profile#upgrade" style="color:#86EDA5;">Upgrade plan</a>';
+                        openUpgradeModal('Download limit reached', data.message || 'You have used all your downloads for today.');
                     } else {
                         resultMessage.textContent = '❌ Download failed: ' + (data.error || 'Unknown error');
                     }
@@ -931,7 +931,7 @@ https://x.com/..."></textarea>
                     }
                 } else {
                     if (data.error === 'DAILY_LIMIT_REACHED') {
-                        batchResultsDiv.innerHTML = `<p style="color:#ffb347;">⚠️ ${data.message || 'Daily download limit reached.'} <a href="/portal/profile#upgrade" style="color:#86EDA5;">Upgrade plan</a></p>`;
+                        openUpgradeModal('Download limit reached', data.message || 'You have used all your downloads for today.');
                     } else {
                         batchResultsDiv.innerHTML = `<p style="color:#ff6b6b;">❌ Batch download failed: ${data.error || 'Unknown error'}</p>`;
                     }
@@ -1101,5 +1101,8 @@ https://x.com/..."></textarea>
             attemptClipboardRead();
         });
     </script>
+
+{% include '_upgrade_modal.html' %}
+
 </body>
 </html>

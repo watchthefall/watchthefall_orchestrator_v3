@@ -40,7 +40,8 @@ from .brand_loader import get_available_brands
 from .config import (
     SECRET_KEY, PORTAL_AUTH_KEY, OUTPUT_DIR, RAW_DIR,
     MAX_UPLOAD_SIZE, BRANDS_DIR,
-    TIER_CONFIG, DEFAULT_TIER, get_tier_limits, get_payment_link
+    TIER_CONFIG, DEFAULT_TIER, get_tier_limits, get_payment_link,
+    ADMIN_EMAILS
 )
 from .database import log_event, get_daily_usage, increment_branding_jobs, increment_downloads
 
@@ -95,17 +96,13 @@ def authenticate_user(email, password):
 def register_user(email, password):
     """Register a new user"""
     from .database import get_connection
-    import os
     try:
         with get_connection() as conn:
             c = conn.cursor()
             password_hash = hash_password(password)
             
-            # Determine tier based on ADMIN_EMAILS env var
-            admin_emails = os.environ.get('ADMIN_EMAILS', '').split(',')
-            admin_emails = [e.strip().lower() for e in admin_emails if e.strip()]
-            
-            tier = 'Studio' if email.lower() in admin_emails else 'Explorer'
+            # Admins get Platinum tier on registration
+            tier = 'Platinum' if email.lower() in [e.lower() for e in ADMIN_EMAILS] else 'Explorer'
             
             c.execute('INSERT INTO users (email, password_hash, tier) VALUES (?, ?, ?)', (email, password_hash, tier))
             conn.commit()
@@ -140,6 +137,24 @@ def login_required(f):
     return decorated_function
 
 
+def is_admin(email=None):
+    """Check if the given email (or session email) is an admin."""
+    email = email or session.get('email', '')
+    return email.lower() in [e.lower() for e in ADMIN_EMAILS]
+
+
+def admin_required(f):
+    """Decorator: requires login + admin email"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        if not is_admin():
+            return jsonify({'error': 'Forbidden'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 app = Flask(__name__, 
             template_folder='templates',
             static_folder='static',
@@ -151,6 +166,13 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE
 from .database import init_db
 init_db()
 init_users_db()
+
+
+@app.context_processor
+def inject_admin_flag():
+    """Make is_admin available in all templates."""
+    return {'is_admin_user': is_admin()}
+
 
 # Authentication routes
 @app.route('/portal/register', methods=['GET', 'POST'])
@@ -180,6 +202,18 @@ def login():
         if user_id:
             session['user_id'] = user_id
             session['email'] = email
+            
+            # Auto-upgrade existing admin accounts to Platinum
+            if is_admin(email) and get_user_tier(user_id) != 'Platinum':
+                from .database import get_connection as _gc
+                with _gc() as conn:
+                    conn.cursor().execute(
+                        'UPDATE users SET tier = ? WHERE id = ?',
+                        ('Platinum', user_id)
+                    )
+                    conn.commit()
+                print(f"[AUTH] Admin {email} auto-upgraded to Platinum")
+            
             flash('Login successful!', 'success')
             return redirect(url_for('dashboard'))
         else:
@@ -479,7 +513,9 @@ def api_root():
 @login_required
 def download():
     """Downloader page - main entry point"""
-    return render_template('downloader.html')
+    user_id = session.get('user_id')
+    tier = get_user_tier(user_id)
+    return render_template('downloader.html', tier=tier)
 
 @app.route('/portal/library')
 @login_required
@@ -492,7 +528,9 @@ def library():
 def brand_video():
     """Brand a video page"""
     try:
-        return render_template('clean_dashboard.html')
+        user_id = session.get('user_id')
+        tier = get_user_tier(user_id)
+        return render_template('clean_dashboard.html', tier=tier)
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
@@ -507,7 +545,9 @@ def brand_video():
 @login_required
 def brands_page():
     """Brand management page"""
-    return render_template('brands.html')
+    user_id = session.get('user_id')
+    tier = get_user_tier(user_id)
+    return render_template('brands.html', tier=tier)
 
 @app.route('/portal/profile')
 @login_required
@@ -569,6 +609,49 @@ def shipr_page():
     """Coming soon page"""
     return render_template('shipr.html')
 
+
+# ============================================================================
+# ADMIN CONSOLE
+# ============================================================================
+
+@app.route('/portal/admin')
+@admin_required
+def admin_console():
+    """Admin console — manage users and tiers"""
+    from .database import get_connection
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT id, email, tier, created_at FROM users ORDER BY created_at DESC')
+        users = [dict(row) for row in c.fetchall()]
+    tiers = list(TIER_CONFIG.keys())
+    return render_template('admin.html', users=users, tiers=tiers)
+
+
+@app.route('/api/admin/set-tier', methods=['POST'])
+@admin_required
+def admin_set_tier():
+    """Set a user's tier (admin only)"""
+    from .database import get_connection
+    data = request.get_json(force=True) or {}
+    user_id = data.get('user_id')
+    new_tier = data.get('tier')
+
+    if not user_id or not new_tier:
+        return jsonify({'success': False, 'error': 'user_id and tier required'}), 400
+    if new_tier not in TIER_CONFIG:
+        return jsonify({'success': False, 'error': f'Invalid tier: {new_tier}'}), 400
+
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('UPDATE users SET tier = ? WHERE id = ?', (new_tier, user_id))
+        conn.commit()
+        if c.rowcount == 0:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+    print(f"[ADMIN] Set user {user_id} to tier {new_tier} by {session.get('email')}")
+    return jsonify({'success': True, 'user_id': user_id, 'tier': new_tier})
+
+
 @app.route('/portal/test')
 @login_required
 def test_page():
@@ -624,7 +707,9 @@ def api_usage():
 @app.route('/portal/downloader_dashboard')
 @login_required
 def downloader_dashboard():
-    return render_template("downloader_dashboard.html")
+    user_id = session.get('user_id')
+    tier = get_user_tier(user_id)
+    return render_template("downloader_dashboard.html", tier=tier)
 
 # ============================================================================
 # API: VIDEO PROCESSING
@@ -2763,5 +2848,33 @@ def schedule_cleanup():
 schedule_cleanup()
 
 
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+schedule_cleanup()
+
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

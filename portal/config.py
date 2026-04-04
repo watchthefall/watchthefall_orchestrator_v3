@@ -71,9 +71,23 @@ TIER_CONFIG = {
         'max_brand_configs': -1,  # unlimited
         'downloads_per_day': 200,
     },
+    'Platinum': {
+        'label': 'Platinum',
+        'price': 0,  # internal / admin only
+        'branding_jobs_per_day': 9999,
+        'max_brands_per_job': 100,
+        'max_brand_configs': -1,  # unlimited
+        'downloads_per_day': 9999,
+    },
 }
 
 DEFAULT_TIER = 'Explorer'
+
+# Admin emails — these users get admin console access
+ADMIN_EMAILS = [
+    'wtf@watchthefall.com',
+    'jamiemg96@gmail.com',
+]
 
 # PayPal payment links (no-code checkout)
 PAYMENT_LINKS = {

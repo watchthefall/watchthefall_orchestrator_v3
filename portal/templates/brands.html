@@ -369,16 +369,8 @@
     </div>
 </div>
 
-<!-- Upgrade Intercept Modal -->
-<div class="upgrade-modal-overlay" id="upgradeModal">
-    <div class="upgrade-modal">
-        <div class="modal-icon">✦</div>
-        <h2 id="upgradeModalTitle">You've hit your brand limit</h2>
-        <p id="upgradeModalBody">Upgrade to unlock more brand configurations and keep building.</p>
-        <a href="/portal/profile#upgrade" class="upgrade-btn">Unlock more brands</a>
-        <button class="modal-dismiss" onclick="closeUpgradeModal()">Not now</button>
-    </div>
-</div>
+<!-- Upgrade Modal (shared) -->
+{% include '_upgrade_modal.html' %}
 
 <!-- Create Brand Modal (legacy - for edit mode only) -->
 <div id="createModal" class="modal">
@@ -2908,21 +2900,12 @@ document.getElementById('wizardBrandSlug')?.addEventListener('input', function(e
 // Upgrade modal helpers
 window._brandLimitReached = false;
 
+// showUpgradeModal wraps the shared openUpgradeModal from _upgrade_modal.html
 function showUpgradeModal(title, body) {
     var t = title || "You've hit your " + (window._brandTier || '') + " brand limit";
-    var b = body || "You have " + (window._brandCount || 0) + "/" + (window._brandMax || 0) + " brand configs. Upgrade to unlock more and keep building.";
-    document.getElementById('upgradeModalTitle').textContent = t;
-    document.getElementById('upgradeModalBody').textContent = b;
-    document.getElementById('upgradeModal').classList.add('active');
+    var b = body || "You have " + (window._brandCount || 0) + "/" + (window._brandMax || 0) + " brand configs. Upgrade to unlock more.";
+    openUpgradeModal(t, b);
 }
-
-function closeUpgradeModal() {
-    document.getElementById('upgradeModal').classList.remove('active');
-}
-
-document.getElementById('upgradeModal').addEventListener('click', function(e) {
-    if (e.target === this) closeUpgradeModal();
-});
 </script>
 
 </body>
