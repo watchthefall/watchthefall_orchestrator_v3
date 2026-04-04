@@ -409,14 +409,17 @@ def get_recent_jobs(limit=20):
         return [dict(row) for row in rows]
 
 def log_event(level, job_id, message, details=None):
-    """Log an event"""
-    with get_connection() as conn:
-        c = conn.cursor()
-        c.execute('''
-            INSERT INTO logs (timestamp, level, job_id, message, details)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (datetime.utcnow().isoformat(), level, job_id, message, json.dumps(details) if details else None))
-        conn.commit()
+    """Log an event. Fire-and-forget — never crashes the caller."""
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute('''
+                INSERT INTO logs (timestamp, level, job_id, message, details)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (datetime.utcnow().isoformat(), level, job_id, message, json.dumps(details) if details else None))
+            conn.commit()
+    except Exception as e:
+        print(f"[LOG_EVENT] Failed to log ({level}): {message} — {e}")
 
 def get_recent_logs(limit=50):
     """Get recent logs"""
