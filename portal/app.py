@@ -89,14 +89,15 @@ def authenticate_user(email, password):
     from .database import get_connection
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('SELECT id, password_hash, account_status, must_change_password FROM users WHERE email = ?', (email,))
+        # Defensive: use COALESCE to handle missing columns in older DBs
+        c.execute('SELECT id, password_hash, COALESCE(account_status, ?) as account_status, COALESCE(must_change_password, ?) as must_change_password FROM users WHERE email = ?', ('active', 0, email))
         result = c.fetchone()
     
     if result:
         user_id = result['id']
         stored_hash = result['password_hash']
-        account_status = result['account_status'] or 'active'
-        must_change = result['must_change_password'] or 0
+        account_status = result['account_status']
+        must_change = result['must_change_password']
         
         if account_status == 'deactivated':
             return None, 'deactivated'
@@ -302,11 +303,12 @@ def admin_reset_password():
 
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('SELECT email, account_status FROM users WHERE id = ?', (user_id,))
+        # Defensive: COALESCE for missing column
+        c.execute('SELECT email, COALESCE(account_status, ?) as account_status FROM users WHERE id = ?', ('active', user_id))
         user = c.fetchone()
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
-        if (user['account_status'] or 'active') == 'deactivated':
+        if user['account_status'] == 'deactivated':
             return jsonify({'success': False, 'error': 'Cannot reset password for deactivated user'}), 400
 
         c.execute('UPDATE users SET password_hash = ?, must_change_password = 1, account_status = ? WHERE id = ?',
@@ -366,7 +368,8 @@ def admin_delete_user():
     # Safety: cannot delete the last admin
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('SELECT email, account_status FROM users WHERE id = ?', (user_id,))
+        # Defensive: COALESCE for missing column
+        c.execute('SELECT email, COALESCE(account_status, ?) as account_status FROM users WHERE id = ?', ('active', user_id))
         target = c.fetchone()
         if not target:
             return jsonify({'success': False, 'error': 'User not found'}), 404
@@ -376,9 +379,9 @@ def admin_delete_user():
             # Count remaining active admins
             admin_ids = []
             for admin_email in ADMIN_EMAILS:
-                c.execute("SELECT id, account_status FROM users WHERE LOWER(email) = LOWER(?)", (admin_email,))
+                c.execute("SELECT id, COALESCE(account_status, ?) as account_status FROM users WHERE LOWER(email) = LOWER(?)", ('active', admin_email))
                 row = c.fetchone()
-                if row and (row['account_status'] or 'active') != 'deactivated':
+                if row and row['account_status'] != 'deactivated':
                     admin_ids.append(row['id'])
             if len(admin_ids) <= 1:
                 return jsonify({'success': False, 'error': 'Cannot deactivate the last remaining admin'}), 400
@@ -824,16 +827,14 @@ def admin_console():
     from .database import get_connection
     with get_connection() as conn:
         c = conn.cursor()
+        # Defensive query: use COALESCE to handle missing columns gracefully
         c.execute('''SELECT u.id, u.email, u.tier, u.special_status, u.created_at,
-                            u.account_status, u.must_change_password,
+                            COALESCE(u.account_status, 'active') as account_status,
+                            COALESCE(u.must_change_password, 0) as must_change_password,
                             (SELECT COUNT(*) FROM brands b WHERE b.user_id = u.id AND b.is_active = 1) as brand_count,
-                            (SELECT COUNT(*) FROM daily_usage du WHERE du.user_id = u.id AND du.date = date('now')) as jobs_today
+                            (SELECT COUNT(*) FROM daily_usage du WHERE du.user_id = u.id AND du.usage_date = date('now')) as jobs_today
                      FROM users u ORDER BY u.created_at DESC''')
         users = [dict(row) for row in c.fetchall()]
-    # Normalize account_status for older rows that may be NULL
-    for u in users:
-        if not u.get('account_status'):
-            u['account_status'] = 'active'
     tiers = list(TIER_CONFIG.keys())
     statuses = [''] + list(SPECIAL_STATUSES.keys())
     return render_template('admin.html', users=users, tiers=tiers, statuses=statuses)
