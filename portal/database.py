@@ -313,6 +313,24 @@ def _run_migrations():
             conn.commit()
             print("[DATABASE] Migration completed: special_status column added")
         
+        # Migration: Add must_change_password column to users table
+        try:
+            c.execute("SELECT must_change_password FROM users LIMIT 1")
+        except sqlite3.OperationalError:
+            print("[DATABASE] Running migration: Adding must_change_password column to users")
+            c.execute("ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0")
+            conn.commit()
+            print("[DATABASE] Migration completed: must_change_password column added")
+        
+        # Migration: Add account_status column to users table
+        try:
+            c.execute("SELECT account_status FROM users LIMIT 1")
+        except sqlite3.OperationalError:
+            print("[DATABASE] Running migration: Adding account_status column to users")
+            c.execute("ALTER TABLE users ADD COLUMN account_status TEXT DEFAULT 'active'")
+            conn.commit()
+            print("[DATABASE] Migration completed: account_status column added")
+        
         # Platinum is a valid internal supertier — no migration needed.
         # Do NOT auto-convert Platinum users. Platinum is assigned manually by admins.
     finally:

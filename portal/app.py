@@ -84,18 +84,29 @@ def init_users_db():
 
 
 def authenticate_user(email, password):
-    """Authenticate a user by email and password"""
+    """Authenticate a user by email and password. Returns (user_id, status) tuple.
+    status is None on success, or a string describing why login was blocked."""
     from .database import get_connection
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('SELECT id, password_hash FROM users WHERE email = ?', (email,))
+        c.execute('SELECT id, password_hash, account_status, must_change_password FROM users WHERE email = ?', (email,))
         result = c.fetchone()
     
     if result:
-        user_id, stored_hash = result
+        user_id = result['id']
+        stored_hash = result['password_hash']
+        account_status = result['account_status'] or 'active'
+        must_change = result['must_change_password'] or 0
+        
+        if account_status == 'deactivated':
+            return None, 'deactivated'
+        if account_status == 'suspended':
+            return None, 'suspended'
         if stored_hash == hash_password(password):
-            return user_id
-    return None
+            if must_change:
+                return user_id, 'must_change_password'
+            return user_id, None
+    return None, None
 
 
 def register_user(email, password):
@@ -140,6 +151,8 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             return redirect(url_for('login'))
+        if session.get('force_password_change') and f.__name__ != 'change_password':
+            return redirect(url_for('change_password'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -218,11 +231,19 @@ def login():
         email = request.form['email']
         password = request.form['password']
         
-        user_id = authenticate_user(email, password)
-        if user_id:
+        user_id, status = authenticate_user(email, password)
+        if status == 'deactivated':
+            flash('This account has been deactivated.', 'error')
+        elif status == 'suspended':
+            flash('This account has been suspended. Contact support.', 'error')
+        elif user_id and status == 'must_change_password':
             session['user_id'] = user_id
             session['email'] = email
-            
+            session['force_password_change'] = True
+            return redirect(url_for('change_password'))
+        elif user_id:
+            session['user_id'] = user_id
+            session['email'] = email
             flash('Login successful!', 'success')
             return redirect(url_for('dashboard'))
         else:
@@ -234,8 +255,172 @@ def login():
 def logout():
     session.pop('user_id', None)
     session.pop('email', None)
+    session.pop('force_password_change', None)
     flash('You have been logged out', 'info')
     return redirect(url_for('login'))
+
+
+@app.route('/portal/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    """Force password change page (after admin reset)."""
+    from .database import get_connection
+    if request.method == 'POST':
+        new_password = request.form.get('new_password', '').strip()
+        confirm_password = request.form.get('confirm_password', '').strip()
+        if len(new_password) < 6:
+            flash('Password must be at least 6 characters.', 'error')
+        elif new_password != confirm_password:
+            flash('Passwords do not match.', 'error')
+        else:
+            with get_connection() as conn:
+                c = conn.cursor()
+                c.execute('UPDATE users SET password_hash = ?, must_change_password = 0, account_status = ? WHERE id = ?',
+                          (hash_password(new_password), 'active', session['user_id']))
+                conn.commit()
+            session.pop('force_password_change', None)
+            flash('Password changed successfully.', 'success')
+            return redirect(url_for('dashboard'))
+    return render_template('change_password.html')
+
+
+# ── Admin API: Password Reset ──
+@app.route('/api/admin/reset-password', methods=['POST'])
+@admin_required
+def admin_reset_password():
+    """Generate a temporary password for a user. Returns it ONCE."""
+    import secrets
+    from .database import get_connection
+    data = request.get_json(force=True) or {}
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'error': 'user_id required'}), 400
+
+    # Generate secure 12-char temp password
+    temp_password = secrets.token_urlsafe(9)  # 12 chars
+    hashed = hash_password(temp_password)
+
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT email, account_status FROM users WHERE id = ?', (user_id,))
+        user = c.fetchone()
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+        if (user['account_status'] or 'active') == 'deactivated':
+            return jsonify({'success': False, 'error': 'Cannot reset password for deactivated user'}), 400
+
+        c.execute('UPDATE users SET password_hash = ?, must_change_password = 1, account_status = ? WHERE id = ?',
+                  (hashed, 'pending_reset', user_id))
+        conn.commit()
+
+    print(f"[ADMIN] Password reset for user {user_id} ({user['email']}) by {session.get('email')}")
+    return jsonify({'success': True, 'temp_password': temp_password, 'email': user['email']})
+
+
+# ── Admin API: User Info (pre-delete preview) ──
+@app.route('/api/admin/user-info/<int:user_id>')
+@admin_required
+def admin_user_info(user_id):
+    """Return user details and associated data counts for deletion preview."""
+    from .database import get_connection
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT id, email, tier, account_status FROM users WHERE id = ?', (user_id,))
+        user = c.fetchone()
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        c.execute('SELECT COUNT(*) as cnt FROM brands WHERE user_id = ? AND is_active = 1', (user_id,))
+        brand_count = c.fetchone()['cnt']
+        c.execute('SELECT COUNT(*) as cnt FROM downloads WHERE user_id = ?', (user_id,))
+        download_count = c.fetchone()['cnt']
+
+    return jsonify({
+        'success': True,
+        'email': user['email'],
+        'tier': user['tier'],
+        'brand_count': brand_count,
+        'download_count': download_count,
+    })
+
+
+# ── Admin API: Delete User (soft delete) ──
+@app.route('/api/admin/delete-user', methods=['POST'])
+@admin_required
+def admin_delete_user():
+    """Soft-delete a user: deactivate account and soft-delete their brands."""
+    from .database import get_connection
+    data = request.get_json(force=True) or {}
+    user_id = data.get('user_id')
+    confirmation = data.get('confirmation', '')
+
+    if not user_id:
+        return jsonify({'success': False, 'error': 'user_id required'}), 400
+    if confirmation != 'DEACTIVATE':
+        return jsonify({'success': False, 'error': 'Type DEACTIVATE to confirm'}), 400
+
+    # Safety: cannot deactivate yourself
+    if user_id == session.get('user_id'):
+        return jsonify({'success': False, 'error': 'Cannot deactivate your own account'}), 400
+
+    # Safety: cannot delete the last admin
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT email, account_status FROM users WHERE id = ?', (user_id,))
+        target = c.fetchone()
+        if not target:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        target_email = target['email']
+        if target_email.lower() in [e.lower() for e in ADMIN_EMAILS]:
+            # Count remaining active admins
+            admin_ids = []
+            for admin_email in ADMIN_EMAILS:
+                c.execute("SELECT id, account_status FROM users WHERE LOWER(email) = LOWER(?)", (admin_email,))
+                row = c.fetchone()
+                if row and (row['account_status'] or 'active') != 'deactivated':
+                    admin_ids.append(row['id'])
+            if len(admin_ids) <= 1:
+                return jsonify({'success': False, 'error': 'Cannot deactivate the last remaining admin'}), 400
+
+        # Deactivate user account
+        c.execute('UPDATE users SET account_status = ? WHERE id = ?', ('deactivated', user_id))
+        # Disable all their active brands
+        c.execute('UPDATE brands SET is_active = 0 WHERE user_id = ? AND is_active = 1', (user_id,))
+        brands_deleted = c.rowcount
+        conn.commit()
+
+    print(f"[ADMIN] Deactivated user {user_id} ({target_email}), {brands_deleted} brands disabled, by {session.get('email')}")
+    return jsonify({'success': True, 'email': target_email, 'brands_deleted': brands_deleted})
+
+
+# ── Admin API: Update Account Status ──
+@app.route('/api/admin/update-status', methods=['POST'])
+@admin_required
+def admin_update_status():
+    """Update a user's account_status (active, suspended, etc.)"""
+    from .database import get_connection
+    data = request.get_json(force=True) or {}
+    user_id = data.get('user_id')
+    new_status = data.get('account_status')
+    valid_statuses = ('active', 'suspended', 'pending_reset', 'deactivated')
+
+    if not user_id or new_status not in valid_statuses:
+        return jsonify({'success': False, 'error': f'user_id and valid account_status required ({", ".join(valid_statuses)})'}), 400
+
+    # Safety: cannot suspend/deactivate yourself
+    if user_id == session.get('user_id') and new_status in ('suspended', 'deactivated'):
+        return jsonify({'success': False, 'error': 'Cannot suspend or deactivate your own account'}), 400
+
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('UPDATE users SET account_status = ? WHERE id = ?', (new_status, user_id))
+        conn.commit()
+        if c.rowcount == 0:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+    print(f"[ADMIN] Set user {user_id} account_status={new_status} by {session.get('email')}")
+    return jsonify({'success': True, 'user_id': user_id, 'account_status': new_status})
 
 
 # User state detection for Dashboard
@@ -639,8 +824,16 @@ def admin_console():
     from .database import get_connection
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('SELECT id, email, tier, special_status, created_at FROM users ORDER BY created_at DESC')
+        c.execute('''SELECT u.id, u.email, u.tier, u.special_status, u.created_at,
+                            u.account_status, u.must_change_password,
+                            (SELECT COUNT(*) FROM brands b WHERE b.user_id = u.id AND b.is_active = 1) as brand_count,
+                            (SELECT COUNT(*) FROM daily_usage du WHERE du.user_id = u.id AND du.date = date('now')) as jobs_today
+                     FROM users u ORDER BY u.created_at DESC''')
         users = [dict(row) for row in c.fetchall()]
+    # Normalize account_status for older rows that may be NULL
+    for u in users:
+        if not u.get('account_status'):
+            u['account_status'] = 'active'
     tiers = list(TIER_CONFIG.keys())
     statuses = [''] + list(SPECIAL_STATUSES.keys())
     return render_template('admin.html', users=users, tiers=tiers, statuses=statuses)
