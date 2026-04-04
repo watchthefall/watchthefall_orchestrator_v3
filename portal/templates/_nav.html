@@ -48,6 +48,26 @@
     background-color: rgba(134, 237, 165, 0.15);
     color: #86EDA5;
 }
+
+/* Identity cluster: badges + account dropdown grouped right */
+.nav-identity {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+.nav-badges {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.nav-badges .tier-badge {
+    font-size: 10px;
+    padding: 3px 9px;
+    cursor: default;
+}
+
 .nav-bar .dropdown {
     position: relative;
     display: inline-block;
@@ -55,11 +75,12 @@
 .nav-bar .dropdown > a {
     color: #EAEAEA;
     text-decoration: none;
-    padding: 0.5rem 1rem;
+    padding: 0.5rem 0.75rem;
     border-radius: 4px;
     transition: background-color 0.3s;
     display: block;
     cursor: pointer;
+    font-size: 14px;
 }
 .nav-bar .dropdown > a:hover {
     background-color: rgba(134, 237, 165, 0.15);
@@ -89,41 +110,34 @@
     display: block;
 }
 
-/* Mobile Responsive Fix: Swipeable Horizontal Nav */
+/* Mobile: collapse badges, show only primary */
 @media screen and (max-width: 768px) {
     .nav-bar {
         justify-content: flex-start;
-        /* overflow-x removed: .nav-links handles scrolling internally;
-           overflow on .nav-bar clips the Account dropdown */
     }
-    
-    .nav-bar::-webkit-scrollbar {
-        display: none;
-    }
-
     .nav-bar .nav-links {
         display: flex;
         flex-wrap: nowrap;
         white-space: nowrap;
     }
-
     .nav-bar .nav-links a {
         flex-shrink: 0;
         padding: 10px 12px;
     }
-
-    .nav-bar .dropdown {
-        flex-shrink: 0;
-        margin-left: auto;
+    .nav-badges .badge-secondary {
+        display: none;
     }
-    
+    .nav-identity {
+        margin-left: auto;
+        gap: 4px;
+    }
     .nav-bar .dropdown > a {
         flex-shrink: 0;
-        padding: 10px 12px;
+        padding: 10px 8px;
+        font-size: 13px;
     }
 }
 
-/* Ultra-narrow viewport fix: prevent text clipping on <360px */
 @media screen and (max-width: 360px) {
     .nav-bar .nav-links a {
         font-size: 14px;
@@ -131,10 +145,12 @@
         white-space: nowrap;
         flex-shrink: 0;
     }
-    
     .nav-bar .dropdown > a {
-        font-size: 14px;
-        padding: 8px 10px;
+        font-size: 13px;
+        padding: 8px 6px;
+    }
+    .nav-badges {
+        display: none;
     }
 }
 .nav-bar .nav-logo {
@@ -155,14 +171,23 @@
         <li><a href="{{ url_for('brands_page') }}"{% if active_page == 'brands_page' %} class="active"{% endif %}>Brand Kit</a></li>
         <li><a href="{{ url_for('shipr_page') }}"{% if active_page == 'shipr_page' %} class="active"{% endif %}>Shipr</a></li>
     </ul>
-    <div class="dropdown">
-        <a href="#" tabindex="0">{% if is_admin_user %}<span class="tier-badge role-admin" style="font-size:10px;padding:2px 8px;margin-right:4px;">Admin</span>{% endif %}{% if user_badge %}{% if user_badge.secondary_label %}<span class="tier-badge status-{{ user_special_status }}" style="font-size:11px;padding:3px 10px;margin-right:4px;">{{ user_badge.label }}</span><span style="color:#888;font-size:11px;margin-right:6px;">·</span><span class="tier-badge tier-{{ user_badge.tier|lower }}" style="font-size:10px;padding:2px 8px;margin-right:6px;opacity:0.8;">{{ user_badge.secondary_label }}</span>{% else %}<span class="tier-badge tier-{{ user_badge.tier|lower }}" style="font-size:11px;padding:3px 10px;margin-right:6px;">{{ user_badge.label }}</span>{% endif %}{% endif %}Account</a>
-        <div class="dropdown-content">
-            <a href="{{ url_for('profile_page') }}">Profile</a>
-            {% if is_admin_user %}
-            <a href="{{ url_for('admin_console') }}" style="color:#C7A53C;">Admin</a>
+    <div class="nav-identity">
+        <div class="nav-badges">
+            {% if is_admin_user %}<span class="tier-badge role-admin">Admin</span>{% endif %}
+            {% if user_badge %}
+                {% if user_special_status %}<span class="tier-badge status-{{ user_special_status }} badge-secondary">{{ user_badge.label }}</span>{% endif %}
+                <span class="tier-badge tier-{{ user_badge.tier|lower }} badge-secondary">{{ user_badge.secondary_label or user_badge.tier }}</span>
             {% endif %}
-            <a href="{{ url_for('logout') }}">Logout</a>
+        </div>
+        <div class="dropdown">
+            <a href="#" tabindex="0">Account ▾</a>
+            <div class="dropdown-content">
+                <a href="{{ url_for('profile_page') }}">Profile</a>
+                {% if is_admin_user %}
+                <a href="{{ url_for('admin_console') }}" style="color:#C7A53C;">Admin</a>
+                {% endif %}
+                <a href="{{ url_for('logout') }}">Logout</a>
+            </div>
         </div>
     </div>
 </div>
