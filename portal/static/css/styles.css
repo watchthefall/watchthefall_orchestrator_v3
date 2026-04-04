@@ -14,6 +14,7 @@
     --accent-text: #86EDA5;
     --accent-rgb: 134, 237, 165;
     --tier-logo: url('/static/images/badges/explorer.png');
+    --tier-icon: url('/static/img/tier_icons/icon_explorer.png');
 }
 
 :root[data-tier="Creator"] {
@@ -26,6 +27,7 @@
     --accent-text: #A855F7;
     --accent-rgb: 168, 85, 247;
     --tier-logo: url('/static/images/badges/creator.png');
+    --tier-icon: url('/static/img/tier_icons/icon_creator.png');
 }
 
 :root[data-tier="Studio"] {
@@ -38,6 +40,7 @@
     --accent-text: #F5A623;
     --accent-rgb: 245, 166, 35;
     --tier-logo: url('/static/images/badges/studio.png');
+    --tier-icon: url('/static/img/tier_icons/icon_studio.png');
 }
 
 :root[data-tier="Platinum"] {
@@ -50,6 +53,7 @@
     --accent-text: #C0CFFF;
     --accent-rgb: 192, 207, 255;
     --tier-logo: url('/static/images/badges/platinum.png');
+    --tier-icon: url('/static/img/tier_icons/icon_platinum.png');
 }
 
 :root[data-tier="Elite"] {
@@ -62,6 +66,7 @@
     --accent-text: #D4A017;
     --accent-rgb: 212, 160, 23;
     --tier-logo: url('/static/images/badges/elite.png');
+    --tier-icon: url('/static/img/tier_icons/icon_elite.png');
 }
 
 /* ============================================================================
@@ -177,7 +182,7 @@ body {
     text-shadow: 0 0 6px rgba(212, 160, 23, 0.25);
 }
 
-/* Platinum — icy chrome blue (hidden internal supertier, manually granted) */
+/* Platinum — icy chrome blue */
 .tier-platinum {
     background: rgba(192, 207, 255, 0.12);
     color: #C0CFFF;
@@ -195,13 +200,16 @@ body {
     font-weight: 700;
 }
 
-/* Admin — Brandr gold (email-locked role) — filled, dominant */
+/* ── Admin role — visually distinct from customer tiers ── */
+/* Filled charcoal with amber accent — reads as "system role" not "plan" */
 .role-admin {
-    background: rgba(199, 165, 60, 0.25);
+    background: #2a2520;
     color: #C7A53C;
-    border: 2px solid rgba(199, 165, 60, 0.6);
-    text-shadow: 0 0 8px rgba(199, 165, 60, 0.3);
+    border: 1.5px solid rgba(199, 165, 60, 0.45);
     font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    font-size: 10px;
 }
 
 /* ============================================================================
@@ -391,16 +399,16 @@ body {
 }
 
 /* ============================================================================
-   UPGRADE PLAN MODAL — Profile page tier selection
+   UPGRADE PLAN MODAL — Tier comparison cards
    ============================================================================ */
 .upgrade-modal-overlay.wide .upgrade-modal {
-    max-width: 540px;
+    max-width: 680px;
 }
 
 .upgrade-options {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
     margin-bottom: 20px;
     text-align: left;
 }
@@ -409,9 +417,9 @@ body {
     background: var(--accent-muted);
     border: 1px solid var(--accent-soft);
     border-radius: 12px;
-    padding: 20px;
+    padding: 18px 20px;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
 }
@@ -425,7 +433,7 @@ body {
     font-size: 16px;
     font-weight: 700;
     color: #EAEAEA;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
 .upgrade-card-info p {
@@ -433,6 +441,52 @@ body {
     color: #888;
     margin: 0;
     line-height: 1.4;
+}
+
+.upgrade-card-headline {
+    font-size: 15px;
+    font-weight: 600;
+    color: #EAEAEA;
+    margin: 4px 0 6px;
+}
+
+.upgrade-card-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.upgrade-card-features li {
+    font-size: 11.5px;
+    color: #999;
+    line-height: 1.5;
+}
+
+.upgrade-card-features li::before {
+    content: '\2713 ';
+    color: #666;
+    margin-right: 2px;
+}
+
+.upgrade-card-features li.highlight::before {
+    color: var(--accent);
+}
+
+.upgrade-card-features li.highlight {
+    color: #ccc;
+    font-weight: 500;
+}
+
+.upgrade-card-actions {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    min-width: 130px;
 }
 
 .upgrade-card .upgrade-card-btn {
@@ -446,6 +500,8 @@ body {
     cursor: pointer;
     white-space: nowrap;
     transition: background 0.2s;
+    width: 100%;
+    text-align: center;
 }
 
 .upgrade-card .upgrade-card-btn:hover {
@@ -484,7 +540,14 @@ body {
         align-items: stretch;
         text-align: center;
     }
+    .upgrade-card-actions {
+        min-width: auto;
+        align-items: stretch;
+    }
     .upgrade-card .upgrade-card-btn {
         width: 100%;
+    }
+    .upgrade-card-features {
+        justify-content: center;
     }
 }

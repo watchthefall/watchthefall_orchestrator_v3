@@ -89,8 +89,7 @@ TIER_CONFIG = {
         'concurrent_jobs': 5,
         'priority_processing': True,
     },
-    # Platinum: hidden future tier — system-level control, not just bigger numbers
-    # Queue priority, batch campaigns, saved pipelines, team/multi-user (future)
+    # Platinum: professional tier — power features, dual-logo composition, priority
     'Platinum': {
         'label': 'Platinum',
         'price': 49,
@@ -104,7 +103,6 @@ TIER_CONFIG = {
         'max_brand_configs': -1,
         'concurrent_jobs': 10,
         'priority_processing': True,
-        'hidden': True,           # NOT shown in upgrade modal
     },
     # Elite: invitation-only gold tier — hidden from all public surfaces
     'Elite': {
@@ -254,6 +252,7 @@ ADMIN_EMAILS = [
 PAYMENT_LINKS = {
     'Creator': 'https://www.paypal.com/ncp/payment/DJY4Q8DPKDULU',
     'Studio': '',  # TODO: Add Studio PayPal link when ready
+    'Platinum': '',  # TODO: Add Platinum PayPal link when ready
 }
 
 

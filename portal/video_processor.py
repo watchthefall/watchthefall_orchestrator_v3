@@ -305,8 +305,8 @@ class VideoProcessor:
         """
         brand_name = brand_config.get('name', 'Unknown')
         
-        # Check if brand has new visual positioning fields
-        has_visual_fields = 'logo_x' in brand_config or 'wm_mode' in brand_config
+        # Check if brand has new visual positioning fields or secondary logo
+        has_visual_fields = 'logo_x' in brand_config or 'wm_mode' in brand_config or brand_config.get('secondary_logo_enabled')
         
         if has_visual_fields:
             print(f"[DEBUG] Brand {brand_name} has visual positioning fields, using percent-based layout")
@@ -417,6 +417,43 @@ class VideoProcessor:
         else:
             print(f"[VISUAL_PRESET] No logo found, skipping")
         
+        # 2b. SECONDARY LOGO OVERLAY (Dual-Logo Composition Mode, Platinum+)
+        sec_logo_enabled = brand_config.get('secondary_logo_enabled', False)
+        sec_logo_path = brand_config.get('secondary_logo_resolved_path')
+        if sec_logo_enabled and sec_logo_path and os.path.exists(sec_logo_path):
+            sec_scale = max(0.03, min(0.5, float(brand_config.get('secondary_logo_scale', 0.12))))
+            sec_opacity = max(0.1, min(1.0, float(brand_config.get('secondary_logo_opacity', 0.9))))
+            sec_x_pct = max(0.0, min(1.0, float(brand_config.get('secondary_logo_x', 0.15))))
+            sec_y_pct = max(0.0, min(1.0, float(brand_config.get('secondary_logo_y', 0.15))))
+            sec_rotation = float(brand_config.get('secondary_logo_rotation', 0)) % 360
+            
+            sec_target_w = int(sec_scale * W)
+            sec_x_px = int(sec_x_pct * W) - sec_target_w // 2
+            sec_y_px = int(sec_y_pct * H) - sec_target_w // 2
+            
+            print(f"[VISUAL_PRESET] Adding secondary logo: {sec_logo_path}")
+            print(f"[VISUAL_PRESET] SecLogo: width={sec_target_w}px, pos=({sec_x_px},{sec_y_px}), opacity={sec_opacity:.2f}, rotation={sec_rotation}°")
+            
+            # Determine next overlay label
+            if current_input.startswith('v') and current_input[1:].isdigit():
+                next_v = f'v{int(current_input[1:]) + 1}'
+            else:
+                next_v = 'v1'
+            
+            if sec_rotation != 0:
+                rotation_rad = (sec_rotation * 3.14159265359) / 180.0
+                print(f"[VISUAL_PRESET] SecLogo rotation: {sec_rotation}° = {rotation_rad:.4f} radians")
+                filters.append(f"movie='{sec_logo_path}',scale={sec_target_w}:-1,format=rgba,rotate={rotation_rad}:ow=hypot(iw,ih):oh=ow:fillcolor=0x00000000[sec_logo_r]")
+                filters.append(f"[sec_logo_r]colorchannelmixer=aa={sec_opacity}[sec_logo]")
+            else:
+                filters.append(f"movie='{sec_logo_path}',scale={sec_target_w}:-1,format=rgba,colorchannelmixer=aa={sec_opacity}[sec_logo]")
+            
+            filters.append(f"[{current_input}][sec_logo]overlay={sec_x_px}:{sec_y_px}[{next_v}]")
+            current_input = next_v
+            print(f"[VISUAL_PRESET] Secondary logo overlay added -> [{next_v}]")
+        elif sec_logo_enabled:
+            print(f"[VISUAL_PRESET] Secondary logo enabled but file not found or missing, skipping")
+        
         # 3. TEXT OVERLAY (if enabled)
         if text_enabled and text_content:
             text_x_px = int(text_x_pct * W)
@@ -432,14 +469,15 @@ class VideoProcessor:
             # Build drawtext filter
             drawtext_filter = f"drawtext=text='{escaped_text}':fontsize={text_size}:fontcolor=0x{text_color_hex}:x={text_x_px}-text_w/2:y={text_y_px}-text_h/2:box=1:boxcolor=0x000000@0.6:boxborderw=10"
             
-            next_label = 'v3' if current_input in ['v1', 'v2'] else 'v2'
+            next_label = 'v3' if current_input in ['v1', 'v2'] else ('v2' if current_input == '0:v' else f'v{int(current_input[1:]) + 1}' if current_input.startswith('v') and current_input[1:].isdigit() else 'v4')
             filters.append(f"[{current_input}]{drawtext_filter}[{next_label}]")
             current_input = next_label
         
         # Ensure final output is [vout]
         if filters:
             last_filter = filters[-1]
-            if '[v1]' in last_filter or '[v2]' in last_filter or '[v3]' in last_filter:
+            # Replace the last [vN] label with [vout] generically
+            if current_input.startswith('v') and current_input[1:].isdigit():
                 filters[-1] = last_filter.rsplit('[', 1)[0] + '[vout]'
         else:
             # No overlays - passthrough

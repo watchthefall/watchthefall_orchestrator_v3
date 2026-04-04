@@ -42,7 +42,7 @@ from .config import (
     MAX_UPLOAD_SIZE, BRANDS_DIR,
     TIER_CONFIG, DEFAULT_TIER, get_tier_limits, get_effective_limits,
     get_payment_link, get_badge_info, get_next_visible_tier,
-    get_tier_features,
+    get_tier_features, TIER_FEATURES,
     ADMIN_EMAILS, SPECIAL_STATUSES, VISIBLE_TIERS
 )
 from .database import (
@@ -179,7 +179,9 @@ init_users_db()
 def inject_global_context():
     """Inject admin flag, tier, badge info, and feature gates into all templates."""
     ctx = {'is_admin_user': is_admin(), 'tier': DEFAULT_TIER,
-           'tier_features': get_tier_features(DEFAULT_TIER)}
+           'tier_features': get_tier_features(DEFAULT_TIER),
+           'all_tier_features': TIER_FEATURES,
+           'all_tier_config': TIER_CONFIG}
     user_id = session.get('user_id')
     if user_id:
         tier = get_user_tier(user_id)
@@ -1138,6 +1140,31 @@ def process_branded_videos():
         
         print(f"[PROCESS BRANDS] Processing {len(resolved_brands)} brands sequentially")
         
+        # --- Dual-Logo Composition: resolve secondary logo (Platinum+ only) ---
+        sec_logo_resolved_path = None
+        if data.get('secondary_logo_enabled'):
+            from .config import get_tier_features
+            tier_features = get_tier_features(tier)
+            if tier_features.get('dual_logo_composition_enabled'):
+                sec_brand_id = data.get('secondary_logo_brand_id')
+                if sec_brand_id:
+                    try:
+                        sec_brand_id = int(sec_brand_id)
+                        sec_brand = get_brand(brand_id=sec_brand_id, user_id=user_id)
+                        if sec_brand and sec_brand.get('logo_path'):
+                            sec_logo_full = os.path.join(STORAGE_ROOT, sec_brand['logo_path'])
+                            if os.path.exists(sec_logo_full):
+                                sec_logo_resolved_path = sec_logo_full
+                                print(f"[PROCESS BRANDS] Secondary logo resolved: brand #{sec_brand_id} -> {sec_logo_full}")
+                            else:
+                                print(f"[PROCESS BRANDS] Secondary logo file not found on disk: {sec_logo_full}")
+                        else:
+                            print(f"[PROCESS BRANDS] Secondary brand #{sec_brand_id} not found or has no logo (user_id={user_id})")
+                    except (ValueError, TypeError):
+                        print(f"[PROCESS BRANDS] Invalid secondary_logo_brand_id: {data.get('secondary_logo_brand_id')}")
+            else:
+                print(f"[PROCESS BRANDS] Dual-logo composition not available for tier: {tier}")
+        
         # Normalize video timestamps to fix corrupted Instagram videos
         print(f"[PROCESS BRANDS] Normalizing video timestamps: {video_filepath}")
         normalized_video_path = normalize_video(video_filepath)
@@ -1179,6 +1206,18 @@ def process_branded_videos():
                 merged_config['logo_padding'] = data['logo_padding']
                 override_applied = True
                 print(f"[PROCESS BRANDS] Override: logo_padding = {data['logo_padding']} (DB default: {db_brand.get('logo_padding')})")
+            
+            # Merge secondary logo composition fields (already tier-gated above)
+            if sec_logo_resolved_path:
+                merged_config['secondary_logo_enabled'] = True
+                merged_config['secondary_logo_resolved_path'] = sec_logo_resolved_path
+                merged_config['secondary_logo_scale'] = max(0.03, min(0.5, float(data.get('secondary_logo_scale', 0.12))))
+                merged_config['secondary_logo_opacity'] = max(0.1, min(1.0, float(data.get('secondary_logo_opacity', 0.9))))
+                merged_config['secondary_logo_x'] = max(0.0, min(1.0, float(data.get('secondary_logo_x', 0.15))))
+                merged_config['secondary_logo_y'] = max(0.0, min(1.0, float(data.get('secondary_logo_y', 0.15))))
+                merged_config['secondary_logo_rotation'] = float(data.get('secondary_logo_rotation', 0)) % 360
+                override_applied = True
+                print(f"[PROCESS BRANDS] Override: secondary logo from brand #{data.get('secondary_logo_brand_id')}")
             
             if override_applied:
                 print(f"[PROCESS BRANDS] ⚠️  Using TEMPORARY overrides for this video only (not saved to brand config)")

@@ -122,34 +122,21 @@
     opacity: 0.6;
 }
 
-/* Nav logo — tier-tinted glow on hover */
+/* Nav logo — tier-specific icon, driven by --tier-icon CSS var */
 .nav-bar .nav-logo {
-    width: 28px;
-    height: 28px;
-    object-fit: contain;
-    margin-right: 2px;
-    flex-shrink: 0;
-    transition: filter 0.3s;
-}
-.nav-bar .nav-logo:hover {
-    filter: drop-shadow(0 0 6px var(--accent-glow));
-}
-
-/* Tier badge icon next to nav logo — driven by --tier-logo CSS var */
-.nav-tier-badge {
-    width: 20px;
-    height: 20px;
-    background-image: var(--tier-logo);
+    width: 32px;
+    height: 32px;
+    background-image: var(--tier-icon);
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
+    display: block;
     flex-shrink: 0;
-    margin-right: 4px;
-    opacity: 0.85;
-    transition: opacity 0.3s;
+    margin-right: 2px;
+    transition: filter 0.3s;
 }
-.nav-tier-badge:hover {
-    opacity: 1;
+.nav-bar .nav-logo:hover {
+    filter: drop-shadow(0 0 4px var(--accent-glow));
 }
 
 /* Mobile: collapse badges, show only primary */
@@ -198,8 +185,7 @@
 </style>
 
 <div class="nav-bar">
-    <a href="{{ url_for('dashboard') }}"><img src="/static/img/brandr_logo.png" alt="Brandr" class="nav-logo"></a>
-    <div class="nav-tier-badge" title="{{ tier|default('Explorer') }}"></div>
+    <a href="{{ url_for('dashboard') }}" class="nav-logo" title="Brandr — {{ tier|default('Explorer') }}"></a>
     <ul class="nav-links">
         <li><a href="{{ url_for('dashboard') }}"{% if active_page == 'dashboard' %} class="active"{% endif %}>Dashboard</a></li>
         <li><a href="{{ url_for('library') }}"{% if active_page == 'library' %} class="active"{% endif %}>Library</a></li>
