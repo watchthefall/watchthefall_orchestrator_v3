@@ -209,13 +209,16 @@
                 <div class="profile-avatar" style="border: 2px solid {% if is_admin_user %}#C7A53C{% elif user_special_status %}#D4A017{% else %}{{ user_badge.color if user_badge else '#333' }}{% endif %};">
                     {{ email[0].upper() if email else '?' }}
                 </div>
+                {% if user_badge and user_badge.image %}
+                <img src="/static/images/{{ user_badge.image }}" alt="{{ tier }}" style="width:28px;height:28px;object-fit:contain;margin-bottom:6px;opacity:0.9;">
+                {% endif %}
                 <div class="profile-email">{{ email }}</div>
                 <div class="profile-meta">Member since {{ created_at }}</div>
                 <div class="profile-badges">
                     {% if is_admin_user %}<span class="tier-badge role-admin" style="font-size:10px;padding:3px 9px;">Admin</span>{% endif %}
                     {% if user_special_status %}<span class="tier-badge status-{{ user_special_status }}" style="font-size:10px;padding:3px 9px;">{{ user_badge.label if user_badge else user_special_status }}</span>{% endif %}
                     <span class="tier-badge tier-{{ tier.lower() }}" style="font-size:10px;padding:3px 9px;">{{ tier }}</span>
-                    {% if tier not in ('Studio', 'Platinum') and not user_special_status %}
+                    {% if tier not in ('Studio', 'Platinum', 'Elite') and not user_special_status %}
                     <button class="btn btn-primary" onclick="openUpgradeModal()" style="padding:4px 12px; font-size:11px; margin-left:4px;">Upgrade</button>
                     {% endif %}
                 </div>

@@ -1,7 +1,7 @@
 /* ============================================================================
    TIER IDENTITY TOKENS — CSS Custom Properties
    Set data-tier on <html> to activate. Default: Explorer (green).
-   Tiers: Explorer (green), Creator (orange), Studio (purple), Platinum (chrome blue)
+   Tiers: Explorer (green), Creator (purple), Studio (orange), Platinum (chrome blue)
    ============================================================================ */
 :root,
 :root[data-tier="Explorer"] {
@@ -17,18 +17,6 @@
 }
 
 :root[data-tier="Creator"] {
-    --accent: #F5A623;
-    --accent-hover: #E09510;
-    --accent-soft: rgba(245, 166, 35, 0.15);
-    --accent-muted: rgba(245, 166, 35, 0.08);
-    --accent-glow: rgba(245, 166, 35, 0.3);
-    --accent-border: rgba(245, 166, 35, 0.25);
-    --accent-text: #F5A623;
-    --accent-rgb: 245, 166, 35;
-    --tier-logo: url('/static/images/badges/creator.png');
-}
-
-:root[data-tier="Studio"] {
     --accent: #A855F7;
     --accent-hover: #9333EA;
     --accent-soft: rgba(168, 85, 247, 0.15);
@@ -37,6 +25,18 @@
     --accent-border: rgba(168, 85, 247, 0.25);
     --accent-text: #A855F7;
     --accent-rgb: 168, 85, 247;
+    --tier-logo: url('/static/images/badges/creator.png');
+}
+
+:root[data-tier="Studio"] {
+    --accent: #F5A623;
+    --accent-hover: #E09510;
+    --accent-soft: rgba(245, 166, 35, 0.15);
+    --accent-muted: rgba(245, 166, 35, 0.08);
+    --accent-glow: rgba(245, 166, 35, 0.3);
+    --accent-border: rgba(245, 166, 35, 0.25);
+    --accent-text: #F5A623;
+    --accent-rgb: 245, 166, 35;
     --tier-logo: url('/static/images/badges/studio.png');
 }
 
@@ -50,6 +50,18 @@
     --accent-text: #C0CFFF;
     --accent-rgb: 192, 207, 255;
     --tier-logo: url('/static/images/badges/platinum.png');
+}
+
+:root[data-tier="Elite"] {
+    --accent: #D4A017;
+    --accent-hover: #B8890F;
+    --accent-soft: rgba(212, 160, 23, 0.15);
+    --accent-muted: rgba(212, 160, 23, 0.08);
+    --accent-glow: rgba(212, 160, 23, 0.3);
+    --accent-border: rgba(212, 160, 23, 0.25);
+    --accent-text: #D4A017;
+    --accent-rgb: 212, 160, 23;
+    --tier-logo: url('/static/images/badges/elite.png');
 }
 
 /* ============================================================================
@@ -77,16 +89,20 @@
     background: var(--accent-soft);
 }
 
-/* Studio + Platinum: elevated glow on cards */
+/* Studio + Platinum + Elite: elevated glow on cards */
 :root[data-tier="Studio"] .action-card:hover,
-:root[data-tier="Platinum"] .action-card:hover {
+:root[data-tier="Platinum"] .action-card:hover,
+:root[data-tier="Elite"] .action-card:hover {
     box-shadow: 0 4px 20px var(--accent-glow);
 }
 
-/* Platinum: subtle shimmer on primary buttons */
+/* Platinum + Elite: subtle shimmer on primary buttons */
 :root[data-tier="Platinum"] .btn-primary,
 :root[data-tier="Platinum"] .btn-accent,
-:root[data-tier="Platinum"] .upgrade-card-btn:not(.current) {
+:root[data-tier="Platinum"] .upgrade-card-btn:not(.current),
+:root[data-tier="Elite"] .btn-primary,
+:root[data-tier="Elite"] .btn-accent,
+:root[data-tier="Elite"] .upgrade-card-btn:not(.current) {
     text-shadow: 0 0 8px var(--accent-glow);
 }
 
@@ -138,19 +154,19 @@ body {
     border: 1px solid rgba(134, 237, 165, 0.15);
 }
 
-/* Creator — orange (hustle / energy) */
+/* Creator — purple (creative / expressive) */
 .tier-creator {
-    background: rgba(245, 166, 35, 0.12);
-    color: #F5A623;
-    border: 1.5px solid rgba(245, 166, 35, 0.35);
+    background: rgba(168, 85, 247, 0.12);
+    color: #A855F7;
+    border: 1.5px solid rgba(168, 85, 247, 0.35);
 }
 
-/* Studio — purple (power / control) */
+/* Studio — orange (hustle / energy) */
 .tier-studio {
-    background: rgba(168, 85, 247, 0.14);
-    color: #A855F7;
-    border: 2px solid rgba(168, 85, 247, 0.4);
-    text-shadow: 0 0 6px rgba(168, 85, 247, 0.2);
+    background: rgba(245, 166, 35, 0.14);
+    color: #F5A623;
+    border: 2px solid rgba(245, 166, 35, 0.4);
+    text-shadow: 0 0 6px rgba(245, 166, 35, 0.2);
 }
 
 /* Beta Tester — gold (status / prestige) — overrides tier badge visually */
@@ -167,6 +183,15 @@ body {
     color: #C0CFFF;
     border: 2px solid rgba(192, 207, 255, 0.4);
     text-shadow: 0 0 8px rgba(192, 207, 255, 0.35);
+    font-weight: 700;
+}
+
+/* Elite — gold (invitation-only, hidden from public) */
+.tier-elite {
+    background: rgba(212, 160, 23, 0.14);
+    color: #D4A017;
+    border: 2px solid rgba(212, 160, 23, 0.45);
+    text-shadow: 0 0 8px rgba(212, 160, 23, 0.3);
     font-weight: 700;
 }
 

@@ -65,8 +65,8 @@ TIER_CONFIG = {
     'Creator': {
         'label': 'Creator',
         'price': 9,
-        'color': '#F5A623',       # orange
-        'accent': '#F5A623',
+        'color': '#A855F7',       # purple
+        'accent': '#A855F7',
         'badge_image': 'badges/creator.png',
         'fetches_per_day': 100,
         'ig_per_hour': 10,
@@ -78,8 +78,8 @@ TIER_CONFIG = {
     'Studio': {
         'label': 'Studio',
         'price': 19,
-        'color': '#A855F7',       # purple
-        'accent': '#A855F7',
+        'color': '#F5A623',       # orange
+        'accent': '#F5A623',
         'badge_image': 'badges/studio.png',
         'fetches_per_day': 200,
         'ig_per_hour': 15,
@@ -106,12 +106,113 @@ TIER_CONFIG = {
         'priority_processing': True,
         'hidden': True,           # NOT shown in upgrade modal
     },
+    # Elite: invitation-only gold tier — hidden from all public surfaces
+    'Elite': {
+        'label': 'Elite',
+        'price': 0,              # invitation-only, no public pricing
+        'color': '#D4A017',       # gold
+        'accent': '#D4A017',
+        'badge_image': 'badges/elite.png',
+        'fetches_per_day': 9999,
+        'ig_per_hour': 60,
+        'branding_jobs_per_day': 9999,
+        'max_brands_per_job': 100,
+        'max_brand_configs': -1,
+        'concurrent_jobs': 20,
+        'priority_processing': True,
+        'hidden': True,           # NOT shown in upgrade modal
+    },
 }
 
 # Tiers visible in upgrade flow (excludes hidden tiers)
 VISIBLE_TIERS = [k for k, v in TIER_CONFIG.items() if not v.get('hidden')]
 
 DEFAULT_TIER = 'Explorer'
+
+# ============================================================================
+# TIER FEATURES — Central feature-gate config (single source of truth)
+# ============================================================================
+# Boolean + numeric capability flags per tier.
+# Backend enforcement + UI messaging should both read from here.
+# Numeric: -1 means unlimited. Boolean: True/False.
+TIER_FEATURES = {
+    'Explorer': {
+        'max_instagram_per_hour': 3,
+        'max_downloads_per_day': 25,
+        'max_branding_jobs_per_day': 15,
+        'max_brands_per_job': 3,
+        'max_brand_configs_total': 1,
+        'max_concurrent_jobs': 1,
+        'result_preview_strip_enabled': False,
+        'favourite_brand_as_pfp_enabled': False,
+        'advanced_queue_ui_enabled': False,
+        'dual_logo_composition_enabled': False,
+        'batch_templates_enabled': False,
+        'priority_processing_enabled': False,
+    },
+    'Creator': {
+        'max_instagram_per_hour': 10,
+        'max_downloads_per_day': 100,
+        'max_branding_jobs_per_day': 60,
+        'max_brands_per_job': 8,
+        'max_brand_configs_total': 5,
+        'max_concurrent_jobs': 3,
+        'result_preview_strip_enabled': True,
+        'favourite_brand_as_pfp_enabled': True,
+        'advanced_queue_ui_enabled': False,
+        'dual_logo_composition_enabled': False,
+        'batch_templates_enabled': False,
+        'priority_processing_enabled': False,
+    },
+    'Studio': {
+        'max_instagram_per_hour': 15,
+        'max_downloads_per_day': 200,
+        'max_branding_jobs_per_day': 120,
+        'max_brands_per_job': 20,
+        'max_brand_configs_total': -1,
+        'max_concurrent_jobs': 5,
+        'result_preview_strip_enabled': True,
+        'favourite_brand_as_pfp_enabled': True,
+        'advanced_queue_ui_enabled': True,
+        'dual_logo_composition_enabled': False,
+        'batch_templates_enabled': True,
+        'priority_processing_enabled': True,
+    },
+    'Platinum': {
+        'max_instagram_per_hour': 30,
+        'max_downloads_per_day': 500,
+        'max_branding_jobs_per_day': 300,
+        'max_brands_per_job': 50,
+        'max_brand_configs_total': -1,
+        'max_concurrent_jobs': 10,
+        'result_preview_strip_enabled': True,
+        'favourite_brand_as_pfp_enabled': True,
+        'advanced_queue_ui_enabled': True,
+        'dual_logo_composition_enabled': True,
+        'batch_templates_enabled': True,
+        'priority_processing_enabled': True,
+    },
+    'Elite': {
+        'max_instagram_per_hour': 60,
+        'max_downloads_per_day': 9999,
+        'max_branding_jobs_per_day': 9999,
+        'max_brands_per_job': 100,
+        'max_brand_configs_total': -1,
+        'max_concurrent_jobs': 20,
+        'result_preview_strip_enabled': True,
+        'favourite_brand_as_pfp_enabled': True,
+        'advanced_queue_ui_enabled': True,
+        'dual_logo_composition_enabled': True,
+        'batch_templates_enabled': True,
+        'priority_processing_enabled': True,
+    },
+}
+
+
+def get_tier_features(tier_name):
+    """Return the feature-gate dict for a given tier. Falls back to Explorer."""
+    return TIER_FEATURES.get(tier_name, TIER_FEATURES[DEFAULT_TIER])
+
 
 # ============================================================================
 # SPECIAL STATUS (modifier, NOT a tier)

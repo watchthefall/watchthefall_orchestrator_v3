@@ -42,6 +42,7 @@ from .config import (
     MAX_UPLOAD_SIZE, BRANDS_DIR,
     TIER_CONFIG, DEFAULT_TIER, get_tier_limits, get_effective_limits,
     get_payment_link, get_badge_info, get_next_visible_tier,
+    get_tier_features,
     ADMIN_EMAILS, SPECIAL_STATUSES, VISIBLE_TIERS
 )
 from .database import (
@@ -176,8 +177,9 @@ init_users_db()
 
 @app.context_processor
 def inject_global_context():
-    """Inject admin flag, tier, and badge info into all templates."""
-    ctx = {'is_admin_user': is_admin(), 'tier': DEFAULT_TIER}
+    """Inject admin flag, tier, badge info, and feature gates into all templates."""
+    ctx = {'is_admin_user': is_admin(), 'tier': DEFAULT_TIER,
+           'tier_features': get_tier_features(DEFAULT_TIER)}
     user_id = session.get('user_id')
     if user_id:
         tier = get_user_tier(user_id)
@@ -186,6 +188,7 @@ def inject_global_context():
         ctx['tier'] = tier
         ctx['user_badge'] = badge
         ctx['user_special_status'] = special_status
+        ctx['tier_features'] = get_tier_features(tier)
     return ctx
 
 

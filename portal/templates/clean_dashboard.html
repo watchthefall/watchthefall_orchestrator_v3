@@ -843,6 +843,241 @@
         color: #ccc;
         background: rgba(255,255,255,0.05);
     }
+
+    /* ========== RESULT PREVIEW STRIP ========== */
+    #resultPreviewStrip {
+        margin: 12px 0 0;
+        padding: 10px 0;
+        display: none;
+    }
+    .rps-label {
+        font-size: 10px;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+        text-align: center;
+    }
+    .rps-track {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        padding: 4px 2px 8px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--accent-muted) transparent;
+    }
+    .rps-track::-webkit-scrollbar {
+        height: 4px;
+    }
+    .rps-track::-webkit-scrollbar-thumb {
+        background: var(--accent-muted);
+        border-radius: 2px;
+    }
+    .rps-card {
+        flex: 0 0 auto;
+        width: 90px;
+        background: #1a1a1e;
+        border: 1.5px solid #2a2a2e;
+        border-radius: 8px;
+        padding: 8px 6px;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+        position: relative;
+    }
+    .rps-card:hover {
+        border-color: #444;
+        background: #222;
+    }
+    .rps-card.rps-active {
+        border-color: var(--accent);
+        background: var(--accent-muted);
+        box-shadow: 0 0 8px var(--accent-glow);
+    }
+    .rps-thumb {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 6px;
+        border-radius: 6px;
+        background: #121214;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+    .rps-thumb canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+    .rps-thumb .rps-placeholder {
+        font-size: 20px;
+        color: #444;
+    }
+    .rps-name {
+        font-size: 10px;
+        font-weight: 600;
+        color: #ccc;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.3;
+    }
+    .rps-card.rps-active .rps-name {
+        color: var(--accent-text);
+    }
+    .rps-status {
+        font-size: 8px;
+        margin-top: 3px;
+        padding: 1px 5px;
+        border-radius: 3px;
+        display: inline-block;
+    }
+    .rps-status-default {
+        background: rgba(255,255,255,0.05);
+        color: #666;
+    }
+    .rps-status-edited {
+        background: rgba(245, 166, 35, 0.15);
+        color: #F5A623;
+    }
+    .rps-arrow {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        color: #444;
+        font-size: 16px;
+        padding: 0 2px;
+    }
+    .rps-source {
+        flex: 0 0 auto;
+        width: 56px;
+        text-align: center;
+    }
+    .rps-source-thumb {
+        width: 44px;
+        height: 44px;
+        margin: 0 auto 4px;
+        border-radius: 6px;
+        background: #121214;
+        border: 1px solid #333;
+        overflow: hidden;
+    }
+    .rps-source-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .rps-source-label {
+        font-size: 9px;
+        color: #555;
+    }
+
+    /* ========== DUAL-LOGO COMPOSITION MODE ========== */
+    .comp-section {
+        margin-top: 16px;
+        padding: 14px;
+        background: var(--accent-muted);
+        border: 1px solid var(--accent-soft);
+        border-radius: 10px;
+    }
+    .comp-section h3 {
+        margin: 0 0 10px;
+        font-size: 14px;
+        color: var(--accent-text);
+    }
+    .comp-tier-badge {
+        display: inline-block;
+        font-size: 9px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        background: var(--accent-soft);
+        color: var(--accent-text);
+        vertical-align: middle;
+        margin-left: 6px;
+        font-weight: 600;
+    }
+    .comp-logo-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 10px 0;
+    }
+    .comp-logo-option {
+        width: 56px;
+        height: 56px;
+        border: 2px solid #333;
+        border-radius: 8px;
+        background: #1a1a1e;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        position: relative;
+    }
+    .comp-logo-option:hover {
+        border-color: #555;
+    }
+    .comp-logo-option.selected {
+        border-color: var(--accent);
+        box-shadow: 0 0 8px var(--accent-glow);
+    }
+    .comp-logo-option img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 4px;
+    }
+    .comp-logo-option .comp-logo-name {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        font-size: 7px;
+        background: rgba(0,0,0,0.7);
+        color: #ccc;
+        padding: 1px 2px;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .comp-controls {
+        margin-top: 10px;
+    }
+    .comp-controls .slider-group {
+        margin-bottom: 8px;
+    }
+    .comp-clear-btn {
+        width: auto;
+        padding: 4px 10px;
+        margin: 8px 0 0;
+        background: transparent;
+        border: 1px solid #444;
+        color: #888;
+        font-size: 11px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .comp-clear-btn:hover {
+        border-color: #666;
+        color: #ccc;
+    }
+    .rps-comp-badge {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        font-size: 7px;
+        background: var(--accent-soft);
+        color: var(--accent-text);
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-weight: 700;
+        line-height: 1.3;
+    }
 </style>
 </head>
 <body>
@@ -985,6 +1220,16 @@
         </div>
     </div>
     
+    {% if tier_features and tier_features.result_preview_strip_enabled %}
+    <!-- ===== RESULT PREVIEW STRIP ===== -->
+    <div id="resultPreviewStrip">
+        <div class="rps-label">Outputs</div>
+        <div class="rps-track" id="rpsTrack">
+            <!-- Dynamically populated by renderResultPreviewStrip() -->
+        </div>
+    </div>
+    {% endif %}
+    
     <!-- ===== LIVE PREVIEW ===== -->
     <div class="preview-container" id="previewContainer" style="display:none;">
         <canvas id="previewCanvas" width="360" height="640"></canvas>
@@ -1048,6 +1293,52 @@
         <input type="range" id="logoRotation" min="0" max="360" value="0" oninput="document.getElementById('logoRotationVal').textContent = this.value + '°'; logoRotationDegrees = parseInt(this.value); updateCanvasPreview();">
     </div>
     <p style="color:#666; font-size:12px; margin:5px 0;">💡 Drag logo on preview to reposition</p>
+    
+    {% if tier_features and tier_features.dual_logo_composition_enabled %}
+    <!-- Dual-Logo Composition Mode (Platinum+ only) -->
+    <div class="comp-section" id="compSection">
+        <h3>Composition Mode <span class="comp-tier-badge">{{ tier }}</span></h3>
+        <p style="color:#666; font-size:11px; margin:0 0 8px;">Add a secondary logo to this brand's output.</p>
+        <div class="toggle-row">
+            <span class="slider-label">Enable Secondary Logo</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="compEnabled" onchange="onCompToggle()">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div id="compControls" style="display:none;">
+            <p style="color:#666; font-size:11px; margin:8px 0 4px;">Pick from your other brand logos:</p>
+            <div class="comp-logo-grid" id="compLogoGrid">
+                <!-- Populated by renderCompLogoGrid() -->
+            </div>
+            <div class="comp-controls">
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Size</span>
+                        <span class="slider-value" id="compScaleVal">12%</span>
+                    </div>
+                    <input type="range" id="compScale" min="5" max="30" value="12" oninput="document.getElementById('compScaleVal').textContent = this.value + '%'; updateCanvasPreview();">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Opacity</span>
+                        <span class="slider-value" id="compOpacityVal">90%</span>
+                    </div>
+                    <input type="range" id="compOpacity" min="10" max="100" value="90" oninput="document.getElementById('compOpacityVal').textContent = this.value + '%'; updateCanvasPreview();">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Rotation</span>
+                        <span class="slider-value" id="compRotationVal">0°</span>
+                    </div>
+                    <input type="range" id="compRotation" min="0" max="360" value="0" oninput="document.getElementById('compRotationVal').textContent = this.value + '°'; updateCanvasPreview();">
+                </div>
+                <p style="color:#666; font-size:11px; margin:4px 0;">Position: top-right by default. Drag on canvas to move.</p>
+                <button class="comp-clear-btn" onclick="resetSecondaryLogo()">Reset Secondary Logo</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     
     <!-- Text Layer Controls -->
     <h3>✍️ Text Layer</h3>
@@ -1186,6 +1477,14 @@ let textX = 0;  // 0 means use default center
 let textY = 0;  // 0 means use default bottom
 let textDragStart = { x: 0, y: 0 };
 
+// ========== SECONDARY LOGO (Dual-Logo Composition) ==========
+let secondaryLogoImg = null;
+let secondaryLogoDragging = false;
+let secLogoCenterXPercent = 0;  // 0 = use default (top-right)
+let secLogoCenterYPercent = 0;
+let secLogoDragStart = { x: 0, y: 0 };
+let secLogoSelectedBrandId = null;  // Which brand's logo is used as secondary
+
 // ========== QUEUE MODE STATE ==========
 let isQueueMode = false;
 let processingQueue = [];
@@ -1196,7 +1495,7 @@ let brandOverrides = {};  // { brandId: { watermark_scale, watermark_opacity, lo
 
 // Capture current slider/drag state as an overrides object
 function captureCurrentSliders() {
-    return {
+    var result = {
         watermark_scale: parseInt(document.getElementById('wmScale').value) / 100,
         watermark_opacity: parseInt(document.getElementById('wmOpacity').value) / 100,
         logo_x: logoCenterXPercent,
@@ -1212,6 +1511,18 @@ function captureCurrentSliders() {
         text_bg_enabled: document.getElementById('textBgEnabled').checked,
         text_bg_opacity: parseInt(document.getElementById('textBgOpacity').value) / 100
     };
+    // Secondary logo (dual-logo composition)
+    var compEl = document.getElementById('compEnabled');
+    if (compEl) {
+        result.secondary_logo_enabled = compEl.checked;
+        result.secondary_logo_brand_id = secLogoSelectedBrandId;
+        result.secondary_logo_scale = parseInt((document.getElementById('compScale') || {}).value || 12) / 100;
+        result.secondary_logo_opacity = parseInt((document.getElementById('compOpacity') || {}).value || 90) / 100;
+        result.secondary_logo_rotation = parseInt((document.getElementById('compRotation') || {}).value || 0);
+        result.secondary_logo_x = secLogoCenterXPercent;
+        result.secondary_logo_y = secLogoCenterYPercent;
+    }
+    return result;
 }
 
 // Extract saved defaults from brandDataCache into overrides format
@@ -1313,6 +1624,7 @@ function updatePreviewTargetBar() {
     
     // Always sync badge state when preview bar updates
     updateBrandBadges();
+    renderResultPreviewStrip();
 }
 
 // Update override badges on brand tiles
@@ -1332,6 +1644,148 @@ function updateBrandBadges() {
             badge.style.display = '';
         }
     });
+}
+
+// ========== RESULT PREVIEW STRIP ==========
+function renderResultPreviewStrip() {
+    const strip = document.getElementById('resultPreviewStrip');
+    if (!strip) return;  // Feature-gated: element absent for Explorer
+
+    const track = document.getElementById('rpsTrack');
+    if (!track) return;
+
+    // Hide strip when no brands selected
+    if (selectedBrandIds.length === 0) {
+        strip.style.display = 'none';
+        return;
+    }
+
+    strip.style.display = 'block';
+
+    // Build cards
+    let html = '';
+
+    // Source video indicator
+    if (frameData) {
+        html += '<div class="rps-source">';
+        html += '<div class="rps-source-thumb"><img src="' + frameData + '" alt="Source"></div>';
+        html += '<div class="rps-source-label">Source</div>';
+        html += '</div>';
+        html += '<div class="rps-arrow">&rarr;</div>';
+    }
+
+    selectedBrandIds.forEach(function(brandId) {
+        const brand = brandDataCache[brandId];
+        const name = brand ? brand.display_name : 'Brand #' + brandId;
+        const shortName = name.length > 10 ? name.substring(0, 9) + '\u2026' : name;
+        const isActive = brandId === activePreviewBrandId;
+        const hasOverrides = !!brandOverrides[brandId];
+        const activeClass = isActive ? ' rps-active' : '';
+        const statusClass = hasOverrides ? 'rps-status-edited' : 'rps-status-default';
+        const statusLabel = hasOverrides ? 'Edited' : 'Default';
+
+        // Thumbnail: try brand logo, fall back to placeholder
+        let thumbContent = '<span class="rps-placeholder">&#9635;</span>';
+        if (brand && brand.logo_path) {
+            thumbContent = '<img src="/api/preview/brand-asset/' + brandId + '/logo" style="width:100%;height:100%;object-fit:contain;" onerror="this.outerHTML=\'<span class=rps-placeholder>&#9635;</span>\'">';
+        }
+
+        html += '<div class="rps-card' + activeClass + '" onclick="rpsSelectBrand(' + brandId + ')" title="' + name + '">';
+        html += '<div class="rps-thumb">' + thumbContent + '</div>';
+        html += '<div class="rps-name">' + shortName + '</div>';
+        html += '<span class="rps-status ' + statusClass + '">' + statusLabel + '</span>';
+        // Composition badge: show when dual-logo is enabled for this brand
+        if (brandOverrides[brandId] && brandOverrides[brandId].secondary_logo_enabled) {
+            html += '<span class="rps-comp-badge">2\u00d7</span>';
+        }
+        html += '</div>';
+    });
+
+    track.innerHTML = html;
+}
+
+// Click handler for Result Preview Strip cards
+function rpsSelectBrand(brandId) {
+    if (!selectedBrandIds.includes(brandId)) return;
+    if (brandId === activePreviewBrandId) return;
+    switchActivePreview(brandId);
+    updatePreviewTargetBar();
+    updateConfirmationSummary();
+}
+
+// ========== DUAL-LOGO COMPOSITION MODE ==========
+function onCompToggle() {
+    var enabled = document.getElementById('compEnabled') && document.getElementById('compEnabled').checked;
+    var controls = document.getElementById('compControls');
+    if (controls) controls.style.display = enabled ? 'block' : 'none';
+    if (enabled) {
+        renderCompLogoGrid();
+    } else {
+        secondaryLogoImg = null;
+        secLogoSelectedBrandId = null;
+    }
+    updateCanvasPreview();
+    updatePreviewTargetBar();
+}
+
+function renderCompLogoGrid() {
+    var grid = document.getElementById('compLogoGrid');
+    if (!grid) return;
+    var html = '';
+    // Show logos from all cached brands EXCEPT the active preview brand
+    Object.keys(brandDataCache).forEach(function(id) {
+        var numId = parseInt(id);
+        if (numId === activePreviewBrandId) return;
+        var brand = brandDataCache[id];
+        if (!brand || !brand.logo_path) return;
+        var name = brand.display_name || brand.name || 'Brand';
+        var shortName = name.length > 8 ? name.substring(0, 7) + '\u2026' : name;
+        var selClass = numId === secLogoSelectedBrandId ? ' selected' : '';
+        html += '<div class="comp-logo-option' + selClass + '" onclick="selectSecondaryLogo(' + numId + ')" title="' + name + '">';
+        html += '<img src="/api/preview/brand-asset/' + numId + '/logo" onerror="this.parentElement.style.display=\'none\'">';
+        html += '<span class="comp-logo-name">' + shortName + '</span>';
+        html += '</div>';
+    });
+    if (!html) {
+        html = '<p style="color:#666;font-size:11px;">No other brand logos available. Create another brand with a logo first.</p>';
+    }
+    grid.innerHTML = html;
+}
+
+function selectSecondaryLogo(brandId) {
+    secLogoSelectedBrandId = brandId;
+    secLogoCenterXPercent = 0;  // Reset position to default
+    secLogoCenterYPercent = 0;
+    loadSecondaryLogoImage(brandId);
+    renderCompLogoGrid();
+}
+
+function loadSecondaryLogoImage(brandId) {
+    secondaryLogoImg = new Image();
+    secondaryLogoImg.crossOrigin = 'anonymous';
+    secondaryLogoImg.onload = function() { updateCanvasPreview(); };
+    secondaryLogoImg.onerror = function() {
+        console.warn('[COMP] Secondary logo load failed for brand #' + brandId);
+        secondaryLogoImg = null;
+        updateCanvasPreview();
+    };
+    secondaryLogoImg.src = '/api/preview/brand-asset/' + brandId + '/logo';
+}
+
+function resetSecondaryLogo() {
+    secLogoSelectedBrandId = null;
+    secLogoCenterXPercent = 0;
+    secLogoCenterYPercent = 0;
+    secondaryLogoImg = null;
+    document.getElementById('compScale').value = 12;
+    document.getElementById('compScaleVal').textContent = '12%';
+    document.getElementById('compOpacity').value = 90;
+    document.getElementById('compOpacityVal').textContent = '90%';
+    document.getElementById('compRotation').value = 0;
+    document.getElementById('compRotationVal').textContent = '0\u00B0';
+    renderCompLogoGrid();
+    updateCanvasPreview();
+    updatePreviewTargetBar();
 }
 
 // ========== CANVAS PREVIEW ==========
@@ -1417,6 +1871,45 @@ function drawOverlays() {
         
         // Store logo bounds for hit testing
         canvas._logoBounds = { x: drawX, y: drawY, w: logoW, h: logoH };
+    }
+    
+    // Draw secondary logo (dual-logo composition mode)
+    var compEl = document.getElementById('compEnabled');
+    if (compEl && compEl.checked && secondaryLogoImg && secondaryLogoImg.complete && secondaryLogoImg.naturalWidth > 0) {
+        var secScalePct = parseInt((document.getElementById('compScale') || {}).value || 12) / 100;
+        var secOpacity = parseInt((document.getElementById('compOpacity') || {}).value || 90) / 100;
+        var secRotation = parseInt((document.getElementById('compRotation') || {}).value || 0);
+        
+        var secW = canvas.width * secScalePct;
+        var secH = (secondaryLogoImg.height / secondaryLogoImg.width) * secW;
+        
+        // Default position: top-right if no custom position set
+        if (secLogoCenterXPercent === 0 && secLogoCenterYPercent === 0) {
+            var defaultRightMargin = 20;
+            var defaultTopMargin = 20;
+            secLogoCenterXPercent = (canvas.width - defaultRightMargin - secW / 2) / canvas.width;
+            secLogoCenterYPercent = (defaultTopMargin + secH / 2) / canvas.height;
+        }
+        
+        var secCenterX = secLogoCenterXPercent * canvas.width;
+        var secCenterY = secLogoCenterYPercent * canvas.height;
+        var secDrawX = secCenterX - secW / 2;
+        var secDrawY = secCenterY - secH / 2;
+        
+        ctx.save();
+        ctx.globalAlpha = secOpacity;
+        if (secRotation !== 0) {
+            var secRotRad = (secRotation * Math.PI) / 180;
+            ctx.translate(secCenterX, secCenterY);
+            ctx.rotate(secRotRad);
+            ctx.translate(-secCenterX, -secCenterY);
+        }
+        ctx.drawImage(secondaryLogoImg, secDrawX, secDrawY, secW, secH);
+        ctx.restore();
+        
+        canvas._secLogoBounds = { x: secDrawX, y: secDrawY, w: secW, h: secH };
+    } else {
+        canvas._secLogoBounds = null;
     }
     
     // Draw text layer
@@ -1558,6 +2051,19 @@ function startDrag(e) {
             const centerY = logoCenterYPercent * canvas.height;
             logoDragStart = { x: pos.x - centerX, y: pos.y - centerY };
             canvas.style.cursor = 'grabbing';
+            return;
+        }
+    }
+    
+    // Check if clicking on secondary logo
+    if (canvas._secLogoBounds) {
+        const sb = canvas._secLogoBounds;
+        if (pos.x >= sb.x && pos.x <= sb.x + sb.w && pos.y >= sb.y && pos.y <= sb.y + sb.h) {
+            secondaryLogoDragging = true;
+            var secCX = secLogoCenterXPercent * canvas.width;
+            var secCY = secLogoCenterYPercent * canvas.height;
+            secLogoDragStart = { x: pos.x - secCX, y: pos.y - secCY };
+            canvas.style.cursor = 'grabbing';
         }
     }
 }
@@ -1567,6 +2073,13 @@ function drag(e) {
         const pos = getCanvasCoords(e);
         textX = pos.x - textDragStart.x;
         textY = pos.y - textDragStart.y;
+        updateCanvasPreview();
+    } else if (secondaryLogoDragging) {
+        const pos = getCanvasCoords(e);
+        var secCX = pos.x - secLogoDragStart.x;
+        var secCY = pos.y - secLogoDragStart.y;
+        secLogoCenterXPercent = Math.max(0.05, Math.min(0.95, secCX / canvas.width));
+        secLogoCenterYPercent = Math.max(0.05, Math.min(0.95, secCY / canvas.height));
         updateCanvasPreview();
     } else if (logoDragging) {
         const pos = getCanvasCoords(e);
@@ -1594,6 +2107,7 @@ function drag(e) {
 function endDrag() {
     logoDragging = false;
     textDragging = false;
+    secondaryLogoDragging = false;
     canvas.style.cursor = 'default';
 }
 
@@ -1867,6 +2381,17 @@ async function loadBrandConfig(brandId) {
         
         // Show/hide text controls
         document.getElementById('textControls').style.display = cfg.text_enabled ? 'block' : 'none';
+        
+        // Reset secondary logo (composition mode) to off when loading brand defaults
+        var compEl = document.getElementById('compEnabled');
+        if (compEl) {
+            compEl.checked = false;
+            document.getElementById('compControls').style.display = 'none';
+            secondaryLogoImg = null;
+            secLogoSelectedBrandId = null;
+            secLogoCenterXPercent = 0;
+            secLogoCenterYPercent = 0;
+        }
         
         console.log(`[UI] Loaded config for brand #${brandId} (${cfg.display_name}):`, cfg);
         updateCanvasPreview();
@@ -2176,6 +2701,32 @@ function loadOverridesIntoSliders(overrides) {
     logoRotationDegrees = overrides.logo_rotation || 0;
     document.getElementById('logoRotation').value = overrides.logo_rotation || 0;
     document.getElementById('logoRotationVal').textContent = (overrides.logo_rotation || 0) + '\u00B0';
+    
+    // Restore secondary logo (dual-logo composition) state
+    var compEl = document.getElementById('compEnabled');
+    if (compEl) {
+        var secEnabled = !!overrides.secondary_logo_enabled;
+        compEl.checked = secEnabled;
+        document.getElementById('compControls').style.display = secEnabled ? 'block' : 'none';
+        secLogoCenterXPercent = overrides.secondary_logo_x || 0;
+        secLogoCenterYPercent = overrides.secondary_logo_y || 0;
+        secLogoSelectedBrandId = overrides.secondary_logo_brand_id || null;
+        var scaleVal = Math.round((overrides.secondary_logo_scale || 0.12) * 100);
+        var opacityVal = Math.round((overrides.secondary_logo_opacity || 0.9) * 100);
+        var rotVal = overrides.secondary_logo_rotation || 0;
+        document.getElementById('compScale').value = scaleVal;
+        document.getElementById('compScaleVal').textContent = scaleVal + '%';
+        document.getElementById('compOpacity').value = opacityVal;
+        document.getElementById('compOpacityVal').textContent = opacityVal + '%';
+        document.getElementById('compRotation').value = rotVal;
+        document.getElementById('compRotationVal').textContent = rotVal + '\u00B0';
+        if (secEnabled && secLogoSelectedBrandId) {
+            loadSecondaryLogoImage(secLogoSelectedBrandId);
+        } else {
+            secondaryLogoImg = null;
+        }
+        renderCompLogoGrid();
+    }
     updateCanvasPreview();
 }
 
@@ -2253,7 +2804,15 @@ async function processCurrentBrand() {
                 text_size: current.overrides.text_size,
                 text_color: current.overrides.text_color,
                 text_bg_enabled: current.overrides.text_bg_enabled,
-                text_bg_opacity: current.overrides.text_bg_opacity
+                text_bg_opacity: current.overrides.text_bg_opacity,
+                // Dual-logo composition mode (Platinum+)
+                secondary_logo_enabled: current.overrides.secondary_logo_enabled || false,
+                secondary_logo_brand_id: current.overrides.secondary_logo_brand_id || null,
+                secondary_logo_scale: current.overrides.secondary_logo_scale || 0.12,
+                secondary_logo_opacity: current.overrides.secondary_logo_opacity || 0.9,
+                secondary_logo_rotation: current.overrides.secondary_logo_rotation || 0,
+                secondary_logo_x: current.overrides.secondary_logo_x || 0,
+                secondary_logo_y: current.overrides.secondary_logo_y || 0
             })
         });
         
@@ -2541,6 +3100,7 @@ async function extractFrame(filename) {
             canvas.height = canvas.width * (videoHeight / videoWidth);
             
             updateCanvasPreview();
+            renderResultPreviewStrip();  // Update strip with new source thumbnail
         }
     } catch (err) {
         console.error('Frame extraction failed:', err);

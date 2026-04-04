@@ -1,7 +1,7 @@
 <!-- Shared Upgrade Modal — include on any page that needs upgrade conversion -->
 <!-- Requires template variable: tier (current user tier) -->
 <!-- user_special_status injected by context processor -->
-{% if tier != 'Studio' and not user_special_status %}
+{% if tier not in ('Studio', 'Platinum', 'Elite') and not user_special_status %}
 <div class="upgrade-modal-overlay wide" id="upgradeModal">
     <div class="upgrade-modal">
         <h2 id="upgradeModalTitle">Multiply Your Brands</h2>
@@ -23,7 +23,7 @@
 
             <div class="upgrade-card {% if tier == 'Creator' %}current-plan{% endif %}">
                 <div class="upgrade-card-info">
-                    <h3><span style="color:#F5A623;">Creator</span> <span style="color:#888;font-size:13px;font-weight:400;">$9/mo</span></h3>
+                    <h3><span style="color:#A855F7;">Creator</span> <span style="color:#888;font-size:13px;font-weight:400;">$9/mo</span></h3>
                     <p style="font-size:18px; font-weight:600; margin:6px 0;">1 video &rarr; 8 brands</p>
                     <p style="color:#888; font-size:12px;">60 jobs/day &middot; 100 fetches/day &middot; 5 brand configs</p>
                 </div>
@@ -36,7 +36,7 @@
 
             <div class="upgrade-card">
                 <div class="upgrade-card-info">
-                    <h3><span style="color:#A855F7;">Studio</span> <span style="color:#888;font-size:13px;font-weight:400;">$19/mo</span></h3>
+                    <h3><span style="color:#F5A623;">Studio</span> <span style="color:#888;font-size:13px;font-weight:400;">$19/mo</span></h3>
                     <p style="font-size:18px; font-weight:600; margin:6px 0;">1 video &rarr; 20 brands</p>
                     <p style="color:#888; font-size:12px;">120 jobs/day &middot; 200 fetches/day &middot; Unlimited configs</p>
                 </div>
