@@ -221,22 +221,22 @@
             <div class="limits-grid">
                 <div class="limit-card">
                     <div class="limit-label">Branding Jobs</div>
-                    <div class="limit-value">{{ limits.branding_jobs_per_day }}</div>
+                    <div class="limit-value">{% if limits.branding_jobs_per_day >= 9999 %}∞{% else %}{{ limits.branding_jobs_per_day }}{% endif %}</div>
                     <div class="limit-unit">per day</div>
                 </div>
                 <div class="limit-card">
                     <div class="limit-label">Brands per Job</div>
-                    <div class="limit-value">{{ limits.max_brands_per_job }}</div>
+                    <div class="limit-value">{% if limits.max_brands_per_job >= 9999 %}∞{% else %}{{ limits.max_brands_per_job }}{% endif %}</div>
                     <div class="limit-unit">max simultaneous</div>
                 </div>
                 <div class="limit-card">
                     <div class="limit-label">Brand Configs</div>
-                    <div class="limit-value">{% if limits.max_brand_configs == -1 %}Unlimited{% else %}{{ brand_configs }} / {{ limits.max_brand_configs }}{% endif %}</div>
+                    <div class="limit-value">{% if limits.max_brand_configs == -1 %}∞{% else %}{{ brand_configs }} / {{ limits.max_brand_configs }}{% endif %}</div>
                     <div class="limit-unit">{% if limits.max_brand_configs == -1 %}no cap{% else %}created{% endif %}</div>
                 </div>
                 <div class="limit-card">
                     <div class="limit-label">Fetches</div>
-                    <div class="limit-value">{{ limits.fetches_per_day }}</div>
+                    <div class="limit-value">{% if limits.fetches_per_day >= 9999 %}∞{% else %}{{ limits.fetches_per_day }}{% endif %}</div>
                     <div class="limit-unit">per day</div>
                 </div>
             </div>

@@ -172,13 +172,6 @@
         <li><a href="{{ url_for('shipr_page') }}"{% if active_page == 'shipr_page' %} class="active"{% endif %}>Shipr</a></li>
     </ul>
     <div class="nav-identity">
-        <div class="nav-badges">
-            {% if is_admin_user %}<span class="tier-badge role-admin">Admin</span>{% endif %}
-            {% if user_badge %}
-                {% if user_special_status %}<span class="tier-badge status-{{ user_special_status }} badge-secondary">{{ user_badge.label }}</span>{% endif %}
-                <span class="tier-badge tier-{{ user_badge.tier|lower }} badge-secondary">{{ user_badge.secondary_label or user_badge.tier }}</span>
-            {% endif %}
-        </div>
         <div class="dropdown">
             <a href="#" tabindex="0">Account ▾</a>
             <div class="dropdown-content">

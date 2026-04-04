@@ -214,8 +214,8 @@
                 <div class="usage-widget" style="margin-bottom:0;">
                     <div class="usage-info">
                         <div class="usage-label">Jobs Today</div>
-                        <div class="usage-numbers"><span class="usage-accent">{{ usage.branding_jobs }}</span> / {{ limits.branding_jobs_per_day }}</div>
-                        {% set pct_jobs = (((usage.branding_jobs / limits.branding_jobs_per_day) * 100) | int) if limits.branding_jobs_per_day > 0 else 0 %}
+                        <div class="usage-numbers"><span class="usage-accent">{{ usage.branding_jobs }}</span> / {% if limits.branding_jobs_per_day >= 9999 %}∞{% else %}{{ limits.branding_jobs_per_day }}{% endif %}</div>
+                        {% set pct_jobs = (((usage.branding_jobs / limits.branding_jobs_per_day) * 100) | int) if limits.branding_jobs_per_day > 0 and limits.branding_jobs_per_day < 9999 else 0 %}
                         <div class="usage-bar">
                             <div class="usage-bar-fill{% if pct_jobs >= 100 %} critical{% elif pct_jobs >= 80 %} warning{% endif %}" style="width: {{ [pct_jobs, 100] | min }}%"></div>
                         </div>
@@ -226,8 +226,8 @@
                 <div class="usage-widget" style="margin-bottom:0;">
                     <div class="usage-info">
                         <div class="usage-label">Fetches Today</div>
-                        <div class="usage-numbers"><span class="usage-accent">{{ usage.downloads }}</span> / {{ limits.fetches_per_day }}</div>
-                        {% set pct_dl = (((usage.downloads / limits.fetches_per_day) * 100) | int) if limits.fetches_per_day > 0 else 0 %}
+                        <div class="usage-numbers"><span class="usage-accent">{{ usage.downloads }}</span> / {% if limits.fetches_per_day >= 9999 %}∞{% else %}{{ limits.fetches_per_day }}{% endif %}</div>
+                        {% set pct_dl = (((usage.downloads / limits.fetches_per_day) * 100) | int) if limits.fetches_per_day > 0 and limits.fetches_per_day < 9999 else 0 %}
                         <div class="usage-bar">
                             <div class="usage-bar-fill{% if pct_dl >= 100 %} critical{% elif pct_dl >= 80 %} warning{% endif %}" style="width: {{ [pct_dl, 100] | min }}%"></div>
                         </div>

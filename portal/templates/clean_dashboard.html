@@ -677,8 +677,9 @@
                 <div id="libraryGrid" class="library-grid" style="display:none;"></div>
                 <div id="libraryEmpty" style="display:none; text-align:center; padding:20px;">
                     <div style="font-size:32px; margin-bottom:8px;">📁</div>
-                    <p style="color:#888; margin-bottom:10px;">No media in your library yet</p>
-                    <a href="{{ url_for('download') }}" style="color:#86EDA5; text-decoration:none; font-size:13px;">Get Media &rarr;</a>
+                    <p style="color:#ccc; margin-bottom:4px; font-size:15px;">Your library is empty</p>
+                    <p style="color:#666; margin-bottom:12px; font-size:13px;">Import a video from Instagram, TikTok, or YouTube to get started.</p>
+                    <a href="{{ url_for('download') }}" style="color:#86EDA5; text-decoration:none; font-size:13px;">Import Media &rarr;</a>
                 </div>
                 <div class="library-footer" id="libraryFooter" style="display:none;">
                     <a href="{{ url_for('library') }}">View full library &rarr;</a>
@@ -882,7 +883,8 @@
     <div id="processResult" style="margin-top:10px;"></div>
 </div>
 
-<!-- ========== SECTION 3: DEBUG (Collapsed) ========== -->
+<!-- ========== SECTION 3: DEBUG (Collapsed, Admin Only) ========== -->
+{% if is_admin_user %}
 <div class="section collapsed" id="debugSection">
     <div class="collapsible-header" onclick="toggleSection('debugSection')">
         <h2>Debug Tools</h2>
@@ -895,6 +897,7 @@
         <div id="brandIntegrity" style="font-size:11px; margin-top:10px; color:#888;"></div>
     </div>
 </div>
+{% endif %}
 
 <script>
 const apiBase = window.location.origin;
