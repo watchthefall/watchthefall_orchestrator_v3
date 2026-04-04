@@ -662,8 +662,8 @@
             <div id="tabDownload" style="display:block;">
                 <div style="padding:24px 20px;">
                     <div style="display:flex; gap:8px; max-width:600px; margin:0 auto;">
-                        <input type="text" id="inlineUrlInput" placeholder="Paste a TikTok, Instagram, or YouTube link..." style="flex:1; background:#121214; border:1px solid #444; border-radius:8px; padding:12px 16px; color:#fff; font-size:14px; outline:none;" onkeydown="if(event.key==='Enter')inlineFetchVideo()">
-                        <button class="btn btn-primary" id="inlineFetchBtn" onclick="inlineFetchVideo()" style="padding:12px 20px; font-size:14px; white-space:nowrap;">Get Media</button>
+                        <input type="text" id="inlineUrlInput" placeholder="Paste a TikTok, Instagram, or YouTube link..." style="flex:1; min-width:0; width:auto; background:#121214; border:1px solid #444; border-radius:8px; padding:12px 16px; color:#fff; font-size:14px; outline:none; margin:0;" onkeydown="if(event.key==='Enter')inlineFetchVideo()">
+                        <button id="inlineFetchBtn" onclick="inlineFetchVideo()" style="width:auto; flex-shrink:0; padding:12px 20px; font-size:14px; white-space:nowrap; margin:0; border-radius:8px;">Get Media</button>
                     </div>
                     <div id="inlineFetchStatus" style="text-align:center; margin-top:12px; font-size:13px; color:#888; display:none;"></div>
                 </div>
