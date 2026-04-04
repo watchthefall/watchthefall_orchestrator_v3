@@ -94,9 +94,9 @@ TIER_CONFIG = {
     'Platinum': {
         'label': 'Platinum',
         'price': 49,
-        'color': '#D4A017',       # gold
-        'accent': '#D4A017',
-        'badge_image': 'badges/legacy.png',
+        'color': '#C0CFFF',       # icy chrome blue (matches logo)
+        'accent': '#C0CFFF',
+        'badge_image': 'badges/platinum.png',
         'fetches_per_day': 500,
         'ig_per_hour': 30,
         'branding_jobs_per_day': 300,
