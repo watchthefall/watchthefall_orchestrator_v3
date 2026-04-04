@@ -59,3 +59,189 @@ body {
     color: #86EDA5;
     border: 2px solid rgba(134, 237, 165, 0.5);
 }
+
+/* ============================================================================
+   USAGE WIDGET — Progress bar for Dashboard limit awareness
+   ============================================================================ */
+.usage-widget {
+    background: #202024;
+    border: 1px solid #2a2a2e;
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.usage-widget .usage-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.usage-widget .usage-label {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 6px;
+}
+
+.usage-widget .usage-numbers {
+    font-size: 15px;
+    font-weight: 600;
+    color: #EAEAEA;
+    margin-bottom: 8px;
+}
+
+.usage-widget .usage-numbers .usage-accent {
+    color: #86EDA5;
+}
+
+.usage-bar {
+    width: 100%;
+    height: 6px;
+    background: #2a2a2e;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.usage-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: #86EDA5;
+    transition: width 0.4s ease;
+}
+
+.usage-bar-fill.warning {
+    background: #f0ad4e;
+}
+
+.usage-bar-fill.critical {
+    background: #e05252;
+}
+
+.usage-widget .usage-cta {
+    font-size: 13px;
+    color: #86EDA5;
+    text-decoration: none;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.usage-widget .usage-cta:hover {
+    text-decoration: underline;
+}
+
+/* ============================================================================
+   LIMIT BANNER — Contextual warning shown when at or over limit
+   ============================================================================ */
+.limit-banner {
+    background: rgba(224, 82, 82, 0.08);
+    border: 1px solid rgba(224, 82, 82, 0.25);
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    color: #EAEAEA;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.limit-banner a {
+    color: #86EDA5;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.limit-banner a:hover {
+    color: #6BDB8B;
+}
+
+/* ============================================================================
+   UPGRADE MODAL — Velvet rope intercept when hitting a limit
+   ============================================================================ */
+.upgrade-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+}
+
+.upgrade-modal-overlay.active {
+    display: flex;
+}
+
+.upgrade-modal {
+    background: #202024;
+    border: 1px solid #2a2a2e;
+    border-radius: 14px;
+    padding: 36px 32px;
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+}
+
+.upgrade-modal .modal-icon {
+    font-size: 40px;
+    margin-bottom: 16px;
+}
+
+.upgrade-modal h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #EAEAEA;
+    margin-bottom: 10px;
+}
+
+.upgrade-modal p {
+    font-size: 14px;
+    color: #888;
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+.upgrade-modal .upgrade-btn {
+    display: inline-block;
+    padding: 12px 28px;
+    background: #86EDA5;
+    color: #121214;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.upgrade-modal .upgrade-btn:hover {
+    background: #6BDB8B;
+}
+
+.upgrade-modal .modal-dismiss {
+    display: block;
+    margin-top: 14px;
+    font-size: 13px;
+    color: #666;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.upgrade-modal .modal-dismiss:hover {
+    color: #888;
+}
+
+@media (max-width: 600px) {
+    .usage-widget {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    .usage-widget .usage-cta {
+        text-align: center;
+    }
+}

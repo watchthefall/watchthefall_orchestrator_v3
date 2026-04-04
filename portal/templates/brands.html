@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Brand Management | Brandr</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -36,25 +37,6 @@
             color: #121214;
         }
         .btn-primary:hover { background: #6BDB8B; transform: translateY(-2px); }
-        .btn-primary:disabled {
-            background: #444;
-            color: #888;
-            cursor: not-allowed;
-            transform: none;
-        }
-        .tier-limit-msg {
-            background: rgba(134, 237, 165, 0.1);
-            border: 1px solid rgba(134, 237, 165, 0.25);
-            color: #aaa;
-            padding: 10px 16px;
-            border-radius: 8px;
-            font-size: 0.9em;
-            margin-top: 8px;
-        }
-        .tier-limit-msg a {
-            color: #86EDA5;
-            text-decoration: underline;
-        }
         .btn-secondary {
             background: #666;
             color: #fff;
@@ -379,16 +361,22 @@
 <div class="container">
     <header>
         <h1>Brand Management</h1>
-        <button id="createBrandBtn" class="btn btn-primary" onclick="openBrandWizard()" {% if not can_create %}disabled{% endif %}>+ Create Brand</button>
+        <button id="createBrandBtn" class="btn btn-primary" onclick="openBrandWizard()">+ Create Brand</button>
     </header>
-    {% if not can_create %}
-    <div class="tier-limit-msg" id="tierLimitMsg">
-        {{ tier }} plan limit reached ({{ brand_count }}/{{ max_brands }}). <a href="/portal/profile">Upgrade</a> to create more brands.
-    </div>
-    {% endif %}
     
     <div id="brandGrid" class="brand-grid">
         <!-- Brands loaded here -->
+    </div>
+</div>
+
+<!-- Upgrade Intercept Modal -->
+<div class="upgrade-modal-overlay" id="upgradeModal">
+    <div class="upgrade-modal">
+        <div class="modal-icon">✦</div>
+        <h2 id="upgradeModalTitle">You've hit your brand limit</h2>
+        <p id="upgradeModalBody">Upgrade to unlock more brand configurations and keep building.</p>
+        <a href="/portal/profile" class="upgrade-btn">Unlock more brands</a>
+        <button class="modal-dismiss" onclick="closeUpgradeModal()">Not now</button>
     </div>
 </div>
 
@@ -1266,23 +1254,11 @@ async function loadBrands() {
 }
 
 function updateCreateButtonState(canCreate, tier, maxBrands, count) {
-    const btn = document.getElementById('createBrandBtn');
-    const existingMsg = document.getElementById('tierLimitMsg');
-    if (!btn) return;
-    
-    if (canCreate) {
-        btn.disabled = false;
-        if (existingMsg) existingMsg.remove();
-    } else {
-        btn.disabled = true;
-        if (!existingMsg) {
-            const msg = document.createElement('div');
-            msg.className = 'tier-limit-msg';
-            msg.id = 'tierLimitMsg';
-            msg.innerHTML = `${tier} plan limit reached (${count}/${maxBrands}). <a href="/portal/profile">Upgrade</a> to create more brands.`;
-            btn.closest('header').insertAdjacentElement('afterend', msg);
-        }
-    }
+    // Track limit state globally for the velvet rope intercept
+    window._brandLimitReached = !canCreate;
+    window._brandTier = tier || '';
+    window._brandMax = maxBrands || 0;
+    window._brandCount = count || 0;
 }
 
 function renderBrands(brands, canCreate) {
@@ -1291,15 +1267,12 @@ function renderBrands(brands, canCreate) {
     
     // Handle empty state - new users with zero brands
     if (brands.length === 0) {
-        const emptyBtn = canCreate !== false
-            ? `<button class="btn btn-primary" onclick="openBrandWizard()">✨ Create Your First Brand</button>`
-            : `<button class="btn btn-primary" disabled>✨ Create Your First Brand</button>`;
         grid.innerHTML = `
             <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px;">
                 <div style="font-size: 48px; margin-bottom: 20px;">🎨</div>
                 <h2 style="margin-bottom: 12px;">No Brands Yet</h2>
                 <p style="color: #aaa; margin-bottom: 24px;">Create your first brand to get started with custom watermarks and logos</p>
-                ${emptyBtn}
+                <button class="btn btn-primary" onclick="openBrandWizard()">✨ Create Your First Brand</button>
             </div>
         `;
         return;
@@ -1821,9 +1794,11 @@ let wizardLogoImage = null;
 let wizardWatermarkImage = null;
 
 function openBrandWizard() {
-    // Guard: prevent opening if create button is disabled (tier limit)
-    const btn = document.getElementById('createBrandBtn');
-    if (btn && btn.disabled) return;
+    // Velvet rope: if at tier limit, show upgrade modal instead of blocking
+    if (window._brandLimitReached) {
+        showUpgradeModal();
+        return;
+    }
     
     // Reset state
     wizardState = {
@@ -2708,6 +2683,11 @@ async function saveWizardBrandWithWatermark() {
         
         const createData = await createRes.json();
         if (!createData.success) {
+            if (createData.code === 'TIER_LIMIT_REACHED') {
+                closeBrandWizard();
+                showUpgradeModal(null, createData.error);
+                return;
+            }
             throw new Error(createData.error || 'Failed to create brand');
         }
         
@@ -2839,6 +2819,11 @@ async function saveWizardBrand() {
         
         const createData = await createRes.json();
         if (!createData.success) {
+            if (createData.code === 'TIER_LIMIT_REACHED') {
+                closeBrandWizard();
+                showUpgradeModal(null, createData.error);
+                return;
+            }
             throw new Error(createData.error || 'Failed to create brand');
         }
         
@@ -2918,6 +2903,25 @@ document.getElementById('wizardBrandSlug')?.addEventListener('input', function(e
     if (e.target.value !== slugify(document.getElementById('wizardDisplayName').value)) {
         e.target.dataset.auto = 'false';
     }
+});
+
+// Upgrade modal helpers
+window._brandLimitReached = false;
+
+function showUpgradeModal(title, body) {
+    var t = title || "You've hit your " + (window._brandTier || '') + " brand limit";
+    var b = body || "You have " + (window._brandCount || 0) + "/" + (window._brandMax || 0) + " brand configs. Upgrade to unlock more and keep building.";
+    document.getElementById('upgradeModalTitle').textContent = t;
+    document.getElementById('upgradeModalBody').textContent = b;
+    document.getElementById('upgradeModal').classList.add('active');
+}
+
+function closeUpgradeModal() {
+    document.getElementById('upgradeModal').classList.remove('active');
+}
+
+document.getElementById('upgradeModal').addEventListener('click', function(e) {
+    if (e.target === this) closeUpgradeModal();
 });
 </script>
 

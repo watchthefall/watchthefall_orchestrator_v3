@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Brandr</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -183,6 +184,30 @@
         <div class="workspace-section">
             <h1>Welcome back</h1>
             
+            {% if max_brands is defined and max_brands != -1 and brand_count is defined and brand_count >= max_brands %}
+            <!-- Over-limit banner -->
+            <div class="limit-banner">
+                <span>Your account has {{ brand_count }}/{{ max_brands }} brand configs. <a href="/portal/profile">Upgrade your plan</a> or delete configs to resume creating.</span>
+            </div>
+            {% endif %}
+            
+            {% if max_brands is defined and max_brands != -1 %}
+            <!-- Usage widget -->
+            <div class="usage-widget">
+                <div class="usage-info">
+                    <div class="usage-label">Brand Configs</div>
+                    <div class="usage-numbers"><span class="usage-accent">{{ brand_count }}</span> / {{ max_brands }} used</div>
+                    {% set pct = (((brand_count / max_brands) * 100) | int) if max_brands > 0 else 0 %}
+                    <div class="usage-bar">
+                        <div class="usage-bar-fill{% if pct >= 100 %} critical{% elif pct >= 80 %} warning{% endif %}" style="width: {{ [pct, 100] | min }}%"></div>
+                    </div>
+                </div>
+                {% if pct >= 80 %}
+                <a href="/portal/profile" class="usage-cta">Upgrade plan</a>
+                {% endif %}
+            </div>
+            {% endif %}
+            
             <div class="quick-actions">
                 <a href="{{ url_for('brand_video') }}" class="action-card primary-action">
                     <div class="card-icon">✨</div>
@@ -211,5 +236,30 @@
         </div>
         {% endif %}
     </div>
+
+<!-- Upgrade Intercept Modal (reusable, triggered from anywhere) -->
+<div class="upgrade-modal-overlay" id="upgradeModal">
+    <div class="upgrade-modal">
+        <div class="modal-icon">✦</div>
+        <h2 id="upgradeModalTitle">You've hit your brand limit</h2>
+        <p id="upgradeModalBody">Upgrade to unlock more brand configurations and keep building.</p>
+        <a href="/portal/profile" class="upgrade-btn">Unlock more brands</a>
+        <button class="modal-dismiss" onclick="closeUpgradeModal()">Not now</button>
+    </div>
+</div>
+
+<script>
+function showUpgradeModal(title, body) {
+    if (title) document.getElementById('upgradeModalTitle').textContent = title;
+    if (body) document.getElementById('upgradeModalBody').textContent = body;
+    document.getElementById('upgradeModal').classList.add('active');
+}
+function closeUpgradeModal() {
+    document.getElementById('upgradeModal').classList.remove('active');
+}
+document.getElementById('upgradeModal').addEventListener('click', function(e) {
+    if (e.target === this) closeUpgradeModal();
+});
+</script>
 </body>
 </html>

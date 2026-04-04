@@ -212,9 +212,24 @@ def get_user_state(user_id):
 @login_required
 def dashboard():
     """Adaptive dashboard based on user state"""
+    from .database import get_user_brand_count
     user_id = session.get('user_id')
     state = get_user_state(user_id)
-    return render_template('dashboard.html', state=state)
+    
+    # Tier/limit context for usage widget
+    tier = get_user_tier(user_id)
+    limits = get_tier_limits(tier)
+    max_brands = limits.get('max_brand_configs', 1)
+    brand_count = get_user_brand_count(user_id) if user_id else 0
+    can_create = (max_brands == -1) or (brand_count < max_brands)
+    
+    return render_template('dashboard.html',
+        state=state,
+        tier=tier,
+        max_brands=max_brands,
+        brand_count=brand_count,
+        can_create=can_create,
+    )
 
 
 # Default routing based on login status
@@ -487,21 +502,7 @@ def brand_video():
 @login_required
 def brands_page():
     """Brand management page"""
-    from .database import get_user_brand_count
-
-    user_id = session.get('user_id')
-    tier = get_user_tier(user_id)
-    limits = get_tier_limits(tier)
-    max_brands = limits.get('max_brand_configs', 1)
-    current_count = get_user_brand_count(user_id) if user_id else 0
-    can_create = (max_brands == -1) or (current_count < max_brands)
-
-    return render_template('brands.html',
-        tier=tier,
-        max_brands=max_brands,
-        brand_count=current_count,
-        can_create=can_create,
-    )
+    return render_template('brands.html')
 
 @app.route('/portal/profile')
 @login_required
