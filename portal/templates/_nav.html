@@ -137,9 +137,17 @@
         padding: 8px 10px;
     }
 }
+.nav-bar .nav-logo {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    margin-right: 6px;
+    flex-shrink: 0;
+}
 </style>
 
 <div class="nav-bar">
+    <a href="{{ url_for('dashboard') }}"><img src="/static/img/brandr_logo.png" alt="Brandr" class="nav-logo"></a>
     <ul class="nav-links">
         <li><a href="{{ url_for('dashboard') }}"{% if active_page == 'dashboard' %} class="active"{% endif %}>Dashboard</a></li>
         <li><a href="{{ url_for('library') }}"{% if active_page == 'library' %} class="active"{% endif %}>Library</a></li>

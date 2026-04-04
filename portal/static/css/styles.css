@@ -245,3 +245,102 @@ body {
         text-align: center;
     }
 }
+
+/* ============================================================================
+   UPGRADE PLAN MODAL — Profile page tier selection
+   ============================================================================ */
+.upgrade-modal-overlay.wide .upgrade-modal {
+    max-width: 540px;
+}
+
+.upgrade-options {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.upgrade-card {
+    background: rgba(134, 237, 165, 0.06);
+    border: 1px solid rgba(134, 237, 165, 0.15);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.upgrade-card.current-plan {
+    border-color: rgba(134, 237, 165, 0.4);
+    background: rgba(134, 237, 165, 0.1);
+}
+
+.upgrade-card-info h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #EAEAEA;
+    margin-bottom: 4px;
+}
+
+.upgrade-card-info p {
+    font-size: 13px;
+    color: #888;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.upgrade-card .upgrade-card-btn {
+    padding: 8px 18px;
+    background: #86EDA5;
+    color: #121214;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s;
+}
+
+.upgrade-card .upgrade-card-btn:hover {
+    background: #6BDB8B;
+}
+
+.upgrade-card .upgrade-card-btn.current {
+    background: #2a2a2e;
+    color: #888;
+    cursor: default;
+}
+
+.tier-warning {
+    background: rgba(224, 82, 82, 0.08);
+    border: 1px solid rgba(224, 82, 82, 0.25);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-top: 14px;
+    font-size: 13px;
+    color: #EAEAEA;
+}
+
+.tier-warning a {
+    color: #86EDA5;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.tier-warning a:hover {
+    color: #6BDB8B;
+}
+
+@media (max-width: 600px) {
+    .upgrade-card {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+    }
+    .upgrade-card .upgrade-card-btn {
+        width: 100%;
+    }
+}

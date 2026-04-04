@@ -147,6 +147,7 @@
         {% if state == 'no_brand_kit' %}
         <!-- Onboarding State -->
         <div class="welcome-section">
+            <img src="/static/img/brandr_logo.png" alt="Brandr" style="width: 100px; height: 100px; object-fit: contain; display: block; margin: 0 auto 20px;">
             <h1>Welcome to Brandr</h1>
             <p class="subtitle">
                 Set up your Brand Kit, create branded content,<br>
@@ -187,7 +188,7 @@
             {% if max_brands is defined and max_brands != -1 and brand_count is defined and brand_count >= max_brands %}
             <!-- Over-limit banner -->
             <div class="limit-banner">
-                <span>Your account has {{ brand_count }}/{{ max_brands }} brand configs. <a href="/portal/profile">Upgrade your plan</a> or delete configs to resume creating.</span>
+                <span>Your account has {{ brand_count }}/{{ max_brands }} brand configs. <a href="/portal/profile#upgrade">Upgrade your plan</a> or delete configs to resume creating.</span>
             </div>
             {% endif %}
             
@@ -203,7 +204,7 @@
                     </div>
                 </div>
                 {% if pct >= 80 %}
-                <a href="/portal/profile" class="usage-cta">Upgrade plan</a>
+                <a href="/portal/profile#upgrade" class="usage-cta">Upgrade plan</a>
                 {% endif %}
             </div>
             {% endif %}
@@ -243,7 +244,7 @@
         <div class="modal-icon">✦</div>
         <h2 id="upgradeModalTitle">You've hit your brand limit</h2>
         <p id="upgradeModalBody">Upgrade to unlock more brand configurations and keep building.</p>
-        <a href="/portal/profile" class="upgrade-btn">Unlock more brands</a>
+        <a href="/portal/profile#upgrade" class="upgrade-btn">Unlock more brands</a>
         <button class="modal-dismiss" onclick="closeUpgradeModal()">Not now</button>
     </div>
 </div>
