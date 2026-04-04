@@ -487,7 +487,21 @@ def brand_video():
 @login_required
 def brands_page():
     """Brand management page"""
-    return render_template('brands.html')
+    from .database import get_user_brand_count
+
+    user_id = session.get('user_id')
+    tier = get_user_tier(user_id)
+    limits = get_tier_limits(tier)
+    max_brands = limits.get('max_brand_configs', 1)
+    current_count = get_user_brand_count(user_id) if user_id else 0
+    can_create = (max_brands == -1) or (current_count < max_brands)
+
+    return render_template('brands.html',
+        tier=tier,
+        max_brands=max_brands,
+        brand_count=current_count,
+        can_create=can_create,
+    )
 
 @app.route('/portal/profile')
 @login_required
@@ -1639,7 +1653,7 @@ def save_brand_config_api(brand_name):
 def get_all_brands_api():
     """Get user-owned brands ONLY (no system brands for SaaS)"""
     try:
-        from .database import get_all_brands
+        from .database import get_all_brands, get_user_brand_count
         
         # IMPORTANT: user_id comes from session, NOT from query params (security)
         user_id = session.get('user_id')
@@ -1652,10 +1666,20 @@ def get_all_brands_api():
         # Get user's brands (exclude system brands by default)
         brands = get_all_brands(user_id=user_id, include_system=include_system)
         
+        # Include tier info so frontend can update button state dynamically
+        tier = get_user_tier(user_id)
+        limits = get_tier_limits(tier)
+        max_brands = limits.get('max_brand_configs', 1)
+        current_count = get_user_brand_count(user_id)
+        can_create = (max_brands == -1) or (current_count < max_brands)
+        
         return jsonify({
             'success': True,
             'brands': brands,
-            'count': len(brands)
+            'count': len(brands),
+            'tier': tier,
+            'max_brands': max_brands,
+            'can_create': can_create,
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -1683,7 +1707,7 @@ def get_single_brand_api(brand_id):
 def create_brand_api():
     """Create a new brand"""
     try:
-        from .database import create_brand
+        from .database import create_brand, get_user_brand_count
         data = request.get_json(force=True) or {}
         
         # Required fields
@@ -1697,6 +1721,21 @@ def create_brand_api():
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        
+        # --- Tier enforcement: check max_brand_configs ---
+        tier = get_user_tier(user_id)
+        limits = get_tier_limits(tier)
+        max_brands = limits.get('max_brand_configs', 1)
+        
+        if max_brands != -1:  # -1 means unlimited
+            current_count = get_user_brand_count(user_id)
+            if current_count >= max_brands:
+                print(f"[BRANDS] Tier limit reached for user #{user_id}: {current_count}/{max_brands} ({tier})")
+                return jsonify({
+                    'success': False,
+                    'error': f"You've reached your {tier} brand limit ({max_brands}). Upgrade your plan to create more brands.",
+                    'code': 'TIER_LIMIT_REACHED'
+                }), 403
         
         print(f"[BRANDS] Creating brand '{name}' for user #{user_id}")
         

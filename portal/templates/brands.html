@@ -36,6 +36,25 @@
             color: #121214;
         }
         .btn-primary:hover { background: #6BDB8B; transform: translateY(-2px); }
+        .btn-primary:disabled {
+            background: #444;
+            color: #888;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .tier-limit-msg {
+            background: rgba(134, 237, 165, 0.1);
+            border: 1px solid rgba(134, 237, 165, 0.25);
+            color: #aaa;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            margin-top: 8px;
+        }
+        .tier-limit-msg a {
+            color: #86EDA5;
+            text-decoration: underline;
+        }
         .btn-secondary {
             background: #666;
             color: #fff;
@@ -360,8 +379,13 @@
 <div class="container">
     <header>
         <h1>Brand Management</h1>
-        <button class="btn btn-primary" onclick="openBrandWizard()">+ Create Brand</button>
+        <button id="createBrandBtn" class="btn btn-primary" onclick="openBrandWizard()" {% if not can_create %}disabled{% endif %}>+ Create Brand</button>
     </header>
+    {% if not can_create %}
+    <div class="tier-limit-msg" id="tierLimitMsg">
+        {{ tier }} plan limit reached ({{ brand_count }}/{{ max_brands }}). <a href="/portal/profile">Upgrade</a> to create more brands.
+    </div>
+    {% endif %}
     
     <div id="brandGrid" class="brand-grid">
         <!-- Brands loaded here -->
@@ -1232,24 +1256,50 @@ async function loadBrands() {
         // Safety filter: exclude any SYSTEM brands from display
         const userBrands = data.brands.filter(b => !b.is_system);
         
-        renderBrands(userBrands);
+        // Update create button state based on tier limits
+        updateCreateButtonState(data.can_create, data.tier, data.max_brands, userBrands.length);
+        
+        renderBrands(userBrands, data.can_create);
     } catch (err) {
         document.getElementById('brandGrid').innerHTML = `<div class="status-msg error">${err.message}</div>`;
     }
 }
 
-function renderBrands(brands) {
+function updateCreateButtonState(canCreate, tier, maxBrands, count) {
+    const btn = document.getElementById('createBrandBtn');
+    const existingMsg = document.getElementById('tierLimitMsg');
+    if (!btn) return;
+    
+    if (canCreate) {
+        btn.disabled = false;
+        if (existingMsg) existingMsg.remove();
+    } else {
+        btn.disabled = true;
+        if (!existingMsg) {
+            const msg = document.createElement('div');
+            msg.className = 'tier-limit-msg';
+            msg.id = 'tierLimitMsg';
+            msg.innerHTML = `${tier} plan limit reached (${count}/${maxBrands}). <a href="/portal/profile">Upgrade</a> to create more brands.`;
+            btn.closest('header').insertAdjacentElement('afterend', msg);
+        }
+    }
+}
+
+function renderBrands(brands, canCreate) {
     const grid = document.getElementById('brandGrid');
     grid.innerHTML = '';
     
     // Handle empty state - new users with zero brands
     if (brands.length === 0) {
+        const emptyBtn = canCreate !== false
+            ? `<button class="btn btn-primary" onclick="openBrandWizard()">✨ Create Your First Brand</button>`
+            : `<button class="btn btn-primary" disabled>✨ Create Your First Brand</button>`;
         grid.innerHTML = `
             <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px;">
                 <div style="font-size: 48px; margin-bottom: 20px;">🎨</div>
                 <h2 style="margin-bottom: 12px;">No Brands Yet</h2>
                 <p style="color: #aaa; margin-bottom: 24px;">Create your first brand to get started with custom watermarks and logos</p>
-                <button class="btn btn-primary" onclick="openBrandWizard()">✨ Create Your First Brand</button>
+                ${emptyBtn}
             </div>
         `;
         return;
@@ -1771,6 +1821,10 @@ let wizardLogoImage = null;
 let wizardWatermarkImage = null;
 
 function openBrandWizard() {
+    // Guard: prevent opening if create button is disabled (tier limit)
+    const btn = document.getElementById('createBrandBtn');
+    if (btn && btn.disabled) return;
+    
     // Reset state
     wizardState = {
         step: 1,

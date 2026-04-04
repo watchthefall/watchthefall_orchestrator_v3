@@ -582,6 +582,17 @@ def get_all_brands(user_id=None, include_system=True):
     
     return brands
 
+def get_user_brand_count(user_id):
+    """Return the number of active, non-system brands owned by a user."""
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            'SELECT COUNT(*) FROM brands WHERE user_id = ? AND is_system = 0 AND is_active = 1',
+            (user_id,)
+        )
+        return c.fetchone()[0]
+
+
 def create_brand(name, display_name, user_id=None, is_system=False, is_locked=False,
                  watermark_vertical=None, watermark_square=None, watermark_landscape=None,
                  logo_path=None, **config):
