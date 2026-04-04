@@ -1,5 +1,5 @@
 """
-WatchTheFall Portal - Flask Application
+Brandr - Flask Application
 """
 from flask import Flask, request, jsonify, render_template, send_from_directory, redirect, url_for, session, flash
 import os
@@ -464,7 +464,7 @@ def api_root():
     """API root endpoint listing available API routes"""
     return jsonify({
         "status": "ok",
-        "message": "WatchTheFall Portal API",
+        "message": "Brandr API",
         "endpoints": [
             {
                 "route": "/api/videos/process_brands",
@@ -677,7 +677,7 @@ def test_page():
     """Test page to verify portal is online"""
     return jsonify({
         'status': 'online',
-        'message': 'WatchTheFall Portal is running',
+        'message': 'Brandr is running',
         'endpoints': [
             '/portal/',
             '/api/videos/fetch',
@@ -691,7 +691,7 @@ def test_page():
 @app.route('/health')
 def health_check():
     """Health check endpoint for Render"""
-    return jsonify({'status': 'healthy', 'message': 'WTF Studio is running'}), 200
+    return jsonify({'status': 'healthy', 'message': 'Brandr is running'}), 200
 
 
 @app.route('/api/upgrade-link/<tier_name>')

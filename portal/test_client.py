@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test Client for WatchTheFall Orchestrator Portal
+Test Client for Brandr Portal
 """
 
 import requests
@@ -9,7 +9,7 @@ import time
 import os
 from urllib.parse import urlparse
 
-BASE_URL = "https://watchthefall-portal.onrender.com"
+BASE_URL = "https://brandr.online"
 
 def test_basic_endpoints():
     """Test basic health endpoints"""
@@ -126,7 +126,7 @@ def download_video(filename, output_path):
 
 def main():
     """Main test function"""
-    print("WatchTheFall Orchestrator Portal Test Client")
+    print("Brandr Portal Test Client")
     print("=" * 50)
     
     # Test basic endpoints
