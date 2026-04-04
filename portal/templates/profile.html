@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-tier="{{ tier|default('Explorer') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -174,10 +174,10 @@
         }
         
         .btn-primary {
-            background: #86EDA5;
+            background: var(--accent);
             color: #121214;
         }
-        .btn-primary:hover { background: #6BDB8B; }
+        .btn-primary:hover { background: var(--accent-hover); }
         
         .btn-secondary {
             background: #2a2a2e;
@@ -195,10 +195,11 @@
             font-size: 13px;
             color: #ff9800;
         }
-        .tier-warning a { color: #86EDA5; }
+        .tier-warning a { color: var(--accent); }
     </style>
 </head>
 <body>
+    {% set active_page = 'profile' %}
     {% include '_nav.html' %}
 
     <div class="container">

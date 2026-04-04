@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-tier="{{ tier|default('Explorer') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +7,7 @@
     <meta name="theme-color" content="#0b0b0f">
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/brandr_icon.png') }}">
+    <link rel="stylesheet" href="/static/css/styles.css">
     <style>
         * { box-sizing: border-box; }
         body {
@@ -42,7 +43,7 @@
             font-size: 1.3rem;
             border-bottom: 1px solid #333;
             padding-bottom: 0.5rem;
-            color: #86EDA5;
+            color: var(--accent);
         }
         .form-group {
             margin-bottom: 1rem;
@@ -51,7 +52,7 @@
             display: block;
             margin-bottom: 0.5rem;
             font-weight: bold;
-            color: #86EDA5;
+            color: var(--accent);
         }
         .form-group input {
             width: 100%;
@@ -65,11 +66,11 @@
         }
         .form-group input:focus {
             outline: none;
-            border-color: #86EDA5;
+            border-color: var(--accent);
         }
         .btn {
             padding: 0.75rem 1.5rem;
-            background-color: #86EDA5;
+            background-color: var(--accent);
             color: #121214;
             border: none;
             border-radius: 8px;
@@ -81,7 +82,7 @@
             transition: background 0.2s;
         }
         .btn:hover {
-            background-color: #6BDB8B;
+            background-color: var(--accent-hover);
         }
         .btn-secondary {
             background-color: #666;
@@ -118,13 +119,13 @@
             transition: all 0.2s;
         }
         .mode-toggle button.active {
-            background: #86EDA5;
+            background: var(--accent);
             color: #121214;
-            border-color: #86EDA5;
+            border-color: var(--accent);
         }
         .mode-toggle button:hover:not(.active) {
-            border-color: #86EDA5;
-            color: #86EDA5;
+            border-color: var(--accent);
+            color: var(--accent);
         }
         textarea {
             width: 100%;
@@ -140,16 +141,16 @@
         }
         textarea:focus {
             outline: none;
-            border-color: #86EDA5;
+            border-color: var(--accent);
         }
         .clipboard-note {
-            background: rgba(134, 237, 165, 0.1);
-            border: 1px solid rgba(134, 237, 165, 0.3);
+            background: var(--accent-soft);
+            border: 1px solid var(--accent-glow);
             padding: 0.5rem 0.75rem;
             border-radius: 6px;
             margin-bottom: 0.75rem;
             font-size: 0.9rem;
-            color: #86EDA5;
+            color: var(--accent);
         }
         .batch-results {
             margin-top: 1rem;
@@ -159,7 +160,7 @@
             padding: 1rem;
             margin-bottom: 0.5rem;
             border-radius: 8px;
-            border-left: 4px solid #86EDA5;
+            border-left: 4px solid var(--accent);
         }
         .batch-item.success {
             border-left-color: #28a745;
@@ -211,7 +212,7 @@
             margin-bottom: 1rem;
         }
         .progress-fill {
-            background: #86EDA5;
+            background: var(--accent);
             height: 100%;
             transition: width 0.3s;
         }
@@ -220,7 +221,7 @@
             padding: 1rem;
             background-color: #121214;
             border-radius: 8px;
-            border-left: 4px solid #86EDA5;
+            border-left: 4px solid var(--accent);
         }
         .logout-section {
             text-align: right;
@@ -260,7 +261,7 @@
             transition: border-color 0.2s;
         }
         .recent-card:hover {
-            border-color: #86EDA5;
+            border-color: var(--accent);
         }
         .recent-card-title {
             font-size: 0.95rem;
@@ -467,7 +468,7 @@ https://x.com/..."></textarea>
                 
                 <!-- Progress Bar (shown during batch downloads) -->
                 <div id="progressContainer" style="display:none;">
-                    <div style="color:#86EDA5; font-size:0.9rem; margin-bottom:0.5rem;" id="progressText">
+                    <div style="color:var(--accent); font-size:0.9rem; margin-bottom:0.5rem;" id="progressText">
                         Downloading 0/0...
                     </div>
                     <div class="progress-bar">
@@ -661,7 +662,7 @@ https://x.com/..."></textarea>
             formData.append('file', file);
             
             statusSpan.textContent = 'Uploading...';
-            statusSpan.style.color = '#86EDA5';
+            statusSpan.style.color = 'var(--accent)';
             
             try {
                 const response = await fetch('/api/videos/upload', {
@@ -673,7 +674,7 @@ https://x.com/..."></textarea>
                 
                 if (response.ok && result.success) {
                     statusSpan.textContent = 'Upload complete!';
-                    statusSpan.style.color = '#4ade80';
+                    statusSpan.style.color = 'var(--accent)';
                     
                     // Store filename for Create handoff
                     sessionStorage.setItem('lastDownloadFilename', result.filename);
@@ -869,10 +870,10 @@ https://x.com/..."></textarea>
             // Show cleanup/normalization notes if URLs were modified
             let statusHtml = '<p style="color:#888;">🚀 Starting batch download...</p>';
             if (normalizedCount > 0) {
-                statusHtml += `<p style="color:#86EDA5; font-size:0.9rem; margin-top:0.5rem;">✨ Normalized ${normalizedCount} link(s) (added https://)</p>`;
+                statusHtml += `<p style="color:var(--accent); font-size:0.9rem; margin-top:0.5rem;">✨ Normalized ${normalizedCount} link(s) (added https://)</p>`;
             }
             if (cleanedCount > 0) {
-                statusHtml += `<p style="color:#86EDA5; font-size:0.9rem; margin-top:0.5rem;">✨ Cleaned ${cleanedCount} link(s) (removed punctuation)</p>`;
+                statusHtml += `<p style="color:var(--accent); font-size:0.9rem; margin-top:0.5rem;">✨ Cleaned ${cleanedCount} link(s) (removed punctuation)</p>`;
             }
             batchResultsDiv.innerHTML = statusHtml;
             

@@ -176,13 +176,14 @@ init_users_db()
 
 @app.context_processor
 def inject_global_context():
-    """Inject admin flag and badge info into all templates."""
-    ctx = {'is_admin_user': is_admin()}
+    """Inject admin flag, tier, and badge info into all templates."""
+    ctx = {'is_admin_user': is_admin(), 'tier': DEFAULT_TIER}
     user_id = session.get('user_id')
     if user_id:
         tier = get_user_tier(user_id)
         special_status = get_user_special_status(user_id)
         badge = get_badge_info(tier, special_status)
+        ctx['tier'] = tier
         ctx['user_badge'] = badge
         ctx['user_special_status'] = special_status
     return ctx

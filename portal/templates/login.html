@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-tier="{{ tier|default('Explorer') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +7,7 @@
     <meta name="theme-color" content="#0b0b0f">
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/brandr_icon.png') }}">
+    <link rel="stylesheet" href="/static/css/styles.css">
     <style>
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -55,7 +56,7 @@
         }
         .form-group input:focus {
             outline: none;
-            border-color: #4ade80;
+            border-color: var(--accent);
         }
         .form-group input::placeholder {
             color: #666;
@@ -63,7 +64,7 @@
         .btn {
             width: 100%;
             padding: 0.75rem;
-            background-color: #4ade80;
+            background-color: var(--accent);
             color: #1a1a1a;
             border: none;
             border-radius: 4px;
@@ -73,7 +74,7 @@
             transition: background-color 0.2s ease;
         }
         .btn:hover {
-            background-color: #22c55e;
+            background-color: var(--accent-hover);
         }
         .alert {
             padding: 0.75rem;
@@ -86,9 +87,9 @@
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
         .alert-success {
-            background-color: rgba(74, 222, 128, 0.15);
-            color: #4ade80;
-            border: 1px solid rgba(74, 222, 128, 0.3);
+            background-color: var(--accent-soft);
+            color: var(--accent);
+            border: 1px solid var(--accent-border);
         }
         .signup-link {
             text-align: center;
@@ -96,12 +97,12 @@
             color: #808080;
         }
         .signup-link a {
-            color: #4ade80;
+            color: var(--accent);
             text-decoration: none;
             transition: color 0.2s ease;
         }
         .signup-link a:hover {
-            color: #22c55e;
+            color: var(--accent-hover);
         }
     </style>
 </head>

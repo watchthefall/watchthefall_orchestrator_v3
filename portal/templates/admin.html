@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-tier="{{ tier|default('Explorer') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -100,10 +100,10 @@
         }
         select.tier-select:focus {
             outline: none;
-            border-color: #86EDA5;
+            border-color: var(--accent);
         }
         .save-btn {
-            background: #86EDA5;
+            background: var(--accent);
             color: #121214;
             border: none;
             padding: 6px 14px;
@@ -115,13 +115,13 @@
             display: none;
         }
         .save-btn:hover {
-            background: #6BDB8B;
+            background: var(--accent-hover);
         }
         .save-btn.visible {
             display: inline-block;
         }
         .saved-msg {
-            color: #86EDA5;
+            color: var(--accent);
             font-size: 12px;
             margin-left: 8px;
             opacity: 0;
@@ -142,7 +142,7 @@
         }
         .search-box:focus {
             outline: none;
-            border-color: #86EDA5;
+            border-color: var(--accent);
         }
         .search-box::placeholder {
             color: #666;
@@ -263,7 +263,7 @@ function saveTier(btn) {
             statusSel.setAttribute('data-original', newStatus);
             btn.classList.remove('visible');
             msg.textContent = 'Saved';
-            msg.style.color = '#86EDA5';
+            msg.style.color = 'var(--accent)';
             msg.classList.add('show');
             setTimeout(function() { msg.classList.remove('show'); }, 2000);
         } else {

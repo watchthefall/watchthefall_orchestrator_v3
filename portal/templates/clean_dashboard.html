@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-tier="{{ tier|default('Explorer') }}">
 <head>
 <meta charset="UTF-8">
 <title>BRANDR</title>
@@ -7,7 +7,8 @@
 <meta name="theme-color" content="#0b0b0f">
 <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/brandr_icon.png') }}">
-<style>
+<link rel="stylesheet" href="/static/css/styles.css">
+    <style>
     * { box-sizing: border-box; }
     body {
         background: #121214;
@@ -46,7 +47,7 @@
     h3 {
         margin: 18px 0 10px;
         font-size: 15px;
-        color: #86EDA5;
+        color: var(--accent);
     }
     input[type="text"] {
         width: 100%;
@@ -63,7 +64,7 @@
         padding: 14px;
         margin-top: 10px;
         border: none;
-        background: #86EDA5;
+        background: var(--accent);
         color: #121214;
         border-radius: 8px;
         font-size: 16px;
@@ -72,7 +73,7 @@
         transition: background 0.2s;
     }
     button:hover, button:active {
-        background: #6BDB8B;
+        background: var(--accent-hover);
     }
     button:disabled {
         background: #333;
@@ -125,8 +126,8 @@
         font-size: 10px;
     }
     .brand-btn .asset-badge {
-        background: rgba(134, 237, 165, 0.2);
-        color: #86EDA5;
+        background: var(--accent-soft);
+        color: var(--accent);
         padding: 2px 6px;
         border-radius: 3px;
     }
@@ -136,7 +137,7 @@
         right: 6px;
         width: 20px;
         height: 20px;
-        background: #86EDA5;
+        background: var(--accent);
         border-radius: 50%;
         color: #121214;
         font-size: 14px;
@@ -146,18 +147,18 @@
         justify-content: center;
     }
     .brand-btn.selected {
-        background: rgba(134, 237, 165, 0.08);
-        border-color: #86EDA5;
-        color: #86EDA5;
+        background: var(--accent-muted);
+        border-color: var(--accent);
+        color: var(--accent);
     }
     .brand-btn.selected .check-icon {
         display: flex;
     }
     .brand-btn.active-preview {
-        border-color: #86EDA5;
+        border-color: var(--accent);
         border-width: 2px;
-        background: rgba(134, 237, 165, 0.15);
-        box-shadow: 0 0 12px rgba(134, 237, 165, 0.3), inset 0 0 0 1px rgba(134, 237, 165, 0.1);
+        background: var(--accent-soft);
+        box-shadow: 0 0 12px var(--accent-glow), inset 0 0 0 1px var(--accent-soft);
         transform: scale(1.02);
     }
     .brand-btn.active-preview .preview-indicator {
@@ -195,7 +196,7 @@
         bottom: -1px;
         left: 0;
         right: 0;
-        background: #86EDA5;
+        background: var(--accent);
         color: #121214;
         font-size: 9px;
         font-weight: 700;
@@ -213,7 +214,7 @@
         cursor: not-allowed;
     }
     .brand-btn:not(.brand-incomplete):hover {
-        border-color: #86EDA5;
+        border-color: var(--accent);
         transform: translateY(-2px);
     }
     .brand-btn:active {
@@ -269,7 +270,7 @@
     .watermark-bounds {
         position: absolute;
         top: 0; left: 0; right: 0; bottom: 0;
-        border: 2px dashed rgba(134, 237, 165, 0.4);
+        border: 2px dashed var(--accent-border);
         pointer-events: none;
         display: none;
     }
@@ -293,7 +294,7 @@
     }
     .slider-value {
         font-weight: bold;
-        color: #86EDA5;
+        color: var(--accent);
         min-width: 50px;
         text-align: right;
     }
@@ -309,7 +310,7 @@
         -webkit-appearance: none;
         width: 24px;
         height: 24px;
-        background: #86EDA5;
+        background: var(--accent);
         border-radius: 50%;
         cursor: pointer;
         border: 2px solid #fff;
@@ -317,7 +318,7 @@
     input[type="range"]::-moz-range-thumb {
         width: 24px;
         height: 24px;
-        background: #86EDA5;
+        background: var(--accent);
         border-radius: 50%;
         cursor: pointer;
         border: 2px solid #fff;
@@ -361,7 +362,7 @@
         border-radius: 50%;
     }
     input:checked + .toggle-slider {
-        background-color: #86EDA5;
+        background-color: var(--accent);
     }
     input:checked + .toggle-slider:before {
         transform: translateX(22px);
@@ -372,7 +373,7 @@
         display: block;
         padding: 14px;
         margin-top: 8px;
-        background: #86EDA5;
+        background: var(--accent);
         color: #121214;
         text-align: center;
         border-radius: 8px;
@@ -380,7 +381,7 @@
         font-weight: bold;
     }
     .download-link:active {
-        background: #6BDB8B;
+        background: var(--accent-hover);
     }
     .status-msg {
         padding: 12px;
@@ -446,7 +447,7 @@
         transition: all 0.2s;
     }
     .tab-btn.active {
-        background: #86EDA5;
+        background: var(--accent);
         color: #121214;
     }
     .tab-btn:not(.active):hover {
@@ -474,7 +475,7 @@
         transition: all 0.2s;
     }
     .library-item:hover {
-        border-color: #86EDA5;
+        border-color: var(--accent);
         background: #1a2420;
     }
     .library-item .source-icon {
@@ -504,9 +505,9 @@
     .library-item .item-select-btn {
         padding: 6px 12px;
         border-radius: 6px;
-        background: rgba(134,237,165,0.15);
-        color: #86EDA5;
-        border: 1px solid rgba(134,237,165,0.3);
+        background: var(--accent-soft);
+        color: var(--accent);
+        border: 1px solid var(--accent-glow);
         font-size: 12px;
         font-weight: 600;
         cursor: pointer;
@@ -515,7 +516,7 @@
         flex-shrink: 0;
     }
     .library-item .item-select-btn:hover {
-        background: #86EDA5;
+        background: var(--accent);
         color: #121214;
     }
     .library-item.unavailable {
@@ -528,7 +529,7 @@
         font-size: 13px;
     }
     .library-footer a {
-        color: #86EDA5;
+        color: var(--accent);
         text-decoration: none;
     }
     .library-footer a:hover {
@@ -546,8 +547,8 @@
     }
     .upload-dropzone:hover,
     .upload-dropzone.drag-over {
-        border-color: #86EDA5;
-        background: rgba(134,237,165,0.05);
+        border-color: var(--accent);
+        background: var(--accent-muted);
     }
     .upload-dropzone .drop-icon {
         font-size: 40px;
@@ -561,8 +562,8 @@
     }
     .upload-browse-btn {
         background: transparent;
-        border: 1px solid #86EDA5;
-        color: #86EDA5;
+        border: 1px solid var(--accent);
+        color: var(--accent);
         width: auto;
         display: inline-block;
         padding: 8px 20px;
@@ -570,7 +571,7 @@
         font-size: 14px;
     }
     .upload-browse-btn:hover {
-        background: #86EDA5;
+        background: var(--accent);
         color: #121214;
     }
     .upload-hint {
@@ -586,7 +587,7 @@
         text-align: center;
     }
     .upload-alt a {
-        color: #86EDA5;
+        color: var(--accent);
         text-decoration: none;
     }
     .upload-progress {
@@ -600,7 +601,7 @@
     }
     .upload-progress-fill {
         height: 100%;
-        background: #86EDA5;
+        background: var(--accent);
         width: 0%;
         transition: width 0.3s;
     }
@@ -714,13 +715,13 @@
         transition: all 0.3s;
     }
     .step-item.active .step-dot {
-        background: rgba(134, 237, 165, 0.15);
-        border-color: #86EDA5;
-        color: #86EDA5;
+        background: var(--accent-soft);
+        border-color: var(--accent);
+        color: var(--accent);
     }
     .step-item.completed .step-dot {
-        background: #86EDA5;
-        border-color: #86EDA5;
+        background: var(--accent);
+        border-color: var(--accent);
         color: #121214;
     }
     .step-item.active { color: #ccc; }
@@ -733,7 +734,7 @@
         min-width: 20px;
         transition: background 0.3s;
     }
-    .step-line.completed { background: #86EDA5; }
+    .step-line.completed { background: var(--accent); }
 
     /* ========== ZONE DIVIDERS ========== */
     .zone-label {
@@ -766,8 +767,8 @@
     #previewTargetBar {
         margin: 14px 0 0;
         padding: 10px 14px;
-        background: rgba(134, 237, 165, 0.05);
-        border: 1px solid rgba(134, 237, 165, 0.15);
+        background: var(--accent-muted);
+        border: 1px solid var(--accent-soft);
         border-radius: 8px;
     }
     .ptb-row {
@@ -788,7 +789,7 @@
         letter-spacing: 0.5px;
     }
     .ptb-name {
-        color: #86EDA5;
+        color: var(--accent);
         font-size: 15px;
         font-weight: 700;
         display: block;
@@ -900,7 +901,7 @@
                     <div style="font-size:32px; margin-bottom:8px;">📁</div>
                     <p style="color:#ccc; margin-bottom:4px; font-size:15px;">Your library is empty</p>
                     <p style="color:#666; margin-bottom:12px; font-size:13px;">Import a video from Instagram, TikTok, or YouTube to get started.</p>
-                    <a href="{{ url_for('download') }}" style="color:#86EDA5; text-decoration:none; font-size:13px;">Import Media &rarr;</a>
+                    <a href="{{ url_for('download') }}" style="color:var(--accent); text-decoration:none; font-size:13px;">Import Media &rarr;</a>
                 </div>
                 <div class="library-footer" id="libraryFooter" style="display:none;">
                     <a href="{{ url_for('library') }}">View full library &rarr;</a>
@@ -952,7 +953,7 @@
     <!-- No Brands State -->
     <div id="noBrandsState" style="display:none; text-align:center; padding:30px 20px;">
         <p style="color:#666; font-size:16px; margin-bottom:20px;">You have no brands yet</p>
-        <button onclick="window.location.href='{{ url_for('brands_page') }}'" style="background:#86EDA5;">
+        <button onclick="window.location.href='{{ url_for('brands_page') }}'" style="background:var(--accent);">
             Create Your First Brand
         </button>
     </div>
@@ -1098,20 +1099,20 @@
     </div><!-- End overrideControls -->
     
     <!-- Confirmation Summary (above Start Branding button) -->
-    <div id="confirmationSummary" style="background: rgba(134, 237, 165, 0.1); border: 1px solid rgba(134, 237, 165, 0.3); border-radius: 8px; padding: 12px; margin: 15px 0; font-size: 13px; line-height: 1.6;">
-        <div style="color: #86EDA5; font-weight: 600; margin-bottom: 6px;">⚡ Ready to Process:</div>
+    <div id="confirmationSummary" style="background: var(--accent-soft); border: 1px solid var(--accent-glow); border-radius: 8px; padding: 12px; margin: 15px 0; font-size: 13px; line-height: 1.6;">
+        <div style="color: var(--accent); font-weight: 600; margin-bottom: 6px;">⚡ Ready to Process:</div>
         <div id="summaryText" style="color: #ccc;"></div>
     </div>
     
     <!-- Selection Mode Button -->
     <div id="selectionModeActions">
-        <button onclick="enterQueueMode()" id="startBrandingBtn" style="background:#86EDA5; margin-top:15px;">🚀 Start Branding</button>
+        <button onclick="enterQueueMode()" id="startBrandingBtn" style="background:var(--accent); margin-top:15px;">🚀 Start Branding</button>
     </div>
     
     <!-- Queue Mode Actions (hidden by default) -->
     <div id="queueModeActions" style="display:none;">
         <button onclick="processCurrentBrand()" id="processCurrentBtn" style="background:#28a745;">⚡ Process This Brand</button>
-        <button onclick="processAllBrands()" id="processAllBtn" style="background:#86EDA5; margin-top:10px;">🚀 Process All Remaining</button>
+        <button onclick="processAllBrands()" id="processAllBtn" style="background:var(--accent); margin-top:10px;">🚀 Process All Remaining</button>
         <div style="display:flex; gap:10px; margin-top:10px;">
             <button onclick="skipBrand()" style="flex:1; background:#666;">Skip</button>
             <button onclick="exitQueueMode()" style="flex:1; background:#c00;">Exit Queue</button>
@@ -1727,7 +1728,7 @@ function selectBrand(brandId, btnEl, isReady) {
         const result = document.getElementById('processResult');
         const brandData = brandDataCache[brandId];
         const brandName = brandData ? brandData.display_name : `Brand #${brandId}`;
-        result.innerHTML = `<div class="status-msg error">Brand "${brandName}" is incomplete. Upload assets in <a href="/portal/brands" style="color:#86EDA5;">Manage Brands</a></div>`;
+        result.innerHTML = `<div class="status-msg error">Brand "${brandName}" is incomplete. Upload assets in <a href="/portal/brands" style="color:var(--accent);">Manage Brands</a></div>`;
         return;
     }
     
@@ -2027,7 +2028,7 @@ function renderBrandPills() {
             statusIcon = '\u2212 ';
             bgColor = '#666';
         } else if (idx === currentQueueIndex) {
-            bgColor = '#86EDA5';  // Active/editing
+            bgColor = 'var(--accent)';  // Active/editing
         }
         
         pill.innerHTML = statusIcon + item.brand_name;
@@ -2045,7 +2046,7 @@ function renderBrandPills() {
         
         if (idx === currentQueueIndex) {
             pill.style.transform = 'scale(1.05)';
-            pill.style.boxShadow = '0 0 10px rgba(134, 237, 165, 0.5)';
+            pill.style.boxShadow = '0 0 10px var(--accent-glow)';
         }
         
         container.appendChild(pill);
@@ -2308,7 +2309,7 @@ async function processCurrentBrand() {
                         <div style="margin-top:10px; padding:10px; background: rgba(255, 152, 0, 0.1); border-left: 3px solid #ff9800; border-radius: 4px;">
                             <div style="color:#ff9800; font-weight:600; margin-bottom:5px;">🛠️ How to fix:</div>
                             <div style="color:#ccc; margin-bottom:10px;">${errorResponse.fix}</div>
-                            ${errorResponse.fix_url ? `<a href="${errorResponse.fix_url}" style="color:#86EDA5; text-decoration:underline;">➡️ Go to Manage Brands</a>` : ''}
+                            ${errorResponse.fix_url ? `<a href="${errorResponse.fix_url}" style="color:var(--accent); text-decoration:underline;">➡️ Go to Manage Brands</a>` : ''}
                         </div>
                     `;
                 }
@@ -2663,7 +2664,7 @@ async function loadLibraryItems() {
         footer.style.display = 'block';
     } catch (err) {
         loading.style.display = 'none';
-        grid.innerHTML = '<div style="text-align:center; padding:15px; color:#ff6b6b;">Could not load library. <button onclick="loadLibraryItems()" style="color:#86EDA5; background:transparent; border:1px solid #86EDA5; padding:4px 10px; border-radius:4px; cursor:pointer; width:auto; margin-top:6px; display:inline-block;">Retry</button></div>';
+        grid.innerHTML = '<div style="text-align:center; padding:15px; color:#ff6b6b;">Could not load library. <button onclick="loadLibraryItems()" style="color:var(--accent); background:transparent; border:1px solid var(--accent); padding:4px 10px; border-radius:4px; cursor:pointer; width:auto; margin-top:6px; display:inline-block;">Retry</button></div>';
         grid.style.display = 'flex';
     }
 }
@@ -2872,7 +2873,7 @@ function inlineFetchVideo() {
     .then(function(data) {
         if (data.success && data.results && data.results[0] && data.results[0].success) {
             var result = data.results[0];
-            status.style.color = '#86EDA5';
+            status.style.color = 'var(--accent)';
             status.textContent = 'Ready! Loading preview...';
             selectVideo(result.filename, { source_url: url });
         } else if (data.error === 'DAILY_LIMIT_REACHED') {

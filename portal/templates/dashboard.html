@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-tier="{{ tier|default('Explorer') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -61,12 +61,12 @@
             justify-content: center;
             margin: 0 auto 8px;
             font-weight: 600;
-            color: #4ade80;
+            color: var(--accent);
         }
         .primary-cta {
             display: inline-block;
             padding: 1rem 2.5rem;
-            background-color: #4ade80;
+            background-color: var(--accent);
             color: #121214;
             text-decoration: none;
             border-radius: 6px;
@@ -75,7 +75,7 @@
             transition: background-color 0.2s ease;
         }
         .primary-cta:hover {
-            background-color: #22c55e;
+            background-color: var(--accent-hover);
         }
         .secondary-links {
             margin-top: 2rem;
@@ -83,12 +83,12 @@
             font-size: 0.9rem;
         }
         .secondary-links a {
-            color: #4ade80;
+            color: var(--accent);
             text-decoration: none;
             transition: color 0.2s ease;
         }
         .secondary-links a:hover {
-            color: #22c55e;
+            color: var(--accent-hover);
         }
         
         /* Workspace State (has_brand_kit) */
@@ -114,7 +114,7 @@
             transition: all 0.2s ease;
         }
         .action-card:hover {
-            border-color: #4ade80;
+            border-color: var(--accent);
             transform: translateY(-2px);
         }
         .action-card .card-icon {
@@ -133,9 +133,25 @@
             line-height: 1.4;
         }
         .action-card.primary-action {
-            border-color: #4ade80;
-            background-color: rgba(74, 222, 128, 0.08);
+            border-color: var(--accent);
+            background-color: var(--accent-muted);
         }
+
+        /* Tier-aware inline buttons */
+        .btn-accent {
+            background: var(--accent);
+            color: #121214;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+        .btn-accent:hover { background: var(--accent-hover); }
+        .btn-accent.sm { font-size: 13px; }
         
     </style>
 </head>
@@ -189,7 +205,7 @@
             <!-- Over-limit banner — direct modal trigger -->
             <div class="limit-banner" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                 <span>You've hit your brand config limit ({{ brand_count }}/{{ max_brands }}).</span>
-                <button onclick="openUpgradeModal('You\\'ve hit your limit', 'Upgrade to unlock more brand configs and keep building.')" style="background:#86EDA5; color:#121214; border:none; padding:8px 20px; border-radius:6px; font-weight:700; font-size:14px; cursor:pointer; white-space:nowrap;">Upgrade Plan</button>
+                <button class="btn-accent" onclick="openUpgradeModal('You\'ve hit your limit', 'Upgrade to unlock more brand configs and keep building.')">Upgrade Plan</button>
             </div>
             {% endif %}
             
@@ -214,7 +230,7 @@
                 <div class="usage-widget" style="margin-bottom:0;">
                     <div class="usage-info">
                         <div class="usage-label">Jobs Today</div>
-                        <div class="usage-numbers"><span class="usage-accent">{{ usage.branding_jobs }}</span> / {% if limits.branding_jobs_per_day >= 9999 %}∞{% else %}{{ limits.branding_jobs_per_day }}{% endif %}</div>
+                        <div class="usage-numbers"><span class="usage-accent">{{ usage.branding_jobs }}</span> / {% if limits.branding_jobs_per_day >= 9999 %}&infin;{% else %}{{ limits.branding_jobs_per_day }}{% endif %}</div>
                         {% set pct_jobs = (((usage.branding_jobs / limits.branding_jobs_per_day) * 100) | int) if limits.branding_jobs_per_day > 0 and limits.branding_jobs_per_day < 9999 else 0 %}
                         <div class="usage-bar">
                             <div class="usage-bar-fill{% if pct_jobs >= 100 %} critical{% elif pct_jobs >= 80 %} warning{% endif %}" style="width: {{ [pct_jobs, 100] | min }}%"></div>
@@ -226,7 +242,7 @@
                 <div class="usage-widget" style="margin-bottom:0;">
                     <div class="usage-info">
                         <div class="usage-label">Fetches Today</div>
-                        <div class="usage-numbers"><span class="usage-accent">{{ usage.downloads }}</span> / {% if limits.fetches_per_day >= 9999 %}∞{% else %}{{ limits.fetches_per_day }}{% endif %}</div>
+                        <div class="usage-numbers"><span class="usage-accent">{{ usage.downloads }}</span> / {% if limits.fetches_per_day >= 9999 %}&infin;{% else %}{{ limits.fetches_per_day }}{% endif %}</div>
                         {% set pct_dl = (((usage.downloads / limits.fetches_per_day) * 100) | int) if limits.fetches_per_day > 0 and limits.fetches_per_day < 9999 else 0 %}
                         <div class="usage-bar">
                             <div class="usage-bar-fill{% if pct_dl >= 100 %} critical{% elif pct_dl >= 80 %} warning{% endif %}" style="width: {{ [pct_dl, 100] | min }}%"></div>
@@ -237,32 +253,32 @@
             {% set any_high = (pct_brands is defined and pct_brands >= 80) or pct_jobs >= 80 or pct_dl >= 80 %}
             {% if any_high and tier != 'Studio' %}
             <div style="text-align:right; margin-bottom:16px;">
-                <button onclick="openUpgradeModal('Running low on usage', 'Upgrade your plan to keep creating without interruption.')" style="background:#86EDA5; color:#121214; border:none; padding:8px 20px; border-radius:6px; font-weight:700; font-size:13px; cursor:pointer;">Upgrade Plan</button>
+                <button class="btn-accent sm" onclick="openUpgradeModal('Running low on usage', 'Upgrade your plan to keep creating without interruption.')">Upgrade Plan</button>
             </div>
             {% endif %}
             {% endif %}
             
             <div class="quick-actions">
                 <a href="{{ url_for('brand_video') }}" class="action-card primary-action">
-                    <div class="card-icon">✨</div>
+                    <div class="card-icon">&#x2728;</div>
                     <div class="card-title">Create</div>
                     <div class="card-desc">Brand a video with your kit</div>
                 </a>
                 
                 <a href="{{ url_for('brands_page') }}" class="action-card">
-                    <div class="card-icon">🎨</div>
+                    <div class="card-icon">&#x1F3A8;</div>
                     <div class="card-title">Brand Kit</div>
                     <div class="card-desc">Manage your brand identity</div>
                 </a>
                 
                 <a href="{{ url_for('library') }}" class="action-card">
-                    <div class="card-icon">📁</div>
+                    <div class="card-icon">&#x1F4C1;</div>
                     <div class="card-title">Library</div>
                     <div class="card-desc">View downloads and outputs</div>
                 </a>
                 
                 <a href="{{ url_for('shipr_page') }}" class="action-card">
-                    <div class="card-icon">🚀</div>
+                    <div class="card-icon">&#x1F680;</div>
                     <div class="card-title">Shipr</div>
                     <div class="card-desc">Ship your content (coming soon)</div>
                 </a>
@@ -274,5 +290,4 @@
 {% include '_upgrade_modal.html' %}
 
 </body>
-</html>
 </html>

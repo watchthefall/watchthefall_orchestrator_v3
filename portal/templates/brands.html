@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-tier="{{ tier|default('Explorer') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -33,10 +33,10 @@
             transition: all 0.2s;
         }
         .btn-primary {
-            background: #86EDA5;
+            background: var(--accent);
             color: #121214;
         }
-        .btn-primary:hover { background: #6BDB8B; transform: translateY(-2px); }
+        .btn-primary:hover { background: var(--accent-hover); transform: translateY(-2px); }
         .btn-secondary {
             background: #666;
             color: #fff;
@@ -108,7 +108,7 @@
             color: #fff;
         }
         .badge-user {
-            background: #86EDA5;
+            background: var(--accent);
             color: #121214;
         }
         .badge-ready {
@@ -213,7 +213,7 @@
         }
         .form-group input:focus {
             outline: none;
-            border-color: #86EDA5;
+            border-color: var(--accent);
         }
         
         .status-msg {
@@ -224,7 +224,7 @@
         }
         .status-msg.success { background: rgba(40, 167, 69, 0.2); color: #28a745; }
         .status-msg.error { background: rgba(204, 0, 0, 0.2); color: #f66; }
-        .status-msg.info { background: rgba(134, 237, 165, 0.2); color: #86EDA5; }
+        .status-msg.info { background: var(--accent-soft); color: var(--accent); }
         
         /* Nav styles provided by _nav.html partial */
         
@@ -264,7 +264,7 @@
         .control-section h3 {
             font-size: 14px;
             margin-bottom: 12px;
-            color: #86EDA5;
+            color: var(--accent);
         }
         .slider-row {
             margin-bottom: 12px;
@@ -280,14 +280,14 @@
         }
         .slider-value {
             float: right;
-            color: #86EDA5;
+            color: var(--accent);
             font-weight: 600;
         }
         input[type="file"] {
             width: 100%;
             padding: 8px;
-            background: rgba(134, 237, 165, 0.1);
-            border: 1px solid #86EDA5;
+            background: var(--accent-muted);
+            border: 1px solid var(--accent);
             border-radius: 4px;
             color: #fff;
             font-size: 12px;
@@ -329,7 +329,7 @@
             border-radius: 50%;
         }
         input:checked + .toggle-slider {
-            background-color: #86EDA5;
+            background-color: var(--accent);
         }
         input:checked + .toggle-slider:before {
             transform: translateX(20px);
@@ -350,9 +350,9 @@
             font-size: 12px;
         }
         .mode-btn.active {
-            background: #86EDA5;
+            background: var(--accent);
             color: #121214;
-            border-color: #86EDA5;
+            border-color: var(--accent);
         }
     </style>
 </head>
@@ -422,7 +422,7 @@
                                 <button type="button" class="mode-btn" id="logoRemoveBgLight" onclick="setLogoRemoveBg('light')">Remove Light</button>
                             </div>
                             <div id="logoRemoveBgSlider" style="display:none;">
-                                <label style="font-size:11px; color:#888;">Removal Strength <span id="logoRemoveBgStrength" style="color:#86EDA5;">50</span></label>
+                                <label style="font-size:11px; color:#888;">Removal Strength <span id="logoRemoveBgStrength" style="color:var(--accent);">50</span></label>
                                 <input type="range" id="logoRemoveBgThreshold" min="20" max="150" value="50" style="width:100%;" oninput="updateLogoRemoveBgStrength(this.value)">
                                 <p style="font-size:11px; color:#888; margin-top:6px;">Higher values remove backgrounds more aggressively (may affect light logo elements)</p>
                             </div>
@@ -640,7 +640,7 @@
                                 </div>
                                 <!-- Background Removal Strength (hidden when 'none') -->
                                 <div id="wizardBgStrengthContainer" style="display:none; margin-top:12px; padding:10px; background:rgba(0,0,0,0.2); border-radius:6px;">
-                                    <label style="display:block; font-size:11px; color:#aaa; margin-bottom:6px;">Removal Strength <span id="wizardBgStrengthVal" style="color:#86EDA5;">50</span></label>
+                                    <label style="display:block; font-size:11px; color:#aaa; margin-bottom:6px;">Removal Strength <span id="wizardBgStrengthVal" style="color:var(--accent);">50</span></label>
                                     <input type="range" id="wizardBgStrength" min="20" max="150" value="50" style="width:100%;" oninput="updateWizardBgStrength(this.value)">
                                     <p style="font-size:11px; color:#888; margin-top:6px;">Higher values remove backgrounds more aggressively (may affect light logo elements)</p>
                                 </div>
@@ -806,7 +806,7 @@
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: #86EDA5;
+    background: var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -869,8 +869,8 @@
 }
 
 .upload-zone:hover {
-    border-color: #86EDA5;
-    background: rgba(134,237,165,0.05);
+    border-color: var(--accent);
+    background: var(--accent-muted);
 }
 
 .upload-placeholder .upload-icon {
@@ -933,12 +933,12 @@
 }
 
 .option-btn:hover {
-    border-color: #86EDA5;
+    border-color: var(--accent);
 }
 
 .option-btn.active {
-    background: #86EDA5;
-    border-color: #86EDA5;
+    background: var(--accent);
+    border-color: var(--accent);
 }
 
 .slider-group {
@@ -979,12 +979,12 @@
 }
 
 .position-btn:hover {
-    border-color: #86EDA5;
+    border-color: var(--accent);
 }
 
 .position-btn.active {
-    background: #86EDA5;
-    border-color: #86EDA5;
+    background: var(--accent);
+    border-color: var(--accent);
 }
 
 .preview-container {
@@ -1124,7 +1124,7 @@
 .btn-text {
     background: none;
     border: none;
-    color: #86EDA5;
+    color: var(--accent);
     font-size: 13px;
     cursor: pointer;
     text-decoration: underline;

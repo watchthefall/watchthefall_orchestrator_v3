@@ -2,7 +2,7 @@
 {# Set active_page variable before including: {% set active_page = 'dashboard' %} #}
 
 <style>
-/* Standardized Navigation - Graphite & Mint Design System */
+/* Standardized Navigation - Tier-Aware Design System */
 .nav-bar {
     background-color: #202024;
     padding: 0.5rem;
@@ -42,11 +42,11 @@
     white-space: nowrap;
 }
 .nav-bar .nav-links a:hover {
-    background-color: rgba(134, 237, 165, 0.15);
+    background-color: var(--accent-soft);
 }
 .nav-bar .nav-links a.active {
-    background-color: rgba(134, 237, 165, 0.15);
-    color: #86EDA5;
+    background-color: var(--accent-soft);
+    color: var(--accent);
 }
 
 /* Identity cluster: badges + account dropdown grouped right */
@@ -83,7 +83,7 @@
     font-size: 14px;
 }
 .nav-bar .dropdown > a:hover {
-    background-color: rgba(134, 237, 165, 0.15);
+    background-color: var(--accent-soft);
 }
 .nav-bar .dropdown-content {
     display: none;
@@ -103,11 +103,36 @@
     display: block;
 }
 .nav-bar .dropdown-content a:hover {
-    background-color: rgba(134, 237, 165, 0.15);
+    background-color: var(--accent-soft);
 }
 .nav-bar .dropdown:hover .dropdown-content,
 .nav-bar .dropdown:focus-within .dropdown-content {
     display: block;
+}
+
+/* Tier accent line on nav bottom — subtle identity cue */
+.nav-bar::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
+    opacity: 0.6;
+}
+
+/* Nav logo — tier-tinted glow on hover */
+.nav-bar .nav-logo {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    margin-right: 6px;
+    flex-shrink: 0;
+    transition: filter 0.3s;
+}
+.nav-bar .nav-logo:hover {
+    filter: drop-shadow(0 0 6px var(--accent-glow));
 }
 
 /* Mobile: collapse badges, show only primary */
@@ -153,13 +178,6 @@
         display: none;
     }
 }
-.nav-bar .nav-logo {
-    width: 28px;
-    height: 28px;
-    object-fit: contain;
-    margin-right: 6px;
-    flex-shrink: 0;
-}
 </style>
 
 <div class="nav-bar">
@@ -173,7 +191,7 @@
     </ul>
     <div class="nav-identity">
         <div class="dropdown">
-            <a href="#" tabindex="0">Account ▾</a>
+            <a href="#" tabindex="0">Account &#x25BE;</a>
             <div class="dropdown-content">
                 <a href="{{ url_for('profile_page') }}">Profile</a>
                 {% if is_admin_user %}
