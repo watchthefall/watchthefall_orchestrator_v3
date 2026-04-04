@@ -24,24 +24,8 @@
         }
         h1 { font-size: 28px; }
         
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .btn-primary {
-            background: var(--accent);
-            color: #121214;
-        }
-        .btn-primary:hover { background: var(--accent-hover); transform: translateY(-2px); }
-        .btn-secondary {
-            background: #666;
-            color: #fff;
-        }
-        .btn-secondary:hover { background: #555; }
+        /* Page-specific: lift on primary hover */
+        .btn-primary:hover { transform: translateY(-2px); }
         .btn-ghost {
             background: transparent;
             color: #aaa;
@@ -52,11 +36,6 @@
             border-color: #888;
             color: #ccc;
         }
-        .btn-danger {
-            background: #c00;
-            color: #fff;
-        }
-        .btn-danger:hover { background: #a00; }
         
         .brand-grid {
             display: grid;

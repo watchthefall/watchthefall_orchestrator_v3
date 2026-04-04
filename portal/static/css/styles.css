@@ -201,15 +201,71 @@ body {
 }
 
 /* ── Admin role — visually distinct from customer tiers ── */
-/* Filled charcoal with amber accent — reads as "system role" not "plan" */
+/* Outline-only with sharp corners — reads as "system role" not "plan" */
 .role-admin {
-    background: #2a2520;
+    background: transparent;
     color: #C7A53C;
-    border: 1.5px solid rgba(199, 165, 60, 0.45);
+    border: 1.5px solid rgba(199, 165, 60, 0.55);
+    border-radius: 4px;
     font-weight: 700;
-    letter-spacing: 0.6px;
+    letter-spacing: 0.8px;
     text-transform: uppercase;
-    font-size: 10px;
+    font-size: 9px;
+}
+
+/* ============================================================================
+   BUTTON SYSTEM — Shared hierarchy across all pages
+   Primary (accent), Secondary (neutral), Danger (muted red), Text (minimal)
+   ============================================================================ */
+.btn, .btn-accent {
+    display: inline-block;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+.btn-primary, .btn-accent {
+    background: var(--accent);
+    color: #121214;
+}
+.btn-primary:hover, .btn-accent:hover {
+    background: var(--accent-hover);
+}
+.btn-secondary {
+    background: #2a2a2e;
+    color: #EAEAEA;
+    border: 1px solid #3a3a3e;
+}
+.btn-secondary:hover {
+    background: #333;
+}
+.btn-danger {
+    background: rgba(204, 0, 0, 0.15);
+    color: #e05252;
+    border: 1px solid rgba(224, 82, 82, 0.3);
+}
+.btn-danger:hover {
+    background: rgba(204, 0, 0, 0.25);
+    color: #ff6b6b;
+}
+.btn-text {
+    background: transparent;
+    color: #888;
+    border: none;
+    padding: 6px 12px;
+}
+.btn-text:hover {
+    color: #EAEAEA;
+}
+.btn-accent.sm {
+    font-size: 13px;
+    padding: 6px 16px;
 }
 
 /* ============================================================================

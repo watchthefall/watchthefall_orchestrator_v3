@@ -18,7 +18,7 @@
         .container {
             max-width: 800px;
             margin: 0 auto;
-            padding: 40px 20px;
+            padding: 32px 20px;
         }
         
         /* Onboarding State (no_brand_kit) */
@@ -136,22 +136,6 @@
             border-color: var(--accent);
             background-color: var(--accent-muted);
         }
-
-        /* Tier-aware inline buttons */
-        .btn-accent {
-            background: var(--accent);
-            color: #121214;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 6px;
-            font-weight: 700;
-            font-size: 14px;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: background 0.2s;
-        }
-        .btn-accent:hover { background: var(--accent-hover); }
-        .btn-accent.sm { font-size: 13px; }
         
     </style>
 </head>
@@ -199,7 +183,7 @@
         {% else %}
         <!-- Workspace State (has_brand_kit) -->
         <div class="workspace-section">
-            <h1>Welcome back</h1>
+            <h1 style="display:flex; align-items:center; gap:10px;">Welcome back <span class="tier-badge tier-{{ tier.lower() }}" style="font-size:11px; padding:3px 10px; vertical-align:middle;">{{ tier }}</span></h1>
             
             {% if max_brands is defined and max_brands != -1 and brand_count is defined and brand_count >= max_brands %}
             <!-- Over-limit banner — direct modal trigger -->
