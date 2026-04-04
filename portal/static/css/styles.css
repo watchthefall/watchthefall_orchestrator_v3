@@ -69,6 +69,15 @@ body {
     text-shadow: 0 0 6px rgba(212, 160, 23, 0.25);
 }
 
+/* Platinum — icy chrome blue (hidden internal supertier, manually granted) */
+.tier-platinum {
+    background: rgba(192, 207, 255, 0.12);
+    color: #C0CFFF;
+    border: 2px solid rgba(192, 207, 255, 0.4);
+    text-shadow: 0 0 8px rgba(192, 207, 255, 0.35);
+    font-weight: 700;
+}
+
 /* Admin — Brandr gold (email-locked role) — filled, dominant */
 .role-admin {
     background: rgba(199, 165, 60, 0.25);

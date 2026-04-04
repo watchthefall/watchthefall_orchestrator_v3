@@ -313,17 +313,8 @@ def _run_migrations():
             conn.commit()
             print("[DATABASE] Migration completed: special_status column added")
         
-        # Migration: Convert Platinum tier users to Studio + beta_tester
-        try:
-            c.execute("SELECT id FROM users WHERE tier = 'Platinum'")
-            platinum_users = c.fetchall()
-            if platinum_users:
-                print(f"[DATABASE] Migrating {len(platinum_users)} Platinum users to Studio + beta_tester")
-                c.execute("UPDATE users SET tier = 'Studio', special_status = 'beta_tester' WHERE tier = 'Platinum'")
-                conn.commit()
-                print("[DATABASE] Migration completed: Platinum users converted")
-        except Exception as e:
-            print(f"[DATABASE] Platinum migration note: {e}")
+        # Platinum is a valid internal supertier — no migration needed.
+        # Do NOT auto-convert Platinum users. Platinum is assigned manually by admins.
     finally:
         conn.close()
 

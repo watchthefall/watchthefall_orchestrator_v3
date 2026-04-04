@@ -98,12 +98,12 @@ def authenticate_user(email, password):
 
 
 def register_user(email, password):
-    """Register a new user"""
+    """Register a new user. Admin emails default to Platinum tier, no special_status."""
     from .database import get_connection
     try:
         is_admin_email = email.lower() in [e.lower() for e in ADMIN_EMAILS]
-        tier = 'Studio' if is_admin_email else 'Explorer'
-        special_status = 'beta_tester' if is_admin_email else None
+        tier = 'Platinum' if is_admin_email else 'Explorer'
+        special_status = None  # Never auto-assign beta_tester
         
         with get_connection() as conn:
             c = conn.cursor()
@@ -216,20 +216,6 @@ def login():
         if user_id:
             session['user_id'] = user_id
             session['email'] = email
-            
-            # Auto-upgrade existing admin accounts to Studio + beta_tester
-            if is_admin(email):
-                cur_tier = get_user_tier(user_id)
-                cur_status = get_user_special_status(user_id)
-                if cur_tier != 'Studio' or cur_status != 'beta_tester':
-                    from .database import get_connection as _gc
-                    with _gc() as conn:
-                        conn.cursor().execute(
-                            'UPDATE users SET tier = ?, special_status = ? WHERE id = ?',
-                            ('Studio', 'beta_tester', user_id)
-                        )
-                        conn.commit()
-                    print(f"[AUTH] Admin {email} auto-upgraded to Studio + beta_tester")
             
             flash('Login successful!', 'success')
             return redirect(url_for('dashboard'))
