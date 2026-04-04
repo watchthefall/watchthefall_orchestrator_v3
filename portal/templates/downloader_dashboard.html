@@ -541,7 +541,13 @@
                     addToHistory(url, 'branded', data.outputs[0].filename);
                 }
             } else {
-                showError(result, `Branding failed: ${data.error || 'Unknown error'}`);
+                const isLimit = data.error === 'DAILY_LIMIT_REACHED' || data.error === 'BRANDS_PER_JOB_LIMIT';
+                const msg = data.message || data.error || 'Unknown error';
+                if (isLimit) {
+                    showError(result, `${msg} <a href="/portal/profile#upgrade" style="color:#86EDA5;">Upgrade plan</a>`);
+                } else {
+                    showError(result, `Branding failed: ${msg}`);
+                }
             }
         } catch (error) {
             showError(result, `Branding failed: ${error.message}`);

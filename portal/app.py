@@ -40,9 +40,9 @@ from .brand_loader import get_available_brands
 from .config import (
     SECRET_KEY, PORTAL_AUTH_KEY, OUTPUT_DIR, RAW_DIR,
     MAX_UPLOAD_SIZE, BRANDS_DIR,
-    TIER_CONFIG, DEFAULT_TIER, get_tier_limits
+    TIER_CONFIG, DEFAULT_TIER, get_tier_limits, get_payment_link
 )
-from .database import log_event
+from .database import log_event, get_daily_usage, increment_branding_jobs, increment_downloads
 
 
 # Authentication functions
@@ -223,12 +223,17 @@ def dashboard():
     brand_count = get_user_brand_count(user_id) if user_id else 0
     can_create = (max_brands == -1) or (brand_count < max_brands)
     
+    # Daily usage counters
+    usage = get_daily_usage(user_id) if user_id else {'branding_jobs': 0, 'downloads': 0}
+    
     return render_template('dashboard.html',
         state=state,
         tier=tier,
         max_brands=max_brands,
         brand_count=brand_count,
         can_create=can_create,
+        usage=usage,
+        limits=limits,
     )
 
 
@@ -586,6 +591,36 @@ def health_check():
     """Health check endpoint for Render"""
     return jsonify({'status': 'healthy', 'message': 'WTF Studio is running'}), 200
 
+
+@app.route('/api/upgrade-link/<tier_name>')
+@login_required
+def upgrade_link(tier_name):
+    """Return the PayPal payment link for a given tier."""
+    link = get_payment_link(tier_name)
+    if not link:
+        return jsonify({'success': False, 'error': f'No payment link available for {tier_name}'}), 404
+    return jsonify({'success': True, 'url': link, 'tier': tier_name})
+
+
+@app.route('/api/usage')
+@login_required
+def api_usage():
+    """Return current daily usage and limits for the logged-in user."""
+    user_id = session.get('user_id')
+    tier = get_user_tier(user_id)
+    limits = get_tier_limits(tier)
+    usage = get_daily_usage(user_id)
+    return jsonify({
+        'success': True,
+        'tier': tier,
+        'usage': usage,
+        'limits': {
+            'branding_jobs_per_day': limits['branding_jobs_per_day'],
+            'downloads_per_day': limits['downloads_per_day'],
+        }
+    })
+
+
 @app.route('/portal/downloader_dashboard')
 @login_required
 def downloader_dashboard():
@@ -600,6 +635,21 @@ def downloader_dashboard():
 def process_branded_videos():
     """Process video with selected brand overlays (brand_id-first)"""
     try:
+        # --- Tier enforcement: daily branding jobs limit ---
+        user_id = session.get('user_id')
+        tier = get_user_tier(user_id)
+        limits = get_tier_limits(tier)
+        usage = get_daily_usage(user_id)
+        if usage['branding_jobs'] >= limits['branding_jobs_per_day']:
+            return jsonify({
+                'success': False,
+                'error': 'DAILY_LIMIT_REACHED',
+                'message': f"You've used all {limits['branding_jobs_per_day']} branding jobs for today. Resets at midnight UTC.",
+                'tier': tier,
+                'limit': limits['branding_jobs_per_day'],
+                'used': usage['branding_jobs'],
+            }), 403
+
         data = request.get_json(force=True) or {}
         url = data.get('url')
         
@@ -616,6 +666,19 @@ def process_branded_videos():
             print(f"[PROCESS BRANDS] ERROR: No brands selected")
             return jsonify({'success': False, 'error': 'brand_ids or brands is required'}), 400
         
+        # --- Tier enforcement: max brands per job ---
+        num_brands = len(brand_ids) or len(selected_brands)
+        max_per_job = limits['max_brands_per_job']
+        if num_brands > max_per_job:
+            return jsonify({
+                'success': False,
+                'error': 'BRANDS_PER_JOB_LIMIT',
+                'message': f'{tier} plan allows {max_per_job} brands per job. You selected {num_brands}.',
+                'tier': tier,
+                'limit': max_per_job,
+                'selected': num_brands,
+            }), 403
+
         # Optional branding configuration overrides (applied temporarily per-video)
         # These are read directly from 'data' dict later, no need to pre-extract
 
@@ -1061,6 +1124,9 @@ def process_branded_videos():
             print(f"[PROCESS BRANDS]   {i}. {dl['filename']} (brand: {dl['brand']})")
         print(f"[PROCESS BRANDS] ========================================")
         
+        # Increment daily branding job counter
+        increment_branding_jobs(user_id)
+        
         return jsonify({
             'success': True,
             'message': f'Successfully processed video for {len(output_paths)} brands',
@@ -1079,6 +1145,12 @@ def process_branded_videos():
 def fetch_videos_from_urls():
     """Download videos from URLs (TikTok, Instagram, X) - up to 5 at a time"""
     try:
+        # --- Tier enforcement: daily downloads limit ---
+        user_id = session.get('user_id')
+        tier = get_user_tier(user_id)
+        limits = get_tier_limits(tier)
+        usage = get_daily_usage(user_id)
+        
         if not YoutubeDL:
             return jsonify({'success': False, 'error': 'yt-dlp not installed'}), 500
         
@@ -1090,6 +1162,22 @@ def fetch_videos_from_urls():
         
         if len(urls) > 5:
             return jsonify({'success': False, 'error': 'Maximum 5 URLs at a time (Render free tier limit)'}), 400
+        
+        # Check if user would exceed daily download limit
+        remaining_downloads = limits['downloads_per_day'] - usage['downloads']
+        if remaining_downloads <= 0:
+            return jsonify({
+                'success': False,
+                'error': 'DAILY_LIMIT_REACHED',
+                'message': f"You've used all {limits['downloads_per_day']} downloads for today. Resets at midnight UTC.",
+                'tier': tier,
+                'limit': limits['downloads_per_day'],
+                'used': usage['downloads'],
+            }), 403
+        
+        # Clamp to remaining quota
+        if len(urls) > remaining_downloads:
+            urls = urls[:remaining_downloads]
         
         print(f"[FETCH] Downloading {len(urls)} videos from URLs")
         log_event('info', None, f'Fetching {len(urls)} URLs')
@@ -1254,6 +1342,10 @@ def fetch_videos_from_urls():
         
         success_count = sum(1 for r in results if r.get('success'))
         log_event('info', None, f'Fetch complete: {success_count}/{len(urls)} successful')
+        
+        # Increment daily download counter for successful downloads
+        if success_count > 0:
+            increment_downloads(user_id, success_count)
         
         return jsonify({
             'success': True,
@@ -2564,6 +2656,20 @@ def api_detect_platform():
 def api_download_video():
     """Download a single video."""
     try:
+        # --- Tier enforcement: daily downloads limit ---
+        user_id = session.get('user_id')
+        if user_id:
+            tier = get_user_tier(user_id)
+            dl_limits = get_tier_limits(tier)
+            usage = get_daily_usage(user_id)
+            if usage['downloads'] >= dl_limits['downloads_per_day']:
+                return jsonify({
+                    'success': False,
+                    'error': 'DAILY_LIMIT_REACHED',
+                    'message': f"You've used all {dl_limits['downloads_per_day']} downloads for today.",
+                    'tier': tier,
+                }), 403
+
         data = request.get_json()
         url = data.get('url')
         
@@ -2574,6 +2680,11 @@ def api_download_video():
         import asyncio
         from downloader.batch_downloader import download_single_video
         result = asyncio.run(download_single_video(url))
+        
+        # Increment download counter on success
+        if user_id and result.get('success', True):
+            increment_downloads(user_id)
+        
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -2583,16 +2694,43 @@ def api_download_video():
 def api_download_batch():
     """Download multiple videos."""
     try:
+        # --- Tier enforcement: daily downloads limit ---
+        user_id = session.get('user_id')
+        remaining = None
+        if user_id:
+            tier = get_user_tier(user_id)
+            dl_limits = get_tier_limits(tier)
+            usage = get_daily_usage(user_id)
+            remaining = dl_limits['downloads_per_day'] - usage['downloads']
+            if remaining <= 0:
+                return jsonify({
+                    'success': False,
+                    'error': 'DAILY_LIMIT_REACHED',
+                    'message': f"You've used all {dl_limits['downloads_per_day']} downloads for today.",
+                    'tier': tier,
+                }), 403
+
         data = request.get_json()
         urls = data.get('urls', [])
         
         if not urls:
             return jsonify({"error": "At least one URL is required"}), 400
         
+        # Clamp to remaining quota if logged in
+        if remaining is not None and len(urls) > remaining:
+            urls = urls[:remaining]
+        
         # Import and run the async batch download function
         import asyncio
         from downloader.batch_downloader import download_batch
         results = asyncio.run(download_batch(urls))
+        
+        # Increment download counter for successful downloads
+        if user_id:
+            success_count = sum(1 for r in results if r.get('success', True))
+            if success_count > 0:
+                increment_downloads(user_id, success_count)
+        
         return jsonify({"downloads": results})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

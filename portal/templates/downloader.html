@@ -804,7 +804,11 @@ https://x.com/..."></textarea>
                         resultMessage.textContent = '❌ Download failed: ' + (result.error || 'Unknown error');
                     }
                 } else {
-                    resultMessage.textContent = '❌ Download failed: ' + (data.error || 'Unknown error');
+                    if (data.error === 'DAILY_LIMIT_REACHED') {
+                        resultMessage.innerHTML = '⚠️ ' + (data.message || 'Daily download limit reached.') + ' <a href="/portal/profile#upgrade" style="color:#86EDA5;">Upgrade plan</a>';
+                    } else {
+                        resultMessage.textContent = '❌ Download failed: ' + (data.error || 'Unknown error');
+                    }
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -926,7 +930,11 @@ https://x.com/..."></textarea>
                         }
                     }
                 } else {
-                    batchResultsDiv.innerHTML = `<p style="color:#ff6b6b;">❌ Batch download failed: ${data.error || 'Unknown error'}</p>`;
+                    if (data.error === 'DAILY_LIMIT_REACHED') {
+                        batchResultsDiv.innerHTML = `<p style="color:#ffb347;">⚠️ ${data.message || 'Daily download limit reached.'} <a href="/portal/profile#upgrade" style="color:#86EDA5;">Upgrade plan</a></p>`;
+                    } else {
+                        batchResultsDiv.innerHTML = `<p style="color:#ff6b6b;">❌ Batch download failed: ${data.error || 'Unknown error'}</p>`;
+                    }
                 }
             } catch (error) {
                 console.error('Error:', error);

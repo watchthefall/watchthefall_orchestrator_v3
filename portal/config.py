@@ -49,30 +49,47 @@ CLEANUP_TEMP_AFTER_HOURS = 24
 TIER_CONFIG = {
     'Explorer': {
         'label': 'Explorer',
-        'branding_jobs_per_day': 20,
-        'max_brands_per_job': 3,
+        'price': 0,
+        'branding_jobs_per_day': 5,
+        'max_brands_per_job': 2,
         'max_brand_configs': 1,
+        'downloads_per_day': 10,
     },
     'Creator': {
         'label': 'Creator',
-        'branding_jobs_per_day': 80,
+        'price': 9,
+        'branding_jobs_per_day': 50,
         'max_brands_per_job': 7,
         'max_brand_configs': 5,
+        'downloads_per_day': 100,
     },
     'Studio': {
         'label': 'Studio',
+        'price': 19,
         'branding_jobs_per_day': 150,
         'max_brands_per_job': 20,
         'max_brand_configs': -1,  # unlimited
+        'downloads_per_day': 200,
     },
 }
 
 DEFAULT_TIER = 'Explorer'
 
+# PayPal payment links (no-code checkout)
+PAYMENT_LINKS = {
+    'Creator': 'https://www.paypal.com/ncp/payment/DJY4Q8DPKDULU',
+    'Studio': '',  # TODO: Add Studio PayPal link when ready
+}
+
 
 def get_tier_limits(tier_name):
     """Return the limits dict for a given tier. Falls back to Explorer."""
     return TIER_CONFIG.get(tier_name, TIER_CONFIG[DEFAULT_TIER])
+
+
+def get_payment_link(tier_name):
+    """Return PayPal payment link for a tier. Returns empty string if none."""
+    return PAYMENT_LINKS.get(tier_name, '')
 
 # Ensure directories exist
 for directory in [STORAGE_ROOT, RAW_DIR, OUTPUT_DIR, BRANDS_DIR, UPLOAD_DIR, TEMP_DIR, LOG_DIR, os.path.dirname(DB_PATH)]:

@@ -192,21 +192,53 @@
             </div>
             {% endif %}
             
-            {% if max_brands is defined and max_brands != -1 %}
-            <!-- Usage widget -->
-            <div class="usage-widget">
-                <div class="usage-info">
-                    <div class="usage-label">Brand Configs</div>
-                    <div class="usage-numbers"><span class="usage-accent">{{ brand_count }}</span> / {{ max_brands }} used</div>
-                    {% set pct = (((brand_count / max_brands) * 100) | int) if max_brands > 0 else 0 %}
-                    <div class="usage-bar">
-                        <div class="usage-bar-fill{% if pct >= 100 %} critical{% elif pct >= 80 %} warning{% endif %}" style="width: {{ [pct, 100] | min }}%"></div>
+            <!-- Daily usage bars -->
+            {% if usage is defined and limits is defined %}
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:20px;">
+                <!-- Brand Configs -->
+                {% if max_brands is defined and max_brands != -1 %}
+                <div class="usage-widget" style="margin-bottom:0;">
+                    <div class="usage-info">
+                        <div class="usage-label">Brand Configs</div>
+                        <div class="usage-numbers"><span class="usage-accent">{{ brand_count }}</span> / {{ max_brands }}</div>
+                        {% set pct_brands = (((brand_count / max_brands) * 100) | int) if max_brands > 0 else 0 %}
+                        <div class="usage-bar">
+                            <div class="usage-bar-fill{% if pct_brands >= 100 %} critical{% elif pct_brands >= 80 %} warning{% endif %}" style="width: {{ [pct_brands, 100] | min }}%"></div>
+                        </div>
                     </div>
                 </div>
-                {% if pct >= 80 %}
-                <a href="/portal/profile#upgrade" class="usage-cta">Upgrade plan</a>
                 {% endif %}
+
+                <!-- Branding Jobs Today -->
+                <div class="usage-widget" style="margin-bottom:0;">
+                    <div class="usage-info">
+                        <div class="usage-label">Jobs Today</div>
+                        <div class="usage-numbers"><span class="usage-accent">{{ usage.branding_jobs }}</span> / {{ limits.branding_jobs_per_day }}</div>
+                        {% set pct_jobs = (((usage.branding_jobs / limits.branding_jobs_per_day) * 100) | int) if limits.branding_jobs_per_day > 0 else 0 %}
+                        <div class="usage-bar">
+                            <div class="usage-bar-fill{% if pct_jobs >= 100 %} critical{% elif pct_jobs >= 80 %} warning{% endif %}" style="width: {{ [pct_jobs, 100] | min }}%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Downloads Today -->
+                <div class="usage-widget" style="margin-bottom:0;">
+                    <div class="usage-info">
+                        <div class="usage-label">Downloads Today</div>
+                        <div class="usage-numbers"><span class="usage-accent">{{ usage.downloads }}</span> / {{ limits.downloads_per_day }}</div>
+                        {% set pct_dl = (((usage.downloads / limits.downloads_per_day) * 100) | int) if limits.downloads_per_day > 0 else 0 %}
+                        <div class="usage-bar">
+                            <div class="usage-bar-fill{% if pct_dl >= 100 %} critical{% elif pct_dl >= 80 %} warning{% endif %}" style="width: {{ [pct_dl, 100] | min }}%"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
+            {% set any_high = (pct_brands is defined and pct_brands >= 80) or pct_jobs >= 80 or pct_dl >= 80 %}
+            {% if any_high and tier != 'Studio' %}
+            <div style="text-align:right; margin-bottom:16px;">
+                <a href="/portal/profile#upgrade" class="usage-cta">Upgrade plan</a>
+            </div>
+            {% endif %}
             {% endif %}
             
             <div class="quick-actions">

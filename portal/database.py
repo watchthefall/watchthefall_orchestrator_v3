@@ -178,6 +178,18 @@ def init_db():
             )
         ''')
         
+        # Daily usage tracking table
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS daily_usage (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                usage_date TEXT NOT NULL,
+                branding_jobs INTEGER DEFAULT 0,
+                downloads INTEGER DEFAULT 0,
+                UNIQUE(user_id, usage_date)
+            )
+        ''')
+        
         conn.commit()
         print("[DATABASE] Database initialized successfully")
     finally:
@@ -273,6 +285,24 @@ def _run_migrations():
             c.execute("UPDATE downloads SET display_name = filename WHERE display_name IS NULL")
             conn.commit()
             print("[DATABASE] Migration completed: display_name added and backfilled")
+        
+        # Migration: Create daily_usage table for existing databases
+        try:
+            c.execute("SELECT id FROM daily_usage LIMIT 1")
+        except sqlite3.OperationalError:
+            print("[DATABASE] Running migration: Creating daily_usage table")
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS daily_usage (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    usage_date TEXT NOT NULL,
+                    branding_jobs INTEGER DEFAULT 0,
+                    downloads INTEGER DEFAULT 0,
+                    UNIQUE(user_id, usage_date)
+                )
+            ''')
+            conn.commit()
+            print("[DATABASE] Migration completed: daily_usage table created")
     finally:
         conn.close()
 
@@ -922,6 +952,62 @@ def cleanup_old_files(max_age_hours=24):
                             print(f"[CLEANUP] Error deleting {filepath}: {e}")
     
     return deleted_count
+
+# ============================================================================
+# DAILY USAGE TRACKING
+# ============================================================================
+
+def _today_str():
+    """Return today's date as YYYY-MM-DD string."""
+    return datetime.utcnow().strftime('%Y-%m-%d')
+
+
+def get_daily_usage(user_id):
+    """Get today's usage counters for a user. Returns dict with branding_jobs, downloads."""
+    today = _today_str()
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            'SELECT branding_jobs, downloads FROM daily_usage WHERE user_id = ? AND usage_date = ?',
+            (user_id, today)
+        )
+        row = c.fetchone()
+    if row:
+        return {'branding_jobs': row['branding_jobs'], 'downloads': row['downloads']}
+    return {'branding_jobs': 0, 'downloads': 0}
+
+
+def increment_branding_jobs(user_id, count=1):
+    """Increment today's branding_jobs counter for a user."""
+    today = _today_str()
+    def _do_increment(conn):
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO daily_usage (user_id, usage_date, branding_jobs, downloads)
+            VALUES (?, ?, ?, 0)
+            ON CONFLICT(user_id, usage_date)
+            DO UPDATE SET branding_jobs = branding_jobs + ?
+        ''', (user_id, today, count, count))
+        conn.commit()
+        return True
+    return _retry_write(_do_increment)
+
+
+def increment_downloads(user_id, count=1):
+    """Increment today's downloads counter for a user."""
+    today = _today_str()
+    def _do_increment(conn):
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO daily_usage (user_id, usage_date, branding_jobs, downloads)
+            VALUES (?, ?, 0, ?)
+            ON CONFLICT(user_id, usage_date)
+            DO UPDATE SET downloads = downloads + ?
+        ''', (user_id, today, count, count))
+        conn.commit()
+        return True
+    return _retry_write(_do_increment)
+
 
 # Initialize database on import
 init_db()

@@ -1785,6 +1785,9 @@ async function processCurrentBrand() {
         const data = await res.json();
         
         if (!data.success) {
+            if (data.error === 'DAILY_LIMIT_REACHED' || data.error === 'BRANDS_PER_JOB_LIMIT') {
+                throw new Error(data.message + ' <a href="/portal/profile#upgrade" style="color:#86EDA5;">Upgrade plan</a>');
+            }
             throw new Error(data.error || 'Processing failed');
         }
         
@@ -1891,6 +1894,9 @@ async function processAllBrands() {
             const data = await res.json();
             
             if (!data.success) {
+                if (data.error === 'DAILY_LIMIT_REACHED' || data.error === 'BRANDS_PER_JOB_LIMIT') {
+                    throw new Error(data.message + ' <a href="/portal/profile#upgrade" style="color:#86EDA5;">Upgrade plan</a>');
+                }
                 throw new Error(data.error || 'Processing failed');
             }
             
