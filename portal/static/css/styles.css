@@ -39,33 +39,34 @@ body {
     vertical-align: middle;
 }
 
-/* Explorer — muted, low-contrast */
+/* Explorer — muted green (free tier) */
 .tier-explorer {
     background: rgba(134, 237, 165, 0.08);
     color: rgba(134, 237, 165, 0.6);
     border: 1px solid rgba(134, 237, 165, 0.15);
 }
 
-/* Creator — standard mint emphasis */
+/* Creator — orange (hustle / energy) */
 .tier-creator {
-    background: rgba(134, 237, 165, 0.12);
-    color: rgba(134, 237, 165, 0.85);
-    border: 1.5px solid rgba(134, 237, 165, 0.3);
+    background: rgba(245, 166, 35, 0.12);
+    color: #F5A623;
+    border: 1.5px solid rgba(245, 166, 35, 0.35);
 }
 
-/* Studio — strongest presence */
+/* Studio — purple (power / control) */
 .tier-studio {
-    background: rgba(134, 237, 165, 0.18);
-    color: #86EDA5;
-    border: 2px solid rgba(134, 237, 165, 0.5);
+    background: rgba(168, 85, 247, 0.14);
+    color: #A855F7;
+    border: 2px solid rgba(168, 85, 247, 0.4);
+    text-shadow: 0 0 6px rgba(168, 85, 247, 0.2);
 }
 
-/* Platinum — admin/VIP, silver-white glow */
-.tier-platinum {
-    background: rgba(229, 228, 226, 0.12);
-    color: #E5E4E2;
-    border: 2px solid rgba(229, 228, 226, 0.4);
-    text-shadow: 0 0 6px rgba(229, 228, 226, 0.3);
+/* Beta Tester — gold (status / prestige) — overrides tier badge visually */
+.status-beta_tester {
+    background: rgba(212, 160, 23, 0.14);
+    color: #D4A017;
+    border: 2px solid rgba(212, 160, 23, 0.45);
+    text-shadow: 0 0 6px rgba(212, 160, 23, 0.25);
 }
 
 /* ============================================================================

@@ -156,11 +156,11 @@
         <li><a href="{{ url_for('shipr_page') }}"{% if active_page == 'shipr_page' %} class="active"{% endif %}>Shipr</a></li>
     </ul>
     <div class="dropdown">
-        <a href="#" tabindex="0">Account</a>
+        <a href="#" tabindex="0">{% if user_badge %}<span class="tier-badge {% if user_special_status %}status-{{ user_special_status }}{% else %}tier-{{ user_badge.tier|lower }}{% endif %}" style="font-size:11px;padding:3px 10px;margin-right:6px;">{{ user_badge.label }}</span>{% endif %}Account</a>
         <div class="dropdown-content">
             <a href="{{ url_for('profile_page') }}">Profile</a>
             {% if is_admin_user %}
-            <a href="{{ url_for('admin_console') }}" style="color:#86EDA5;">Admin</a>
+            <a href="{{ url_for('admin_console') }}" style="color:#A855F7;">Admin</a>
             {% endif %}
             <a href="{{ url_for('logout') }}">Logout</a>
         </div>

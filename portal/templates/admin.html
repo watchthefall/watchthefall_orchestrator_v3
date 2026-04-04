@@ -178,6 +178,7 @@
                         <th>ID</th>
                         <th>Email</th>
                         <th>Tier</th>
+                        <th>Status</th>
                         <th>Joined</th>
                         <th></th>
                     </tr>
@@ -193,11 +194,19 @@
                                 <option value="{{ t }}" {% if t == user.tier %}selected{% endif %}>{{ t }}</option>
                                 {% endfor %}
                             </select>
+                        </td>
+                        <td>
+                            <select class="tier-select status-select" data-user-id="{{ user.id }}" data-original="{{ user.special_status or '' }}" onchange="onTierChange(this)">
+                                {% for s in statuses %}
+                                <option value="{{ s }}" {% if s == (user.special_status or '') %}selected{% endif %}>{{ s if s else '—' }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="date-cell">{{ user.created_at or '—' }}</td>
+                        <td>
                             <button class="save-btn" onclick="saveTier(this)" data-user-id="{{ user.id }}">Save</button>
                             <span class="saved-msg">Saved</span>
                         </td>
-                        <td class="date-cell">{{ user.created_at or '—' }}</td>
-                        <td></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -216,22 +225,28 @@ function filterUsers() {
 }
 
 function onTierChange(select) {
-    var btn = select.parentElement.querySelector('.save-btn');
-    var original = select.getAttribute('data-original');
-    if (select.value !== original) {
+    var row = select.closest('tr');
+    var btn = row.querySelector('.save-btn');
+    var tierSel = row.querySelector('.tier-select:not(.status-select)');
+    var statusSel = row.querySelector('.status-select');
+    var changed = tierSel.value !== tierSel.getAttribute('data-original') ||
+                  statusSel.value !== statusSel.getAttribute('data-original');
+    if (changed) {
         btn.classList.add('visible');
     } else {
         btn.classList.remove('visible');
     }
-    // Hide any previous saved message
-    select.parentElement.querySelector('.saved-msg').classList.remove('show');
+    row.querySelector('.saved-msg').classList.remove('show');
 }
 
 function saveTier(btn) {
+    var row = btn.closest('tr');
     var userId = btn.getAttribute('data-user-id');
-    var select = btn.parentElement.querySelector('.tier-select');
-    var msg = btn.parentElement.querySelector('.saved-msg');
-    var newTier = select.value;
+    var tierSel = row.querySelector('.tier-select:not(.status-select)');
+    var statusSel = row.querySelector('.status-select');
+    var msg = row.querySelector('.saved-msg');
+    var newTier = tierSel.value;
+    var newStatus = statusSel.value;
 
     btn.disabled = true;
     btn.textContent = '...';
@@ -239,14 +254,16 @@ function saveTier(btn) {
     fetch('/api/admin/set-tier', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: parseInt(userId), tier: newTier })
+        body: JSON.stringify({ user_id: parseInt(userId), tier: newTier, special_status: newStatus })
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.success) {
-            select.setAttribute('data-original', newTier);
+            tierSel.setAttribute('data-original', newTier);
+            statusSel.setAttribute('data-original', newStatus);
             btn.classList.remove('visible');
             msg.textContent = 'Saved';
+            msg.style.color = '#86EDA5';
             msg.classList.add('show');
             setTimeout(function() { msg.classList.remove('show'); }, 2000);
         } else {

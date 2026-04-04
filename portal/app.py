@@ -40,10 +40,14 @@ from .brand_loader import get_available_brands
 from .config import (
     SECRET_KEY, PORTAL_AUTH_KEY, OUTPUT_DIR, RAW_DIR,
     MAX_UPLOAD_SIZE, BRANDS_DIR,
-    TIER_CONFIG, DEFAULT_TIER, get_tier_limits, get_payment_link,
-    ADMIN_EMAILS
+    TIER_CONFIG, DEFAULT_TIER, get_tier_limits, get_effective_limits,
+    get_payment_link, get_badge_info,
+    ADMIN_EMAILS, SPECIAL_STATUSES
 )
-from .database import log_event, get_daily_usage, increment_branding_jobs, increment_downloads
+from .database import (
+    log_event, get_daily_usage, increment_branding_jobs, increment_downloads,
+    get_user_special_status, set_user_special_status
+)
 
 
 # Authentication functions
@@ -97,21 +101,23 @@ def register_user(email, password):
     """Register a new user"""
     from .database import get_connection
     try:
+        is_admin_email = email.lower() in [e.lower() for e in ADMIN_EMAILS]
+        tier = 'Studio' if is_admin_email else 'Explorer'
+        special_status = 'beta_tester' if is_admin_email else None
+        
         with get_connection() as conn:
             c = conn.cursor()
             password_hash = hash_password(password)
-            
-            # Admins get Platinum tier on registration
-            tier = 'Platinum' if email.lower() in [e.lower() for e in ADMIN_EMAILS] else 'Explorer'
-            
-            c.execute('INSERT INTO users (email, password_hash, tier) VALUES (?, ?, ?)', (email, password_hash, tier))
+            c.execute(
+                'INSERT INTO users (email, password_hash, tier, special_status) VALUES (?, ?, ?, ?)',
+                (email, password_hash, tier, special_status)
+            )
             conn.commit()
             user_id = c.lastrowid
         
-        print(f"[AUTH] Registered user: {email} with tier: {tier}")
+        print(f"[AUTH] Registered user: {email} tier={tier} special_status={special_status}")
         return user_id
     except sqlite3.IntegrityError:
-        # Email already exists
         return None
 
 
@@ -169,9 +175,17 @@ init_users_db()
 
 
 @app.context_processor
-def inject_admin_flag():
-    """Make is_admin available in all templates."""
-    return {'is_admin_user': is_admin()}
+def inject_global_context():
+    """Inject admin flag and badge info into all templates."""
+    ctx = {'is_admin_user': is_admin()}
+    user_id = session.get('user_id')
+    if user_id:
+        tier = get_user_tier(user_id)
+        special_status = get_user_special_status(user_id)
+        badge = get_badge_info(tier, special_status)
+        ctx['user_badge'] = badge
+        ctx['user_special_status'] = special_status
+    return ctx
 
 
 # Authentication routes
@@ -203,16 +217,19 @@ def login():
             session['user_id'] = user_id
             session['email'] = email
             
-            # Auto-upgrade existing admin accounts to Platinum
-            if is_admin(email) and get_user_tier(user_id) != 'Platinum':
-                from .database import get_connection as _gc
-                with _gc() as conn:
-                    conn.cursor().execute(
-                        'UPDATE users SET tier = ? WHERE id = ?',
-                        ('Platinum', user_id)
-                    )
-                    conn.commit()
-                print(f"[AUTH] Admin {email} auto-upgraded to Platinum")
+            # Auto-upgrade existing admin accounts to Studio + beta_tester
+            if is_admin(email):
+                cur_tier = get_user_tier(user_id)
+                cur_status = get_user_special_status(user_id)
+                if cur_tier != 'Studio' or cur_status != 'beta_tester':
+                    from .database import get_connection as _gc
+                    with _gc() as conn:
+                        conn.cursor().execute(
+                            'UPDATE users SET tier = ?, special_status = ? WHERE id = ?',
+                            ('Studio', 'beta_tester', user_id)
+                        )
+                        conn.commit()
+                    print(f"[AUTH] Admin {email} auto-upgraded to Studio + beta_tester")
             
             flash('Login successful!', 'success')
             return redirect(url_for('dashboard'))
@@ -252,7 +269,8 @@ def dashboard():
     
     # Tier/limit context for usage widget
     tier = get_user_tier(user_id)
-    limits = get_tier_limits(tier)
+    special_status = get_user_special_status(user_id)
+    limits = get_effective_limits(tier, special_status)
     max_brands = limits.get('max_brand_configs', 1)
     brand_count = get_user_brand_count(user_id) if user_id else 0
     can_create = (max_brands == -1) or (brand_count < max_brands)
@@ -577,7 +595,8 @@ def profile_page():
         
         # Get tier from database via helper
         tier = get_user_tier(user_id)
-        limits = get_tier_limits(tier)
+        special_status = get_user_special_status(user_id)
+        limits = get_effective_limits(tier, special_status)
         
         # Get actual brand count
         user_brands = get_all_brands(user_id=user_id, include_system=False)
@@ -621,35 +640,42 @@ def admin_console():
     from .database import get_connection
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('SELECT id, email, tier, created_at FROM users ORDER BY created_at DESC')
+        c.execute('SELECT id, email, tier, special_status, created_at FROM users ORDER BY created_at DESC')
         users = [dict(row) for row in c.fetchall()]
     tiers = list(TIER_CONFIG.keys())
-    return render_template('admin.html', users=users, tiers=tiers)
+    statuses = [''] + list(SPECIAL_STATUSES.keys())
+    return render_template('admin.html', users=users, tiers=tiers, statuses=statuses)
 
 
 @app.route('/api/admin/set-tier', methods=['POST'])
 @admin_required
 def admin_set_tier():
-    """Set a user's tier (admin only)"""
+    """Set a user's tier and/or special_status (admin only)"""
     from .database import get_connection
     data = request.get_json(force=True) or {}
     user_id = data.get('user_id')
     new_tier = data.get('tier')
+    new_status = data.get('special_status')  # '' or None means clear
 
     if not user_id or not new_tier:
         return jsonify({'success': False, 'error': 'user_id and tier required'}), 400
     if new_tier not in TIER_CONFIG:
         return jsonify({'success': False, 'error': f'Invalid tier: {new_tier}'}), 400
+    if new_status and new_status not in SPECIAL_STATUSES:
+        return jsonify({'success': False, 'error': f'Invalid status: {new_status}'}), 400
+
+    # Normalize empty string to None
+    new_status = new_status if new_status else None
 
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute('UPDATE users SET tier = ? WHERE id = ?', (new_tier, user_id))
+        c.execute('UPDATE users SET tier = ?, special_status = ? WHERE id = ?', (new_tier, new_status, user_id))
         conn.commit()
         if c.rowcount == 0:
             return jsonify({'success': False, 'error': 'User not found'}), 404
 
-    print(f"[ADMIN] Set user {user_id} to tier {new_tier} by {session.get('email')}")
-    return jsonify({'success': True, 'user_id': user_id, 'tier': new_tier})
+    print(f"[ADMIN] Set user {user_id} to tier={new_tier} status={new_status} by {session.get('email')}")
+    return jsonify({'success': True, 'user_id': user_id, 'tier': new_tier, 'special_status': new_status})
 
 
 @app.route('/portal/test')
@@ -691,7 +717,8 @@ def api_usage():
     """Return current daily usage and limits for the logged-in user."""
     user_id = session.get('user_id')
     tier = get_user_tier(user_id)
-    limits = get_tier_limits(tier)
+    special_status = get_user_special_status(user_id)
+    limits = get_effective_limits(tier, special_status)
     usage = get_daily_usage(user_id)
     return jsonify({
         'success': True,
@@ -723,7 +750,8 @@ def process_branded_videos():
         # --- Tier enforcement: daily branding jobs limit ---
         user_id = session.get('user_id')
         tier = get_user_tier(user_id)
-        limits = get_tier_limits(tier)
+        special_status = get_user_special_status(user_id)
+        limits = get_effective_limits(tier, special_status)
         usage = get_daily_usage(user_id)
         if usage['branding_jobs'] >= limits['branding_jobs_per_day']:
             return jsonify({
@@ -1233,7 +1261,8 @@ def fetch_videos_from_urls():
         # --- Tier enforcement: daily downloads limit ---
         user_id = session.get('user_id')
         tier = get_user_tier(user_id)
-        limits = get_tier_limits(tier)
+        special_status = get_user_special_status(user_id)
+        limits = get_effective_limits(tier, special_status)
         usage = get_daily_usage(user_id)
         
         if not YoutubeDL:
@@ -1846,7 +1875,8 @@ def get_all_brands_api():
         
         # Include tier info so frontend can update button state dynamically
         tier = get_user_tier(user_id)
-        limits = get_tier_limits(tier)
+        special_status = get_user_special_status(user_id)
+        limits = get_effective_limits(tier, special_status)
         max_brands = limits.get('max_brand_configs', 1)
         current_count = get_user_brand_count(user_id)
         can_create = (max_brands == -1) or (current_count < max_brands)
@@ -1902,7 +1932,8 @@ def create_brand_api():
         
         # --- Tier enforcement: check max_brand_configs ---
         tier = get_user_tier(user_id)
-        limits = get_tier_limits(tier)
+        special_status = get_user_special_status(user_id)
+        limits = get_effective_limits(tier, special_status)
         max_brands = limits.get('max_brand_configs', 1)
         
         if max_brands != -1:  # -1 means unlimited
@@ -2745,7 +2776,7 @@ def api_download_video():
         user_id = session.get('user_id')
         if user_id:
             tier = get_user_tier(user_id)
-            dl_limits = get_tier_limits(tier)
+            dl_limits = get_effective_limits(tier, get_user_special_status(user_id))
             usage = get_daily_usage(user_id)
             if usage['downloads'] >= dl_limits['downloads_per_day']:
                 return jsonify({
@@ -2784,7 +2815,7 @@ def api_download_batch():
         remaining = None
         if user_id:
             tier = get_user_tier(user_id)
-            dl_limits = get_tier_limits(tier)
+            dl_limits = get_effective_limits(tier, get_user_special_status(user_id))
             usage = get_daily_usage(user_id)
             remaining = dl_limits['downloads_per_day'] - usage['downloads']
             if remaining <= 0:

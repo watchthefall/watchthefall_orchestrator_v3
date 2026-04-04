@@ -1,6 +1,7 @@
 <!-- Shared Upgrade Modal — include on any page that needs upgrade conversion -->
 <!-- Requires template variable: tier (current user tier) -->
-{% if tier != 'Platinum' %}
+<!-- user_special_status injected by context processor -->
+{% if tier != 'Studio' and not user_special_status %}
 <div class="upgrade-modal-overlay wide" id="upgradeModal">
     <div class="upgrade-modal">
         <h2 id="upgradeModalTitle">Upgrade Your Plan</h2>
@@ -9,7 +10,7 @@
         <div class="upgrade-options">
             <div class="upgrade-card {% if tier == 'Explorer' %}current-plan{% endif %}">
                 <div class="upgrade-card-info">
-                    <h3>Explorer <span style="color:#888;font-size:13px;font-weight:400;">Free</span></h3>
+                    <h3><span style="color:#86EDA5;">Explorer</span> <span style="color:#888;font-size:13px;font-weight:400;">Free</span></h3>
                     <p>5 jobs/day &middot; 2 brands/job &middot; 1 config &middot; 10 downloads/day</p>
                 </div>
                 {% if tier == 'Explorer' %}
@@ -21,28 +22,22 @@
 
             <div class="upgrade-card {% if tier == 'Creator' %}current-plan{% endif %}">
                 <div class="upgrade-card-info">
-                    <h3>Creator <span style="color:#888;font-size:13px;font-weight:400;">$9/mo</span></h3>
+                    <h3><span style="color:#F5A623;">Creator</span> <span style="color:#888;font-size:13px;font-weight:400;">$9/mo</span></h3>
                     <p>50 jobs/day &middot; 7 brands/job &middot; 5 configs &middot; 100 downloads/day</p>
                 </div>
                 {% if tier == 'Creator' %}
                 <button class="upgrade-card-btn current">Current Plan</button>
-                {% elif tier == 'Studio' %}
-                <button class="upgrade-card-btn" onclick="alert('Downgrade flow coming soon.')">Downgrade</button>
                 {% else %}
                 <button class="upgrade-card-btn" onclick="handleUpgrade('Creator')">Upgrade to Creator</button>
                 {% endif %}
             </div>
 
-            <div class="upgrade-card {% if tier == 'Studio' %}current-plan{% endif %}">
+            <div class="upgrade-card">
                 <div class="upgrade-card-info">
-                    <h3>Studio <span style="color:#888;font-size:13px;font-weight:400;">$19/mo</span></h3>
+                    <h3><span style="color:#A855F7;">Studio</span> <span style="color:#888;font-size:13px;font-weight:400;">$19/mo</span></h3>
                     <p>150 jobs/day &middot; 20 brands/job &middot; Unlimited configs &middot; 200 downloads/day</p>
                 </div>
-                {% if tier == 'Studio' %}
-                <button class="upgrade-card-btn current">Current Plan</button>
-                {% else %}
                 <button class="upgrade-card-btn" onclick="handleUpgrade('Studio')">Upgrade to Studio</button>
-                {% endif %}
             </div>
         </div>
 
@@ -54,7 +49,7 @@
 <script>
 function openUpgradeModal(title, body) {
     var el = document.getElementById('upgradeModal');
-    if (!el) return;  // Platinum users — modal not rendered
+    if (!el) return;
     if (title) document.getElementById('upgradeModalTitle').textContent = title;
     if (body) document.getElementById('upgradeModalBody').textContent = body;
     el.classList.add('active');

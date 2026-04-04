@@ -303,6 +303,27 @@ def _run_migrations():
             ''')
             conn.commit()
             print("[DATABASE] Migration completed: daily_usage table created")
+        
+        # Migration: Add special_status column to users table
+        try:
+            c.execute("SELECT special_status FROM users LIMIT 1")
+        except sqlite3.OperationalError:
+            print("[DATABASE] Running migration: Adding special_status column to users")
+            c.execute("ALTER TABLE users ADD COLUMN special_status TEXT DEFAULT NULL")
+            conn.commit()
+            print("[DATABASE] Migration completed: special_status column added")
+        
+        # Migration: Convert Platinum tier users to Studio + beta_tester
+        try:
+            c.execute("SELECT id FROM users WHERE tier = 'Platinum'")
+            platinum_users = c.fetchall()
+            if platinum_users:
+                print(f"[DATABASE] Migrating {len(platinum_users)} Platinum users to Studio + beta_tester")
+                c.execute("UPDATE users SET tier = 'Studio', special_status = 'beta_tester' WHERE tier = 'Platinum'")
+                conn.commit()
+                print("[DATABASE] Migration completed: Platinum users converted")
+        except Exception as e:
+            print(f"[DATABASE] Platinum migration note: {e}")
     finally:
         conn.close()
 
@@ -1007,6 +1028,27 @@ def increment_downloads(user_id, count=1):
         conn.commit()
         return True
     return _retry_write(_do_increment)
+
+
+def get_user_special_status(user_id):
+    """Get user's special_status from the database. Returns None if no status."""
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT special_status FROM users WHERE id = ?', (user_id,))
+        row = c.fetchone()
+    if row and row['special_status']:
+        return row['special_status']
+    return None
+
+
+def set_user_special_status(user_id, status):
+    """Set or clear a user's special_status. Pass None to clear."""
+    def _do_update(conn):
+        c = conn.cursor()
+        c.execute('UPDATE users SET special_status = ? WHERE id = ?', (status, user_id))
+        conn.commit()
+        return True
+    return _retry_write(_do_update)
 
 
 # Initialize database on import

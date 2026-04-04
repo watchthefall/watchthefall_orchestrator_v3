@@ -46,10 +46,14 @@ CLEANUP_TEMP_AFTER_HOURS = 24
 # ============================================================================
 # TIER SYSTEM
 # ============================================================================
+# Base tiers: a user has exactly ONE tier
 TIER_CONFIG = {
     'Explorer': {
         'label': 'Explorer',
         'price': 0,
+        'color': '#86EDA5',       # mint green
+        'accent': '#86EDA5',
+        'badge_image': 'badges/explorer.png',
         'branding_jobs_per_day': 5,
         'max_brands_per_job': 2,
         'max_brand_configs': 1,
@@ -58,6 +62,9 @@ TIER_CONFIG = {
     'Creator': {
         'label': 'Creator',
         'price': 9,
+        'color': '#F5A623',       # orange
+        'accent': '#F5A623',
+        'badge_image': 'badges/creator.png',
         'branding_jobs_per_day': 50,
         'max_brands_per_job': 7,
         'max_brand_configs': 5,
@@ -66,24 +73,49 @@ TIER_CONFIG = {
     'Studio': {
         'label': 'Studio',
         'price': 19,
+        'color': '#A855F7',       # purple
+        'accent': '#A855F7',
+        'badge_image': 'badges/studio.png',
         'branding_jobs_per_day': 150,
         'max_brands_per_job': 20,
         'max_brand_configs': -1,  # unlimited
         'downloads_per_day': 200,
     },
-    'Platinum': {
-        'label': 'Platinum',
-        'price': 0,  # internal / admin only
-        'branding_jobs_per_day': 9999,
-        'max_brands_per_job': 100,
-        'max_brand_configs': -1,  # unlimited
-        'downloads_per_day': 9999,
-    },
 }
 
 DEFAULT_TIER = 'Explorer'
 
-# Admin emails — these users get admin console access
+# ============================================================================
+# SPECIAL STATUS (modifier, NOT a tier)
+# ============================================================================
+# A user may have ONE optional special_status that overrides tier limits.
+# beta_tester visually overrides the tier badge.
+SPECIAL_STATUSES = {
+    'beta_tester': {
+        'label': 'Beta Tester',
+        'color': '#D4A017',       # gold
+        'accent': '#D4A017',
+        'badge_image': 'badges/beta_tester.png',
+        'badge_priority': True,   # overrides tier badge visually
+        'overrides': {
+            'branding_jobs_per_day': 9999,
+            'max_brands_per_job': 100,
+            'max_brand_configs': -1,
+            'downloads_per_day': 9999,
+        },
+    },
+    # Future: uncomment when ready
+    # 'legacy': {
+    #     'label': 'Legacy',
+    #     'color': '#D4A017',
+    #     'accent': '#D4A017',
+    #     'badge_image': 'badges/legacy.png',
+    #     'badge_priority': True,
+    #     'overrides': {},
+    # },
+}
+
+# Admin emails — these users get admin console access + beta_tester status
 ADMIN_EMAILS = [
     'wtf@watchthefall.com',
     'jamiemg96@gmail.com',
@@ -99,6 +131,41 @@ PAYMENT_LINKS = {
 def get_tier_limits(tier_name):
     """Return the limits dict for a given tier. Falls back to Explorer."""
     return TIER_CONFIG.get(tier_name, TIER_CONFIG[DEFAULT_TIER])
+
+
+def get_effective_limits(tier_name, special_status=None):
+    """Return limits with special_status overrides merged on top of tier base."""
+    base = dict(get_tier_limits(tier_name))
+    if special_status and special_status in SPECIAL_STATUSES:
+        overrides = SPECIAL_STATUSES[special_status].get('overrides', {})
+        for key, val in overrides.items():
+            if key in base:
+                # Override only if the special status value is more generous
+                if val == -1 or (base[key] != -1 and val > base[key]):
+                    base[key] = val
+    return base
+
+
+def get_badge_info(tier_name, special_status=None):
+    """Return badge image path, label, and color for display.
+    Special status with badge_priority overrides tier visually."""
+    tier_cfg = TIER_CONFIG.get(tier_name, TIER_CONFIG[DEFAULT_TIER])
+    result = {
+        'image': tier_cfg['badge_image'],
+        'label': tier_cfg['label'],
+        'color': tier_cfg['color'],
+        'accent': tier_cfg['accent'],
+        'tier': tier_name,
+        'special_status': special_status,
+    }
+    if special_status and special_status in SPECIAL_STATUSES:
+        status_cfg = SPECIAL_STATUSES[special_status]
+        if status_cfg.get('badge_priority'):
+            result['image'] = status_cfg['badge_image']
+            result['label'] = status_cfg['label']
+            result['color'] = status_cfg['color']
+            result['accent'] = status_cfg['accent']
+    return result
 
 
 def get_payment_link(tier_name):
