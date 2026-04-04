@@ -632,13 +632,14 @@
             <button class="tab-btn" data-tab="upload" onclick="switchTab('upload')">Upload New</button>
         </div>
         <div class="tab-content">
-            <!-- Tab 1: Get Media (navigation) - shown as default prompt -->
+            <!-- Tab 1: Get Media — inline URL paste + download -->
             <div id="tabDownload" style="display:block;">
-                <div style="text-align:center; padding:40px 20px;">
-                    <div style="font-size:48px; margin-bottom:16px;">🔗</div>
-                    <h3 style="margin-bottom:12px; color:#fff;">Get Media to Brand</h3>
-                    <p style="color:#888; margin-bottom:24px; max-width:300px; margin-left:auto; margin-right:auto;">Paste a link from TikTok, Instagram, or YouTube to download and brand.</p>
-                    <button class="btn btn-primary" onclick="goToDownload()" style="padding:12px 32px; font-size:16px;">Go to Get Media →</button>
+                <div style="padding:24px 20px;">
+                    <div style="display:flex; gap:8px; max-width:600px; margin:0 auto;">
+                        <input type="text" id="inlineUrlInput" placeholder="Paste a TikTok, Instagram, or YouTube link..." style="flex:1; background:#121214; border:1px solid #444; border-radius:8px; padding:12px 16px; color:#fff; font-size:14px; outline:none;" onkeydown="if(event.key==='Enter')inlineFetchVideo()">
+                        <button class="btn btn-primary" id="inlineFetchBtn" onclick="inlineFetchVideo()" style="padding:12px 20px; font-size:14px; white-space:nowrap;">Get Media</button>
+                    </div>
+                    <div id="inlineFetchStatus" style="text-align:center; margin-top:12px; font-size:13px; color:#888; display:none;"></div>
                 </div>
             </div>
             <!-- Tab 2: Library -->
@@ -2351,8 +2352,65 @@ function goToLibrary() {
 }
 
 function goToDownload() {
-    // Navigate to download page to paste a link
     window.location.href = '/portal/download';
+}
+
+function inlineFetchVideo() {
+    var input = document.getElementById('inlineUrlInput');
+    var btn = document.getElementById('inlineFetchBtn');
+    var status = document.getElementById('inlineFetchStatus');
+    var url = (input.value || '').trim();
+
+    if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+        status.style.display = 'block';
+        status.style.color = '#ff6b6b';
+        status.textContent = 'Please paste a valid URL.';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Downloading...';
+    status.style.display = 'block';
+    status.style.color = '#888';
+    status.textContent = 'Fetching video... this may take a moment.';
+
+    fetch('/api/videos/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: [url] })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success && data.results && data.results[0] && data.results[0].success) {
+            var result = data.results[0];
+            currentFile = result.filename;
+            sessionStorage.setItem('lastDownloadFilename', result.filename);
+            status.style.color = '#86EDA5';
+            status.textContent = 'Ready! Loading preview...';
+            document.getElementById('intakeLayer').style.display = 'none';
+            document.getElementById('selectedVideoInfo').style.display = 'block';
+            document.getElementById('selectedFileName').textContent = result.display_name || result.filename;
+            loadFramePreview(result.filename);
+        } else if (data.error === 'DAILY_LIMIT_REACHED') {
+            status.style.color = '#ff6b6b';
+            status.textContent = data.message || 'Daily download limit reached.';
+            if (typeof openUpgradeModal === 'function') {
+                openUpgradeModal('Download limit reached', data.message);
+            }
+        } else {
+            var errMsg = (data.results && data.results[0] && data.results[0].error) || data.error || 'Download failed.';
+            status.style.color = '#ff6b6b';
+            status.textContent = errMsg;
+        }
+    })
+    .catch(function(err) {
+        status.style.color = '#ff6b6b';
+        status.textContent = 'Network error. Please try again.';
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Get Media';
+    });
 }
 
 function clearVideo() {
