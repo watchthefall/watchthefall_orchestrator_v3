@@ -4,14 +4,15 @@
 {% if tier != 'Studio' and not user_special_status %}
 <div class="upgrade-modal-overlay wide" id="upgradeModal">
     <div class="upgrade-modal">
-        <h2 id="upgradeModalTitle">Upgrade Your Plan</h2>
-        <p id="upgradeModalBody">Choose a plan to unlock more.</p>
+        <h2 id="upgradeModalTitle">Multiply Your Brands</h2>
+        <p id="upgradeModalBody">Turn 1 video into more branded outputs.</p>
 
         <div class="upgrade-options">
             <div class="upgrade-card {% if tier == 'Explorer' %}current-plan{% endif %}">
                 <div class="upgrade-card-info">
                     <h3><span style="color:#86EDA5;">Explorer</span> <span style="color:#888;font-size:13px;font-weight:400;">Free</span></h3>
-                    <p>5 jobs/day &middot; 2 brands/job &middot; 1 config &middot; 10 downloads/day</p>
+                    <p style="font-size:18px; font-weight:600; margin:6px 0;">1 video &rarr; 3 brands</p>
+                    <p style="color:#888; font-size:12px;">15 jobs/day &middot; 25 fetches/day &middot; 1 brand config</p>
                 </div>
                 {% if tier == 'Explorer' %}
                 <button class="upgrade-card-btn current">Current Plan</button>
@@ -23,7 +24,8 @@
             <div class="upgrade-card {% if tier == 'Creator' %}current-plan{% endif %}">
                 <div class="upgrade-card-info">
                     <h3><span style="color:#F5A623;">Creator</span> <span style="color:#888;font-size:13px;font-weight:400;">$9/mo</span></h3>
-                    <p>50 jobs/day &middot; 7 brands/job &middot; 5 configs &middot; 100 downloads/day</p>
+                    <p style="font-size:18px; font-weight:600; margin:6px 0;">1 video &rarr; 8 brands</p>
+                    <p style="color:#888; font-size:12px;">60 jobs/day &middot; 100 fetches/day &middot; 5 brand configs</p>
                 </div>
                 {% if tier == 'Creator' %}
                 <button class="upgrade-card-btn current">Current Plan</button>
@@ -35,7 +37,8 @@
             <div class="upgrade-card">
                 <div class="upgrade-card-info">
                     <h3><span style="color:#A855F7;">Studio</span> <span style="color:#888;font-size:13px;font-weight:400;">$19/mo</span></h3>
-                    <p>150 jobs/day &middot; 20 brands/job &middot; Unlimited configs &middot; 200 downloads/day</p>
+                    <p style="font-size:18px; font-weight:600; margin:6px 0;">1 video &rarr; 20 brands</p>
+                    <p style="color:#888; font-size:12px;">120 jobs/day &middot; 200 fetches/day &middot; Unlimited configs</p>
                 </div>
                 <button class="upgrade-card-btn" onclick="handleUpgrade('Studio')">Upgrade to Studio</button>
             </div>

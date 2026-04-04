@@ -41,8 +41,8 @@ from .config import (
     SECRET_KEY, PORTAL_AUTH_KEY, OUTPUT_DIR, RAW_DIR,
     MAX_UPLOAD_SIZE, BRANDS_DIR,
     TIER_CONFIG, DEFAULT_TIER, get_tier_limits, get_effective_limits,
-    get_payment_link, get_badge_info,
-    ADMIN_EMAILS, SPECIAL_STATUSES
+    get_payment_link, get_badge_info, get_next_visible_tier,
+    ADMIN_EMAILS, SPECIAL_STATUSES, VISIBLE_TIERS
 )
 from .database import (
     log_event, get_daily_usage, increment_branding_jobs, increment_downloads,
@@ -548,7 +548,14 @@ def brand_video():
     try:
         user_id = session.get('user_id')
         tier = get_user_tier(user_id)
-        return render_template('clean_dashboard.html', tier=tier)
+        special_status = get_user_special_status(user_id)
+        limits = get_effective_limits(tier, special_status)
+        next_tier = get_next_visible_tier(tier)
+        return render_template('clean_dashboard.html',
+            tier=tier,
+            max_brands_per_job=limits['max_brands_per_job'],
+            next_tier=next_tier,
+        )
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
@@ -726,7 +733,8 @@ def api_usage():
         'usage': usage,
         'limits': {
             'branding_jobs_per_day': limits['branding_jobs_per_day'],
-            'downloads_per_day': limits['downloads_per_day'],
+            'fetches_per_day': limits['fetches_per_day'],
+            'max_brands_per_job': limits['max_brands_per_job'],
         }
     })
 
@@ -1258,7 +1266,7 @@ def process_branded_videos():
 def fetch_videos_from_urls():
     """Download videos from URLs (TikTok, Instagram, X) - up to 5 at a time"""
     try:
-        # --- Tier enforcement: daily downloads limit ---
+        # --- Tier enforcement: daily fetch limit ---
         user_id = session.get('user_id')
         tier = get_user_tier(user_id)
         special_status = get_user_special_status(user_id)
@@ -1277,21 +1285,21 @@ def fetch_videos_from_urls():
         if len(urls) > 5:
             return jsonify({'success': False, 'error': 'Maximum 5 URLs at a time (Render free tier limit)'}), 400
         
-        # Check if user would exceed daily download limit
-        remaining_downloads = limits['downloads_per_day'] - usage['downloads']
-        if remaining_downloads <= 0:
+        # Check if user would exceed daily fetch limit
+        remaining_fetches = limits['fetches_per_day'] - usage['downloads']
+        if remaining_fetches <= 0:
             return jsonify({
                 'success': False,
                 'error': 'DAILY_LIMIT_REACHED',
-                'message': f"You've used all {limits['downloads_per_day']} downloads for today. Resets at midnight UTC.",
+                'message': f"You've used all {limits['fetches_per_day']} fetches for today. Resets at midnight UTC.",
                 'tier': tier,
-                'limit': limits['downloads_per_day'],
+                'limit': limits['fetches_per_day'],
                 'used': usage['downloads'],
             }), 403
         
         # Clamp to remaining quota
-        if len(urls) > remaining_downloads:
-            urls = urls[:remaining_downloads]
+        if len(urls) > remaining_fetches:
+            urls = urls[:remaining_fetches]
         
         print(f"[FETCH] Downloading {len(urls)} videos from URLs")
         log_event('info', None, f'Fetching {len(urls)} URLs')
@@ -2772,17 +2780,17 @@ def api_detect_platform():
 def api_download_video():
     """Download a single video."""
     try:
-        # --- Tier enforcement: daily downloads limit ---
+        # --- Tier enforcement: daily fetch limit ---
         user_id = session.get('user_id')
         if user_id:
             tier = get_user_tier(user_id)
             dl_limits = get_effective_limits(tier, get_user_special_status(user_id))
             usage = get_daily_usage(user_id)
-            if usage['downloads'] >= dl_limits['downloads_per_day']:
+            if usage['downloads'] >= dl_limits['fetches_per_day']:
                 return jsonify({
                     'success': False,
                     'error': 'DAILY_LIMIT_REACHED',
-                    'message': f"You've used all {dl_limits['downloads_per_day']} downloads for today.",
+                    'message': f"You've used all {dl_limits['fetches_per_day']} fetches for today.",
                     'tier': tier,
                 }), 403
 
@@ -2810,19 +2818,19 @@ def api_download_video():
 def api_download_batch():
     """Download multiple videos."""
     try:
-        # --- Tier enforcement: daily downloads limit ---
+        # --- Tier enforcement: daily fetch limit ---
         user_id = session.get('user_id')
         remaining = None
         if user_id:
             tier = get_user_tier(user_id)
             dl_limits = get_effective_limits(tier, get_user_special_status(user_id))
             usage = get_daily_usage(user_id)
-            remaining = dl_limits['downloads_per_day'] - usage['downloads']
+            remaining = dl_limits['fetches_per_day'] - usage['downloads']
             if remaining <= 0:
                 return jsonify({
                     'success': False,
                     'error': 'DAILY_LIMIT_REACHED',
-                    'message': f"You've used all {dl_limits['downloads_per_day']} downloads for today.",
+                    'message': f"You've used all {dl_limits['fetches_per_day']} fetches for today.",
                     'tier': tier,
                 }), 403
 

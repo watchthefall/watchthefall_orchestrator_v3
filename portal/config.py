@@ -47,6 +47,7 @@ CLEANUP_TEMP_AFTER_HOURS = 24
 # TIER SYSTEM
 # ============================================================================
 # Base tiers: a user has exactly ONE tier
+# Choke points: fetch (ingestion) + process_brands (transformation)
 TIER_CONFIG = {
     'Explorer': {
         'label': 'Explorer',
@@ -54,10 +55,12 @@ TIER_CONFIG = {
         'color': '#86EDA5',       # mint green
         'accent': '#86EDA5',
         'badge_image': 'badges/explorer.png',
-        'branding_jobs_per_day': 5,
-        'max_brands_per_job': 2,
+        'fetches_per_day': 25,
+        'ig_per_hour': 3,
+        'branding_jobs_per_day': 15,
+        'max_brands_per_job': 3,
         'max_brand_configs': 1,
-        'downloads_per_day': 10,
+        'concurrent_jobs': 1,
     },
     'Creator': {
         'label': 'Creator',
@@ -65,10 +68,12 @@ TIER_CONFIG = {
         'color': '#F5A623',       # orange
         'accent': '#F5A623',
         'badge_image': 'badges/creator.png',
-        'branding_jobs_per_day': 50,
-        'max_brands_per_job': 7,
+        'fetches_per_day': 100,
+        'ig_per_hour': 10,
+        'branding_jobs_per_day': 60,
+        'max_brands_per_job': 8,
         'max_brand_configs': 5,
-        'downloads_per_day': 100,
+        'concurrent_jobs': 3,
     },
     'Studio': {
         'label': 'Studio',
@@ -76,12 +81,35 @@ TIER_CONFIG = {
         'color': '#A855F7',       # purple
         'accent': '#A855F7',
         'badge_image': 'badges/studio.png',
-        'branding_jobs_per_day': 150,
+        'fetches_per_day': 200,
+        'ig_per_hour': 15,
+        'branding_jobs_per_day': 120,
         'max_brands_per_job': 20,
         'max_brand_configs': -1,  # unlimited
-        'downloads_per_day': 200,
+        'concurrent_jobs': 5,
+        'priority_processing': True,
+    },
+    # Platinum: hidden future tier — system-level control, not just bigger numbers
+    # Queue priority, batch campaigns, saved pipelines, team/multi-user (future)
+    'Platinum': {
+        'label': 'Platinum',
+        'price': 49,
+        'color': '#D4A017',       # gold
+        'accent': '#D4A017',
+        'badge_image': 'badges/legacy.png',
+        'fetches_per_day': 500,
+        'ig_per_hour': 30,
+        'branding_jobs_per_day': 300,
+        'max_brands_per_job': 50,
+        'max_brand_configs': -1,
+        'concurrent_jobs': 10,
+        'priority_processing': True,
+        'hidden': True,           # NOT shown in upgrade modal
     },
 }
+
+# Tiers visible in upgrade flow (excludes hidden tiers)
+VISIBLE_TIERS = [k for k, v in TIER_CONFIG.items() if not v.get('hidden')]
 
 DEFAULT_TIER = 'Explorer'
 
@@ -98,10 +126,10 @@ SPECIAL_STATUSES = {
         'badge_image': 'badges/beta_tester.png',
         'badge_priority': True,   # overrides tier badge visually
         'overrides': {
+            'fetches_per_day': 9999,
             'branding_jobs_per_day': 9999,
             'max_brands_per_job': 100,
             'max_brand_configs': -1,
-            'downloads_per_day': 9999,
         },
     },
     # Future: uncomment when ready
@@ -144,6 +172,20 @@ def get_effective_limits(tier_name, special_status=None):
                 if val == -1 or (base[key] != -1 and val > base[key]):
                     base[key] = val
     return base
+
+
+def get_next_visible_tier(current_tier):
+    """Return the next visible tier above the current one, or None if at top."""
+    try:
+        idx = VISIBLE_TIERS.index(current_tier)
+        if idx + 1 < len(VISIBLE_TIERS):
+            name = VISIBLE_TIERS[idx + 1]
+            cfg = TIER_CONFIG[name]
+            return {'name': name, 'label': cfg['label'], 'color': cfg['color'],
+                    'max_brands_per_job': cfg['max_brands_per_job'], 'price': cfg['price']}
+    except ValueError:
+        pass
+    return None
 
 
 def get_badge_info(tier_name, special_status=None):

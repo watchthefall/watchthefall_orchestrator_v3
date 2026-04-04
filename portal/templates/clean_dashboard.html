@@ -176,6 +176,32 @@
     .brand-btn:active {
         transform: scale(0.98);
     }
+    .brand-btn.ghost-slot {
+        background: rgba(255,255,255,0.03);
+        border: 1.5px dashed #333;
+        cursor: pointer;
+        opacity: 0.5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 70px;
+    }
+    .brand-btn.ghost-slot:hover {
+        border-color: #555;
+        opacity: 0.7;
+        transform: translateY(-1px);
+    }
+    .ghost-slot-inner {
+        text-align: center;
+        font-size: 12px;
+        color: #666;
+        line-height: 1.4;
+    }
+    .ghost-slot-inner .ghost-plus {
+        font-size: 20px;
+        display: block;
+        margin-bottom: 2px;
+    }
     
     /* ========== PREVIEW CANVAS ========== */
     #previewSection {
@@ -727,10 +753,13 @@
     
     <!-- Selection Mode Header (shown by default) -->
     <div id="selectionModeHeader">
-        <h3>Select Brands (Multi-select)</h3>
-        <p style="color:#666; font-size:12px; margin:5px 0 10px;">💡 Click multiple brands, then Start Branding</p>
+        <h3>Select Brands <span style="color:#666;font-size:13px;font-weight:400;">(up to {{ max_brands_per_job }} per job)</span></h3>
+        <p style="color:#666; font-size:12px; margin:5px 0 10px;">Click multiple brands, then Start Branding</p>
     </div>
-    <div class="brand-grid" id="brandsBox">Loading...</div>
+    <div class="brand-grid" id="brandsBox"
+         data-max-brands="{{ max_brands_per_job }}"
+         {% if next_tier %}data-next-tier="{{ next_tier.name }}" data-next-tier-color="{{ next_tier.color }}" data-next-tier-brands="{{ next_tier.max_brands_per_job }}"{% endif %}
+    >Loading...</div>
     
     <!-- Override Controls (hidden in Selection Mode) -->
     <div id="overrideControls" style="display:none;">
@@ -1254,6 +1283,22 @@ async function loadBrands() {
             box.appendChild(btn);
         });
         
+        // Ghost slots: show upgrade hint when user has brands but next tier allows more
+        const maxBrands = parseInt(box.dataset.maxBrands) || 999;
+        const nextTier = box.dataset.nextTier;
+        const nextTierColor = box.dataset.nextTierColor;
+        const nextTierBrands = parseInt(box.dataset.nextTierBrands) || 0;
+        if (nextTier && userBrands.length >= maxBrands && nextTierBrands > maxBrands) {
+            const ghostCount = Math.min(nextTierBrands - maxBrands, 3);  // Show up to 3 ghost slots
+            for (let i = 0; i < ghostCount; i++) {
+                const ghost = document.createElement('div');
+                ghost.className = 'brand-btn ghost-slot';
+                ghost.onclick = () => { if (typeof openUpgradeModal === 'function') openUpgradeModal(); };
+                ghost.innerHTML = `<div class="ghost-slot-inner"><span class="ghost-plus" style="color:${nextTierColor}">+</span><span style="color:${nextTierColor}">${nextTierBrands - maxBrands} more on ${nextTier}</span></div>`;
+                box.appendChild(ghost);
+            }
+        }
+        
         // Update confirmation summary
         updateConfirmationSummary();
     } catch (err) {
@@ -1293,6 +1338,14 @@ function selectBrand(brandId, btnEl, isReady) {
             }
         }
     } else {
+        // Check max_brands_per_job limit before selecting
+        const maxBrands = parseInt(document.getElementById('brandsBox').dataset.maxBrands) || 999;
+        if (selectedBrandIds.length >= maxBrands) {
+            if (typeof openUpgradeModal === 'function') {
+                openUpgradeModal('Brand Limit Reached', `Your plan allows ${maxBrands} brands per job. Upgrade to multiply more.`);
+            }
+            return;
+        }
         selectedBrandIds.push(brandId);  // Select
         btnEl.classList.add('selected');
         

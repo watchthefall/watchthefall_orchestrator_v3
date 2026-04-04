@@ -222,12 +222,12 @@
                     </div>
                 </div>
 
-                <!-- Downloads Today -->
+                <!-- Fetches Today -->
                 <div class="usage-widget" style="margin-bottom:0;">
                     <div class="usage-info">
-                        <div class="usage-label">Downloads Today</div>
-                        <div class="usage-numbers"><span class="usage-accent">{{ usage.downloads }}</span> / {{ limits.downloads_per_day }}</div>
-                        {% set pct_dl = (((usage.downloads / limits.downloads_per_day) * 100) | int) if limits.downloads_per_day > 0 else 0 %}
+                        <div class="usage-label">Fetches Today</div>
+                        <div class="usage-numbers"><span class="usage-accent">{{ usage.downloads }}</span> / {{ limits.fetches_per_day }}</div>
+                        {% set pct_dl = (((usage.downloads / limits.fetches_per_day) * 100) | int) if limits.fetches_per_day > 0 else 0 %}
                         <div class="usage-bar">
                             <div class="usage-bar-fill{% if pct_dl >= 100 %} critical{% elif pct_dl >= 80 %} warning{% endif %}" style="width: {{ [pct_dl, 100] | min }}%"></div>
                         </div>
