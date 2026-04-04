@@ -66,31 +66,33 @@
         }
         
         .brand-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: #1a1a1e;
+            border: 1px solid #2a2a2e;
             border-radius: 12px;
             padding: 20px;
             transition: all 0.2s;
         }
         .brand-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            border-color: #444;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
         }
         
         .brand-logo {
-            width: 80px;
-            height: 80px;
+            width: 64px;
+            height: 64px;
             object-fit: contain;
-            margin-bottom: 12px;
-            background: rgba(255, 255, 255, 0.1);
+            margin-bottom: 14px;
+            background: rgba(255, 255, 255, 0.06);
             border-radius: 8px;
             padding: 8px;
         }
         
         .brand-name {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
+            color: #EAEAEA;
         }
         
         .brand-badge {
@@ -142,12 +144,14 @@
         .brand-actions {
             display: flex;
             gap: 8px;
-            margin-top: 12px;
+            margin-top: 14px;
         }
         .brand-actions button {
             flex: 1;
-            padding: 8px;
-            font-size: 13px;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
         }
         
         /* Modal */

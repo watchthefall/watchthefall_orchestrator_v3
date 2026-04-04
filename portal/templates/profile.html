@@ -16,139 +16,148 @@
         
         .container {
             max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-        }
-        
-        h1 {
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 2rem;
-            color: #ffffff;
+            margin: 0 auto;
+            padding: 32px 20px;
         }
         
         .profile-card {
             background: #202024;
             border-radius: 12px;
-            padding: 30px;
+            padding: 32px;
             margin-bottom: 20px;
         }
         
+        /* Profile header — centered, balanced */
         .profile-header {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #333;
+            text-align: center;
+            padding-bottom: 24px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid #2a2a2e;
         }
         
         .profile-avatar {
-            width: 80px;
-            height: 80px;
+            width: 72px;
+            height: 72px;
             border-radius: 50%;
-            background: #202024;
-            border: 2px solid rgba(134, 237, 165, 0.3);
+            background: #1a1a1e;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 36px;
-            margin-right: 20px;
-            color: #86EDA5;
-            flex-shrink: 0;
-        }
-        
-        .profile-info h2 {
-            margin-bottom: 6px;
+            font-size: 28px;
+            font-weight: 700;
             color: #EAEAEA;
-            font-size: 18px;
+            flex-shrink: 0;
+            margin-bottom: 14px;
         }
         
-        .profile-info p {
-            color: #888;
+        .profile-email {
+            font-size: 17px;
+            font-weight: 600;
+            color: #EAEAEA;
+            margin-bottom: 4px;
+        }
+        
+        .profile-meta {
             font-size: 13px;
-            margin-bottom: 8px;
+            color: #666;
+            margin-bottom: 14px;
+        }
+        
+        .profile-badges {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
         
         .section-title {
             color: #EAEAEA;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 600;
-            margin: 28px 0 14px;
+            margin: 0 0 14px;
             padding-bottom: 10px;
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid #2a2a2e;
+        }
+        
+        .profile-section {
+            margin-bottom: 28px;
+        }
+        
+        .profile-section:last-child {
+            margin-bottom: 0;
         }
         
         /* Limits summary */
         .limits-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 14px;
-            margin-top: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 10px;
         }
         
         .limit-card {
-            background: #121214;
-            padding: 18px;
+            background: #1a1a1e;
+            padding: 16px;
             border-radius: 8px;
             border: 1px solid #2a2a2e;
         }
         
         .limit-label {
-            font-size: 12px;
-            color: #888;
+            font-size: 11px;
+            color: #666;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
         
         .limit-value {
-            font-size: 28px;
+            font-size: 24px;
             font-weight: 700;
             color: #EAEAEA;
         }
         
         .limit-unit {
-            font-size: 12px;
-            color: #666;
+            font-size: 11px;
+            color: #555;
             margin-top: 2px;
         }
         
-        /* Tier comparison */
-        .tier-comparison {
-            margin-top: 16px;
+        /* Compare plans — clean table */
+        .plans-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
         }
-        
-        .tier-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
+        .plans-table th {
+            color: #555;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 10px;
+            letter-spacing: 0.5px;
+            padding: 8px 6px;
+            text-align: center;
             border-bottom: 1px solid #2a2a2e;
-            font-size: 14px;
         }
-        
-        .tier-row:last-child {
-            border-bottom: none;
-        }
-        
-        .tier-row-label {
+        .plans-table th:first-child { text-align: left; }
+        .plans-table td {
+            padding: 10px 6px;
+            text-align: center;
             color: #888;
+            border-bottom: 1px solid #1a1a1e;
         }
-        
-        .tier-row-value {
+        .plans-table td:first-child { text-align: left; }
+        .plans-table tr.current-tier td {
             color: #EAEAEA;
             font-weight: 600;
-        }
-        
-        .tier-row-value.current {
-            color: #86EDA5;
         }
         
         /* Account actions */
         .account-actions {
             display: flex;
             gap: 10px;
-            margin-top: 16px;
             flex-wrap: wrap;
         }
         
@@ -157,7 +166,7 @@
             padding: 10px 20px;
             border-radius: 8px;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 13px;
             text-decoration: none;
             border: none;
             cursor: pointer;
@@ -168,139 +177,127 @@
             background: #86EDA5;
             color: #121214;
         }
-        
-        .btn-primary:hover {
-            background: #6BDB8B;
-        }
+        .btn-primary:hover { background: #6BDB8B; }
         
         .btn-secondary {
             background: #2a2a2e;
             color: #EAEAEA;
             border: 1px solid #333;
         }
+        .btn-secondary:hover { background: #333; }
         
-        .btn-secondary:hover {
-            background: #333;
+        .tier-warning {
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: rgba(255, 152, 0, 0.08);
+            border: 1px solid rgba(255, 152, 0, 0.2);
+            border-radius: 8px;
+            font-size: 13px;
+            color: #ff9800;
         }
+        .tier-warning a { color: #86EDA5; }
     </style>
 </head>
 <body>
     {% include '_nav.html' %}
 
     <div class="container">
-        <h1>My Profile</h1>
-        
         <div class="profile-card">
-            <!-- Header: Avatar + Name + Tier Badge -->
+            <!-- Header: centered avatar + identity -->
             <div class="profile-header">
-                <div class="profile-avatar">
+                <div class="profile-avatar" style="border: 2px solid {% if is_admin_user %}#C7A53C{% elif user_special_status %}#D4A017{% else %}{{ user_badge.color if user_badge else '#333' }}{% endif %};">
                     {{ email[0].upper() if email else '?' }}
                 </div>
-                <div class="profile-info">
-                    <h2>{{ email }}</h2>
-                    <p>Member since {{ created_at }}</p>
-                    
-                    <!-- Plan -->
-                    <div style="display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap;">
-                        <span style="font-size:11px; color:#555; text-transform:uppercase; letter-spacing:0.5px; min-width:44px;">Plan</span>
-                        <span class="tier-badge tier-{{ tier.lower() }}">{{ tier }}</span>
-                        {% if tier not in ('Studio', 'Platinum') %}
-                        <button class="btn btn-primary" onclick="openUpgradeModal()" style="padding: 4px 14px; font-size: 12px;">Upgrade</button>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- Role (admin only) -->
-                    {% if is_admin_user %}
-                    <div style="display:flex; align-items:center; gap:8px; margin-top:7px;">
-                        <span style="font-size:11px; color:#555; text-transform:uppercase; letter-spacing:0.5px; min-width:44px;">Role</span>
-                        <span class="tier-badge role-admin">Admin</span>
-                    </div>
-                    {% endif %}
-                    
-                    <!-- Access (special status only) -->
-                    {% if user_special_status %}
-                    <div style="display:flex; align-items:center; gap:8px; margin-top:7px;">
-                        <span style="font-size:11px; color:#555; text-transform:uppercase; letter-spacing:0.5px; min-width:44px;">Access</span>
-                        <span class="tier-badge status-{{ user_special_status }}">{{ user_badge.label if user_badge else user_special_status }}</span>
-                    </div>
+                <div class="profile-email">{{ email }}</div>
+                <div class="profile-meta">Member since {{ created_at }}</div>
+                <div class="profile-badges">
+                    {% if is_admin_user %}<span class="tier-badge role-admin" style="font-size:10px;padding:3px 9px;">Admin</span>{% endif %}
+                    {% if user_special_status %}<span class="tier-badge status-{{ user_special_status }}" style="font-size:10px;padding:3px 9px;">{{ user_badge.label if user_badge else user_special_status }}</span>{% endif %}
+                    <span class="tier-badge tier-{{ tier.lower() }}" style="font-size:10px;padding:3px 9px;">{{ tier }}</span>
+                    {% if tier not in ('Studio', 'Platinum') and not user_special_status %}
+                    <button class="btn btn-primary" onclick="openUpgradeModal()" style="padding:4px 12px; font-size:11px; margin-left:4px;">Upgrade</button>
                     {% endif %}
                 </div>
             </div>
             
             <!-- Plan Limits -->
-            <h3 class="section-title">Plan Limits</h3>
-            <div class="limits-grid">
-                <div class="limit-card">
-                    <div class="limit-label">Branding Jobs</div>
-                    <div class="limit-value">{% if limits.branding_jobs_per_day >= 9999 %}∞{% else %}{{ limits.branding_jobs_per_day }}{% endif %}</div>
-                    <div class="limit-unit">per day</div>
+            <div class="profile-section">
+                <h3 class="section-title">Your Limits</h3>
+                <div class="limits-grid">
+                    <div class="limit-card">
+                        <div class="limit-label">Branding Jobs</div>
+                        <div class="limit-value">{% if limits.branding_jobs_per_day >= 9999 %}&infin;{% else %}{{ limits.branding_jobs_per_day }}{% endif %}</div>
+                        <div class="limit-unit">per day</div>
+                    </div>
+                    <div class="limit-card">
+                        <div class="limit-label">Brands / Job</div>
+                        <div class="limit-value">{% if limits.max_brands_per_job >= 9999 %}&infin;{% else %}{{ limits.max_brands_per_job }}{% endif %}</div>
+                        <div class="limit-unit">per job</div>
+                    </div>
+                    <div class="limit-card">
+                        <div class="limit-label">Brand Configs</div>
+                        <div class="limit-value">{% if limits.max_brand_configs == -1 %}&infin;{% else %}{{ brand_configs }}/{{ limits.max_brand_configs }}{% endif %}</div>
+                        <div class="limit-unit">{% if limits.max_brand_configs == -1 %}no cap{% else %}created{% endif %}</div>
+                    </div>
+                    <div class="limit-card">
+                        <div class="limit-label">Fetches</div>
+                        <div class="limit-value">{% if limits.fetches_per_day >= 9999 %}&infin;{% else %}{{ limits.fetches_per_day }}{% endif %}</div>
+                        <div class="limit-unit">per day</div>
+                    </div>
                 </div>
-                <div class="limit-card">
-                    <div class="limit-label">Brands per Job</div>
-                    <div class="limit-value">{% if limits.max_brands_per_job >= 9999 %}∞{% else %}{{ limits.max_brands_per_job }}{% endif %}</div>
-                    <div class="limit-unit">max simultaneous</div>
+                {% if limits.max_brand_configs != -1 and brand_configs >= limits.max_brand_configs %}
+                <div class="tier-warning">
+                    You've reached your plan limit ({{ brand_configs }}/{{ limits.max_brand_configs }} brand configs). <a href="#" onclick="openUpgradeModal(); return false;">Upgrade</a> to unlock more.
                 </div>
-                <div class="limit-card">
-                    <div class="limit-label">Brand Configs</div>
-                    <div class="limit-value">{% if limits.max_brand_configs == -1 %}∞{% else %}{{ brand_configs }} / {{ limits.max_brand_configs }}{% endif %}</div>
-                    <div class="limit-unit">{% if limits.max_brand_configs == -1 %}no cap{% else %}created{% endif %}</div>
-                </div>
-                <div class="limit-card">
-                    <div class="limit-label">Fetches</div>
-                    <div class="limit-value">{% if limits.fetches_per_day >= 9999 %}∞{% else %}{{ limits.fetches_per_day }}{% endif %}</div>
-                    <div class="limit-unit">per day</div>
-                </div>
-            </div>
-            {% if limits.max_brand_configs != -1 and brand_configs >= limits.max_brand_configs %}
-            <div class="tier-warning">
-                You've reached your plan limit ({{ brand_configs }}/{{ limits.max_brand_configs }} brand configs). <a href="#" onclick="openUpgradeModal(); return false;">Upgrade</a> to unlock more.
-            </div>
-            {% endif %}
-            
-            <!-- Tier Breakdown -->
-            <h3 class="section-title">All Tiers</h3>
-            <div class="tier-comparison">
-                <div class="tier-row">
-                    <span class="tier-row-label">Tier</span>
-                    <span class="tier-row-label">Jobs / Day</span>
-                    <span class="tier-row-label">Brands / Job</span>
-                    <span class="tier-row-label">Configs</span>
-                    <span class="tier-row-label">Downloads</span>
-                </div>
-                <div class="tier-row">
-                    <span class="tier-row-value {% if tier == 'Explorer' %}current{% endif %}">
-                        <span class="tier-badge tier-explorer" style="font-size:11px; padding:3px 10px;">Explorer</span>
-                    </span>
-                    <span class="tier-row-value {% if tier == 'Explorer' %}current{% endif %}">5</span>
-                    <span class="tier-row-value {% if tier == 'Explorer' %}current{% endif %}">2</span>
-                    <span class="tier-row-value {% if tier == 'Explorer' %}current{% endif %}">1</span>
-                    <span class="tier-row-value {% if tier == 'Explorer' %}current{% endif %}">10/day</span>
-                </div>
-                <div class="tier-row">
-                    <span class="tier-row-value {% if tier == 'Creator' %}current{% endif %}">
-                        <span class="tier-badge tier-creator" style="font-size:11px; padding:3px 10px;">Creator</span>
-                    </span>
-                    <span class="tier-row-value {% if tier == 'Creator' %}current{% endif %}">50</span>
-                    <span class="tier-row-value {% if tier == 'Creator' %}current{% endif %}">7</span>
-                    <span class="tier-row-value {% if tier == 'Creator' %}current{% endif %}">5</span>
-                    <span class="tier-row-value {% if tier == 'Creator' %}current{% endif %}">100/day</span>
-                </div>
-                <div class="tier-row">
-                    <span class="tier-row-value {% if tier == 'Studio' %}current{% endif %}">
-                        <span class="tier-badge tier-studio" style="font-size:11px; padding:3px 10px;">Studio</span>
-                    </span>
-                    <span class="tier-row-value {% if tier == 'Studio' %}current{% endif %}">150</span>
-                    <span class="tier-row-value {% if tier == 'Studio' %}current{% endif %}">20</span>
-                    <span class="tier-row-value {% if tier == 'Studio' %}current{% endif %}">Unlimited</span>
-                    <span class="tier-row-value {% if tier == 'Studio' %}current{% endif %}">200/day</span>
-                </div>
+                {% endif %}
             </div>
             
-            <!-- Account Settings -->
-            <h3 class="section-title">Account</h3>
-            <div class="account-actions">
-                <a href="#" class="btn btn-secondary">Change Password</a>
-                <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+            <!-- Compare Plans -->
+            <div class="profile-section">
+                <h3 class="section-title">Compare Plans</h3>
+                <table class="plans-table">
+                    <thead>
+                        <tr>
+                            <th>Plan</th>
+                            <th>Brands / Job</th>
+                            <th>Jobs / Day</th>
+                            <th>Fetches / Day</th>
+                            <th>Configs</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr {% if tier == 'Explorer' %}class="current-tier"{% endif %}>
+                            <td><span class="tier-badge tier-explorer" style="font-size:10px;padding:2px 8px;">Explorer</span></td>
+                            <td>3</td>
+                            <td>15</td>
+                            <td>25</td>
+                            <td>1</td>
+                        </tr>
+                        <tr {% if tier == 'Creator' %}class="current-tier"{% endif %}>
+                            <td><span class="tier-badge tier-creator" style="font-size:10px;padding:2px 8px;">Creator</span></td>
+                            <td>8</td>
+                            <td>60</td>
+                            <td>100</td>
+                            <td>5</td>
+                        </tr>
+                        <tr {% if tier == 'Studio' %}class="current-tier"{% endif %}>
+                            <td><span class="tier-badge tier-studio" style="font-size:10px;padding:2px 8px;">Studio</span></td>
+                            <td>20</td>
+                            <td>120</td>
+                            <td>200</td>
+                            <td>&infin;</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Account -->
+            <div class="profile-section">
+                <h3 class="section-title">Account</h3>
+                <div class="account-actions">
+                    <a href="#" class="btn btn-secondary">Change Password</a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+                </div>
             </div>
         </div>
     </div>
