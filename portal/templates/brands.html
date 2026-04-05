@@ -1775,6 +1775,17 @@ function openBrandWizard() {
         return;
     }
     
+    // ========== WIZARD STABILIZATION (Commit A): Clear stale globals ==========
+    // Clear any stale image references from previous wizard sessions
+    wizardLogoImage = null;
+    wizardWatermarkImage = null;
+    
+    // Reset drag/pinch globals to prevent state leakage
+    wizardDragging = false;
+    wizardPinching = false;
+    wizardDragOffset = { x: 0, y: 0 };
+    // ========== END STABILIZATION ==========
+    
     // Reset state
     wizardState = {
         step: 1,
@@ -1859,6 +1870,14 @@ function closeBrandWizard() {
     if (wizardState.logoPreviewUrl) {
         URL.revokeObjectURL(wizardState.logoPreviewUrl);
     }
+    
+    // ========== WIZARD STABILIZATION (Commit A): Clear stale globals on close ==========
+    // Ensure image globals are cleared when wizard closes
+    wizardLogoImage = null;
+    wizardWatermarkImage = null;
+    wizardDragging = false;
+    wizardPinching = false;
+    // ========== END STABILIZATION ==========
 }
 
 function initWizardCanvas() {
@@ -2317,6 +2336,15 @@ function onWizardDragEnd() {
 
 function initWizardCanvasDrag() {
     if (!wizardCanvas) return;
+    
+    // ========== WIZARD STABILIZATION (Commit A): Guard against duplicate listeners ==========
+    // Check if already initialized to prevent attaching multiple listeners
+    if (wizardCanvas.dataset.dragInitialized === 'true') {
+        return;
+    }
+    wizardCanvas.dataset.dragInitialized = 'true';
+    // ========== END STABILIZATION ==========
+    
     // Mouse events
     wizardCanvas.addEventListener('mousedown', onWizardDragStart);
     wizardCanvas.addEventListener('mousemove', onWizardDragMove);
@@ -2750,6 +2778,14 @@ async function saveWizardBrandWithWatermark() {
         
         status.innerHTML = '<div class="status-msg success">✅ Brand created successfully!</div>';
         
+        // ========== WIZARD STABILIZATION (Commit A): Re-enable button before close ==========
+        // Reset button state so next wizard open starts fresh
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Brand';
+        }
+        // ========== END STABILIZATION ==========
+        
         setTimeout(() => {
             closeBrandWizard();
             loadBrands();
@@ -2851,6 +2887,12 @@ async function saveWizardBrand() {
         }
         
         status.innerHTML = '<div class="status-msg success">✅ Brand created successfully!</div>';
+        
+        // ========== WIZARD STABILIZATION (Commit A): Re-enable button before close ==========
+        // Reset button state so next wizard open starts fresh
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Brand';
+        // ========== END STABILIZATION ==========
         
         setTimeout(() => {
             closeBrandWizard();

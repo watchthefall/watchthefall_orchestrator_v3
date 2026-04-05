@@ -82,6 +82,14 @@ class BrandEditor {
     // Get mouse position relative to canvas (as percent 0-1)
     getMousePos(e) {
         const rect = this.canvas.getBoundingClientRect();
+        
+        // ========== EDIT MODAL DRAG FIX (Commit B): Guard against zero-size canvas ==========
+        // If canvas has no computed size, drag bounds are invalid - return null to signal skip
+        if (rect.width === 0 || rect.height === 0) {
+            return null;
+        }
+        // ========== END FIX ==========
+        
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
         
@@ -96,6 +104,10 @@ class BrandEditor {
     
     handleMouseDown(e) {
         const pos = this.getMousePos(e);
+        
+        // ========== EDIT MODAL DRAG FIX (Commit B): Guard null from getMousePos ==========
+        if (!pos) return; // Canvas not ready, skip drag handling
+        // ========== END FIX ==========
         
         // Check what was clicked (priority: text > logo > watermark)
         if (this.state.textEnabled && this.isOverText(pos)) {
@@ -114,6 +126,11 @@ class BrandEditor {
         if (!this.dragging) {
             // Update cursor
             const pos = this.getMousePos(e);
+            
+            // ========== EDIT MODAL DRAG FIX (Commit B): Guard null from getMousePos ==========
+            if (!pos) return; // Canvas not ready, skip cursor update
+            // ========== END FIX ==========
+            
             if ((this.state.textEnabled && this.isOverText(pos)) ||
                 (this.state.logoImg && this.isOverLogo(pos)) ||
                 (this.state.watermarkImg && this.state.wmMode === 'positioned' && this.isOverWatermark(pos))) {
@@ -125,6 +142,10 @@ class BrandEditor {
         }
         
         const pos = this.getMousePos(e);
+        
+        // ========== EDIT MODAL DRAG FIX (Commit B): Guard null from getMousePos ==========
+        if (!pos) return; // Canvas not ready, skip drag update
+        // ========== END FIX ==========
         
         if (this.dragging === 'logo') {
             this.state.logoX = Math.max(0, Math.min(1, pos.x - this.dragStart.x));
