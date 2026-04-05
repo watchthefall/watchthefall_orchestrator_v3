@@ -3159,6 +3159,23 @@ async function extractFrame(filename) {
             
             updateCanvasPreview();
             renderResultPreviewStrip();  // Update strip with new source thumbnail
+            
+            // ========== JOB-ITEM MODEL (Commit 2: dual-write) ==========
+            // Safely write frame data into the active job item
+            // Guard: only write if active item matches the filename we just processed
+            const activeItem = getActiveItem();
+            if (activeItem && activeItem.filename === filename) {
+                activeItem.frameData = data.frame_data;
+                activeItem.videoWidth = data.width;
+                activeItem.videoHeight = data.height;
+                persistJobItems();
+            } else {
+                console.warn('[JobItems] Frame data mismatch: active item does not match filename', {
+                    activeFilename: activeItem ? activeItem.filename : 'none',
+                    expectedFilename: filename
+                });
+            }
+            // ========== END JOB-ITEM MODEL ==========
         }
     } catch (err) {
         console.error('Frame extraction failed:', err);
@@ -3295,6 +3312,32 @@ function selectVideo(filename, meta) {
     meta = meta || {};
     currentFile = filename;
     sessionStorage.setItem('lastDownloadFilename', filename);
+
+    // ========== JOB-ITEM MODEL (Commit 2: dual-write) ==========
+    // Check if item already exists for this filename to avoid duplicates
+    let existingItemIndex = jobItems.findIndex(item => item.filename === filename);
+    if (existingItemIndex >= 0) {
+        // Re-select existing item
+        activeItemIndex = existingItemIndex;
+    } else {
+        // Create new job item
+        const newItem = {
+            id: generateItemId(),
+            filename: filename,
+            sourceUrl: meta.source_url || '',
+            brandIds: [],           // Will be populated in Commit 3
+            overrides: {},          // Will be populated in Commit 3
+            status: 'selected',     // selected, processing, completed, error
+            frameData: null,        // Will be populated by extractFrame
+            videoWidth: 0,
+            videoHeight: 0,
+            createdAt: Date.now()
+        };
+        jobItems.push(newItem);
+        activeItemIndex = jobItems.length - 1;
+    }
+    persistJobItems();
+    // ========== END JOB-ITEM MODEL ==========
 
     // Hide intake, show selected info
     document.getElementById('intakeLayer').style.display = 'none';
@@ -3531,6 +3574,12 @@ function clearVideo() {
 // ========== INIT ==========
 loadBrands();
 updateCanvasPreview();
+
+// ========== JOB-ITEM MODEL (Commit 2: recover on init) ==========
+// Recover any persisted job items from sessionStorage
+recoverJobItems();
+console.log('[JobItems] Recovered', jobItems.length, 'items, active index:', activeItemIndex);
+// ========== END JOB-ITEM MODEL ==========
 
 // ========== CONFIRMATION SUMMARY ==========
 function updateConfirmationSummary() {
