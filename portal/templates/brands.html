@@ -622,12 +622,20 @@
                                 <input type="range" id="wizardLogoOpacity" min="0" max="100" value="100" oninput="updateWizardLogoOpacity(this.value)">
                             </div>
                             
-                            <!-- Auto Remove BG (V2 feature - visually present but disabled) -->
+                            <!-- Auto Remove BG (V2B - Beta) -->
                             <div class="prop-group" style="margin-top:auto;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
-                                <button type="button" class="btn btn-secondary" style="width:100%;font-size:12px;opacity:0.5;cursor:not-allowed;" disabled>
-                                    Auto Remove BG
-                                    <span style="display:block;font-size:10px;color:#888;margin-top:2px;">Coming in V2</span>
-                                </button>
+                                <label style="font-size:10px;color:#888;margin-bottom:8px;display:block;">Auto Remove BG <span class="tool-badge">Beta</span></label>
+                                <div style="display:flex;gap:6px;">
+                                    <button type="button" class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px 4px;" onclick="autoRemoveBackgroundWhite()" title="Remove white/near-white backgrounds">
+                                        White
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px 4px;" onclick="autoRemoveBackgroundLight()" title="Remove light gray backgrounds">
+                                        Light
+                                    </button>
+                                </div>
+                                <p style="font-size:10px;color:#666;margin-top:8px;margin-bottom:0;line-height:1.4;">
+                                    Works best on logos with solid light backgrounds. Use Erase/Restore to clean up edges.
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -2841,6 +2849,71 @@ async function updateWizardLogoImageFromEditor() {
 }
 
 // ========== END V2A ==========
+
+// ========== V2B: AUTO REMOVE BACKGROUND (BETA) ==========
+
+// Auto-remove background using luminance threshold
+// Works well for light/white backgrounds on logos
+function autoRemoveBackground(threshold) {
+    // Default threshold: 240/255 (removes very light pixels)
+    threshold = threshold || 240;
+    
+    if (!editorWorkingCtx || !editorWorkingCanvas) {
+        console.warn('Auto Remove BG: No working canvas available');
+        return;
+    }
+    
+    const width = editorWorkingCanvas.width;
+    const height = editorWorkingCanvas.height;
+    
+    // Get image data from working canvas
+    const imageData = editorWorkingCtx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    
+    // Process each pixel
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        
+        // Skip already transparent pixels
+        if (a === 0) continue;
+        
+        // Calculate luminance (perceived brightness)
+        // Using standard luminance formula: 0.299*R + 0.587*G + 0.114*B
+        const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+        
+        // If pixel is light enough, make it transparent
+        if (luminance > threshold) {
+            data[i + 3] = 0; // Set alpha to 0 (fully transparent)
+        }
+    }
+    
+    // Put modified image data back
+    editorWorkingCtx.putImageData(imageData, 0, 0);
+    
+    // Mark as dirty since we modified the canvas
+    wizardEditorState.dirty = true;
+    
+    // Redraw the editor canvas
+    drawEditorCanvas();
+    
+    console.log(`[Auto Remove BG] Applied with threshold ${threshold}/255`);
+}
+
+// Quick preset thresholds for common use cases
+function autoRemoveBackgroundLight() {
+    // Aggressive: removes light grays and white (threshold 200)
+    autoRemoveBackground(200);
+}
+
+function autoRemoveBackgroundWhite() {
+    // Conservative: removes only pure/near-white (threshold 240)
+    autoRemoveBackground(240);
+}
+
+// ========== END V2B ==========
 
 // ========== END STEP 2 LOGO EDITOR V1 ==========
 
