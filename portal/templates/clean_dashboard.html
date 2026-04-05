@@ -1493,6 +1493,64 @@ let currentQueueIndex = 0;
 // ========== PER-BRAND OVERRIDE STATE (selection mode) ==========
 let brandOverrides = {};  // { brandId: { watermark_scale, watermark_opacity, logo_x, ... } }
 
+// ========== JOB-ITEM MODEL (Commit 1: staged migration foundation) ==========
+// New state for item-centric architecture. Old state (currentFile, selectedBrandIds, etc.)
+// remains intact during migration. These new variables will power the refactored flow.
+let jobItems = [];           // Array of job item objects: { id, filename, brandIds[], overrides{}, status }
+let activeItemIndex = -1;    // Index of currently active item in jobItems, -1 = none
+
+// Generate unique item ID for job-items
+function generateItemId() {
+    return 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+// Get the currently active job item, or null if none
+function getActiveItem() {
+    if (activeItemIndex < 0 || activeItemIndex >= jobItems.length) return null;
+    return jobItems[activeItemIndex];
+}
+
+// Find items by filename (returns array of matching items)
+function getItemsByFilename(filename) {
+    return jobItems.filter(item => item.filename === filename);
+}
+
+// Find items that include a specific brand ID (returns array of matching items)
+function getItemsByBrandId(brandId) {
+    return jobItems.filter(item => item.brandIds && item.brandIds.includes(brandId));
+}
+
+// Persist job items to sessionStorage (safe stub for Commit 1)
+// TODO: Commit 2 will integrate with backend persistence
+function persistJobItems() {
+    try {
+        sessionStorage.setItem('brandr_job_items', JSON.stringify(jobItems));
+        sessionStorage.setItem('brandr_active_item_index', activeItemIndex.toString());
+    } catch (e) {
+        console.warn('[JobItems] Failed to persist:', e);
+    }
+}
+
+// Recover job items from sessionStorage (safe stub for Commit 1)
+// TODO: Commit 2 will integrate with backend recovery
+function recoverJobItems() {
+    try {
+        const saved = sessionStorage.getItem('brandr_job_items');
+        const savedIndex = sessionStorage.getItem('brandr_active_item_index');
+        if (saved) {
+            jobItems = JSON.parse(saved) || [];
+        }
+        if (savedIndex !== null) {
+            activeItemIndex = parseInt(savedIndex, 10);
+            if (isNaN(activeItemIndex)) activeItemIndex = -1;
+        }
+    } catch (e) {
+        console.warn('[JobItems] Failed to recover:', e);
+        jobItems = [];
+        activeItemIndex = -1;
+    }
+}
+
 // Capture current slider/drag state as an overrides object
 function captureCurrentSliders() {
     var result = {
