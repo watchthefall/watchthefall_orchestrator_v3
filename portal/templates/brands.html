@@ -2506,6 +2506,9 @@ function initEditorCanvas() {
         btn.classList.remove('active');
     });
     
+    // Setup canvas event listeners for painting
+    setupEditorCanvasEvents();
+    
     // Draw initial canvas
     drawEditorCanvas();
 }
@@ -2613,6 +2616,157 @@ function updateWizardBrushSize(value) {
     const valDisplay = document.getElementById('wizardBrushSizeVal');
     if (valDisplay) valDisplay.textContent = value + 'px';
 }
+
+// ========== COMMIT 3: ERASE/RESTORE BRUSH TOOLS ==========
+
+// Get mouse position on editor canvas in native resolution coordinates
+function getEditorCanvasPos(e) {
+    if (!editorCanvas) return null;
+    const rect = editorCanvas.getBoundingClientRect();
+    
+    // Get position in display canvas coordinates (0-480)
+    const displayX = e.clientX - rect.left;
+    const displayY = e.clientY - rect.top;
+    
+    // Scale to native resolution
+    // Logo is drawn at 70% of canvas width, centered
+    const displayScale = 0.7;
+    const logoDisplayWidth = editorCanvas.width * displayScale;
+    const logoDisplayHeight = logoDisplayWidth * (editorWorkingCanvas.height / editorWorkingCanvas.width);
+    const logoOffsetX = (editorCanvas.width - logoDisplayWidth) / 2;
+    const logoOffsetY = (editorCanvas.height - logoDisplayHeight) / 2;
+    
+    // Convert to native coordinates
+    const nativeX = ((displayX - logoOffsetX) / logoDisplayWidth) * editorWorkingCanvas.width;
+    const nativeY = ((displayY - logoOffsetY) / logoDisplayHeight) * editorWorkingCanvas.height;
+    
+    return { x: nativeX, y: nativeY, displayX, displayY };
+}
+
+// Check if point is inside the logo area on canvas
+function isInsideLogoArea(pos) {
+    if (!editorCanvas || !editorWorkingCanvas) return false;
+    
+    const displayScale = 0.7;
+    const logoDisplayWidth = editorCanvas.width * displayScale;
+    const logoDisplayHeight = logoDisplayWidth * (editorWorkingCanvas.height / editorWorkingCanvas.width);
+    const logoOffsetX = (editorCanvas.width - logoDisplayWidth) / 2;
+    const logoOffsetY = (editorCanvas.height - logoDisplayHeight) / 2;
+    
+    return pos.displayX >= logoOffsetX && 
+           pos.displayX <= logoOffsetX + logoDisplayWidth &&
+           pos.displayY >= logoOffsetY && 
+           pos.displayY <= logoOffsetY + logoDisplayHeight;
+}
+
+// Start painting
+function handleEditorPaintStart(e) {
+    if (!wizardEditorState.activeTool || !editorWorkingCtx) return;
+    
+    e.preventDefault();
+    const pos = getEditorCanvasPos(e);
+    if (!pos || !isInsideLogoArea(pos)) return;
+    
+    wizardEditorState.painting = true;
+    wizardEditorState.dirty = true;
+    
+    // Perform initial paint
+    performBrushStroke(pos);
+}
+
+// Continue painting
+function handleEditorPaintMove(e) {
+    if (!wizardEditorState.painting || !wizardEditorState.activeTool) return;
+    
+    e.preventDefault();
+    const pos = getEditorCanvasPos(e);
+    if (!pos) return;
+    
+    performBrushStroke(pos);
+}
+
+// End painting
+function handleEditorPaintEnd(e) {
+    if (!wizardEditorState.painting) return;
+    
+    e.preventDefault();
+    wizardEditorState.painting = false;
+}
+
+// Perform brush stroke at position
+function performBrushStroke(pos) {
+    if (!editorWorkingCtx || !editorOriginalCtx) return;
+    
+    const brushSize = wizardEditorState.brushSize;
+    const nativeX = pos.x;
+    const nativeY = pos.y;
+    
+    if (wizardEditorState.activeTool === 'erase') {
+        // Erase: paint transparency using destination-out
+        editorWorkingCtx.save();
+        editorWorkingCtx.globalCompositeOperation = 'destination-out';
+        editorWorkingCtx.beginPath();
+        editorWorkingCtx.arc(nativeX, nativeY, brushSize / 2, 0, Math.PI * 2);
+        editorWorkingCtx.fill();
+        editorWorkingCtx.restore();
+        
+    } else if (wizardEditorState.activeTool === 'restore') {
+        // Restore: copy from original canvas using source-over
+        editorWorkingCtx.save();
+        editorWorkingCtx.globalCompositeOperation = 'source-over';
+        
+        // Create clipping region for brush
+        editorWorkingCtx.beginPath();
+        editorWorkingCtx.arc(nativeX, nativeY, brushSize / 2, 0, Math.PI * 2);
+        editorWorkingCtx.clip();
+        
+        // Draw from original canvas
+        editorWorkingCtx.drawImage(editorOriginalCanvas, 0, 0);
+        editorWorkingCtx.restore();
+    }
+    
+    // Redraw display canvas
+    drawEditorCanvas();
+}
+
+// Setup editor canvas event listeners
+function setupEditorCanvasEvents() {
+    if (!editorCanvas) return;
+    
+    // Mouse events
+    editorCanvas.addEventListener('mousedown', handleEditorPaintStart);
+    editorCanvas.addEventListener('mousemove', handleEditorPaintMove);
+    editorCanvas.addEventListener('mouseup', handleEditorPaintEnd);
+    editorCanvas.addEventListener('mouseleave', handleEditorPaintEnd);
+    
+    // Touch events (with preventDefault to stop scrolling)
+    editorCanvas.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 1 && wizardEditorState.activeTool) {
+            const touch = e.touches[0];
+            handleEditorPaintStart({ 
+                clientX: touch.clientX, 
+                clientY: touch.clientY,
+                preventDefault: () => e.preventDefault()
+            });
+        }
+    }, { passive: false });
+    
+    editorCanvas.addEventListener('touchmove', function(e) {
+        if (e.touches.length === 1 && wizardEditorState.painting) {
+            const touch = e.touches[0];
+            handleEditorPaintMove({ 
+                clientX: touch.clientX, 
+                clientY: touch.clientY,
+                preventDefault: () => e.preventDefault()
+            });
+        }
+    }, { passive: false });
+    
+    editorCanvas.addEventListener('touchend', handleEditorPaintEnd);
+    editorCanvas.addEventListener('touchcancel', handleEditorPaintEnd);
+}
+
+// ========== END COMMIT 3 ==========
 
 // ========== END STEP 2 LOGO EDITOR V1 ==========
 
