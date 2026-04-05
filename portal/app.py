@@ -460,8 +460,17 @@ def admin_reset_account():
         c.execute('SELECT COUNT(*) as cnt FROM daily_usage WHERE user_id = ?', (user_id,))
         usage_count = c.fetchone()['cnt']
         
-        # Disable all active brands (soft delete)
-        c.execute('UPDATE brands SET is_active = 0 WHERE user_id = ? AND is_active = 1', (user_id,))
+        # Get user's brand names first (for cleaning up brand_configs)
+        c.execute('SELECT name FROM brands WHERE user_id = ? AND is_system = 0', (user_id,))
+        brand_names = [row['name'] for row in c.fetchall()]
+        
+        # Hard delete user-created brands (not system brands) - fixes UNIQUE constraint issue
+        c.execute('DELETE FROM brands WHERE user_id = ? AND is_system = 0', (user_id,))
+        
+        # Clean up legacy brand_configs for those brand names
+        if brand_names:
+            placeholders = ','.join('?' * len(brand_names))
+            c.execute(f'DELETE FROM brand_configs WHERE brand_name IN ({placeholders})', brand_names)
         
         # Delete downloads (hard delete - these are file references)
         c.execute('DELETE FROM downloads WHERE user_id = ?', (user_id,))
