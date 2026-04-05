@@ -1583,6 +1583,25 @@ function captureCurrentSliders() {
     return result;
 }
 
+// ========== JOB-ITEM MODEL (Commit 3: dual-write override sync) ==========
+// Capture sliders AND sync to the active job item (dual-write)
+// Use this instead of captureCurrentSliders() when you need job-item sync
+function captureAndSyncSliders() {
+    const overrides = captureCurrentSliders();
+    
+    // Sync to job item model if we have an active item and file
+    if (currentFile && activePreviewBrandId) {
+        const item = jobItems.find(item => item.filename === currentFile && item.brandId === activePreviewBrandId);
+        if (item) {
+            item.overrides = { ...overrides };
+            persistJobItems();
+        }
+    }
+    
+    return overrides;
+}
+// ========== END JOB-ITEM MODEL ==========
+
 // Extract saved defaults from brandDataCache into overrides format
 function getBrandDefaults(brandId) {
     const cfg = brandDataCache[brandId];
@@ -1612,11 +1631,23 @@ function switchActivePreview(brandId) {
     
     // Save current overrides for the brand being switched FROM
     if (activePreviewBrandId) {
-        brandOverrides[activePreviewBrandId] = captureCurrentSliders();
+        brandOverrides[activePreviewBrandId] = captureAndSyncSliders();
     }
     
     activePreviewBrandId = brandId;
     console.log('[BRANDR] Switched active preview to brand #' + brandId);
+    
+    // ========== JOB-ITEM MODEL (Commit 3: sync preview switch) ==========
+    // Switch to the job item for this filename + brand combination
+    if (currentFile) {
+        const itemIdx = jobItems.findIndex(item => item.filename === currentFile && item.brandId === brandId);
+        if (itemIdx >= 0) {
+            activeItemIndex = itemIdx;
+            persistJobItems();
+            console.log(`[JobItems] Switched active item to index ${itemIdx} for brand #${brandId}`);
+        }
+    }
+    // ========== END JOB-ITEM MODEL ==========
     
     // Update visual active indicator on tiles
     document.querySelectorAll('.brand-btn').forEach(btn => btn.classList.remove('active-preview'));
@@ -1651,6 +1682,19 @@ function cyclePreview(direction) {
 function resetBrandToDefaults() {
     if (!activePreviewBrandId) return;
     delete brandOverrides[activePreviewBrandId];
+    
+    // ========== JOB-ITEM MODEL (Commit 3: clear item overrides) ==========
+    // Also clear overrides in the job item model
+    if (currentFile) {
+        const item = jobItems.find(item => item.filename === currentFile && item.brandId === activePreviewBrandId);
+        if (item) {
+            item.overrides = {};
+            persistJobItems();
+            console.log(`[JobItems] Cleared overrides for brand #${activePreviewBrandId}`);
+        }
+    }
+    // ========== END JOB-ITEM MODEL ==========
+    
     loadBrandConfig(activePreviewBrandId);
     updatePreviewTargetBar();
 }
@@ -2318,7 +2362,7 @@ function selectBrand(brandId, btnEl, isReady) {
     if (wasSelected && brandId === activePreviewBrandId) {
         // Clicking the active preview brand: deselect it
         // Save its overrides before removing
-        brandOverrides[brandId] = captureCurrentSliders();
+        brandOverrides[brandId] = captureAndSyncSliders();
         selectedBrandIds.splice(idx, 1);
         btnEl.classList.remove('selected');
         delete brandOverrides[brandId];  // Clean up since deselected
@@ -2330,6 +2374,25 @@ function selectBrand(brandId, btnEl, isReady) {
             activePreviewBrandId = null;
             console.log(`[BRANDR] Active preview cleared (no brands selected)`);
         }
+        
+        // ========== JOB-ITEM MODEL (Commit 3: dual-write on deselect) ==========
+        // Remove the job item for this filename + brand combination
+        if (currentFile) {
+            const itemIdx = jobItems.findIndex(item => item.filename === currentFile && item.brandId === brandId);
+            if (itemIdx >= 0) {
+                jobItems.splice(itemIdx, 1);
+                // Adjust activeItemIndex if needed
+                if (activeItemIndex === itemIdx) {
+                    activeItemIndex = jobItems.length > 0 ? 0 : -1;
+                } else if (activeItemIndex > itemIdx) {
+                    activeItemIndex--;
+                }
+                persistJobItems();
+                console.log(`[JobItems] Removed item for brand #${brandId}, ${jobItems.length} items remain`);
+            }
+        }
+        // ========== END JOB-ITEM MODEL ==========
+        
     } else {
         // Clicking an unselected brand: select it
         const maxBrands = parseInt(document.getElementById('brandsBox').dataset.maxBrands) || 999;
@@ -2342,13 +2405,46 @@ function selectBrand(brandId, btnEl, isReady) {
         
         // Save current preview brand's overrides before switching
         if (activePreviewBrandId && selectedBrandIds.includes(activePreviewBrandId)) {
-            brandOverrides[activePreviewBrandId] = captureCurrentSliders();
+            brandOverrides[activePreviewBrandId] = captureAndSyncSliders();
         }
         
         selectedBrandIds.push(brandId);
         btnEl.classList.add('selected');
         activePreviewBrandId = brandId;
         console.log(`[BRANDR] Selected + active preview set to brand #${brandId} (${brandDataCache[brandId]?.display_name})`);
+        
+        // ========== JOB-ITEM MODEL (Commit 3: dual-write on select) ==========
+        // Target model: one job item = one video-brand combination
+        // Create new item for this filename + brand, avoiding duplicates
+        if (currentFile) {
+            const existingIdx = jobItems.findIndex(item => item.filename === currentFile && item.brandId === brandId);
+            if (existingIdx < 0) {
+                // Get frame data from current video if available
+                const activeItem = getActiveItem();
+                const newItem = {
+                    id: generateItemId(),
+                    filename: currentFile,
+                    sourceUrl: activeItem ? activeItem.sourceUrl : '',
+                    brandId: brandId,           // Single brand per item (target model)
+                    overrides: {},              // Will capture on preview switch
+                    status: 'ready',            // ready, processing, completed, error
+                    frameData: frameData,       // Current frame data
+                    videoWidth: videoWidth,
+                    videoHeight: videoHeight,
+                    createdAt: Date.now()
+                };
+                jobItems.push(newItem);
+                activeItemIndex = jobItems.length - 1;
+                persistJobItems();
+                console.log(`[JobItems] Created item for brand #${brandId}, total: ${jobItems.length}`);
+            } else {
+                // Item exists, just switch to it
+                activeItemIndex = existingIdx;
+                persistJobItems();
+                console.log(`[JobItems] Switched to existing item for brand #${brandId}`);
+            }
+        }
+        // ========== END JOB-ITEM MODEL ==========
     }
     
     // Update visual "Active" indicator on tiles
@@ -2529,7 +2625,7 @@ function enterQueueMode() {
     // Initialize queue with per-brand overrides from selection mode
     // Save current active preview brand's slider state first
     if (activePreviewBrandId) {
-        brandOverrides[activePreviewBrandId] = captureCurrentSliders();
+        brandOverrides[activePreviewBrandId] = captureAndSyncSliders();
     }
     
     processingQueue = selectedBrandIds.map(brandId => {
