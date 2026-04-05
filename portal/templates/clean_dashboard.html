@@ -2762,7 +2762,25 @@ function renderBrandPills() {
     const container = document.getElementById('brandPillsContainer');
     container.innerHTML = '';
     
-    processingQueue.forEach((item, idx) => {
+    // ========== JOB-ITEM MODEL (Commit 6: use jobItems directly) ==========
+    // Use jobItems for current file as primary source, fallback to processingQueue
+    let renderSource = processingQueue;
+    let activeIndex = currentQueueIndex;
+    
+    if (currentFile && isQueueMode) {
+        const fileItems = jobItems.filter(item => item.filename === currentFile);
+        if (fileItems.length > 0) {
+            // Map jobItems to pill format
+            renderSource = fileItems.map(item => ({
+                brand_name: brandDataCache[item.brandId] ? brandDataCache[item.brandId].display_name : `Brand #${item.brandId}`,
+                status: item.status === 'completed' ? 'done' : item.status === 'error' ? 'failed' : item.status || 'pending'
+            }));
+            activeIndex = activeItemIndex;
+        }
+    }
+    // ========== END JOB-ITEM MODEL ==========
+    
+    renderSource.forEach((item, idx) => {
         const pill = document.createElement('button');
         pill.className = 'brand-pill';
         pill.dataset.index = idx;
@@ -2784,7 +2802,7 @@ function renderBrandPills() {
         } else if (item.status === 'skipped') {
             statusIcon = '\u2212 ';
             bgColor = '#666';
-        } else if (idx === currentQueueIndex) {
+        } else if (idx === activeIndex) {
             bgColor = 'var(--accent)';  // Active/editing
         }
         
@@ -2801,7 +2819,7 @@ function renderBrandPills() {
             transition: transform 0.1s, opacity 0.2s;
         `;
         
-        if (idx === currentQueueIndex) {
+        if (idx === activeIndex) {
             pill.style.transform = 'scale(1.05)';
             pill.style.boxShadow = '0 0 10px var(--accent-glow)';
         }
@@ -2814,10 +2832,26 @@ function renderBrandPills() {
 
 function updateQueueStatusSummary() {
     const summary = document.getElementById('queueStatusSummary');
-    const done = processingQueue.filter(q => q.status === 'done').length;
-    const processing = processingQueue.filter(q => q.status === 'processing').length;
-    const pending = processingQueue.filter(q => q.status === 'pending' || q.status === 'editing').length;
-    const failed = processingQueue.filter(q => q.status === 'failed').length;
+    
+    // ========== JOB-ITEM MODEL (Commit 6: use jobItems directly) ==========
+    // Use jobItems for current file as primary source, fallback to processingQueue
+    let statusSource = processingQueue;
+    
+    if (currentFile && isQueueMode) {
+        const fileItems = jobItems.filter(item => item.filename === currentFile);
+        if (fileItems.length > 0) {
+            // Map jobItems status to queue status format
+            statusSource = fileItems.map(item => ({
+                status: item.status === 'completed' ? 'done' : item.status === 'error' ? 'failed' : item.status || 'pending'
+            }));
+        }
+    }
+    // ========== END JOB-ITEM MODEL ==========
+    
+    const done = statusSource.filter(q => q.status === 'done').length;
+    const processing = statusSource.filter(q => q.status === 'processing').length;
+    const pending = statusSource.filter(q => q.status === 'pending' || q.status === 'editing').length;
+    const failed = statusSource.filter(q => q.status === 'failed').length;
     
     let parts = [];
     if (done > 0) parts.push(`${done} done`);
@@ -2829,13 +2863,39 @@ function updateQueueStatusSummary() {
 }
 
 async function switchToBrand(idx) {
+    // ========== JOB-ITEM MODEL (Commit 6: prefer jobItems, sync indices) ==========
+    // Determine data source: prefer jobItems when in queue mode with current file
+    let dataSource = processingQueue;
+    let useJobItems = false;
+    
+    if (currentFile && isQueueMode) {
+        const fileItems = jobItems.filter(item => item.filename === currentFile);
+        if (fileItems.length > 0) {
+            dataSource = fileItems.map(item => ({
+                brand_id: item.brandId,
+                brand_name: brandDataCache[item.brandId] ? brandDataCache[item.brandId].display_name : `Brand #${item.brandId}`,
+                overrides: item.overrides,
+                status: item.status === 'completed' ? 'done' : item.status === 'error' ? 'failed' : item.status || 'pending'
+            }));
+            useJobItems = true;
+        }
+    }
+    
     // Save current brand's overrides before switching
-    if (currentQueueIndex !== idx && processingQueue[currentQueueIndex]) {
+    const currentIdx = useJobItems ? activeItemIndex : currentQueueIndex;
+    if (currentIdx !== idx && dataSource[currentIdx]) {
         saveCurrentOverridesFromSliders();
     }
     
+    // Sync both indices
     currentQueueIndex = idx;
-    const current = processingQueue[idx];
+    if (useJobItems) {
+        activeItemIndex = idx;
+        persistJobItems();
+    }
+    // ========== END JOB-ITEM MODEL ==========
+    
+    const current = dataSource[idx];
     
     // Skip if already processing/done
     if (current.status === 'processing') {
@@ -3259,9 +3319,24 @@ async function processAllBrands() {
 }
 
 function findNextPendingBrand() {
+    // ========== JOB-ITEM MODEL (Commit 6: prefer jobItems) ==========
+    // Use jobItems for current file as primary source, fallback to processingQueue
+    let searchSource = processingQueue;
+    
+    if (currentFile && isQueueMode) {
+        const fileItems = jobItems.filter(item => item.filename === currentFile);
+        if (fileItems.length > 0) {
+            // Map jobItems status to queue status format
+            searchSource = fileItems.map(item => ({
+                status: item.status === 'completed' ? 'done' : item.status === 'error' ? 'failed' : item.status || 'pending'
+            }));
+        }
+    }
+    // ========== END JOB-ITEM MODEL ==========
+    
     // Find next brand that's pending or editing (not processing/done)
-    for (let i = 0; i < processingQueue.length; i++) {
-        if (processingQueue[i].status === 'pending' || processingQueue[i].status === 'editing') {
+    for (let i = 0; i < searchSource.length; i++) {
+        if (searchSource[i].status === 'pending' || searchSource[i].status === 'editing') {
             return i;
         }
     }
@@ -3287,12 +3362,27 @@ function retryBrand(idx) {
 }
 
 function checkQueueComplete() {
-    const allDone = processingQueue.every(q => q.status === 'done' || q.status === 'skipped' || q.status === 'failed');
+    // ========== JOB-ITEM MODEL (Commit 6: prefer jobItems) ==========
+    // Use jobItems for current file as primary source, fallback to processingQueue
+    let checkSource = processingQueue;
+    
+    if (currentFile && isQueueMode) {
+        const fileItems = jobItems.filter(item => item.filename === currentFile);
+        if (fileItems.length > 0) {
+            // Map jobItems status to queue status format
+            checkSource = fileItems.map(item => ({
+                status: item.status === 'completed' ? 'done' : item.status === 'error' ? 'failed' : item.status || 'pending'
+            }));
+        }
+    }
+    // ========== END JOB-ITEM MODEL ==========
+    
+    const allDone = checkSource.every(q => q.status === 'done' || q.status === 'skipped' || q.status === 'failed');
     if (allDone) {
         const result = document.getElementById('processResult');
-        const done = processingQueue.filter(q => q.status === 'done').length;
-        const failed = processingQueue.filter(q => q.status === 'failed').length;
-        const skipped = processingQueue.filter(q => q.status === 'skipped').length;
+        const done = checkSource.filter(q => q.status === 'done').length;
+        const failed = checkSource.filter(q => q.status === 'failed').length;
+        const skipped = checkSource.filter(q => q.status === 'skipped').length;
         
         result.innerHTML = `<div class="status-msg success">\ud83c\udf89 Queue complete! ${done} done, ${skipped} skipped, ${failed} failed</div>`;
     }
