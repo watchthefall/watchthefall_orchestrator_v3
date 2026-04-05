@@ -590,7 +590,7 @@ def portal_home():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     else:
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('brand_video'))
 
 
 # Debug endpoint to verify app is loading routes correctly

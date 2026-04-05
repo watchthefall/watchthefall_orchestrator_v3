@@ -185,13 +185,11 @@
 </style>
 
 <div class="nav-bar">
-    <a href="{{ url_for('dashboard') }}" class="nav-logo" title="Brandr — {{ tier|default('Explorer') }}"></a>
+    <a href="{{ url_for('brand_video') }}" class="nav-logo" title="Brandr — {{ tier|default('Explorer') }}"></a>
     <ul class="nav-links">
-        <li><a href="{{ url_for('dashboard') }}"{% if active_page == 'dashboard' %} class="active"{% endif %}>Dashboard</a></li>
-        <li><a href="{{ url_for('library') }}"{% if active_page == 'library' %} class="active"{% endif %}>Library</a></li>
         <li><a href="{{ url_for('brand_video') }}"{% if active_page == 'brand_video' %} class="active"{% endif %}>Create</a></li>
-        <li><a href="{{ url_for('brands_page') }}"{% if active_page == 'brands_page' %} class="active"{% endif %}>Brand Kit</a></li>
-        <li><a href="{{ url_for('shipr_page') }}"{% if active_page == 'shipr_page' %} class="active"{% endif %}>Shipr</a></li>
+        <li><a href="{{ url_for('brands_page') }}"{% if active_page == 'brands_page' %} class="active"{% endif %}>Brands</a></li>
+        <li><a href="{{ url_for('library') }}"{% if active_page == 'library' %} class="active"{% endif %}>Library</a></li>
     </ul>
     <div class="nav-identity">
         <div class="dropdown">

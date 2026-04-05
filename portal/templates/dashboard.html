@@ -150,14 +150,14 @@
             <img src="/static/img/brandr_logo.png" alt="Brandr" style="width: 100px; height: 100px; object-fit: contain; display: block; margin: 0 auto 20px;">
             <h1>Welcome to Brandr</h1>
             <p class="subtitle">
-                Set up your Brand Kit, create branded content,<br>
+                Set up your Brands, create branded content,<br>
                 manage it in your Library, then ship when ready.
             </p>
             
             <div class="journey-steps">
                 <div class="journey-step">
                     <div class="step-number">1</div>
-                    <span>Brand Kit</span>
+                    <span>Brands</span>
                 </div>
                 <div class="journey-step">
                     <div class="step-number">2</div>
@@ -173,7 +173,7 @@
                 </div>
             </div>
             
-            <a href="{{ url_for('brands_page') }}" class="primary-cta">Set up Brand Kit</a>
+            <a href="{{ url_for('brands_page') }}" class="primary-cta">Set up Brands</a>
             
             <div class="secondary-links">
                 <a href="{{ url_for('download') }}">Get Media</a>
@@ -251,7 +251,7 @@
                 
                 <a href="{{ url_for('brands_page') }}" class="action-card">
                     <div class="card-icon">&#x1F3A8;</div>
-                    <div class="card-title">Brand Kit</div>
+                    <div class="card-title">Brands</div>
                     <div class="card-desc">Manage your brand identity</div>
                 </a>
                 
@@ -261,11 +261,7 @@
                     <div class="card-desc">View downloads and outputs</div>
                 </a>
                 
-                <a href="{{ url_for('shipr_page') }}" class="action-card">
-                    <div class="card-icon">&#x1F680;</div>
-                    <div class="card-title">Shipr</div>
-                    <div class="card-desc">Ship your content (coming soon)</div>
-                </a>
+
             </div>
         </div>
         {% endif %}
