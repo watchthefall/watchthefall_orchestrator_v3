@@ -535,11 +535,11 @@
             </div>
         </div>
         
-        <!-- Step 2: Primary Logo -->
+        <!-- Step 2: Primary Logo Editor -->
         <div id="wizardStep2" class="wizard-step">
             <div class="wizard-step-content">
-                <h3>Add Your Logo</h3>
-                <p class="step-description">Upload your logo and configure how it appears on videos.</p>
+                <h3>Edit Your Logo</h3>
+                <p class="step-description">Upload and edit your logo. Position it on video in the next step.</p>
                 
                 <!-- Logo Upload - Large zone (shown before upload) -->
                 <div class="upload-zone" id="wizardLogoUploadZone">
@@ -551,119 +551,113 @@
                     </div>
                 </div>
                 
-                <!-- Compact Upload Row (shown after upload) -->
-                <div class="upload-row" id="wizardLogoRow" style="display:none;">
-                    <img id="wizardLogoThumb" src="" alt="Logo">
-                    <span class="upload-filename" id="wizardLogoFilename">logo.png</span>
-                    <div class="upload-actions">
+                <!-- Logo Editor Layout (shown after upload) -->
+                <div class="logo-editor" id="wizardLogoEditor" style="display:none;">
+                    <!-- File Info Bar -->
+                    <div class="editor-file-info">
+                        <img id="wizardLogoThumb" src="" alt="Logo" style="width:40px;height:40px;object-fit:contain;border-radius:4px;background:rgba(255,255,255,0.1);">
+                        <span class="upload-filename" id="wizardLogoFilename" style="flex:1;font-size:13px;color:#ccc;">logo.png</span>
                         <button type="button" class="btn-text" onclick="document.getElementById('wizardLogoInput').click()">Change</button>
                         <button type="button" class="btn-text btn-danger-text" onclick="clearWizardLogo()">Remove</button>
                     </div>
-                </div>
-                
-                <!-- 9:16 Preview (moved above controls) -->
-                <div class="preview-container" id="wizardPreviewContainer" style="display:none;">
-                    <label>Preview</label>
-                    <div class="video-preview" id="wizardVideoPreview">
-                        <canvas id="wizardPreviewCanvas" width="270" height="480"></canvas>
-                        <p class="preview-hint">Logo placement on 9:16 video frame</p>
-                    </div>
-                </div>
-                
-                <!-- Logo Options - Accordion Groups (appear after upload) -->
-                <div id="wizardLogoOptions" style="display:none;">
                     
-                    <!-- Accordion 1: Shape & Position -->
-                    <div class="accordion-group open" data-accordion="shape-position">
-                        <button type="button" class="accordion-header" onclick="toggleAccordion('shape-position')">
-                            <span>Shape & Position</span>
-                            <span class="accordion-icon">▼</span>
-                        </button>
-                        <div class="accordion-content">
+                    <!-- 3-Panel Editor Layout -->
+                    <div class="editor-layout">
+                        <!-- Left: Tools -->
+                        <div class="editor-tools">
+                            <button type="button" class="tool-btn" data-tool="erase" onclick="setEditorTool('erase')" title="Erase brush">
+                                <span>✏️</span>
+                                <small>Erase</small>
+                            </button>
+                            <button type="button" class="tool-btn" data-tool="restore" onclick="setEditorTool('restore')" title="Restore brush">
+                                <span>↩️</span>
+                                <small>Restore</small>
+                            </button>
+                            <button type="button" class="tool-btn disabled" data-tool="wand" title="Coming soon" disabled>
+                                <span>🪄</span>
+                                <small>Wand</small>
+                                <span class="tool-badge">Soon</span>
+                            </button>
+                            
+                            <!-- Brush Settings (shown when erase/restore active) -->
+                            <div class="brush-settings" id="wizardBrushSettings" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
+                                <label style="font-size:10px;color:#888;display:block;margin-bottom:4px;">Brush Size</label>
+                                <input type="range" id="wizardBrushSize" min="1" max="100" value="20" style="width:100%;" oninput="updateWizardBrushSize(this.value)">
+                                <span id="wizardBrushSizeVal" style="font-size:10px;color:var(--accent);">20px</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Center: Canvas -->
+                        <div class="editor-canvas-wrap">
+                            <canvas id="wizardEditorCanvas" width="480" height="480"></canvas>
+                        </div>
+                        
+                        <!-- Right: Properties -->
+                        <div class="editor-props">
                             <!-- Shape -->
-                            <div class="option-group">
-                                <label>Logo Shape</label>
-                                <div class="option-buttons">
-                                    <button type="button" class="option-btn active" data-shape="original" onclick="setWizardLogoShape('original')">Original</button>
-                                    <button type="button" class="option-btn" data-shape="circle" onclick="setWizardLogoShape('circle')">Circle</button>
-                                    <button type="button" class="option-btn" data-shape="square" onclick="setWizardLogoShape('square')">Square</button>
+                            <div class="prop-group">
+                                <label>Shape</label>
+                                <div class="option-buttons" style="flex-wrap:wrap;gap:4px;">
+                                    <button type="button" class="option-btn active" data-shape="original" onclick="setWizardLogoShape('original')" style="padding:6px 10px;font-size:11px;">Original</button>
+                                    <button type="button" class="option-btn" data-shape="circle" onclick="setWizardLogoShape('circle')" style="padding:6px 10px;font-size:11px;">Circle</button>
+                                    <button type="button" class="option-btn" data-shape="square" onclick="setWizardLogoShape('square')" style="padding:6px 10px;font-size:11px;">Square</button>
                                 </div>
                             </div>
                             
-                            <!-- Position Presets -->
-                            <div class="option-group">
-                                <label>Logo Position</label>
-                                <div class="position-grid">
-                                    <button type="button" class="position-btn" data-pos="top-left" onclick="setWizardLogoPosition('top-left')">↖</button>
-                                    <button type="button" class="position-btn" data-pos="top-right" onclick="setWizardLogoPosition('top-right')">↗</button>
-                                    <button type="button" class="position-btn" data-pos="center" onclick="setWizardLogoPosition('center')">•</button>
-                                    <button type="button" class="position-btn active" data-pos="bottom-left" onclick="setWizardLogoPosition('bottom-left')">↙</button>
-                                    <button type="button" class="position-btn" data-pos="bottom-right" onclick="setWizardLogoPosition('bottom-right')">↘</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Accordion 2: Background Cleanup -->
-                    <div class="accordion-group" data-accordion="cleanup">
-                        <button type="button" class="accordion-header" onclick="toggleAccordion('cleanup')">
-                            <span>Background Cleanup</span>
-                            <span class="accordion-icon">▼</span>
-                        </button>
-                        <div class="accordion-content" style="display:none;">
-                            <div class="option-group">
-                                <div class="option-buttons">
-                                    <button type="button" class="option-btn active" data-cleanup="none" onclick="setWizardLogoCleanup('none')">Keep as-is</button>
-                                    <button type="button" class="option-btn" data-cleanup="dark" onclick="setWizardLogoCleanup('dark')">Remove Dark BG</button>
-                                    <button type="button" class="option-btn" data-cleanup="light" onclick="setWizardLogoCleanup('light')">Remove Light BG</button>
-                                </div>
-                                <!-- Background Removal Strength (hidden when 'none') -->
-                                <div id="wizardBgStrengthContainer" style="display:none; margin-top:12px; padding:10px; background:rgba(0,0,0,0.2); border-radius:6px;">
-                                    <label style="display:block; font-size:11px; color:#aaa; margin-bottom:6px;">Removal Strength <span id="wizardBgStrengthVal" style="color:var(--accent);">50</span></label>
-                                    <input type="range" id="wizardBgStrength" min="20" max="150" value="50" style="width:100%;" oninput="updateWizardBgStrength(this.value)">
-                                    <p style="font-size:11px; color:#888; margin-top:6px;">Higher values remove backgrounds more aggressively (may affect light logo elements)</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Accordion 3: Size & Opacity -->
-                    <div class="accordion-group" data-accordion="size-opacity">
-                        <button type="button" class="accordion-header" onclick="toggleAccordion('size-opacity')">
-                            <span>Size & Opacity</span>
-                            <span class="accordion-icon">▼</span>
-                        </button>
-                        <div class="accordion-content" style="display:none;">
-                            <div class="slider-group">
-                                <label>Scale <span id="wizardLogoScaleVal">25%</span></label>
+                            <!-- Default Output Size -->
+                            <div class="prop-group">
+                                <label>Default Output Size <span id="wizardLogoScaleVal">25%</span></label>
                                 <input type="range" id="wizardLogoScale" min="5" max="100" value="25" oninput="updateWizardLogoScale(this.value)">
                             </div>
-                            <div class="slider-group">
+                            
+                            <!-- Rotation -->
+                            <div class="prop-group">
                                 <label>Rotation <span id="wizardLogoRotationVal">0°</span></label>
                                 <input type="range" id="wizardLogoRotation" min="0" max="360" value="0" oninput="updateWizardLogoRotation(this.value)">
                             </div>
-                            <div class="slider-group">
+                            
+                            <!-- Opacity -->
+                            <div class="prop-group">
                                 <label>Opacity <span id="wizardLogoOpacityVal">100%</span></label>
                                 <input type="range" id="wizardLogoOpacity" min="0" max="100" value="100" oninput="updateWizardLogoOpacity(this.value)">
                             </div>
+                            
+                            <!-- Auto Remove BG (V2 feature - visually present but disabled) -->
+                            <div class="prop-group" style="margin-top:auto;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
+                                <button type="button" class="btn btn-secondary" style="width:100%;font-size:12px;opacity:0.5;cursor:not-allowed;" disabled>
+                                    Auto Remove BG
+                                    <span style="display:block;font-size:10px;color:#888;margin-top:2px;">Coming in V2</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    
                 </div>
             </div>
             
             <div class="wizard-actions">
                 <button type="button" class="btn btn-secondary" onclick="wizardPrevStep()">← Back</button>
                 <button type="button" class="btn btn-secondary" onclick="saveWizardFromAnyStep()">Save Brand</button>
-                <button type="button" class="btn btn-primary" onclick="wizardNextStep()">Next: Watermark →</button>
+                <button type="button" class="btn btn-primary" onclick="wizardNextStep()">Next: Position & Watermark →</button>
             </div>
         </div>
         
         <!-- Step 3: Watermark (Optional) -->
         <div id="wizardStep3" class="wizard-step">
             <div class="wizard-step-content">
-                <h3>Add Watermark <span style="font-size:14px; color:#888; font-weight:normal;">(Optional)</span></h3>
-                <p class="step-description">Add a subtle watermark overlay to your videos. Skip if you don't need one.</p>
+                <h3>Position & Watermark <span style="font-size:14px; color:#888; font-weight:normal;">(Optional)</span></h3>
+                <p class="step-description">Position your logo on video and add an optional watermark.</p>
+                
+                <!-- Logo Position on Video (moved from Step 2) -->
+                <div class="step3-logo-placement" style="margin-bottom:20px;padding:16px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                    <label style="display:block;font-size:13px;font-weight:600;color:#EAEAEA;margin-bottom:10px;">Logo Position on Video</label>
+                    <div class="position-grid" style="max-width:160px;margin:0;">
+                        <button type="button" class="position-btn" data-pos="top-left" onclick="setWizardLogoPosition('top-left')">↖</button>
+                        <button type="button" class="position-btn" data-pos="top-right" onclick="setWizardLogoPosition('top-right')">↗</button>
+                        <button type="button" class="position-btn" data-pos="center" onclick="setWizardLogoPosition('center')">•</button>
+                        <button type="button" class="position-btn active" data-pos="bottom-left" onclick="setWizardLogoPosition('bottom-left')">↙</button>
+                        <button type="button" class="position-btn" data-pos="bottom-right" onclick="setWizardLogoPosition('bottom-right')">↘</button>
+                    </div>
+                </div>
                 
                 <!-- Watermark Upload - Large zone (shown before upload) -->
                 <div class="upload-zone" id="wizardWatermarkUploadZone">
@@ -829,6 +823,195 @@
     font-size: 14px;
     margin-bottom: 20px;
 }
+
+/* ========== STEP 2 LOGO EDITOR V1 STYLES ========== */
+
+/* Wizard modal width expansion for Step 2 */
+.wizard-content.step-2-active {
+    max-width: 900px;
+    transition: max-width 0.3s ease;
+}
+
+/* Logo Editor Container */
+.logo-editor {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+/* File Info Bar */
+.editor-file-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px 8px 0 0;
+}
+
+/* 3-Panel Editor Layout */
+.editor-layout {
+    display: flex;
+    flex: 1;
+    min-height: 400px;
+    background: #0f0c29;
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+}
+
+/* Left: Tools Panel */
+.editor-tools {
+    width: 72px;
+    padding: 16px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-right: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.2);
+}
+
+.tool-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 4px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #999;
+    cursor: pointer;
+    font-size: 10px;
+    transition: all 0.2s;
+}
+
+.tool-btn:hover:not(:disabled) {
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+}
+
+.tool-btn.active {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+.tool-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.tool-badge {
+    font-size: 8px;
+    background: var(--accent);
+    color: #121214;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+.brush-settings {
+    margin-top: auto;
+}
+
+/* Center: Canvas Panel */
+.editor-canvas-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    position: relative;
+}
+
+.editor-canvas-wrap canvas {
+    /* Checkerboard transparency pattern */
+    background-image:
+        linear-gradient(45deg, #2a2a3e 25%, transparent 25%),
+        linear-gradient(-45deg, #2a2a3e 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #2a2a3e 75%),
+        linear-gradient(-45deg, transparent 75%, #2a2a3e 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    background-color: #1a1a2e;
+    border-radius: 8px;
+    max-width: 100%;
+    max-height: 60vh;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+/* Right: Properties Panel */
+.editor-props {
+    width: 200px;
+    padding: 16px;
+    border-left: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.2);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.prop-group {
+    margin-bottom: 16px;
+}
+
+.prop-group label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #aaa;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Step 3 Logo Position Section */
+.step3-logo-placement {
+    margin-bottom: 20px;
+}
+
+.step3-logo-placement label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #EAEAEA;
+    margin-bottom: 10px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .wizard-content.step-2-active {
+        max-width: 95vw;
+    }
+    
+    .editor-layout {
+        flex-direction: column;
+    }
+    
+    .editor-tools {
+        flex-direction: row;
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        padding: 8px 12px;
+        justify-content: center;
+    }
+    
+    .editor-tools .brush-settings {
+        display: none; /* Hide brush settings on mobile - use default */
+    }
+    
+    .editor-props {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        max-height: 200px;
+    }
+}
+
+/* ========== END STEP 2 LOGO EDITOR V1 STYLES ========== */
 
 .input-hint {
     display: block;
@@ -1902,6 +2085,17 @@ function showWizardStep(step) {
         }
     });
     
+    // ========== STEP 2 EDITOR V1: Toggle modal width ==========
+    const wizardContent = document.querySelector('.wizard-content');
+    if (wizardContent) {
+        if (step === 2) {
+            wizardContent.classList.add('step-2-active');
+        } else {
+            wizardContent.classList.remove('step-2-active');
+        }
+    }
+    // ========== END EDITOR V1 ==========
+    
     // Hide all steps first
     document.getElementById('wizardStep1').classList.remove('active');
     document.getElementById('wizardStep2').classList.remove('active');
@@ -1912,31 +2106,29 @@ function showWizardStep(step) {
         document.getElementById('wizardStep1').classList.add('active');
     } else if (step === 2) {
         document.getElementById('wizardStep2').classList.add('active');
-        // Re-render previews when entering Step 2
+        // ========== STEP 2 EDITOR V1: New layout handling ==========
         if (wizardState.logoFile) {
             const logoZone = document.getElementById('wizardLogoUploadZone');
-            const logoRow = document.getElementById('wizardLogoRow');
-            const logoPreview = document.getElementById('wizardPreviewContainer');
-            const logoOptions = document.getElementById('wizardLogoOptions');
-            if (logoZone && logoRow && logoPreview && logoOptions) {
+            const logoEditor = document.getElementById('wizardLogoEditor');
+            if (logoZone && logoEditor) {
                 logoZone.style.display = 'none';
-                logoRow.style.display = 'flex';
-                logoPreview.style.display = 'block';
-                logoOptions.style.display = 'block';
-                drawWizardPreview();
+                logoEditor.style.display = 'flex';
+                // Initialize editor canvas if not already done
+                if (!editorCanvas) {
+                    initEditorCanvas();
+                } else {
+                    drawEditorCanvas();
+                }
             }
         } else {
             const logoZone = document.getElementById('wizardLogoUploadZone');
-            const logoRow = document.getElementById('wizardLogoRow');
-            const logoPreview = document.getElementById('wizardPreviewContainer');
-            const logoOptions = document.getElementById('wizardLogoOptions');
-            if (logoZone && logoRow && logoPreview && logoOptions) {
+            const logoEditor = document.getElementById('wizardLogoEditor');
+            if (logoZone && logoEditor) {
                 logoZone.style.display = 'block';
-                logoRow.style.display = 'none';
-                logoPreview.style.display = 'none';
-                logoOptions.style.display = 'none';
+                logoEditor.style.display = 'none';
             }
         }
+        // ========== END EDITOR V1 ==========
     } else if (step === 3) {
         document.getElementById('wizardStep3').classList.add('active');
         // Re-render previews when entering Step 3
@@ -2027,25 +2219,20 @@ function handleWizardLogoUpload(file) {
     const url = URL.createObjectURL(file);
     wizardState.logoPreviewUrl = url;
     
-    // Update UI - hide large upload zone, show compact row
+    // ========== STEP 2 EDITOR V1: New layout ==========
+    // Update UI - hide large upload zone, show editor layout
     document.getElementById('wizardLogoUploadZone').style.display = 'none';
-    document.getElementById('wizardLogoRow').style.display = 'flex';
+    document.getElementById('wizardLogoEditor').style.display = 'flex';
     document.getElementById('wizardLogoThumb').src = url;
     document.getElementById('wizardLogoFilename').textContent = file.name;
     
-    // Show preview and options
-    document.getElementById('wizardPreviewContainer').style.display = 'block';
-    document.getElementById('wizardLogoOptions').style.display = 'block';
-    
-    // Load image for canvas preview
+    // Load image and initialize editor canvas
     wizardLogoImage = new Image();
     wizardLogoImage.onload = function() {
-        drawWizardPreview();
-        // Update hint to indicate drag is available
-        const hint = document.querySelector('#wizardVideoPreview .preview-hint');
-        if (hint) hint.textContent = 'Drag logo to reposition';
+        initEditorCanvas();
     };
     wizardLogoImage.src = url;
+    // ========== END EDITOR V1 ==========
 }
 
 function clearWizardLogo() {
@@ -2056,32 +2243,15 @@ function clearWizardLogo() {
     }
     wizardLogoImage = null;
     
-    // Reset UI - show large upload zone, hide compact row
+    // ========== STEP 2 EDITOR V1: Reset editor state ==========
+    resetEditorState();
+    
+    // Reset UI - show large upload zone, hide editor
     document.getElementById('wizardLogoInput').value = '';
     document.getElementById('wizardLogoUploadZone').style.display = 'block';
-    document.getElementById('wizardLogoRow').style.display = 'none';
+    document.getElementById('wizardLogoEditor').style.display = 'none';
     document.getElementById('wizardLogoThumb').src = '';
-    document.getElementById('wizardPreviewContainer').style.display = 'none';
-    document.getElementById('wizardLogoOptions').style.display = 'none';
-    
-    // Reset hint text
-    const hint = document.querySelector('#wizardVideoPreview .preview-hint');
-    if (hint) hint.textContent = 'Logo placement on 9:16 video frame';
-    
-    // Reset accordion to default state (Shape & Position open)
-    document.querySelectorAll('.accordion-group').forEach(group => {
-        group.classList.remove('open');
-        const content = group.querySelector('.accordion-content');
-        if (content) content.style.display = 'none';
-    });
-    const defaultAccordion = document.querySelector('[data-accordion="shape-position"]');
-    if (defaultAccordion) {
-        defaultAccordion.classList.add('open');
-        const content = defaultAccordion.querySelector('.accordion-content');
-        if (content) content.style.display = 'block';
-    }
-    
-    drawWizardPreview();
+    // ========== END EDITOR V1 ==========
 }
 
 function setWizardLogoCleanup(mode) {
@@ -2102,25 +2272,33 @@ function setWizardLogoShape(shape) {
     document.querySelectorAll('[data-shape]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.shape === shape);
     });
-    drawWizardPreview();
+    // ========== STEP 2 EDITOR V1: Use new editor canvas ==========
+    drawEditorCanvas();
+    // ========== END EDITOR V1 ==========
 }
 
 function updateWizardLogoScale(value) {
     wizardState.logoScale = parseInt(value);
     document.getElementById('wizardLogoScaleVal').textContent = value + '%';
-    drawWizardPreview();
+    // ========== STEP 2 EDITOR V1: Use new editor canvas ==========
+    drawEditorCanvas();
+    // ========== END EDITOR V1 ==========
 }
 
 function updateWizardLogoOpacity(value) {
     wizardState.logoOpacity = parseInt(value);
     document.getElementById('wizardLogoOpacityVal').textContent = value + '%';
-    drawWizardPreview();
+    // ========== STEP 2 EDITOR V1: Use new editor canvas ==========
+    drawEditorCanvas();
+    // ========== END EDITOR V1 ==========
 }
 
 function updateWizardLogoRotation(value) {
     wizardState.logoRotation = parseInt(value);
     document.getElementById('wizardLogoRotationVal').textContent = value + '°';
-    drawWizardPreview();
+    // ========== STEP 2 EDITOR V1: Use new editor canvas ==========
+    drawEditorCanvas();
+    // ========== END EDITOR V1 ==========
 }
 
 function updateWizardBgStrength(value) {
@@ -2267,6 +2445,176 @@ function drawWizardPreview() {
     // Reset alpha
     ctx.globalAlpha = 1;
 }
+
+// ========== STEP 2 LOGO EDITOR V1: Editor Canvas Functions ==========
+
+// Editor canvas globals
+let editorCanvas = null;
+let editorCtx = null;
+let editorOriginalCanvas = null;  // Offscreen: original logo at native resolution
+let editorWorkingCanvas = null;   // Offscreen: edited logo (erase/restore applied)
+let editorOriginalCtx = null;
+let editorWorkingCtx = null;
+
+// Editor state
+let wizardEditorState = {
+    activeTool: null,    // 'erase' | 'restore' | null
+    brushSize: 20,       // pixels at native resolution
+    painting: false,
+    dirty: false
+};
+
+// Initialize editor canvas and offscreen buffers
+function initEditorCanvas() {
+    // Get display canvas
+    editorCanvas = document.getElementById('wizardEditorCanvas');
+    if (!editorCanvas) return;
+    editorCtx = editorCanvas.getContext('2d');
+    
+    // Create offscreen canvases at logo's native resolution
+    if (wizardLogoImage) {
+        editorOriginalCanvas = document.createElement('canvas');
+        editorOriginalCanvas.width = wizardLogoImage.naturalWidth;
+        editorOriginalCanvas.height = wizardLogoImage.naturalHeight;
+        editorOriginalCtx = editorOriginalCanvas.getContext('2d');
+        editorOriginalCtx.drawImage(wizardLogoImage, 0, 0);
+        
+        editorWorkingCanvas = document.createElement('canvas');
+        editorWorkingCanvas.width = wizardLogoImage.naturalWidth;
+        editorWorkingCanvas.height = wizardLogoImage.naturalHeight;
+        editorWorkingCtx = editorWorkingCanvas.getContext('2d');
+        editorWorkingCtx.drawImage(wizardLogoImage, 0, 0);
+    }
+    
+    // Reset editor state
+    wizardEditorState.activeTool = null;
+    wizardEditorState.painting = false;
+    wizardEditorState.dirty = false;
+    wizardEditorState.brushSize = 20;
+    
+    // Update brush size slider
+    const brushSizeSlider = document.getElementById('wizardBrushSize');
+    if (brushSizeSlider) brushSizeSlider.value = 20;
+    const brushSizeVal = document.getElementById('wizardBrushSizeVal');
+    if (brushSizeVal) brushSizeVal.textContent = '20px';
+    
+    // Hide brush settings
+    document.getElementById('wizardBrushSettings').style.display = 'none';
+    
+    // Clear tool active states
+    document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Draw initial canvas
+    drawEditorCanvas();
+}
+
+// Draw editor canvas from working buffer
+function drawEditorCanvas() {
+    if (!editorCtx || !editorCanvas || !editorWorkingCanvas) return;
+    
+    const ctx = editorCtx;
+    const canvas = editorCanvas;
+    
+    // Clear canvas (transparent - checkerboard shows through)
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (!wizardLogoImage) return;
+    
+    // Calculate display size: fit logo to ~70% of canvas width
+    const displayScale = 0.7;
+    const drawWidth = canvas.width * displayScale;
+    const aspectRatio = wizardLogoImage.naturalHeight / wizardLogoImage.naturalWidth;
+    const drawHeight = drawWidth * aspectRatio;
+    
+    // Center on canvas
+    const x = (canvas.width - drawWidth) / 2;
+    const y = (canvas.height - drawHeight) / 2;
+    
+    // Apply opacity
+    ctx.globalAlpha = wizardState.logoOpacity / 100;
+    
+    // Apply shape clipping and rotation
+    ctx.save();
+    
+    // Shape clipping
+    if (wizardState.logoShape === 'circle') {
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height / 2, Math.max(drawWidth, drawHeight) / 2, 0, Math.PI * 2);
+        ctx.clip();
+    } else if (wizardState.logoShape === 'square') {
+        const cornerRadius = Math.min(drawWidth, drawHeight) * 0.1;
+        const sx = (canvas.width - drawWidth) / 2;
+        const sy = (canvas.height - drawHeight) / 2;
+        ctx.beginPath();
+        ctx.moveTo(sx + cornerRadius, sy);
+        ctx.lineTo(sx + drawWidth - cornerRadius, sy);
+        ctx.quadraticCurveTo(sx + drawWidth, sy, sx + drawWidth, sy + cornerRadius);
+        ctx.lineTo(sx + drawWidth, sy + drawHeight - cornerRadius);
+        ctx.quadraticCurveTo(sx + drawWidth, sy + drawHeight, sx + drawWidth - cornerRadius, sy + drawHeight);
+        ctx.lineTo(sx + cornerRadius, sy + drawHeight);
+        ctx.quadraticCurveTo(sx, sy + drawHeight, sx, sy + drawHeight - cornerRadius);
+        ctx.lineTo(sx, sy + cornerRadius);
+        ctx.quadraticCurveTo(sx, sy, sx + cornerRadius, sy);
+        ctx.closePath();
+        ctx.clip();
+    }
+    
+    // Rotation around center
+    const rotationRadians = (wizardState.logoRotation * Math.PI) / 180;
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(rotationRadians);
+    ctx.translate(-canvas.width / 2, -canvas.height / 2);
+    
+    // Draw from working canvas (maintaining aspect ratio)
+    ctx.drawImage(editorWorkingCanvas, x, y, drawWidth, drawHeight);
+    
+    ctx.restore();
+    ctx.globalAlpha = 1;
+}
+
+// Reset editor state
+function resetEditorState() {
+    editorCanvas = null;
+    editorCtx = null;
+    editorOriginalCanvas = null;
+    editorWorkingCanvas = null;
+    editorOriginalCtx = null;
+    editorWorkingCtx = null;
+    
+    wizardEditorState = {
+        activeTool: null,
+        brushSize: 20,
+        painting: false,
+        dirty: false
+    };
+}
+
+// Set active tool
+function setEditorTool(tool) {
+    wizardEditorState.activeTool = tool;
+    
+    // Update UI
+    document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tool === tool);
+    });
+    
+    // Show/hide brush settings
+    const brushSettings = document.getElementById('wizardBrushSettings');
+    if (brushSettings) {
+        brushSettings.style.display = (tool === 'erase' || tool === 'restore') ? 'block' : 'none';
+    }
+}
+
+// Update brush size
+function updateWizardBrushSize(value) {
+    wizardEditorState.brushSize = parseInt(value);
+    const valDisplay = document.getElementById('wizardBrushSizeVal');
+    if (valDisplay) valDisplay.textContent = value + 'px';
+}
+
+// ========== END STEP 2 LOGO EDITOR V1 ==========
 
 // --- Drag-to-position on wizard preview canvas ---
 let wizardDragging = false;
