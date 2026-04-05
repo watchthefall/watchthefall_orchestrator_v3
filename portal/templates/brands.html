@@ -2072,7 +2072,7 @@ function initWizardCanvas() {
     }
 }
 
-function showWizardStep(step) {
+async function showWizardStep(step) {
     wizardState.step = step;
     
     // Update progress indicator
@@ -2131,6 +2131,11 @@ function showWizardStep(step) {
         // ========== END EDITOR V1 ==========
     } else if (step === 3) {
         document.getElementById('wizardStep3').classList.add('active');
+        
+        // ========== V2A: Update logo image from editor before showing Step 3 preview ==========
+        await updateWizardLogoImageFromEditor();
+        // ========== END V2A ==========
+        
         // Re-render previews when entering Step 3
         const wmZone = document.getElementById('wizardWatermarkUploadZone');
         const wmRow = document.getElementById('wizardWatermarkRow');
@@ -2157,7 +2162,7 @@ function showWizardStep(step) {
     }
 }
 
-function wizardNextStep() {
+async function wizardNextStep() {
     if (wizardState.step === 1) {
         // Validate step 1
         const displayName = document.getElementById('wizardDisplayName').value.trim();
@@ -2176,7 +2181,7 @@ function wizardNextStep() {
         }
         wizardState.slug = slug;
         
-        showWizardStep(2);
+        await showWizardStep(2);
     } else if (wizardState.step === 2) {
         // Validate step 2 - require logo
         if (!wizardState.logoFile) {
@@ -2185,15 +2190,15 @@ function wizardNextStep() {
         }
         
         // Proceed to Step 3 (Watermark)
-        showWizardStep(3);
+        await showWizardStep(3);
     }
 }
 
-function wizardPrevStep() {
+async function wizardPrevStep() {
     if (wizardState.step === 2) {
-        showWizardStep(1);
+        await showWizardStep(1);
     } else if (wizardState.step === 3) {
-        showWizardStep(2);
+        await showWizardStep(2);
     }
 }
 
@@ -2768,6 +2773,75 @@ function setupEditorCanvasEvents() {
 
 // ========== END COMMIT 3 ==========
 
+// ========== V2A: SAVE-FLOW INTEGRATION ==========
+
+// Export working canvas as PNG Blob (preserves transparency)
+function getEditedLogoBlob() {
+    return new Promise((resolve, reject) => {
+        if (!editorWorkingCanvas) {
+            reject(new Error('No editor canvas available'));
+            return;
+        }
+        
+        // Convert canvas to Blob with PNG format (preserves transparency)
+        editorWorkingCanvas.toBlob((blob) => {
+            if (blob) {
+                resolve(blob);
+            } else {
+                reject(new Error('Failed to create blob from canvas'));
+            }
+        }, 'image/png');
+    });
+}
+
+// Get logo file for upload - returns edited blob if dirty, original file otherwise
+async function getLogoFileForUpload() {
+    // If editor has edits, export the working canvas
+    if (wizardEditorState.dirty && editorWorkingCanvas) {
+        try {
+            const blob = await getEditedLogoBlob();
+            // Create a File from the Blob with original filename but .png extension
+            const filename = wizardState.logoFile ? 
+                wizardState.logoFile.name.replace(/\.[^.]+$/, '.png') : 
+                'logo.png';
+            return new File([blob], filename, { type: 'image/png' });
+        } catch (err) {
+            console.warn('Failed to export edited logo, falling back to original:', err);
+            return wizardState.logoFile;
+        }
+    }
+    
+    // Return original file if no edits
+    return wizardState.logoFile;
+}
+
+// Update wizardLogoImage to reflect edited state (for Step 3 preview)
+async function updateWizardLogoImageFromEditor() {
+    if (!wizardEditorState.dirty || !editorWorkingCanvas) return;
+    
+    try {
+        const blob = await getEditedLogoBlob();
+        const url = URL.createObjectURL(blob);
+        
+        // Create new image from edited canvas
+        const newImage = new Image();
+        newImage.onload = function() {
+            // Revoke old preview URL if it's different from the original
+            if (wizardState.logoPreviewUrl && wizardState.logoPreviewUrl !== URL.createObjectURL(wizardState.logoFile)) {
+                URL.revokeObjectURL(wizardState.logoPreviewUrl);
+            }
+            
+            wizardLogoImage = newImage;
+            wizardState.logoPreviewUrl = url;
+        };
+        newImage.src = url;
+    } catch (err) {
+        console.warn('Failed to update logo image from editor:', err);
+    }
+}
+
+// ========== END V2A ==========
+
 // ========== END STEP 2 LOGO EDITOR V1 ==========
 
 // --- Drag-to-position on wizard preview canvas ---
@@ -3202,8 +3276,12 @@ async function saveWizardBrandWithWatermark() {
         if (wizardState.logoFile) {
             status.innerHTML = '<div class="status-msg info">Uploading logo...</div>';
             
+            // ========== V2A: Use edited logo if canvas was modified ==========
+            const logoFileToUpload = await getLogoFileForUpload();
+            // ========== END V2A ==========
+            
             const logoForm = new FormData();
-            logoForm.append('file', wizardState.logoFile);
+            logoForm.append('file', logoFileToUpload);
             logoForm.append('remove_bg_mode', wizardState.logoCleanup);
             logoForm.append('bg_strength', wizardState.logoCleanupStrength);
             logoForm.append('logo_scale', wizardState.logoScale / 100);
@@ -3346,8 +3424,12 @@ async function saveWizardBrand() {
         if (wizardState.logoFile) {
             status.innerHTML = '<div class="status-msg info">Uploading logo...</div>';
             
+            // ========== V2A: Use edited logo if canvas was modified ==========
+            const logoFileToUpload = await getLogoFileForUpload();
+            // ========== END V2A ==========
+            
             const logoForm = new FormData();
-            logoForm.append('file', wizardState.logoFile);
+            logoForm.append('file', logoFileToUpload);
             logoForm.append('remove_bg_mode', wizardState.logoCleanup);
             logoForm.append('bg_strength', wizardState.logoCleanupStrength);
             logoForm.append('logo_scale', wizardState.logoScale / 100);
