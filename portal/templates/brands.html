@@ -686,6 +686,7 @@
                         <button type="button" class="position-btn active" data-pos="bottom-left" onclick="setWizardLogoPosition('bottom-left')">↙</button>
                         <button type="button" class="position-btn" data-pos="bottom-right" onclick="setWizardLogoPosition('bottom-right')">↘</button>
                     </div>
+                    <div id="positionLabel" style="margin-top:8px;font-size:11px;color:var(--accent);text-align:center;">Bottom Left</div>
                 </div>
                 
                 <!-- Watermark Upload - Large zone (shown before upload) -->
@@ -2374,6 +2375,24 @@ function setWizardLogoPosition(position) {
         btn.classList.toggle('active', btn.dataset.pos === position);
     });
     
+    // Update position label
+    const label = document.getElementById('positionLabel');
+    if (label) {
+        const positionNames = {
+            'top-left': 'Top Left',
+            'top-center': 'Top Center',
+            'top-right': 'Top Right',
+            'center-left': 'Center Left',
+            'center': 'Center',
+            'center-right': 'Center Right',
+            'bottom-left': 'Bottom Left',
+            'bottom-center': 'Bottom Center',
+            'bottom-right': 'Bottom Right',
+            'custom': 'Custom Position'
+        };
+        label.textContent = positionNames[position] || 'Custom Position';
+    }
+    
     // Set X,Y coordinates based on position
     const positions = {
         'top-left': { x: 0.15, y: 0.15 },
@@ -3281,21 +3300,90 @@ function drawWizardWatermarkPreview() {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Draw semi-transparent background (phone frame simulation)
-    ctx.fillStyle = '#1a1a2e';
+    // Draw background with subtle grid for placement reference
+    ctx.fillStyle = '#252538';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw subtle 3x3 grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    const thirdW = canvas.width / 3;
+    const thirdH = canvas.height / 3;
+    ctx.beginPath();
+    ctx.moveTo(thirdW, 0); ctx.lineTo(thirdW, canvas.height);
+    ctx.moveTo(2 * thirdW, 0); ctx.lineTo(2 * thirdW, canvas.height);
+    ctx.moveTo(0, thirdH); ctx.lineTo(canvas.width, thirdH);
+    ctx.moveTo(0, 2 * thirdH); ctx.lineTo(canvas.width, 2 * thirdH);
+    ctx.stroke();
+    
+    // Safe area padding (5% inset from edges)
+    const paddingX = canvas.width * 0.05;
+    const paddingY = canvas.height * 0.05;
+    const safeWidth = canvas.width - (paddingX * 2);
+    const safeHeight = canvas.height - (paddingY * 2);
     
     // Layer 1: Draw logo if exists (from Step 2)
     if (wizardLogoImage && wizardLogoImage.complete && wizardLogoImage.naturalWidth > 0) {
-        // Calculate scaled dimensions using unified width-based scaling
-        const scale = wizardState.logoScale / 100;
-        const drawWidth = canvas.width * scale;
+        // Clamp scale to safe range (5% to 50% of canvas width)
+        const rawScale = wizardState.logoScale / 100;
+        const clampedScale = Math.max(0.05, Math.min(0.50, rawScale));
+        
+        // Calculate scaled dimensions
+        const drawWidth = canvas.width * clampedScale;
         const aspectRatio = wizardLogoImage.height / wizardLogoImage.width;
         const drawHeight = drawWidth * aspectRatio;
         
-        // Calculate position based on X,Y percentages (center anchor)
-        const x = (canvas.width * wizardState.logoX) - (drawWidth / 2);
-        const y = (canvas.height * wizardState.logoY) - (drawHeight / 2);
+        // Calculate position based on preset with proper anchor logic
+        // Position presets map to corners/edges WITH padding inset
+        let x, y;
+        const position = wizardState.logoPosition || 'bottom-left';
+        
+        switch (position) {
+            case 'top-left':
+                x = paddingX;
+                y = paddingY;
+                break;
+            case 'top-center':
+                x = (canvas.width - drawWidth) / 2;
+                y = paddingY;
+                break;
+            case 'top-right':
+                x = canvas.width - drawWidth - paddingX;
+                y = paddingY;
+                break;
+            case 'center-left':
+                x = paddingX;
+                y = (canvas.height - drawHeight) / 2;
+                break;
+            case 'center':
+                x = (canvas.width - drawWidth) / 2;
+                y = (canvas.height - drawHeight) / 2;
+                break;
+            case 'center-right':
+                x = canvas.width - drawWidth - paddingX;
+                y = (canvas.height - drawHeight) / 2;
+                break;
+            case 'bottom-left':
+                x = paddingX;
+                y = canvas.height - drawHeight - paddingY;
+                break;
+            case 'bottom-center':
+                x = (canvas.width - drawWidth) / 2;
+                y = canvas.height - drawHeight - paddingY;
+                break;
+            case 'bottom-right':
+                x = canvas.width - drawWidth - paddingX;
+                y = canvas.height - drawHeight - paddingY;
+                break;
+            default:
+                // Fallback to custom X,Y with clamping to safe area
+                x = paddingX + (safeWidth - drawWidth) * wizardState.logoX;
+                y = paddingY + (safeHeight - drawHeight) * wizardState.logoY;
+        }
+        
+        // Final safety clamp - ensure logo never clips outside canvas
+        x = Math.max(0, Math.min(canvas.width - drawWidth, x));
+        y = Math.max(0, Math.min(canvas.height - drawHeight, y));
         
         // Apply opacity
         ctx.globalAlpha = wizardState.logoOpacity / 100;
@@ -3319,6 +3407,10 @@ function drawWizardWatermarkPreview() {
         
         // Reset alpha
         ctx.globalAlpha = 1;
+        
+        // Debug: draw safe area outline (subtle)
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.strokeRect(paddingX, paddingY, safeWidth, safeHeight);
     }
     
     // Layer 2: Draw watermark if exists (from Step 3)
