@@ -397,6 +397,112 @@ def admin_delete_user():
     return jsonify({'success': True, 'email': target_email, 'brands_deleted': brands_deleted})
 
 
+# ── Admin API: Reset Account (wipe data + deactivate) ──
+@app.route('/api/admin/reset-account', methods=['POST'])
+@admin_required
+def admin_reset_account():
+    """Reset a user's account: wipe all owned data, disable account, preserve audit shell."""
+    from .database import get_connection
+    import os
+    
+    data = request.get_json(force=True) or {}
+    user_id = data.get('user_id')
+    confirmation = data.get('confirmation', '')
+    
+    if not user_id:
+        return jsonify({'success': False, 'error': 'user_id required'}), 400
+    
+    # Get target user for validation
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT email, COALESCE(account_status, ?) as account_status FROM users WHERE id = ?', ('active', user_id))
+        target = c.fetchone()
+        if not target:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+    
+    target_email = target['email']
+    
+    # Validate typed confirmation: must be "RESET user@example.com"
+    expected_confirmation = f'RESET {target_email}'
+    if confirmation != expected_confirmation:
+        return jsonify({'success': False, 'error': f'Type exactly: RESET {target_email}'}), 400
+    
+    # Safety: cannot reset your own account
+    if user_id == session.get('user_id'):
+        return jsonify({'success': False, 'error': 'Cannot reset your own account'}), 400
+    
+    # Safety: cannot reset the last admin
+    if target_email.lower() in [e.lower() for e in ADMIN_EMAILS]:
+        with get_connection() as conn:
+            c = conn.cursor()
+            admin_ids = []
+            for admin_email in ADMIN_EMAILS:
+                c.execute("SELECT id, COALESCE(account_status, ?) as account_status FROM users WHERE LOWER(email) = LOWER(?)", ('active', admin_email))
+                row = c.fetchone()
+                if row and row['account_status'] != 'deactivated':
+                    admin_ids.append(row['id'])
+            if len(admin_ids) <= 1:
+                return jsonify({'success': False, 'error': 'Cannot reset the last remaining admin'}), 400
+    
+    # Execute reset: count what will be removed
+    with get_connection() as conn:
+        c = conn.cursor()
+        
+        # Count active brands
+        c.execute('SELECT COUNT(*) as cnt FROM brands WHERE user_id = ? AND is_active = 1', (user_id,))
+        brand_count = c.fetchone()['cnt']
+        
+        # Count downloads
+        c.execute('SELECT COUNT(*) as cnt FROM downloads WHERE user_id = ?', (user_id,))
+        download_count = c.fetchone()['cnt']
+        
+        # Count usage records
+        c.execute('SELECT COUNT(*) as cnt FROM daily_usage WHERE user_id = ?', (user_id,))
+        usage_count = c.fetchone()['cnt']
+        
+        # Disable all active brands (soft delete)
+        c.execute('UPDATE brands SET is_active = 0 WHERE user_id = ? AND is_active = 1', (user_id,))
+        
+        # Delete downloads (hard delete - these are file references)
+        c.execute('DELETE FROM downloads WHERE user_id = ?', (user_id,))
+        
+        # Clear usage history
+        c.execute('DELETE FROM daily_usage WHERE user_id = ?', (user_id,))
+        
+        # Deactivate account
+        c.execute('UPDATE users SET account_status = ? WHERE id = ?', ('deactivated', user_id))
+        
+        conn.commit()
+    
+    # Write audit log
+    admin_email = session.get('email', 'unknown')
+    admin_user_id = session.get('user_id')
+    data_summary = json.dumps({
+        'brands_disabled': brand_count,
+        'downloads_deleted': download_count,
+        'usage_records_cleared': usage_count,
+    })
+    
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('''INSERT INTO audit_log 
+                     (admin_user_id, admin_email, action_type, target_user_id, target_email, details, data_summary)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                  (admin_user_id, admin_email, 'reset_account', user_id, target_email,
+                   f'Reset account: disabled {brand_count} brands, deleted {download_count} downloads, cleared {usage_count} usage records',
+                   data_summary))
+        conn.commit()
+    
+    print(f"[ADMIN] Reset account for user {user_id} ({target_email}): {brand_count} brands, {download_count} downloads, {usage_count} usage records. By {admin_email}")
+    return jsonify({
+        'success': True,
+        'email': target_email,
+        'brands_disabled': brand_count,
+        'downloads_deleted': download_count,
+        'usage_records_cleared': usage_count,
+    })
+
+
 # ── Admin API: Update Account Status ──
 @app.route('/api/admin/update-status', methods=['POST'])
 @admin_required

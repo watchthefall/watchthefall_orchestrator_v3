@@ -331,6 +331,30 @@ def _run_migrations():
             conn.commit()
             print("[DATABASE] Migration completed: account_status column added")
         
+        # Migration: Add audit_log table for admin actions
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                admin_user_id INTEGER NOT NULL,
+                admin_email TEXT NOT NULL,
+                action_type TEXT NOT NULL,
+                target_user_id INTEGER,
+                target_email TEXT,
+                details TEXT,
+                data_summary TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # Migration: Add purged_at column to users table (for future purge feature)
+        try:
+            c.execute("SELECT purged_at FROM users LIMIT 1")
+        except sqlite3.OperationalError:
+            print("[DATABASE] Running migration: Adding purged_at column to users")
+            c.execute("ALTER TABLE users ADD COLUMN purged_at TEXT DEFAULT NULL")
+            conn.commit()
+            print("[DATABASE] Migration completed: purged_at column added")
+        
         # Platinum is a valid internal supertier — no migration needed.
         # Do NOT auto-convert Platinum users. Platinum is assigned manually by admins.
     finally:

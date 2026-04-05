@@ -339,6 +339,9 @@
                                 {% endif %}
                                 {% if user.account_status != 'deactivated' %}
                                 <button class="action-btn danger" onclick="openDeleteModal({{ user.id }}, '{{ user.email }}')">Deactivate</button>
+                                <button class="action-btn danger" onclick="openResetAccountModal({{ user.id }}, '{{ user.email }}')" style="border-color: rgba(255,152,0,0.4); color: #ff9800;">Reset Account</button>
+                                {% else %}
+                                <button class="action-btn" onclick="setAccountStatus({{ user.id }}, 'active', this)" style="color: #86EDA5;">Reactivate</button>
                                 {% endif %}
                             </div>
                         </td>
@@ -379,6 +382,25 @@
         <div class="modal-actions">
             <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
             <button class="btn btn-danger" id="deleteConfirmBtn" onclick="confirmDeleteUser()">Deactivate User</button>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Account Modal -->
+<div class="admin-modal-overlay" id="resetAccountModal">
+    <div class="admin-modal">
+        <h3 style="color: #ff9800;">⚠ Reset Account Data</h3>
+        <p>This will <strong>wipe all data</strong> for <strong id="resetAccountEmail"></strong> and permanently disable the account.</p>
+        <p class="warning-text" style="color: #e05252; font-weight: 600;">This action CANNOT be undone. The email will remain reserved.</p>
+        
+        <div class="delete-preview" id="resetAccountPreview">Loading...</div>
+        
+        <p style="margin-top: 16px;">To confirm, type exactly: <strong id="resetAccountConfirmText" style="font-family: monospace; color: #fff;"></strong></p>
+        <input type="text" class="confirm-input" id="resetAccountConfirmInput" placeholder="Type confirmation text here" autocomplete="off" oninput="checkResetAccountConfirmation()">
+        
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeResetAccountModal()">Cancel</button>
+            <button class="btn btn-danger" id="resetAccountConfirmBtn" onclick="confirmResetAccount()" disabled style="opacity: 0.5;">Reset Account</button>
         </div>
     </div>
 </div>
@@ -544,6 +566,91 @@ function setAccountStatus(userId, newStatus, btn) {
         }
     })
     .catch(function() { alert('Network error'); btn.disabled = false; });
+}
+
+/* ── Reset Account ── */
+var _resetAccountUserId = null;
+var _resetAccountEmail = null;
+
+function openResetAccountModal(userId, email) {
+    _resetAccountUserId = userId;
+    _resetAccountEmail = email;
+    document.getElementById('resetAccountEmail').textContent = email;
+    document.getElementById('resetAccountConfirmText').textContent = 'RESET ' + email;
+    document.getElementById('resetAccountConfirmInput').value = '';
+    document.getElementById('resetAccountConfirmBtn').disabled = true;
+    document.getElementById('resetAccountConfirmBtn').style.opacity = '0.5';
+    var preview = document.getElementById('resetAccountPreview');
+    preview.innerHTML = 'Loading...';
+    document.getElementById('resetAccountModal').classList.add('active');
+    
+    // Fetch preview data
+    fetch('/api/admin/user-info/' + userId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            preview.innerHTML = '<strong>' + data.email + '</strong> (' + data.tier + ')<br>' +
+                'Active Brands: <strong>' + data.brand_count + '</strong><br>' +
+                'Downloads: <strong>' + data.download_count + '</strong>';
+        } else {
+            preview.textContent = 'Could not load user info.';
+        }
+    })
+    .catch(function() { preview.textContent = 'Error loading user info.'; });
+}
+
+function closeResetAccountModal() {
+    document.getElementById('resetAccountModal').classList.remove('active');
+    _resetAccountUserId = null;
+    _resetAccountEmail = null;
+}
+
+function checkResetAccountConfirmation() {
+    var input = document.getElementById('resetAccountConfirmInput').value.trim();
+    var expected = 'RESET ' + _resetAccountEmail;
+    var btn = document.getElementById('resetAccountConfirmBtn');
+    if (input === expected) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    } else {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+    }
+}
+
+function confirmResetAccount() {
+    var input = document.getElementById('resetAccountConfirmInput').value.trim();
+    var expected = 'RESET ' + _resetAccountEmail;
+    if (input !== expected) {
+        alert('You must type exactly: ' + expected);
+        return;
+    }
+    
+    var btn = document.getElementById('resetAccountConfirmBtn');
+    btn.disabled = true;
+    btn.textContent = 'Resetting...';
+    
+    fetch('/api/admin/reset-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: _resetAccountUserId, confirmation: input })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            alert('Account reset complete.\n\nRemoved:\n- ' + data.brands_disabled + ' brands\n- ' + data.downloads_deleted + ' downloads\n- ' + data.usage_records_cleared + ' usage records\n\nAccount is now deactivated.');
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Unknown'));
+            btn.disabled = false;
+            btn.textContent = 'Reset Account';
+        }
+    })
+    .catch(function() { 
+        alert('Network error'); 
+        btn.disabled = false; 
+        btn.textContent = 'Reset Account'; 
+    });
 }
 
 /* ── Helpers ── */
