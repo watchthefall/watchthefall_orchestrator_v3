@@ -1704,17 +1704,27 @@ function updatePreviewTargetBar() {
     const bar = document.getElementById('previewTargetBar');
     if (!bar) return;
     
-    if (selectedBrandIds.length > 0 && activePreviewBrandId) {
+    // ========== JOB-ITEM MODEL (Commit 4: prefer jobItems for counts) ==========
+    // Prefer jobItems for counts if available, fallback to old model
+    const activeBrandId = activePreviewBrandId;
+    const itemCount = currentFile ? jobItems.filter(item => item.filename === currentFile).length : selectedBrandIds.length;
+    const hasItems = itemCount > 0;
+    // ========== END JOB-ITEM MODEL ==========
+    
+    if (hasItems && activeBrandId) {
         bar.style.display = 'block';
-        const brand = brandDataCache[activePreviewBrandId];
-        document.getElementById('activePreviewName').textContent = brand ? brand.display_name : 'Brand #' + activePreviewBrandId;
+        const brand = brandDataCache[activeBrandId];
+        document.getElementById('activePreviewName').textContent = brand ? brand.display_name : 'Brand #' + activeBrandId;
         
-        // Override indicator
-        const hasOverrides = !!brandOverrides[activePreviewBrandId];
+        // Override indicator - check both old and new models
+        const oldHasOverrides = !!brandOverrides[activeBrandId];
+        const jobItem = currentFile ? jobItems.find(item => item.filename === currentFile && item.brandId === activeBrandId) : null;
+        const newHasOverrides = jobItem && Object.keys(jobItem.overrides || {}).length > 0;
+        const hasOverrides = oldHasOverrides || newHasOverrides;
         document.getElementById('overrideIndicator').style.display = hasOverrides ? 'inline' : 'none';
         
-        // Counter
-        const idx = selectedBrandIds.indexOf(activePreviewBrandId);
+        // Counter - use jobItems count if available
+        const idx = selectedBrandIds.indexOf(activeBrandId);
         document.getElementById('previewCounter').textContent = (idx + 1) + ' of ' + selectedBrandIds.length;
         
         // Disable prev/next if only 1 selected
@@ -1732,9 +1742,18 @@ function updatePreviewTargetBar() {
 // Update override badges on brand tiles
 function updateBrandBadges() {
     document.querySelectorAll('.override-badge').forEach(badge => {
-        const brandId = badge.dataset.badgeFor;
+        const brandId = parseInt(badge.dataset.badgeFor);
         if (!brandId) return;
-        const hasOverrides = !!brandOverrides[brandId];
+        
+        // ========== JOB-ITEM MODEL (Commit 4: check both models) ==========
+        // Check old model
+        const oldHasOverrides = !!brandOverrides[brandId];
+        // Check new model - find job item for current file + this brand
+        const jobItem = currentFile ? jobItems.find(item => item.filename === currentFile && item.brandId === brandId) : null;
+        const newHasOverrides = jobItem && Object.keys(jobItem.overrides || {}).length > 0;
+        const hasOverrides = oldHasOverrides || newHasOverrides;
+        // ========== END JOB-ITEM MODEL ==========
+        
         if (hasOverrides) {
             badge.className = 'override-badge badge-edited';
             badge.textContent = 'Edited';
@@ -1756,8 +1775,19 @@ function renderResultPreviewStrip() {
     const track = document.getElementById('rpsTrack');
     if (!track) return;
 
+    // ========== JOB-ITEM MODEL (Commit 4: prefer jobItems for render list) ==========
+    // Determine render source: prefer jobItems for current file, fallback to selectedBrandIds
+    let renderBrandIds = selectedBrandIds;
+    if (currentFile && jobItems.length > 0) {
+        const fileItems = jobItems.filter(item => item.filename === currentFile);
+        if (fileItems.length > 0) {
+            renderBrandIds = fileItems.map(item => item.brandId);
+        }
+    }
+    // ========== END JOB-ITEM MODEL ==========
+
     // Hide strip when no brands selected
-    if (selectedBrandIds.length === 0) {
+    if (renderBrandIds.length === 0) {
         strip.style.display = 'none';
         return;
     }
@@ -1768,20 +1798,33 @@ function renderResultPreviewStrip() {
     let html = '';
 
     // Source video indicator
-    if (frameData) {
+    // ========== JOB-ITEM MODEL (Commit 4: prefer active item frameData) ==========
+    const activeItem = getActiveItem();
+    const displayFrameData = activeItem && activeItem.frameData ? activeItem.frameData : frameData;
+    if (displayFrameData) {
         html += '<div class="rps-source">';
-        html += '<div class="rps-source-thumb"><img src="' + frameData + '" alt="Source"></div>';
+        html += '<div class="rps-source-thumb"><img src="' + displayFrameData + '" alt="Source"></div>';
         html += '<div class="rps-source-label">Source</div>';
         html += '</div>';
         html += '<div class="rps-arrow">&rarr;</div>';
     }
+    // ========== END JOB-ITEM MODEL ==========
 
-    selectedBrandIds.forEach(function(brandId) {
+    renderBrandIds.forEach(function(brandId) {
         const brand = brandDataCache[brandId];
         const name = brand ? brand.display_name : 'Brand #' + brandId;
         const shortName = name.length > 10 ? name.substring(0, 9) + '\u2026' : name;
         const isActive = brandId === activePreviewBrandId;
-        const hasOverrides = !!brandOverrides[brandId];
+        
+        // ========== JOB-ITEM MODEL (Commit 4: check both models for overrides) ==========
+        const oldHasOverrides = !!brandOverrides[brandId];
+        const jobItem = currentFile ? jobItems.find(item => item.filename === currentFile && item.brandId === brandId) : null;
+        const newHasOverrides = jobItem && Object.keys(jobItem.overrides || {}).length > 0;
+        const hasOverrides = oldHasOverrides || newHasOverrides;
+        // Also check for secondary logo in job item
+        const jobItemSecondaryEnabled = jobItem && jobItem.overrides && jobItem.overrides.secondary_logo_enabled;
+        // ========== END JOB-ITEM MODEL ==========
+        
         const activeClass = isActive ? ' rps-active' : '';
         const statusClass = hasOverrides ? 'rps-status-edited' : 'rps-status-default';
         const statusLabel = hasOverrides ? 'Edited' : 'Default';
@@ -1797,7 +1840,7 @@ function renderResultPreviewStrip() {
         html += '<div class="rps-name">' + shortName + '</div>';
         html += '<span class="rps-status ' + statusClass + '">' + statusLabel + '</span>';
         // Composition badge: show when dual-logo is enabled for this brand
-        if (brandOverrides[brandId] && brandOverrides[brandId].secondary_logo_enabled) {
+        if (brandOverrides[brandId] && brandOverrides[brandId].secondary_logo_enabled || jobItemSecondaryEnabled) {
             html += '<span class="rps-comp-badge">2\u00d7</span>';
         }
         html += '</div>';
@@ -3694,20 +3737,30 @@ function updateConfirmationSummary() {
         parts.push(`<strong>Video:</strong> <span style="color:#ff9800;">No video selected</span>`);
     }
     
-    // Batch output summary
-    if (selectedBrandIds.length > 0) {
-        const brandNames = selectedBrandIds.map(id => {
-            const brand = brandDataCache[id];
-            return brand ? brand.display_name : `Brand #${id}`;
-        });
-        const overrideCount = selectedBrandIds.filter(id => brandOverrides[id]).length;
-        parts.push(`<strong>${selectedBrandIds.length} brand${selectedBrandIds.length > 1 ? 's' : ''}</strong> &rarr; <strong>${selectedBrandIds.length} output${selectedBrandIds.length > 1 ? 's' : ''}</strong>`);
+    // ========== JOB-ITEM MODEL (Commit 4: prefer jobItems for counts) ==========
+    // Batch output summary - prefer jobItems for current file, fallback to old model
+    let countSource = selectedBrandIds;
+    let overrideCheckFn = (id) => brandOverrides[id];
+    
+    if (currentFile && jobItems.length > 0) {
+        const fileItems = jobItems.filter(item => item.filename === currentFile);
+        if (fileItems.length > 0) {
+            countSource = fileItems;
+            overrideCheckFn = (item) => Object.keys(item.overrides || {}).length > 0;
+        }
+    }
+    
+    if (countSource.length > 0) {
+        const itemCount = countSource.length;
+        const overrideCount = countSource.filter(overrideCheckFn).length;
+        parts.push(`<strong>${itemCount} brand${itemCount > 1 ? 's' : ''}</strong> &rarr; <strong>${itemCount} output${itemCount > 1 ? 's' : ''}</strong>`);
         if (overrideCount > 0) {
             parts.push(`<span style="color:#F5A623; font-size:11px;">${overrideCount} with overrides</span>`);
         }
     } else {
         parts.push(`<span style="color:#ff9800;">No brands selected</span>`);
     }
+    // ========== END JOB-ITEM MODEL ==========
     
     summaryEl.innerHTML = parts.join(' <span style="color:#444;">&middot;</span> ');
     
