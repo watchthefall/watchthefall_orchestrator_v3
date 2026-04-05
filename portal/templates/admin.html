@@ -338,7 +338,7 @@
                                 <button class="action-btn" onclick="setAccountStatus({{ user.id }}, 'suspended', this)">Suspend</button>
                                 {% endif %}
                                 {% if user.account_status != 'deactivated' %}
-                                <button class="action-btn danger" onclick="openDeleteModal({{ user.id }}, '{{ user.email }}')">Deactivate</button>
+                                <button class="action-btn danger" onclick="openDeactivateModal({{ user.id }}, '{{ user.email }}')">Deactivate</button>
                                 <button class="action-btn danger" onclick="openResetAccountModal({{ user.id }}, '{{ user.email }}')" style="border-color: rgba(255,152,0,0.4); color: #ff9800;">Reset Account</button>
                                 {% else %}
                                 <button class="action-btn" onclick="setAccountStatus({{ user.id }}, 'active', this)" style="color: #86EDA5;">Reactivate</button>
@@ -351,6 +351,36 @@
             </table>
             </div>
         </div>
+
+        {% if recent_actions %}
+        <div class="admin-card">
+            <h3 style="font-size: 16px; margin-bottom: 16px; color: #888;">Recent Admin Actions</h3>
+            <div style="overflow-x:auto;">
+            <table style="font-size: 12px;">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Admin</th>
+                        <th>Action</th>
+                        <th>Target</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for action in recent_actions %}
+                    <tr>
+                        <td class="date-cell">{{ action.created_at[:16] if action.created_at else '---' }}</td>
+                        <td>{{ action.admin_email }}</td>
+                        <td><span class="acct-status {{ action.action_type }}">{{ action.action_type | replace('_', ' ') }}</span></td>
+                        <td>{{ action.target_email or '---' }}</td>
+                        <td style="color: #888; max-width: 300px; overflow: hidden; text-overflow: ellipsis;">{{ action.details or '---' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+        {% endif %}
     </div>
 
 <!-- Reset Password Modal -->
@@ -371,17 +401,17 @@
     </div>
 </div>
 
-<!-- Delete User Modal -->
-<div class="admin-modal-overlay" id="deleteModal">
+<!-- Deactivate User Modal -->
+<div class="admin-modal-overlay" id="deactivateModal">
     <div class="admin-modal">
         <h3>Deactivate User</h3>
-        <p>This will deactivate <strong id="deleteEmail"></strong> and disable all their brands. The account will be locked from login.</p>
-        <div class="delete-preview" id="deletePreview">Loading...</div>
+        <p>This will deactivate <strong id="deactivateEmail"></strong> and disable all their brands. The account will be locked from login.</p>
+        <div class="delete-preview" id="deactivatePreview">Loading...</div>
         <p>Type <strong>DEACTIVATE</strong> to confirm:</p>
-        <input type="text" class="confirm-input" id="deleteConfirmInput" placeholder="Type DEACTIVATE here" autocomplete="off">
+        <input type="text" class="confirm-input" id="deactivateConfirmInput" placeholder="Type DEACTIVATE here" autocomplete="off">
         <div class="modal-actions">
-            <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
-            <button class="btn btn-danger" id="deleteConfirmBtn" onclick="confirmDeleteUser()">Deactivate User</button>
+            <button class="btn btn-secondary" onclick="closeDeactivateModal()">Cancel</button>
+            <button class="btn btn-danger" id="deactivateConfirmBtn" onclick="confirmDeactivateUser()">Deactivate User</button>
         </div>
     </div>
 </div>
@@ -407,7 +437,7 @@
 
 <script>
 var _resetUserId = null;
-var _deleteUserId = null;
+var _deactivateUserId = null;
 
 function filterUsers() {
     var query = document.getElementById('searchInput').value.toLowerCase();
@@ -494,16 +524,16 @@ function confirmResetPassword() {
     .catch(function() { alert('Network error'); btn.disabled = false; btn.textContent = 'Reset Password'; });
 }
 
-/* ── Delete User ── */
-function openDeleteModal(userId, email) {
-    _deleteUserId = userId;
-    document.getElementById('deleteEmail').textContent = email;
-    document.getElementById('deleteConfirmInput').value = '';
-    document.getElementById('deleteConfirmBtn').disabled = false;
-    document.getElementById('deleteConfirmBtn').textContent = 'Deactivate User';
-    var preview = document.getElementById('deletePreview');
+/* ── Deactivate User ── */
+function openDeactivateModal(userId, email) {
+    _deactivateUserId = userId;
+    document.getElementById('deactivateEmail').textContent = email;
+    document.getElementById('deactivateConfirmInput').value = '';
+    document.getElementById('deactivateConfirmBtn').disabled = false;
+    document.getElementById('deactivateConfirmBtn').textContent = 'Deactivate User';
+    var preview = document.getElementById('deactivatePreview');
     preview.innerHTML = 'Loading...';
-    document.getElementById('deleteModal').classList.add('active');
+    document.getElementById('deactivateModal').classList.add('active');
 
     fetch('/api/admin/user-info/' + userId)
     .then(function(r) { return r.json(); })
@@ -517,29 +547,29 @@ function openDeleteModal(userId, email) {
     })
     .catch(function() { preview.textContent = 'Error loading user info.'; });
 }
-function closeDeleteModal() {
-    document.getElementById('deleteModal').classList.remove('active');
-    _deleteUserId = null;
+function closeDeactivateModal() {
+    document.getElementById('deactivateModal').classList.remove('active');
+    _deactivateUserId = null;
 }
-function confirmDeleteUser() {
-    var input = document.getElementById('deleteConfirmInput').value.trim();
+function confirmDeactivateUser() {
+    var input = document.getElementById('deactivateConfirmInput').value.trim();
     if (input !== 'DEACTIVATE') {
         alert('You must type DEACTIVATE to confirm.');
         return;
     }
-    var btn = document.getElementById('deleteConfirmBtn');
+    var btn = document.getElementById('deactivateConfirmBtn');
     btn.disabled = true; btn.textContent = 'Deactivating...';
 
     fetch('/api/admin/delete-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: _deleteUserId, confirmation: 'DEACTIVATE' })
+        body: JSON.stringify({ user_id: _deactivateUserId, confirmation: 'DEACTIVATE' })
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.success) {
-            updateRowStatus(_deleteUserId, 'deactivated');
-            closeDeleteModal();
+            updateRowStatus(_deactivateUserId, 'deactivated');
+            closeDeactivateModal();
         } else {
             alert('Error: ' + (data.error || 'Unknown'));
             btn.disabled = false; btn.textContent = 'Deactivate User';

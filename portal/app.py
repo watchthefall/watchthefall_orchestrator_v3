@@ -941,9 +941,21 @@ def admin_console():
                             (SELECT COUNT(*) FROM daily_usage du WHERE du.user_id = u.id AND du.usage_date = date('now')) as jobs_today
                      FROM users u ORDER BY u.created_at DESC''')
         users = [dict(row) for row in c.fetchall()]
+        
+        # Fetch recent admin actions for audit visibility
+        try:
+            c.execute('''SELECT admin_email, action_type, target_email, details, created_at
+                         FROM audit_log
+                         ORDER BY created_at DESC
+                         LIMIT 20''')
+            recent_actions = [dict(row) for row in c.fetchall()]
+        except sqlite3.OperationalError:
+            # audit_log table might not exist yet
+            recent_actions = []
+    
     tiers = list(TIER_CONFIG.keys())
     statuses = [''] + list(SPECIAL_STATUSES.keys())
-    return render_template('admin.html', users=users, tiers=tiers, statuses=statuses)
+    return render_template('admin.html', users=users, tiers=tiers, statuses=statuses, recent_actions=recent_actions)
 
 
 @app.route('/api/admin/set-tier', methods=['POST'])
