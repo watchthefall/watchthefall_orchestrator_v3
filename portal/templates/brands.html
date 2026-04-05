@@ -625,16 +625,29 @@
                             <!-- Auto Remove BG (V2B - Beta) -->
                             <div class="prop-group" style="margin-top:auto;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
                                 <label style="font-size:10px;color:#888;margin-bottom:8px;display:block;">Auto Remove BG <span class="tool-badge">Beta</span></label>
-                                <div style="display:flex;gap:6px;">
+                                
+                                <!-- Light backgrounds -->
+                                <div style="display:flex;gap:6px;margin-bottom:6px;">
                                     <button type="button" class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px 4px;" onclick="autoRemoveBackgroundWhite()" title="Remove white/near-white backgrounds">
-                                        White
+                                        White BG
                                     </button>
                                     <button type="button" class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px 4px;" onclick="autoRemoveBackgroundLight()" title="Remove light gray backgrounds">
-                                        Light
+                                        Light BG
                                     </button>
                                 </div>
+                                
+                                <!-- Dark backgrounds -->
+                                <div style="display:flex;gap:6px;">
+                                    <button type="button" class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px 4px;" onclick="autoRemoveBackgroundBlack()" title="Remove black/near-black backgrounds">
+                                        Black BG
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px 4px;" onclick="autoRemoveBackgroundDark()" title="Remove dark gray backgrounds">
+                                        Dark BG
+                                    </button>
+                                </div>
+                                
                                 <p style="font-size:10px;color:#666;margin-top:8px;margin-bottom:0;line-height:1.4;">
-                                    Works best on logos with solid light backgrounds. Use Erase/Restore to clean up edges.
+                                    Removes solid color backgrounds. Use Erase/Restore to clean up edges.
                                 </p>
                             </div>
                         </div>
@@ -2156,7 +2169,8 @@ async function showWizardStep(step) {
                 wmPreview.style.display = 'block';
                 wmOptions.style.display = 'block';
                 if (skipBtn) skipBtn.style.display = 'none'; // Hide skip button when watermark exists
-                drawWizardWatermarkPreview();
+                // Delay preview render to ensure wizardLogoImage is updated
+                requestAnimationFrame(() => drawWizardWatermarkPreview());
             } else {
                 wmZone.style.display = 'block';
                 wmRow.style.display = 'none';
@@ -2822,27 +2836,38 @@ async function getLogoFileForUpload() {
 }
 
 // Update wizardLogoImage to reflect edited state (for Step 3 preview)
+// Returns a promise that resolves when the image is loaded and ready
 async function updateWizardLogoImageFromEditor() {
-    if (!wizardEditorState.dirty || !editorWorkingCanvas) return;
+    if (!wizardEditorState.dirty || !editorWorkingCanvas) {
+        // No edits, logo image is already current
+        return Promise.resolve();
+    }
     
     try {
         const blob = await getEditedLogoBlob();
         const url = URL.createObjectURL(blob);
         
-        // Create new image from edited canvas
-        const newImage = new Image();
-        newImage.onload = function() {
-            // Revoke old preview URL if it's different from the original
-            if (wizardState.logoPreviewUrl && wizardState.logoPreviewUrl !== URL.createObjectURL(wizardState.logoFile)) {
-                URL.revokeObjectURL(wizardState.logoPreviewUrl);
-            }
-            
-            wizardLogoImage = newImage;
-            wizardState.logoPreviewUrl = url;
-        };
-        newImage.src = url;
+        // Create new image from edited canvas and wait for it to load
+        return new Promise((resolve, reject) => {
+            const newImage = new Image();
+            newImage.onload = function() {
+                // Revoke old preview URL if it's different from the original
+                if (wizardState.logoPreviewUrl && wizardState.logoPreviewUrl !== URL.createObjectURL(wizardState.logoFile)) {
+                    URL.revokeObjectURL(wizardState.logoPreviewUrl);
+                }
+                
+                wizardLogoImage = newImage;
+                wizardState.logoPreviewUrl = url;
+                resolve();
+            };
+            newImage.onerror = function() {
+                reject(new Error('Failed to load edited logo image'));
+            };
+            newImage.src = url;
+        });
     } catch (err) {
         console.warn('Failed to update logo image from editor:', err);
+        return Promise.resolve(); // Continue with original image on error
     }
 }
 
@@ -2851,10 +2876,11 @@ async function updateWizardLogoImageFromEditor() {
 // ========== V2B: AUTO REMOVE BACKGROUND (BETA) ==========
 
 // Auto-remove background using luminance threshold
-// Works well for light/white backgrounds on logos
-function autoRemoveBackground(threshold) {
-    // Default threshold: 240/255 (removes very light pixels)
-    threshold = threshold || 240;
+// mode: 'light' removes bright pixels, 'dark' removes dark pixels
+function autoRemoveBackground(threshold, mode) {
+    // Default threshold: 240/255 for light, 15/255 for dark
+    threshold = threshold || (mode === 'dark' ? 15 : 240);
+    mode = mode || 'light';
     
     if (!editorWorkingCtx || !editorWorkingCanvas) {
         console.warn('Auto Remove BG: No working canvas available');
@@ -2882,9 +2908,16 @@ function autoRemoveBackground(threshold) {
         // Using standard luminance formula: 0.299*R + 0.587*G + 0.114*B
         const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
         
-        // If pixel is light enough, make it transparent
-        if (luminance > threshold) {
-            data[i + 3] = 0; // Set alpha to 0 (fully transparent)
+        if (mode === 'dark') {
+            // Remove dark pixels (luminance below threshold)
+            if (luminance < threshold) {
+                data[i + 3] = 0; // Set alpha to 0 (fully transparent)
+            }
+        } else {
+            // Remove light pixels (luminance above threshold)
+            if (luminance > threshold) {
+                data[i + 3] = 0; // Set alpha to 0 (fully transparent)
+            }
         }
     }
     
@@ -2897,18 +2930,28 @@ function autoRemoveBackground(threshold) {
     // Redraw the editor canvas
     drawEditorCanvas();
     
-    console.log(`[Auto Remove BG] Applied with threshold ${threshold}/255`);
+    console.log(`[Auto Remove BG] ${mode} mode applied with threshold ${threshold}/255`);
 }
 
 // Quick preset thresholds for common use cases
 function autoRemoveBackgroundLight() {
     // Aggressive: removes light grays and white (threshold 200)
-    autoRemoveBackground(200);
+    autoRemoveBackground(200, 'light');
 }
 
 function autoRemoveBackgroundWhite() {
     // Conservative: removes only pure/near-white (threshold 240)
-    autoRemoveBackground(240);
+    autoRemoveBackground(240, 'light');
+}
+
+function autoRemoveBackgroundDark() {
+    // Removes black and very dark backgrounds (threshold 15)
+    autoRemoveBackground(15, 'dark');
+}
+
+function autoRemoveBackgroundBlack() {
+    // Conservative: removes only pure/near-black (threshold 5)
+    autoRemoveBackground(5, 'dark');
 }
 
 // ========== END V2B ==========
