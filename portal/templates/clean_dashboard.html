@@ -2665,23 +2665,58 @@ function enterQueueMode() {
         return;
     }
     
-    // Initialize queue with per-brand overrides from selection mode
+    // ========== JOB-ITEM MODEL (Commit 5: use jobItems as primary queue source) ==========
     // Save current active preview brand's slider state first
     if (activePreviewBrandId) {
         brandOverrides[activePreviewBrandId] = captureAndSyncSliders();
     }
     
-    processingQueue = selectedBrandIds.map(brandId => {
-        const brandData = brandDataCache[brandId];
-        return {
-            brand_id: brandId,
-            brand_name: brandData ? brandData.display_name : `Brand #${brandId}`,
-            overrides: brandOverrides[brandId] || getBrandDefaults(brandId),
-            status: 'pending'
-        };
-    });
-    console.log('[BRANDR] Queue initialized with per-brand overrides');
+    // Ensure jobItems exists for current file + selected brands
+    // If jobItems is empty or doesn't match, rebuild from selectedBrandIds
+    const fileItems = jobItems.filter(item => item.filename === currentFile);
+    const hasAllBrands = selectedBrandIds.every(brandId => 
+        fileItems.some(item => item.brandId === brandId)
+    );
+    
+    if (fileItems.length !== selectedBrandIds.length || !hasAllBrands) {
+        // Rebuild jobItems to match selection
+        console.log('[JobItems] Rebuilding jobItems for queue mode');
+        // Remove old items for this file
+        jobItems = jobItems.filter(item => item.filename !== currentFile);
+        // Create new items for each selected brand
+        selectedBrandIds.forEach(brandId => {
+            const brandData = brandDataCache[brandId];
+            jobItems.push({
+                id: generateItemId(),
+                filename: currentFile,
+                sourceUrl: '',
+                brandId: brandId,
+                overrides: brandOverrides[brandId] || getBrandDefaults(brandId),
+                status: 'pending',
+                frameData: frameData,
+                videoWidth: videoWidth,
+                videoHeight: videoHeight,
+                createdAt: Date.now()
+            });
+        });
+        persistJobItems();
+    }
+    
+    // Sync processingQueue from jobItems (for backward compatibility during migration)
+    const currentFileItems = jobItems.filter(item => item.filename === currentFile);
+    processingQueue = currentFileItems.map(item => ({
+        brand_id: item.brandId,
+        brand_name: brandDataCache[item.brandId] ? brandDataCache[item.brandId].display_name : `Brand #${item.brandId}`,
+        overrides: item.overrides || getBrandDefaults(item.brandId),
+        status: item.status || 'pending'
+    }));
+    
+    console.log('[BRANDR] Queue initialized from jobItems:', processingQueue.length, 'items');
+    console.log('[JobItems] Active items for this file:', currentFileItems.length);
+    // ========== END JOB-ITEM MODEL ==========
+    
     currentQueueIndex = 0;
+    activeItemIndex = 0;  // Sync with jobItems
     isQueueMode = true;
     
     // Clear sessionStorage now that branding has started
@@ -2931,19 +2966,22 @@ function saveCurrentOverridesFromSliders() {
     const current = processingQueue[currentQueueIndex];
     if (!current) return;
     
-    current.overrides = {
-        watermark_scale: parseInt(document.getElementById('wmScale').value) / 100,
-        watermark_opacity: parseInt(document.getElementById('wmOpacity').value) / 100,
-        logo_scale: parseInt(document.getElementById('logoScale').value) / 100,
-        text_enabled: document.getElementById('textEnabled').checked,
-        text_content: document.getElementById('textContent').value,
-        text_x: textX,
-        text_y: textY,
-        text_size: parseInt(document.getElementById('textSize').value),
-        text_color: document.getElementById('textColor').value,
-        text_bg_enabled: document.getElementById('textBgEnabled').checked,
-        text_bg_opacity: parseInt(document.getElementById('textBgOpacity').value) / 100
-    };
+    // ========== JOB-ITEM MODEL (Commit 5: use full captureCurrentSliders shape) ==========
+    // Use full captureCurrentSliders() to get ALL override fields including logo position
+    const fullOverrides = captureCurrentSliders();
+    current.overrides = fullOverrides;
+    
+    // Sync to jobItems model
+    if (currentFile && current.brand_id) {
+        const jobItem = jobItems.find(item => item.filename === currentFile && item.brandId === current.brand_id);
+        if (jobItem) {
+            jobItem.overrides = { ...fullOverrides };
+            persistJobItems();
+            console.log('[JobItems] Synced overrides for brand #' + current.brand_id);
+        }
+    }
+    // ========== END JOB-ITEM MODEL ==========
+    
     console.log('[BRANDR] Saved slider overrides:', current.overrides);
 }
 
@@ -2962,6 +3000,17 @@ async function processCurrentBrand() {
     
     // Mark as processing
     current.status = 'processing';
+    
+    // ========== JOB-ITEM MODEL (Commit 5: sync status to jobItems) ==========
+    if (currentFile && current.brand_id) {
+        const jobItem = jobItems.find(item => item.filename === currentFile && item.brandId === current.brand_id);
+        if (jobItem) {
+            jobItem.status = 'processing';
+            persistJobItems();
+        }
+    }
+    // ========== END JOB-ITEM MODEL ==========
+    
     renderBrandPills();
     
     result.innerHTML = `<div class="status-msg info">\u23F3 Processing ${current.brand_name}...</div>`;
@@ -3025,6 +3074,17 @@ async function processCurrentBrand() {
         
         // Mark as done
         current.status = 'done';
+        
+        // ========== JOB-ITEM MODEL (Commit 5: sync status to jobItems) ==========
+        if (currentFile && current.brand_id) {
+            const jobItem = jobItems.find(item => item.filename === currentFile && item.brandId === current.brand_id);
+            if (jobItem) {
+                jobItem.status = 'completed';
+                persistJobItems();
+            }
+        }
+        // ========== END JOB-ITEM MODEL ==========
+        
         renderBrandPills();
         
         // Trigger download
@@ -3048,6 +3108,17 @@ async function processCurrentBrand() {
         
     } catch (err) {
         current.status = 'failed';
+        
+        // ========== JOB-ITEM MODEL (Commit 5: sync status to jobItems) ==========
+        if (currentFile && current.brand_id) {
+            const jobItem = jobItems.find(item => item.filename === currentFile && item.brandId === current.brand_id);
+            if (jobItem) {
+                jobItem.status = 'error';
+                persistJobItems();
+            }
+        }
+        // ========== END JOB-ITEM MODEL ==========
+        
         renderBrandPills();
             
         if (processingQueue[currentQueueIndex] === current) {
@@ -3094,9 +3165,23 @@ async function processAllBrands() {
     
     result.innerHTML = `<div class="status-msg info">\ud83d\ude80 Processing ${pendingBrands.length} brands...</div>`;
     
+    // ========== JOB-ITEM MODEL (Commit 5: sync status to jobItems) ==========
+    // Helper to sync status to jobItems
+    const syncStatusToJobItem = (brandId, status) => {
+        if (currentFile && brandId) {
+            const jobItem = jobItems.find(item => item.filename === currentFile && item.brandId === brandId);
+            if (jobItem) {
+                jobItem.status = status;
+                persistJobItems();
+            }
+        }
+    };
+    // ========== END JOB-ITEM MODEL ==========
+    
     // Process all in parallel (non-blocking)
     const promises = pendingBrands.map(async (item) => {
         item.status = 'processing';
+        syncStatusToJobItem(item.brand_id, 'processing');
         renderBrandPills();
         
         try {
@@ -3134,6 +3219,7 @@ async function processAllBrands() {
             }
             
             item.status = 'done';
+            syncStatusToJobItem(item.brand_id, 'completed');
             renderBrandPills();
             
             // Trigger download
@@ -3151,6 +3237,7 @@ async function processAllBrands() {
             
         } catch (err) {
             item.status = 'failed';
+            syncStatusToJobItem(item.brand_id, 'error');
             renderBrandPills();
             return { brand: item.brand_name, success: false, error: err.message };
         }
@@ -3184,6 +3271,17 @@ function findNextPendingBrand() {
 function retryBrand(idx) {
     const item = processingQueue[idx];
     item.status = 'pending';
+    
+    // ========== JOB-ITEM MODEL (Commit 5: sync status to jobItems) ==========
+    if (currentFile && item.brand_id) {
+        const jobItem = jobItems.find(item => item.filename === currentFile && item.brandId === item.brand_id);
+        if (jobItem) {
+            jobItem.status = 'pending';
+            persistJobItems();
+        }
+    }
+    // ========== END JOB-ITEM MODEL ==========
+    
     renderBrandPills();
     switchToBrand(idx);
 }
@@ -3203,6 +3301,17 @@ function checkQueueComplete() {
 function skipBrand() {
     const current = processingQueue[currentQueueIndex];
     current.status = 'skipped';
+    
+    // ========== JOB-ITEM MODEL (Commit 5: sync status to jobItems) ==========
+    if (currentFile && current.brand_id) {
+        const jobItem = jobItems.find(item => item.filename === currentFile && item.brandId === current.brand_id);
+        if (jobItem) {
+            jobItem.status = 'skipped';
+            persistJobItems();
+        }
+    }
+    // ========== END JOB-ITEM MODEL ==========
+    
     renderBrandPills();
     
     // Find next pending brand
@@ -3254,6 +3363,20 @@ function exitQueueMode() {
     } else {
         result.innerHTML = '';
     }
+    
+    // ========== JOB-ITEM MODEL (Commit 5: clear jobItems for current file) ==========
+    // Clear job items for the current file on exit
+    if (currentFile) {
+        const beforeCount = jobItems.length;
+        jobItems = jobItems.filter(item => item.filename !== currentFile);
+        const afterCount = jobItems.length;
+        if (beforeCount !== afterCount) {
+            persistJobItems();
+            console.log(`[JobItems] Cleared ${beforeCount - afterCount} items for ${currentFile}`);
+        }
+    }
+    activeItemIndex = -1;
+    // ========== END JOB-ITEM MODEL ==========
     
     // Reset queue and per-brand overrides
     processingQueue = [];
