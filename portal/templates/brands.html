@@ -573,17 +573,25 @@
                                 <span>↩️</span>
                                 <small>Restore</small>
                             </button>
-                            <button type="button" class="tool-btn disabled" data-tool="wand" title="Coming soon" disabled>
+                            <button type="button" class="tool-btn" data-tool="wand" onclick="setEditorTool('wand')" title="Magic Wand - click to remove connected background">
                                 <span>🪄</span>
                                 <small>Wand</small>
-                                <span class="tool-badge">Soon</span>
+                                <span class="tool-badge">Beta</span>
                             </button>
                             
-                            <!-- Brush Settings (shown when erase/restore active) -->
+                            <!-- Brush/Wand Settings -->
                             <div class="brush-settings" id="wizardBrushSettings" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
-                                <label style="font-size:10px;color:#888;display:block;margin-bottom:4px;">Brush Size</label>
+                                <label style="font-size:10px;color:#888;display:block;margin-bottom:4px;" id="brushSettingsLabel">Brush Size</label>
                                 <input type="range" id="wizardBrushSize" min="1" max="100" value="20" style="width:100%;" oninput="updateWizardBrushSize(this.value)">
                                 <span id="wizardBrushSizeVal" style="font-size:10px;color:var(--accent);">20px</span>
+                            </div>
+                            
+                            <!-- Reset Button -->
+                            <div style="margin-top:auto;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
+                                <button type="button" class="tool-btn" onclick="resetEditorImage()" title="Reset all edits - restore original image" style="width:100%;">
+                                    <span>🔄</span>
+                                    <small>Reset</small>
+                                </button>
                             </div>
                         </div>
                         
@@ -2628,10 +2636,26 @@ function setEditorTool(tool) {
         btn.classList.toggle('active', btn.dataset.tool === tool);
     });
     
-    // Show/hide brush settings
+    // Show/hide brush settings and update label
     const brushSettings = document.getElementById('wizardBrushSettings');
+    const brushLabel = document.getElementById('brushSettingsLabel');
+    const brushVal = document.getElementById('wizardBrushSizeVal');
+    
     if (brushSettings) {
-        brushSettings.style.display = (tool === 'erase' || tool === 'restore') ? 'block' : 'none';
+        const showSettings = (tool === 'erase' || tool === 'restore' || tool === 'wand');
+        brushSettings.style.display = showSettings ? 'block' : 'none';
+        
+        if (showSettings) {
+            if (tool === 'wand') {
+                // Wand uses tolerance, not brush size
+                if (brushLabel) brushLabel.textContent = 'Color Tolerance';
+                if (brushVal) brushVal.textContent = (document.getElementById('wizardBrushSize')?.value || 30) + '';
+            } else {
+                // Brush tools use size
+                if (brushLabel) brushLabel.textContent = 'Brush Size';
+                if (brushVal) brushVal.textContent = (document.getElementById('wizardBrushSize')?.value || 20) + 'px';
+            }
+        }
     }
 }
 
@@ -2649,31 +2673,37 @@ function getEditorCanvasPos(e) {
     if (!editorCanvas) return null;
     const rect = editorCanvas.getBoundingClientRect();
     
-    // Get position in display canvas coordinates (0-480)
+    // Get position in display canvas coordinates (CSS pixels)
     const displayX = e.clientX - rect.left;
     const displayY = e.clientY - rect.top;
     
-    // Scale to native resolution
+    // Scale from display coordinates to internal canvas coordinates
+    const scaleX = editorCanvas.width / rect.width;
+    const scaleY = editorCanvas.height / rect.height;
+    
+    const canvasX = displayX * scaleX;
+    const canvasY = displayY * scaleY;
+    
     // Logo is drawn at 70% of canvas width, centered
-    const displayScale = 0.7;
-    const logoDisplayWidth = editorCanvas.width * displayScale;
+    const logoDisplayScale = 0.7;
+    const logoDisplayWidth = editorCanvas.width * logoDisplayScale;
     const logoDisplayHeight = logoDisplayWidth * (editorWorkingCanvas.height / editorWorkingCanvas.width);
     const logoOffsetX = (editorCanvas.width - logoDisplayWidth) / 2;
     const logoOffsetY = (editorCanvas.height - logoDisplayHeight) / 2;
     
     // Convert to native coordinates
-    const nativeX = ((displayX - logoOffsetX) / logoDisplayWidth) * editorWorkingCanvas.width;
-    const nativeY = ((displayY - logoOffsetY) / logoDisplayHeight) * editorWorkingCanvas.height;
+    const nativeX = ((canvasX - logoOffsetX) / logoDisplayWidth) * editorWorkingCanvas.width;
+    const nativeY = ((canvasY - logoOffsetY) / logoDisplayHeight) * editorWorkingCanvas.height;
     
-    return { x: nativeX, y: nativeY, displayX, displayY };
+    return { x: nativeX, y: nativeY, displayX: canvasX, displayY: canvasY };
 }
 
 // Check if point is inside the logo area on canvas
 function isInsideLogoArea(pos) {
     if (!editorCanvas || !editorWorkingCanvas) return false;
     
-    const displayScale = 0.7;
-    const logoDisplayWidth = editorCanvas.width * displayScale;
+    const logoDisplayScale = 0.7;
+    const logoDisplayWidth = editorCanvas.width * logoDisplayScale;
     const logoDisplayHeight = logoDisplayWidth * (editorWorkingCanvas.height / editorWorkingCanvas.width);
     const logoOffsetX = (editorCanvas.width - logoDisplayWidth) / 2;
     const logoOffsetY = (editorCanvas.height - logoDisplayHeight) / 2;
@@ -2691,6 +2721,13 @@ function handleEditorPaintStart(e) {
     e.preventDefault();
     const pos = getEditorCanvasPos(e);
     if (!pos || !isInsideLogoArea(pos)) return;
+    
+    // Magic Wand is a click-to-remove tool, not a brush
+    if (wizardEditorState.activeTool === 'wand') {
+        const tolerance = parseInt(document.getElementById('wizardBrushSize').value) || 30;
+        magicWandRemove(pos.x, pos.y, tolerance);
+        return;
+    }
     
     wizardEditorState.painting = true;
     wizardEditorState.dirty = true;
@@ -2789,6 +2826,116 @@ function setupEditorCanvasEvents() {
     
     editorCanvas.addEventListener('touchend', handleEditorPaintEnd);
     editorCanvas.addEventListener('touchcancel', handleEditorPaintEnd);
+}
+
+// Reset editor image to original state
+function resetEditorImage() {
+    if (!editorOriginalCanvas || !editorWorkingCanvas) {
+        console.warn('Reset: No canvas available');
+        return;
+    }
+    
+    // Copy original canvas back to working canvas
+    editorWorkingCtx.clearRect(0, 0, editorWorkingCanvas.width, editorWorkingCanvas.height);
+    editorWorkingCtx.drawImage(editorOriginalCanvas, 0, 0);
+    
+    // Reset dirty state
+    wizardEditorState.dirty = false;
+    
+    // Redraw display
+    drawEditorCanvas();
+    
+    console.log('[Editor] Image reset to original');
+}
+
+// Magic Wand: Flood-fill style background removal
+// Removes contiguous pixels similar to the clicked color
+function magicWandRemove(startX, startY, tolerance) {
+    tolerance = tolerance || 30; // Default color tolerance (0-255)
+    
+    if (!editorWorkingCtx || !editorWorkingCanvas) {
+        console.warn('Magic Wand: No canvas available');
+        return;
+    }
+    
+    const width = editorWorkingCanvas.width;
+    const height = editorWorkingCanvas.height;
+    
+    // Get image data
+    const imageData = editorWorkingCtx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    
+    // Get target color at click position
+    const startIdx = (Math.floor(startY) * width + Math.floor(startX)) * 4;
+    const targetR = data[startIdx];
+    const targetG = data[startIdx + 1];
+    const targetB = data[startIdx + 2];
+    const targetA = data[startIdx + 3];
+    
+    // If clicked on transparent pixel, nothing to do
+    if (targetA === 0) {
+        console.log('[Magic Wand] Clicked on transparent pixel, nothing to remove');
+        return;
+    }
+    
+    // Flood fill using queue (breadth-first search)
+    const queue = [[Math.floor(startX), Math.floor(startY)]];
+    const visited = new Set();
+    const key = (x, y) => `${x},${y}`;
+    
+    let pixelsRemoved = 0;
+    
+    while (queue.length > 0) {
+        const [x, y] = queue.shift();
+        const k = key(x, y);
+        
+        // Skip if out of bounds or already visited
+        if (x < 0 || x >= width || y < 0 || y >= height || visited.has(k)) {
+            continue;
+        }
+        
+        visited.add(k);
+        
+        // Check color similarity
+        const idx = (y * width + x) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const a = data[idx + 3];
+        
+        // Skip if already transparent
+        if (a === 0) continue;
+        
+        // Calculate color distance (Euclidean in RGB space)
+        const colorDist = Math.sqrt(
+            Math.pow(r - targetR, 2) +
+            Math.pow(g - targetG, 2) +
+            Math.pow(b - targetB, 2)
+        );
+        
+        // If color is similar enough, remove it and check neighbors
+        if (colorDist <= tolerance) {
+            data[idx + 3] = 0; // Set alpha to 0
+            pixelsRemoved++;
+            
+            // Add neighbors to queue (4-connected)
+            queue.push([x + 1, y]);
+            queue.push([x - 1, y]);
+            queue.push([x, y + 1]);
+            queue.push([x, y - 1]);
+        }
+    }
+    
+    // Put modified image data back
+    editorWorkingCtx.putImageData(imageData, 0, 0);
+    
+    // Mark as dirty
+    wizardEditorState.dirty = true;
+    
+    // Redraw
+    drawEditorCanvas();
+    
+    console.log(`[Magic Wand] Removed ${pixelsRemoved} pixels with tolerance ${tolerance}`);
 }
 
 // ========== END COMMIT 3 ==========
