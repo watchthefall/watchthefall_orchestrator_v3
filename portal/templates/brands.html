@@ -2005,54 +2005,52 @@ function openBrandWizard() {
     document.getElementById('wizardLogoInput').value = '';
     document.getElementById('wizardWatermarkInput').value = '';
     
-    // Reset upload UI
-    document.getElementById('wizardLogoUploadZone').style.display = 'block';
-    document.getElementById('wizardLogoRow').style.display = 'none';
-    document.getElementById('wizardLogoThumb').src = '';
-    document.getElementById('wizardPreviewContainer').style.display = 'none';
-    document.getElementById('wizardLogoOptions').style.display = 'none';
+    // Reset upload UI - V2 Editor layout
+    const logoUploadZone = document.getElementById('wizardLogoUploadZone');
+    const logoEditor = document.getElementById('wizardLogoEditor');
+    if (logoUploadZone) logoUploadZone.style.display = 'block';
+    if (logoEditor) logoEditor.style.display = 'none';
+    const logoThumb = document.getElementById('wizardLogoThumb');
+    if (logoThumb) logoThumb.src = '';
     
     // Reset watermark UI
-    document.getElementById('wizardWatermarkUploadZone').style.display = 'block';
-    document.getElementById('wizardWatermarkRow').style.display = 'none';
-    document.getElementById('wizardWatermarkThumb').src = '';
-    document.getElementById('wizardWatermarkPreviewContainer').style.display = 'none';
-    document.getElementById('wizardWatermarkOptions').style.display = 'none';
+    const wmUploadZone = document.getElementById('wizardWatermarkUploadZone');
+    const wmRow = document.getElementById('wizardWatermarkRow');
+    const wmThumb = document.getElementById('wizardWatermarkThumb');
+    const wmPreview = document.getElementById('wizardWatermarkPreviewContainer');
+    const wmOptions = document.getElementById('wizardWatermarkOptions');
+    if (wmUploadZone) wmUploadZone.style.display = 'block';
+    if (wmRow) wmRow.style.display = 'none';
+    if (wmThumb) wmThumb.src = '';
+    if (wmPreview) wmPreview.style.display = 'none';
+    if (wmOptions) wmOptions.style.display = 'none';
     
-    document.getElementById('wizardStatus').innerHTML = '';
-    
-    // Reset accordions - Shape & Position open by default
-    document.querySelectorAll('.accordion-group').forEach(group => {
-        group.classList.remove('open');
-        const content = group.querySelector('.accordion-content');
-        if (content) content.style.display = 'none';
-    });
-    const defaultAccordion = document.querySelector('[data-accordion="shape-position"]');
-    if (defaultAccordion) {
-        defaultAccordion.classList.add('open');
-        const content = defaultAccordion.querySelector('.accordion-content');
-        if (content) content.style.display = 'block';
-    }
+    const wizardStatus = document.getElementById('wizardStatus');
+    if (wizardStatus) wizardStatus.innerHTML = '';
     
     // Reset options
-    setWizardLogoCleanup('none');
     setWizardLogoShape('original');
     setWizardLogoPosition('bottom-left');
-    document.getElementById('wizardLogoScale').value = 25;
-    document.getElementById('wizardLogoScaleVal').textContent = '25%';
-    document.getElementById('wizardLogoOpacity').value = 100;
-    document.getElementById('wizardLogoOpacityVal').textContent = '100%';
-    document.getElementById('wizardBgStrength').value = 50;
-    document.getElementById('wizardBgStrengthVal').textContent = '50';
+    const logoScale = document.getElementById('wizardLogoScale');
+    const logoScaleVal = document.getElementById('wizardLogoScaleVal');
+    const logoOpacity = document.getElementById('wizardLogoOpacity');
+    const logoOpacityVal = document.getElementById('wizardLogoOpacityVal');
+    if (logoScale) logoScale.value = 25;
+    if (logoScaleVal) logoScaleVal.textContent = '25%';
+    if (logoOpacity) logoOpacity.value = 100;
+    if (logoOpacityVal) logoOpacityVal.textContent = '100%';
     
-    // Show step 1 (make it visible initially)
+    // Reset step visibility
     document.getElementById('wizardStep1').classList.add('active');
+    document.getElementById('wizardStep2').classList.remove('active');
+    document.getElementById('wizardStep3').classList.remove('active');
     
     // Show wizard
     document.getElementById('brandWizard').classList.add('active');
     
-    // Init canvas
-    initWizardCanvas();
+    // Reset wizard content width
+    const wizardContent = document.querySelector('.wizard-content');
+    if (wizardContent) wizardContent.classList.remove('step-2-active');
 }
 
 function closeBrandWizard() {
