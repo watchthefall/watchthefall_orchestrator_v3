@@ -561,43 +561,46 @@
                         <button type="button" class="btn-text btn-danger-text" onclick="clearWizardLogo()">Remove</button>
                     </div>
                     
-                    <!-- 3-Panel Editor Layout -->
-                    <div class="editor-layout">
-                        <!-- Left: Tools -->
-                        <div class="editor-tools">
-                            <button type="button" class="tool-btn" data-tool="erase" onclick="setEditorTool('erase')" title="Erase brush">
-                                <span>✏️</span>
-                                <small>Erase</small>
-                            </button>
-                            <button type="button" class="tool-btn" data-tool="restore" onclick="setEditorTool('restore')" title="Restore brush">
-                                <span>↩️</span>
-                                <small>Restore</small>
-                            </button>
-                            <button type="button" class="tool-btn" data-tool="wand" onclick="setEditorTool('wand')" title="Magic Wand - click to remove connected background">
-                                <span>🪄</span>
-                                <small>Wand</small>
-                                <span class="tool-badge">Beta</span>
-                            </button>
-                            
-                            <!-- Brush/Wand Settings -->
-                            <div class="brush-settings" id="wizardBrushSettings" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
-                                <label style="font-size:10px;color:#888;display:block;margin-bottom:4px;" id="brushSettingsLabel">Brush Size</label>
-                                <input type="range" id="wizardBrushSize" min="1" max="100" value="20" style="width:100%;" oninput="updateWizardBrushSize(this.value)">
-                                <span id="wizardBrushSizeVal" style="font-size:10px;color:var(--accent);">20px</span>
+                    <!-- Two-Panel Editor Layout: Canvas + Properties -->
+                    <div class="editor-layout" style="display:grid;grid-template-columns:1fr 200px;gap:16px;">
+                        <!-- Left: Canvas with Tools Below -->
+                        <div class="editor-canvas-area">
+                            <div class="editor-canvas-wrap">
+                                <canvas id="wizardEditorCanvas" width="480" height="480"></canvas>
                             </div>
                             
-                            <!-- Reset Button -->
-                            <div style="margin-top:auto;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
-                                <button type="button" class="tool-btn" onclick="resetEditorImage()" title="Reset all edits - restore original image" style="width:100%;">
-                                    <span>🔄</span>
-                                    <small>Reset</small>
+                            <!-- Tool Strip Below Canvas -->
+                            <div class="editor-tool-strip" style="display:flex;gap:8px;margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;align-items:center;">
+                                <button type="button" class="tool-btn" data-tool="erase" onclick="setEditorTool('erase')" title="Erase brush">
+                                    <span>✏️</span>
+                                    <small>Erase</small>
+                                </button>
+                                <button type="button" class="tool-btn" data-tool="restore" onclick="setEditorTool('restore')" title="Restore brush">
+                                    <span>↩️</span>
+                                    <small>Restore</small>
+                                </button>
+                                <button type="button" class="tool-btn" data-tool="wand" onclick="setEditorTool('wand')" title="Magic Wand - click to remove connected background">
+                                    <span>🪄</span>
+                                    <small>Wand</small>
+                                    <span class="tool-badge">Beta</span>
+                                </button>
+                                
+                                <div style="width:1px;height:32px;background:rgba(255,255,255,0.1);margin:0 8px;"></div>
+                                
+                                <!-- Brush/Wand Settings -->
+                                <div class="brush-settings" id="wizardBrushSettings" style="display:none;flex:1;">
+                                    <label style="font-size:10px;color:#888;display:block;margin-bottom:4px;" id="brushSettingsLabel">Brush Size</label>
+                                    <input type="range" id="wizardBrushSize" min="1" max="100" value="20" style="width:120px;" oninput="updateWizardBrushSize(this.value)">
+                                    <span id="wizardBrushSizeVal" style="font-size:10px;color:var(--accent);margin-left:8px;">20px</span>
+                                </div>
+                                
+                                <div style="flex:1;"></div>
+                                
+                                <!-- Revert Button (restore original image) -->
+                                <button type="button" class="btn-text" onclick="revertEditorImage()" title="Restore original uploaded image and clear all edits" style="font-size:11px;">
+                                    ↩️ Revert
                                 </button>
                             </div>
-                        </div>
-                        
-                        <!-- Center: Canvas -->
-                        <div class="editor-canvas-wrap">
-                            <canvas id="wizardEditorCanvas" width="480" height="480"></canvas>
                         </div>
                         
                         <!-- Right: Properties -->
@@ -618,39 +621,40 @@
                                 <input type="range" id="wizardLogoScale" min="5" max="100" value="25" oninput="updateWizardLogoScale(this.value)">
                             </div>
                             
-                            <!-- Rotation -->
-                            <div class="prop-group">
-                                <label>Rotation <span id="wizardLogoRotationVal">0°</span></label>
-                                <input type="range" id="wizardLogoRotation" min="0" max="360" value="0" oninput="updateWizardLogoRotation(this.value)">
-                            </div>
-                            
                             <!-- Opacity -->
                             <div class="prop-group">
                                 <label>Opacity <span id="wizardLogoOpacityVal">100%</span></label>
                                 <input type="range" id="wizardLogoOpacity" min="0" max="100" value="100" oninput="updateWizardLogoOpacity(this.value)">
                             </div>
                             
-                            <!-- Auto Remove BG (V2B - Beta) -->
+                            <!-- Reset Defaults Button (size/opacity/shape only) -->
                             <div class="prop-group" style="margin-top:auto;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
+                                <button type="button" class="btn btn-secondary" onclick="resetEditorDefaults()" title="Reset size, opacity, and shape to defaults" style="width:100%;font-size:12px;">
+                                    🔄 Reset Defaults
+                                </button>
+                            </div>
+                            
+                            <!-- Auto Remove BG (V2B - Beta) -->
+                            <div class="prop-group" style="padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
                                 <label style="font-size:10px;color:#888;margin-bottom:8px;display:block;">Auto Remove BG <span class="tool-badge">Beta</span></label>
                                 
                                 <!-- Light backgrounds -->
                                 <div style="display:flex;gap:6px;margin-bottom:6px;">
                                     <button type="button" class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px 4px;" onclick="autoRemoveBackgroundWhite()" title="Remove white/near-white backgrounds">
-                                        White BG
+                                        White
                                     </button>
                                     <button type="button" class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px 4px;" onclick="autoRemoveBackgroundLight()" title="Remove light gray backgrounds">
-                                        Light BG
+                                        Light
                                     </button>
                                 </div>
                                 
                                 <!-- Dark backgrounds -->
                                 <div style="display:flex;gap:6px;">
                                     <button type="button" class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px 4px;" onclick="autoRemoveBackgroundBlack()" title="Remove black/near-black backgrounds">
-                                        Black BG
+                                        Black
                                     </button>
                                     <button type="button" class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px 4px;" onclick="autoRemoveBackgroundDark()" title="Remove dark gray backgrounds">
-                                        Dark BG
+                                        Dark
                                     </button>
                                 </div>
                                 
@@ -2865,6 +2869,37 @@ function resetEditorImage() {
     drawEditorCanvas();
     
     console.log('[Editor] Image reset to original');
+}
+
+// Revert: Restore original uploaded image and clear all edits (alias for resetEditorImage)
+function revertEditorImage() {
+    resetEditorImage();
+    console.log('[Editor] Image reverted to original upload');
+}
+
+// Reset Defaults: Reset size, opacity, and shape to defaults (does NOT affect image edits)
+function resetEditorDefaults() {
+    // Reset shape to original
+    setWizardLogoShape('original');
+    
+    // Reset size to 25%
+    wizardState.logoScale = 25;
+    const scaleSlider = document.getElementById('wizardLogoScale');
+    const scaleVal = document.getElementById('wizardLogoScaleVal');
+    if (scaleSlider) scaleSlider.value = 25;
+    if (scaleVal) scaleVal.textContent = '25%';
+    
+    // Reset opacity to 100%
+    wizardState.logoOpacity = 100;
+    const opacitySlider = document.getElementById('wizardLogoOpacity');
+    const opacityVal = document.getElementById('wizardLogoOpacityVal');
+    if (opacitySlider) opacitySlider.value = 100;
+    if (opacityVal) opacityVal.textContent = '100%';
+    
+    // Redraw to reflect changes
+    drawEditorCanvas();
+    
+    console.log('[Editor] Defaults reset (shape: original, size: 25%, opacity: 100%)');
 }
 
 // Magic Wand: Flood-fill style background removal
