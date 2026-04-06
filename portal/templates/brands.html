@@ -543,7 +543,7 @@
                 
                 <!-- Logo Upload - Large zone (shown before upload) -->
                 <div class="upload-zone" id="wizardLogoUploadZone">
-                    <input type="file" id="wizardLogoInput" accept="image/*" capture="environment" hidden>
+                    <input type="file" id="wizardLogoInput" accept="image/*" hidden>
                     <div class="upload-placeholder" onclick="document.getElementById('wizardLogoInput').click()">
                         <span class="upload-icon">🎨</span>
                         <p>Click to upload logo</p>
@@ -1128,8 +1128,15 @@
 /* Mobile Responsive */
 @media (max-width: 768px) {
     .wizard-content.step-2-active {
-        max-width: 95vw;
-        min-height: 80vh;
+        max-width: 100vw;
+        height: 100vh;
+        border-radius: 0;
+        margin: 0;
+    }
+
+    .wizard-step-content {
+        padding: 0 16px 80px; /* Extra bottom padding for sticky footer */
+        overflow-y: auto;
     }
     
     .editor-layout {
@@ -1137,61 +1144,74 @@
         min-height: auto;
     }
     
-    /* Stack tools horizontally at the top */
-    .editor-tools {
-        flex-direction: row;
-        width: 100%;
-        border-right: none;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
-        padding: 8px 4px;
-        justify-content: space-around;
-        overflow-x: auto;
-    }
-
-    .tool-btn {
-        padding: 8px 4px;
-        font-size: 9px;
-        min-width: 50px;
-    }
-    
-    .editor-tools .brush-settings {
-        display: none; /* Hide brush settings on mobile - use default */
-    }
-    
-    /* Stack properties below canvas */
+    /* Stack properties FIRST on mobile so they are right under file info, then canvas */
     .editor-props {
         width: 100%;
+        order: -1; /* Moves it to the top of the flex/grid container if possible, or we just stack manually */
         border-left: none;
-        border-top: 1px solid rgba(255,255,255,0.1);
-        padding: 16px;
-        max-height: none;
-        overflow-y: visible;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        padding: 12px 0;
+        background: transparent;
     }
 
-    .prop-group {
-        margin-bottom: 12px;
+    /* Actually, let's force a specific order via CSS Grid or Flex order */
+    .editor-layout {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .editor-canvas-area {
+        order: 2;
+        width: 100%;
+    }
+
+    .editor-props {
+        order: 3;
+        width: 100%;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        padding: 16px 0;
     }
 
     /* Ensure canvas area is full width */
-    .editor-canvas-area {
-        width: 100%;
-    }
-
     .editor-canvas-wrap {
         width: 100%;
         display: flex;
         justify-content: center;
+        margin: 16px 0;
     }
 
     #wizardEditorCanvas {
         max-width: 100%;
         height: auto;
+        border-radius: 8px;
     }
 
     /* Tool strip below canvas */
     .editor-tool-strip {
         flex-wrap: wrap;
         justify-content: center;
+        gap: 12px;
+    }
+
+    .tool-btn {
+        padding: 8px 12px;
+        font-size: 10px;
+        min-width: 60px;
+    }
+
+    /* Sticky Footer for Actions */
+    .wizard-actions {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #1a1a2e;
+        padding: 12px 16px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        z-index: 100;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
     }
 }
 
