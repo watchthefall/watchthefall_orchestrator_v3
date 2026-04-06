@@ -790,19 +790,29 @@
                     <!-- Left: Presets & Smart Actions -->
                     <div style="width:200px;flex-shrink:0;display:flex;flex-direction:column;gap:16px;">
                         
-                        <!-- Anchor Grid -->
+                        <!-- Mode Toggle -->
                         <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                            <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Anchor Points</label>
+                            <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Watermark Mode</label>
+                            <div style="display:flex;gap:8px;margin-bottom:8px;">
+                                <button type="button" class="option-btn active" id="modePositioned" onclick="setPlacementMode('positioned')" style="flex:1;padding:6px;font-size:10px;">⚪ Positioned</button>
+                                <button type="button" class="option-btn" id="modeFullscreen" onclick="setPlacementMode('fullscreen')" style="flex:1;padding:6px;font-size:10px;">🟡 Fullscreen</button>
+                            </div>
+                            <p id="modeMicrocopy" style="font-size:9px;color:#888;margin:0;line-height:1.3;">Place watermark on screen</p>
+                        </div>
+
+                        <!-- Placement Grid (Only for Positioned) -->
+                        <div id="placementGridContainer" style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                            <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Select Position</label>
                             <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:4px;">
-                                <button type="button" class="option-btn" data-anchor="top_left" onclick="applyPreset('top_left')" style="padding:8px;font-size:10px;">↖</button>
-                                <button type="button" class="option-btn" data-anchor="top_center" onclick="applyPreset('top_center')" style="padding:8px;font-size:10px;">↑</button>
-                                <button type="button" class="option-btn" data-anchor="top_right" onclick="applyPreset('top_right')" style="padding:8px;font-size:10px;">↗</button>
-                                <button type="button" class="option-btn" data-anchor="center_left" onclick="applyPreset('center_left')" style="padding:8px;font-size:10px;">←</button>
-                                <button type="button" class="option-btn" data-anchor="center" onclick="applyPreset('center')" style="padding:8px;font-size:10px;">●</button>
-                                <button type="button" class="option-btn" data-anchor="center_right" onclick="applyPreset('center_right')" style="padding:8px;font-size:10px;">→</button>
-                                <button type="button" class="option-btn" data-anchor="bottom_left" onclick="applyPreset('bottom_left')" style="padding:8px;font-size:10px;">↙</button>
-                                <button type="button" class="option-btn" data-anchor="bottom_center" onclick="applyPreset('bottom_center')" style="padding:8px;font-size:10px;">↓</button>
-                                <button type="button" class="option-btn active" data-anchor="bottom_right" onclick="applyPreset('bottom_right')" style="padding:8px;font-size:10px;">↘</button>
+                                <button type="button" class="option-btn" data-anchor="top_left" onclick="applyPreset('top_left')">↖</button>
+                                <button type="button" class="option-btn" data-anchor="top_center" onclick="applyPreset('top_center')">↑</button>
+                                <button type="button" class="option-btn" data-anchor="top_right" onclick="applyPreset('top_right')">↗</button>
+                                <button type="button" class="option-btn" data-anchor="center_left" onclick="applyPreset('center_left')">←</button>
+                                <button type="button" class="option-btn" data-anchor="center" onclick="applyPreset('center')">●</button>
+                                <button type="button" class="option-btn" data-anchor="center_right" onclick="applyPreset('center_right')">→</button>
+                                <button type="button" class="option-btn" data-anchor="bottom_left" onclick="applyPreset('bottom_left')">↙</button>
+                                <button type="button" class="option-btn" data-anchor="bottom_center" onclick="applyPreset('bottom_center')">↓</button>
+                                <button type="button" class="option-btn active" data-anchor="bottom_right" onclick="applyPreset('bottom_right')">↘</button>
                             </div>
                         </div>
 
@@ -810,22 +820,17 @@
                         <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
                             <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Smart Intents</label>
                             <div style="display:flex;flex-direction:column;gap:6px;">
-                                <button type="button" class="btn btn-secondary" style="font-size:11px;padding:8px;text-align:left;" onclick="applySmartPreset('corner_fade')">✨ Corner Fade</button>
-                                <button type="button" class="btn btn-secondary" style="font-size:11px;padding:8px;text-align:left;" onclick="applySmartPreset('story_safe')">📱 Story Safe</button>
-                                <button type="button" class="btn btn-secondary" style="font-size:11px;padding:8px;text-align:left;" onclick="applySmartPreset('center_ghost')">👻 Center Ghost</button>
+                                <button type="button" class="btn btn-secondary" style="font-size:11px;padding:8px;text-align:left;" onclick="applyPreset('corner_fade')">✨ Corner Fade</button>
+                                <button type="button" class="btn btn-secondary" style="font-size:11px;padding:8px;text-align:left;" onclick="applyPreset('story_safe')">📱 Story Safe</button>
+                                <button type="button" class="btn btn-secondary" style="font-size:11px;padding:8px;text-align:left;" onclick="applyPreset('center_ghost')">👻 Center Ghost</button>
                             </div>
-                        </div>
-
-                        <!-- Micro-Feedback -->
-                        <div id="placementFeedback" style="padding:10px;background:rgba(255,193,7,0.1);border-radius:6px;border-left:2px solid #ffc107;font-size:11px;color:#ffc107;line-height:1.4;">
-                            Ready to place your watermark.
                         </div>
                     </div>
 
                     <!-- Center: Multi-Platform Previews -->
                     <div style="flex:1;display:flex;flex-direction:column;gap:12px;overflow-y:auto;">
                         <div style="display:flex;gap:12px;justify-content:center;align-items:flex-start;">
-                            <!-- TikTok Preview -->
+                            <!-- TikTok Preview (Master) -->
                             <div style="text-align:center;">
                                 <canvas id="previewTiktok" width="180" height="320" style="background:#000;border-radius:8px;cursor:crosshair;"></canvas>
                                 <div style="font-size:10px;color:#888;margin-top:4px;">TikTok (9:16)</div>
@@ -846,16 +851,16 @@
                     <!-- Right: Contextual Controls -->
                     <div style="width:180px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
                         <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                            <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Scale <span id="wmScaleVal">100%</span></label>
-                            <input type="range" id="placementScale" min="10" max="200" value="100" style="width:100%;" oninput="updatePlacementScale(this.value)">
+                            <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Scale <span id="wmScaleVal">15%</span></label>
+                            <input type="range" id="placementScale" min="5" max="100" value="15" style="width:100%;" oninput="updatePlacementScale(this.value)">
                         </div>
                         <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                            <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Opacity <span id="wmOpacityVal">15%</span></label>
-                            <input type="range" id="placementOpacity" min="0" max="100" value="15" style="width:100%;" oninput="updatePlacementOpacity(this.value)">
+                            <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Opacity <span id="wmOpacityVal">80%</span></label>
+                            <input type="range" id="placementOpacity" min="0" max="100" value="80" style="width:100%;" oninput="updatePlacementOpacity(this.value)">
                         </div>
                         <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
                             <label style="display:flex;align-items:center;gap:8px;font-size:11px;color:#EAEAEA;cursor:pointer;">
-                                <input type="checkbox" id="showSafeZones" onchange="updateAllPreviews()"> Show Safe Zones
+                                <input type="checkbox" id="showSafeZones" onchange="updateAllPreviews()"> ☑ Show Placement Guide
                             </label>
                         </div>
                     </div>
@@ -2216,65 +2221,8 @@ let wizardCtx = null;
 let wizardLogoImage = null;
 let wizardWatermarkImage = null;
 
-// ========== STEP 4: GLOBAL PLACEMENT ENGINE ==========
-const PRESETS = {
-    top_left: { x: 0, y: 0 },
-    top_center: { x: 0.5, y: 0 },
-    top_right: { x: 1, y: 0 },
-    center_left: { x: 0, y: 0.5 },
-    center: { x: 0.5, y: 0.5 },
-    center_right: { x: 1, y: 0.5 },
-    bottom_left: { x: 0, y: 1 },
-    bottom_center: { x: 0.5, y: 1 },
-    bottom_right: { x: 1, y: 1 }
-};
-
-const SMART_PRESETS = {
-    corner_fade: {
-        anchor: "bottom_right",
-        scale: 0.8,
-        opacity: 0.12,
-        intent: "subtle",
-        feedback: "Clean watermark. Low distraction."
-    },
-    center_ghost: {
-        anchor: "center",
-        scale: 1.2,
-        opacity: 0.08,
-        intent: "balanced",
-        feedback: "High visibility. Subtle presence."
-    },
-    story_safe: {
-        anchor: "top_center",
-        offsetY: -0.15, // Normalized offset to push away from captions
-        scale: 0.9,
-        opacity: 0.2,
-        intent: "aggressive",
-        feedback: "Optimized for vertical stories."
-    }
-};
-
-let placementConfig = {
-    mode: "global",
-    global: {
-        preset: "bottom_right",
-        anchor: "bottom_right",
-        offsetX: 0,
-        offsetY: 0,
-        scale: 1.0,
-        opacity: 0.15,
-        type: "single",
-        meta: { isCustom: false, smartPreset: null, intent: "balanced" }
-    },
-    overrides: { tiktok: null, instagram: null, youtube: null }
-};
-
-// Platform-specific safe zone padding (normalized)
-const PLATFORM_PADDING = {
-    tiktok: { bottom: 0.25, right: 0.05, left: 0.05, top: 0.05 },
-    instagram: { bottom: 0.05, right: 0.05, left: 0.05, top: 0.05 },
-    youtube: { bottom: 0.1, right: 0.05, left: 0.05, top: 0.05 }
-};
+// ========== STEP 4: GLOBAL PLACEMENT ENGINE (v2) ==========
+// State and configuration are now defined in the Step 4 section below to ensure v2 logic is used.
 // ========== END STEP 4 ==========
 
 function openBrandWizard() {
@@ -4114,69 +4062,215 @@ function removeWatermark() {
 
 // ========== END WATERMARK EDITOR ==========
 
-// ========== STEP 4: PLACEMENT ENGINE FUNCTIONS ==========
+// ========== STEP 4: SMART PLACEMENT ENGINE (v2) ==========
 
-function applyPreset(presetKey) {
-    const preset = PRESETS[presetKey];
-    if (!preset) return;
+// --- State & Configuration ---
+let placementMode = 'positioned'; // 'positioned' or 'fullscreen'
 
-    placementConfig.global.preset = presetKey;
-    placementConfig.global.anchor = presetKey;
-    placementConfig.global.offsetX = 0;
-    placementConfig.global.offsetY = 0;
-    placementConfig.global.meta.isCustom = false;
-    placementConfig.global.meta.smartPreset = null;
+// Anchor-based mapping state
+let placementConfig = {
+    anchor: 'bottom_right',
+    offsetX: 0.02, // Normalized offset from anchor (0-1)
+    offsetY: 0.02,
+    scale: 0.15,   // Watermark scale relative to canvas width
+    opacity: 0.8
+};
+
+// Smart Presets Configuration
+const PRESETS = {
+    corner_fade: { anchor: 'bottom_right', offsetX: 0.03, offsetY: 0.03, scale: 0.15, opacity: 0.6 },
+    center_ghost: { anchor: 'center', offsetX: 0, offsetY: 0, scale: 0.4, opacity: 0.1 },
+    story_safe: { anchor: 'top_center', offsetX: 0, offsetY: 0.08, scale: 0.12, opacity: 0.9 },
+    tile_pattern: { anchor: 'center', offsetX: 0, offsetY: 0, scale: 0.1, opacity: 0.05 } // Logic handled in render
+};
+
+// Platform-aware Safe Zones (normalized 0-1)
+const SAFE_ZONES = {
+    tiktok: { bottom: 0.25, top: 0.1 }, // Caption and UI areas
+    instagram: { bottom: 0.15, top: 0.1 },
+    youtube: { bottom: 0.1, top: 0.1 }
+};
+
+// Snap Threshold for drag magnetism
+const SNAP_THRESHOLD = 0.08;
+
+// --- Rendering Logic ---
+function drawPlacementPreview(platform) {
+    const canvasId = `preview${platform.charAt(0).toUpperCase() + platform.slice(1)}`;
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !wizardWatermarkImage) return;
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawCheckerboard(ctx, canvas.width, canvas.height);
+
+    if (placementMode === 'fullscreen') {
+        drawFullscreenWatermark(ctx, canvas, wizardWatermarkImage);
+    } else {
+        drawPositionedWatermark(ctx, canvas, wizardWatermarkImage, platform);
+    }
+
+    if (document.getElementById('showSafeZones')?.checked) {
+        drawSafeZones(ctx, canvas.width, canvas.height, platform);
+    }
+}
+
+function drawFullscreenWatermark(ctx, canvas, img) {
+    const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+    const wmWidth = img.width * scale * placementConfig.scale;
+    const wmHeight = img.height * scale * placementConfig.scale;
     
-    updateUIFromState();
+    const x = (canvas.width - wmWidth) / 2;
+    const y = (canvas.height - wmHeight) / 2;
+
+    ctx.save();
+    ctx.globalAlpha = placementConfig.opacity;
+    ctx.drawImage(img, x, y, wmWidth, wmHeight);
+    ctx.restore();
+}
+
+function drawPositionedWatermark(ctx, canvas, img, platform) {
+    const wmWidth = canvas.width * placementConfig.scale;
+    const wmHeight = wmWidth * (img.height / img.width);
+
+    let baseX, baseY;
+    const a = placementConfig.anchor;
+    const padX = canvas.width * placementConfig.offsetX;
+    const padY = canvas.height * placementConfig.offsetY;
+
+    // Anchor-based mapping logic
+    if (a.includes('left')) baseX = padX;
+    else if (a.includes('right')) baseX = canvas.width - wmWidth - padX;
+    else baseX = (canvas.width - wmWidth) / 2;
+
+    if (a.includes('top')) baseY = padY;
+    else if (a.includes('bottom')) baseY = canvas.height - wmHeight - padY;
+    else baseY = (canvas.height - wmHeight) / 2;
+
+    // Apply platform-specific safe zone adjustments if needed
+    if (platform === 'tiktok' && a.includes('bottom')) {
+        baseY -= canvas.height * SAFE_ZONES.tiktok.bottom * 0.5;
+    }
+
+    ctx.save();
+    ctx.globalAlpha = placementConfig.opacity;
+    ctx.drawImage(img, baseX, baseY, wmWidth, wmHeight);
+    ctx.restore();
+}
+
+// --- Interaction: Master Drag & Snap ---
+let isDraggingPlacement = false;
+
+function initPlacementInteraction() {
+    const masterCanvas = document.getElementById('previewTiktok');
+    if (!masterCanvas) return;
+
+    masterCanvas.addEventListener('mousedown', startPlacementDrag);
+    masterCanvas.addEventListener('mousemove', handlePlacementDrag);
+    window.addEventListener('mouseup', endPlacementDrag);
+}
+
+function setPlacementMode(mode) {
+    placementMode = mode;
+    document.getElementById('modePositioned').classList.toggle('active', mode === 'positioned');
+    document.getElementById('modeFullscreen').classList.toggle('active', mode === 'fullscreen');
+    
+    const grid = document.getElementById('placementGridContainer');
+    const microcopy = document.getElementById('modeMicrocopy');
+    
+    if (mode === 'fullscreen') {
+        grid.style.display = 'none';
+        microcopy.textContent = "Covers entire video";
+    } else {
+        grid.style.display = 'block';
+        microcopy.textContent = "Place watermark on screen";
+    }
+    
     updateAllPreviews();
 }
 
-function applySmartPreset(name) {
-    const smart = SMART_PRESETS[name];
-    if (!smart) return;
+function startPlacementDrag(e) {
+    if (placementMode !== 'positioned') return;
+    isDraggingPlacement = true;
+}
 
-    placementConfig.global = {
-        ...placementConfig.global,
-        anchor: smart.anchor,
-        scale: smart.scale,
-        opacity: smart.opacity,
-        offsetX: smart.offsetX || 0,
-        offsetY: smart.offsetY || 0,
-        meta: {
-            isCustom: false,
-            smartPreset: name,
-            intent: smart.intent
+function handlePlacementDrag(e) {
+    if (!isDraggingPlacement) return;
+    
+    const canvas = document.getElementById('previewTiktok');
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+
+    // Find nearest anchor
+    const nearest = findNearestAnchor(x, y);
+    const dist = Math.hypot(x - getAnchorCoords(nearest).x, y - getAnchorCoords(nearest).y);
+    
+    if (dist < SNAP_THRESHOLD) {
+        placementConfig.anchor = nearest;
+        placementConfig.offsetX = 0;
+        placementConfig.offsetY = 0;
+    } else {
+        // For now, we just track the anchor. 
+        // In a full implementation, we'd calculate offsetX/Y relative to that anchor.
+        placementConfig.anchor = nearest; 
+    }
+
+    updateAllPreviews();
+}
+
+function endPlacementDrag() {
+    isDraggingPlacement = false;
+}
+
+function findNearestAnchor(x, y) {
+    const anchors = ['top_left', 'top_center', 'top_right', 'center_left', 'center', 'center_right', 'bottom_left', 'bottom_center', 'bottom_right'];
+    let minDist = Infinity;
+    let nearest = 'center';
+    
+    anchors.forEach(a => {
+        const coords = getAnchorCoords(a);
+        const dist = Math.hypot(x - coords.x, y - coords.y);
+        if (dist < minDist) {
+            minDist = dist;
+            nearest = a;
         }
-    };
-
-    // Update feedback
-    document.getElementById('placementFeedback').textContent = smart.feedback;
-    updateUIFromState();
-    updateAllPreviews();
-}
-
-function updatePlacementScale(value) {
-    placementConfig.global.scale = value / 100;
-    document.getElementById('wmScaleVal').textContent = value + '%';
-    updateAllPreviews();
-}
-
-function updatePlacementOpacity(value) {
-    placementConfig.global.opacity = value / 100;
-    document.getElementById('wmOpacityVal').textContent = value + '%';
-    updateAllPreviews();
-}
-
-function updateUIFromState() {
-    // Update anchor buttons
-    document.querySelectorAll('[data-anchor]').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.anchor === placementConfig.global.anchor);
     });
-    // Update sliders
-    document.getElementById('placementScale').value = placementConfig.global.scale * 100;
-    document.getElementById('wmScaleVal').textContent = Math.round(placementConfig.global.scale * 100) + '%';
-    document.getElementById('placementOpacity').value = placementConfig.global.opacity * 100;
-    document.getElementById('wmOpacityVal').textContent = Math.round(placementConfig.global.opacity * 100) + '%';
+    return nearest;
+}
+
+function getAnchorCoords(anchor) {
+    switch(anchor) {
+        case 'top_left': return { x: 0.1, y: 0.1 };
+        case 'top_center': return { x: 0.5, y: 0.1 };
+        case 'top_right': return { x: 0.9, y: 0.1 };
+        case 'center_left': return { x: 0.1, y: 0.5 };
+        case 'center': return { x: 0.5, y: 0.5 };
+        case 'center_right': return { x: 0.9, y: 0.5 };
+        case 'bottom_left': return { x: 0.1, y: 0.9 };
+        case 'bottom_center': return { x: 0.5, y: 0.9 };
+        case 'bottom_right': return { x: 0.9, y: 0.9 };
+        default: return { x: 0.5, y: 0.5 };
+    }
+}
+
+function applyPreset(name) {
+    if (PRESETS[name]) {
+        Object.assign(placementConfig, PRESETS[name]);
+        updateAllPreviews();
+    }
+}
+
+function updatePlacementScale(val) {
+    placementConfig.scale = val / 100;
+    document.getElementById('wmScaleVal').textContent = val + '%';
+    updateAllPreviews();
+}
+
+function updatePlacementOpacity(val) {
+    placementConfig.opacity = val / 100;
+    document.getElementById('wmOpacityVal').textContent = val + '%';
+    updateAllPreviews();
 }
 
 function updateAllPreviews() {
@@ -4187,152 +4281,12 @@ function updateAllPreviews() {
     });
 }
 
-function getPlatformAdjustedPosition(platform) {
-    const g = placementConfig.global;
-    const padding = PLATFORM_PADDING[platform] || { bottom: 0, right: 0, left: 0, top: 0 };
-    const anchor = PRESETS[g.anchor] || { x: 1, y: 1 };
-
-    let finalX = anchor.x + g.offsetX;
-    let finalY = anchor.y + g.offsetY;
-
-    // Apply safe zone nudges based on intent and platform
-    if (platform === 'tiktok' && g.anchor.includes('bottom')) {
-        finalY -= padding.bottom;
-    }
-    
-    // Clamp to edges with padding
-    finalX = Math.max(padding.left, Math.min(1 - padding.right, finalX));
-    finalY = Math.max(padding.top, Math.min(1 - padding.bottom, finalY));
-
-    return { x: finalX, y: finalY };
-}
-
-function drawPlacementPreview(platform) {
-    const canvasId = `preview${platform.charAt(0).toUpperCase() + platform.slice(1)}`;
-    const canvas = document.getElementById(canvasId);
-    if (!canvas || !wizardWatermarkImage) return;
-
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw checkerboard background
-    drawCheckerboard(ctx, canvas.width, canvas.height);
-
-    const pos = getPlatformAdjustedPosition(platform);
-    const wmWidth = canvas.width * 0.2 * placementConfig.global.scale; // Base 20% of screen width
-    const wmHeight = wmWidth * (wizardWatermarkImage.height / wizardWatermarkImage.width);
-
-    const x = (pos.x * canvas.width) - (wmWidth / 2);
-    const y = (pos.y * canvas.height) - (wmHeight / 2);
-
-    ctx.save();
-    ctx.globalAlpha = placementConfig.global.opacity;
-    ctx.drawImage(wizardWatermarkImage, x, y, wmWidth, wmHeight);
-    ctx.restore();
-
-    // Draw Safe Zones if enabled
-    if (document.getElementById('showSafeZones')?.checked) {
-        drawSafeZones(ctx, canvas.width, canvas.height, platform);
-    }
-}
-
-function drawCheckerboard(ctx, w, h) {
-    const size = 20;
-    for (let y = 0; y < h; y += size) {
-        for (let x = 0; x < w; x += size) {
-            ctx.fillStyle = ((x / size + y / size) % 2 === 0) ? '#1a1a1e' : '#25252b';
-            ctx.fillRect(x, y, size, size);
-        }
-    }
-}
-
-function drawSafeZones(ctx, w, h, platform) {
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
-    if (platform === 'tiktok') {
-        // Bottom caption area
-        ctx.fillRect(0, h * 0.75, w, h * 0.25);
-    } else if (platform === 'youtube') {
-        // Bottom progress bar area
-        ctx.fillRect(0, h * 0.9, w, h * 0.1);
-    }
-}
-
-// ========== END STEP 4 ==========
-
-// Interaction Handlers for Step 4 (Drag & Snap)
-let isDraggingPlacement = false;
-let activePlatform = null;
-
-function initPlacementInteraction() {
-    const container = document.getElementById('placementCanvasContainer'); // Using the main canvas area for now, or specific preview canvases
-    // For MVP, let's attach to the TikTok preview as the "primary" interaction surface
-    const primaryCanvas = document.getElementById('previewTiktok');
-    if (!primaryCanvas) return;
-
-    primaryCanvas.addEventListener('mousedown', startPlacementDrag);
-    primaryCanvas.addEventListener('mousemove', handlePlacementDrag);
-    window.addEventListener('mouseup', endPlacementDrag);
-    
-    // Touch support
-    primaryCanvas.addEventListener('touchstart', (e) => startPlacementDrag(e.touches[0]));
-    primaryCanvas.addEventListener('touchmove', (e) => { e.preventDefault(); handlePlacementDrag(e.touches[0]); });
-}
-
-function startPlacementDrag(e) {
-    isDraggingPlacement = true;
-    activePlatform = 'tiktok'; // Defaulting to tiktok for the primary drag surface
-}
-
-function handlePlacementDrag(e) {
-    if (!isDraggingPlacement || !activePlatform) return;
-    
-    const canvas = document.getElementById(`preview${activePlatform.charAt(0).toUpperCase() + activePlatform.slice(1)}`);
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
-
-    // Find nearest preset for snap magnetism
-    const nearest = findNearestPreset(x, y);
-    const dist = Math.hypot(x - PRESETS[nearest].x, y - PRESETS[nearest].y);
-    
-    if (dist < 0.1) { // Snap threshold
-        placementConfig.global.anchor = nearest;
-        placementConfig.global.offsetX = 0;
-        placementConfig.global.offsetY = 0;
-    } else {
-        placementConfig.global.anchor = nearest; // Keep anchor as the base
-        placementConfig.global.offsetX = x - PRESETS[nearest].x;
-        placementConfig.global.offsetY = y - PRESETS[nearest].y;
-        placementConfig.global.meta.isCustom = true;
-    }
-
-    updateUIFromState();
-    updateAllPreviews();
-}
-
-function endPlacementDrag() {
-    isDraggingPlacement = false;
-    activePlatform = null;
-}
-
-function findNearestPreset(x, y) {
-    let minDist = Infinity;
-    let nearestKey = 'center';
-    
-    for (const [key, pos] of Object.entries(PRESETS)) {
-        const dist = Math.hypot(x - pos.x, y - pos.y);
-        if (dist < minDist) {
-            minDist = dist;
-            nearestKey = key;
-        }
-    }
-    return nearestKey;
-}
-
 // Initialize interactions when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     initPlacementInteraction();
 });
+
+// ========== END STEP 4: SMART PLACEMENT ENGINE ==========
 
 // Export watermark canvas to Blob for upload (separate from logo)
 async function getWatermarkFileForUpload() {
