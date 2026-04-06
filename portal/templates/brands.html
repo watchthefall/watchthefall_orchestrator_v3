@@ -2084,11 +2084,15 @@ function openBrandWizard() {
         watermarkOpacity: 20
     };
     
-    // Reset UI
-    document.getElementById('wizardDisplayName').value = '';
-    document.getElementById('wizardBrandSlug').value = '';
-    document.getElementById('wizardLogoInput').value = '';
-    document.getElementById('wizardWatermarkInput').value = '';
+    // Reset UI - with null checks for elements that may not exist
+    const wizardDisplayName = document.getElementById('wizardDisplayName');
+    const wizardBrandSlug = document.getElementById('wizardBrandSlug');
+    const wizardLogoInput = document.getElementById('wizardLogoInput');
+    const wizardWatermarkInput = document.getElementById('wizardWatermarkInput');
+    if (wizardDisplayName) wizardDisplayName.value = '';
+    if (wizardBrandSlug) wizardBrandSlug.value = '';
+    if (wizardLogoInput) wizardLogoInput.value = '';
+    if (wizardWatermarkInput) wizardWatermarkInput.value = '';
     
     // Reset upload UI - V2 Editor layout
     const logoUploadZone = document.getElementById('wizardLogoUploadZone');
@@ -2125,10 +2129,13 @@ function openBrandWizard() {
     if (logoOpacity) logoOpacity.value = 100;
     if (logoOpacityVal) logoOpacityVal.textContent = '100%';
     
-    // Reset step visibility
-    document.getElementById('wizardStep1').classList.add('active');
-    document.getElementById('wizardStep2').classList.remove('active');
-    document.getElementById('wizardStep3').classList.remove('active');
+    // Reset step visibility - with null checks
+    const step1 = document.getElementById('wizardStep1');
+    const step2 = document.getElementById('wizardStep2');
+    const step3 = document.getElementById('wizardStep3');
+    if (step1) step1.classList.add('active');
+    if (step2) step2.classList.remove('active');
+    if (step3) step3.classList.remove('active');
     
     // Show wizard
     const wizardEl = document.getElementById('brandWizard');
