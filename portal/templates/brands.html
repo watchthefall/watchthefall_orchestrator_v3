@@ -344,7 +344,7 @@
 <div class="container">
     <header>
         <h1>Brand Management</h1>
-        <button id="createBrandBtn" class="btn btn-primary" onclick="openBrandWizard()">+ Create Brand</button>
+        <button id="createBrandBtn" class="btn btn-primary" onclick="console.log('Button clicked!'); openBrandWizard();">+ Create Brand</button>
     </header>
     
     <div id="brandGrid" class="brand-grid">
@@ -1465,6 +1465,12 @@
 
 <script src="{{ url_for('static', filename='js/brand_editor.js') }}"></script>
 <script>
+// Global error handler for debugging
+window.onerror = function(msg, url, line, col, error) {
+    console.error('[Global Error]', msg, 'at line', line, 'col', col);
+    return false;
+};
+
 const apiBase = window.location.origin;
 let editor = null;
 let logoRemoveBgMode = 'none';  // 'none', 'dark', 'light'
