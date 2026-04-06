@@ -2507,11 +2507,13 @@ async function showWizardStep(step) {
         const wmEditor = document.getElementById('watermarkEditorContainer');
         if (wmEditor) wmEditor.style.display = 'flex';
 
-        // CRITICAL: Resize canvas AFTER step is visible to get correct dimensions
-        setTimeout(() => {
-            resizeWatermarkCanvas();
-            drawWatermarkEditor();
-        }, 50);
+        // CRITICAL: Resize and redraw AFTER step is visible using robust rAF chaining
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                resizeWatermarkCanvas();
+                drawWatermarkEditor();
+            });
+        });
     } else if (step === 4) {
         document.getElementById('wizardStep4').classList.add('active');
         updateUIFromState();
@@ -3950,11 +3952,13 @@ function handleWatermarkFileUpload(e) {
             document.getElementById('watermarkThumb').src = event.target.result;
             document.getElementById('watermarkFilename').textContent = file.name;
             
-            // Draw on canvas after a brief delay to ensure layout is stable
-            setTimeout(() => {
-                resizeWatermarkCanvas();
-                drawWatermarkEditor();
-            }, 50);
+            // Draw on canvas after layout is stable using rAF chaining
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    resizeWatermarkCanvas();
+                    drawWatermarkEditor();
+                });
+            });
             
             console.log('[Watermark Editor] Loaded:', file.name);
         };
@@ -4337,6 +4341,19 @@ function updateAllPreviews() {
 // Initialize interactions when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     initPlacementInteraction();
+    
+    // Set up ResizeObserver for watermark canvas to handle layout changes automatically
+    const wmContainer = document.getElementById('watermarkEditorContainer');
+    if (wmContainer && typeof ResizeObserver !== 'undefined') {
+        const resizeObserver = new ResizeObserver(() => {
+            // Only resize if the step is currently visible
+            const step3 = document.getElementById('wizardStep3');
+            if (step3 && step3.classList.contains('active')) {
+                resizeWatermarkCanvas();
+            }
+        });
+        resizeObserver.observe(wmContainer);
+    }
 });
 
 // ========== END STEP 4: SMART PLACEMENT ENGINE ==========
