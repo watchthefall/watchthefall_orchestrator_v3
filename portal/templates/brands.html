@@ -2036,8 +2036,11 @@ let wizardLogoImage = null;
 let wizardWatermarkImage = null;
 
 function openBrandWizard() {
+    console.log('[Brand Wizard] Opening wizard...');
+    
     // Velvet rope: if at tier limit, show upgrade modal instead of blocking
     if (window._brandLimitReached) {
+        console.log('[Brand Wizard] Limit reached, showing upgrade modal');
         showUpgradeModal();
         return;
     }
@@ -2122,7 +2125,13 @@ function openBrandWizard() {
     document.getElementById('wizardStep3').classList.remove('active');
     
     // Show wizard
-    document.getElementById('brandWizard').classList.add('active');
+    const wizardEl = document.getElementById('brandWizard');
+    if (!wizardEl) {
+        console.error('[Brand Wizard] ERROR: brandWizard element not found!');
+        return;
+    }
+    wizardEl.classList.add('active');
+    console.log('[Brand Wizard] Wizard opened successfully');
     
     // Reset wizard content width
     const wizardContent = document.querySelector('.wizard-content');
