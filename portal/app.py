@@ -1512,7 +1512,7 @@ def process_branded_videos():
             # CANONICAL NORMALIZATION: Ensure wm_* fields are populated
             # Prefer canonical wm_* fields, fallback to legacy watermark_* for backward compat
             if merged_config.get('wm_mode') is None:
-                merged_config['wm_mode'] = merged_config.get('watermark_mode', 'fullscreen')
+                merged_config['wm_mode'] = merged_config.get('watermark_mode', 'positioned')
             if merged_config.get('wm_scale') is None:
                 legacy_scale = merged_config.get('watermark_scale')
                 if legacy_scale is not None:
@@ -2124,7 +2124,7 @@ def list_brands():
             'watermark_landscape': brand.get('watermark_landscape'),
             
             # Watermark Config (wm_* keys are canonical)
-            'wm_mode': brand.get('wm_mode', 'fullscreen'),
+            'wm_mode': brand.get('wm_mode', 'positioned'),
             'wm_scale': brand.get('wm_scale', 1.0),
             'wm_opacity': brand.get('wm_opacity', 0.10),
             'wm_x': brand.get('wm_x', 0.5),
@@ -2354,7 +2354,7 @@ def create_brand_api():
             logo_y=data.get('logo_y', 0.85),
             logo_opacity=data.get('logo_opacity', 1.0),
             logo_rotation=data.get('logo_rotation', 0.0),
-            wm_mode=data.get('wm_mode', 'fullscreen'),
+            wm_mode=data.get('wm_mode', 'positioned'),
             wm_x=data.get('wm_x', 0.5),
             wm_y=data.get('wm_y', 0.5),
             wm_scale=data.get('wm_scale', 1.0),

@@ -725,7 +725,7 @@ def create_brand(name, display_name, user_id=None, is_system=False, is_locked=Fa
             config.get('logo_y', 0.85),
             config.get('logo_opacity', 1.0),
             config.get('logo_rotation', 0.0),
-            config.get('wm_mode', 'fullscreen'),
+            config.get('wm_mode', 'positioned'),
             config.get('wm_x', 0.5),
             config.get('wm_y', 0.5),
             config.get('wm_scale', 1.0),

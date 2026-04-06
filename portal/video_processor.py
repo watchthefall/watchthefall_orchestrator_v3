@@ -341,7 +341,7 @@ class VideoProcessor:
         logo_opacity = brand_config.get('logo_opacity', 1.0)
         logo_rotation = brand_config.get('logo_rotation', 0.0)  # degrees (0-360)
         
-        wm_mode = brand_config.get('wm_mode', 'fullscreen')
+        wm_mode = brand_config.get('wm_mode', 'positioned')
         wm_x_pct = brand_config.get('wm_x', 0.5)
         wm_y_pct = brand_config.get('wm_y', 0.5)
         wm_scale_pct = brand_config.get('wm_scale', 1.0)
