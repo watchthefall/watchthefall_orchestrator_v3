@@ -681,8 +681,8 @@
                 <!-- Header -->
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-shrink:0;">
                     <div>
-                        <h3 style="margin:0;font-size:18px;">Step 3: Watermark</h3>
-                        <p class="step-description" style="margin:4px 0 0;font-size:12px;color:#888;">Create or upload your watermark overlay</p>
+                        <h3 style="margin:0;font-size:18px;">Create Your Watermark</h3>
+                        <p class="step-description" style="margin:4px 0 0;font-size:12px;color:#888;">Refine your overlay for video placement</p>
                     </div>
                     <button type="button" class="btn-icon" onclick="showWizardStep(2)" title="Back to Step 2 - Edit Logo">
                         🎨
@@ -713,7 +713,7 @@
                         
                         <!-- Contrast Boost -->
                         <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                            <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Contrast</label>
+                            <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Contrast Boost</label>
                             <input type="range" id="watermarkContrast" min="0" max="100" value="0" style="width:100%;" oninput="updateWatermarkContrast(this.value)">
                         </div>
                         
@@ -729,8 +729,8 @@
                             <input type="file" id="watermarkFileInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden onchange="handleWatermarkFileUpload(event)">
                             <div class="upload-placeholder" onclick="document.getElementById('watermarkFileInput').click()">
                                 <span class="upload-icon">💧</span>
-                                <p style="font-size:14px;margin:8px 0;">Upload Watermark</p>
-                                <p style="font-size:11px;color:#888;">PNG recommended for transparency</p>
+                                <p style="font-size:14px;margin:8px 0;">Upload Separate Watermark</p>
+                                <p style="font-size:11px;color:#888;">Or use the logo from Step 2</p>
                             </div>
                         </div>
                         
@@ -2238,24 +2238,46 @@ async function showWizardStep(step) {
         await updateWizardLogoImageFromEditor();
         // ========== END V2A ==========
         
-        // ========== STEP 3 DIRECT MANIPULATION: Init canvas ==========
-        initStep3Canvas();
-        // ========== END STEP 3 ==========
+        // ========== WATERMARK MODE: Auto-load Step 2 logo if no watermark exists ==========
+        if (!wizardState.watermarkFile && wizardState.logoFile && wizardLogoImage) {
+            console.log('[Watermark Mode] Auto-loading Step 2 logo as initial watermark source');
+            wizardWatermarkImage = wizardLogoImage;
+            wizardState.watermarkFile = wizardState.logoFile; // Keep reference for now, will be replaced on save
+            
+            // Show editor canvas and info panel
+            const wmZone = document.getElementById('watermarkUploadZone');
+            const wmEditor = document.getElementById('watermarkEditorContainer');
+            const wmInfo = document.getElementById('watermarkInfoPanel');
+            
+            if (wmZone) wmZone.style.display = 'none';
+            if (wmEditor) wmEditor.style.display = 'block';
+            if (wmInfo) wmInfo.style.display = 'block';
+            
+            // Update thumbnail and filename
+            const thumb = document.getElementById('watermarkThumb');
+            const fname = document.getElementById('watermarkFilename');
+            if (thumb) thumb.src = wizardLogoImage.src;
+            if (fname) fname.textContent = 'Based on: ' + wizardState.logoFile.name;
+            
+            // Draw on canvas with default watermark settings
+            drawWatermarkEditor();
+        }
+        // ========== END WATERMARK MODE ==========
         
-        // Show watermark UI based on state
-        const wmZone = document.getElementById('wizardWatermarkUploadZone');
-        const wmRow = document.getElementById('wizardWatermarkRow');
-        const wmSettings = document.getElementById('wizardWatermarkSettings');
+        // Show watermark UI based on state (fallback for manual uploads)
+        const wmZone = document.getElementById('watermarkUploadZone');
+        const wmEditor = document.getElementById('watermarkEditorContainer');
+        const wmInfo = document.getElementById('watermarkInfoPanel');
         
-        if (wmZone && wmRow) {
+        if (wmZone && wmEditor) {
             if (wizardState.watermarkFile) {
                 wmZone.style.display = 'none';
-                wmRow.style.display = 'flex';
-                if (wmSettings) wmSettings.style.display = 'block';
+                wmEditor.style.display = 'block';
+                if (wmInfo) wmInfo.style.display = 'block';
             } else {
                 wmZone.style.display = 'block';
-                wmRow.style.display = 'none';
-                if (wmSettings) wmSettings.style.display = 'none';
+                wmEditor.style.display = 'none';
+                if (wmInfo) wmInfo.style.display = 'none';
             }
         }
     }
@@ -3697,7 +3719,7 @@ function handleWatermarkFileUpload(e) {
     reader.readAsDataURL(file);
 }
 
-// Draw watermark on editor canvas
+// Draw watermark on editor canvas (Watermark Mode)
 function drawWatermarkEditor() {
     const canvas = document.getElementById('watermarkEditorCanvas');
     if (!canvas || !wizardWatermarkImage) return;
@@ -3706,29 +3728,26 @@ function drawWatermarkEditor() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     // Get current settings
-    const opacity = parseInt(document.getElementById('watermarkOpacity').value) / 100;
-    const contrast = parseInt(document.getElementById('watermarkContrast').value);
+    const opacity = parseInt(document.getElementById('watermarkOpacity')?.value || 50) / 100;
+    const contrast = parseInt(document.getElementById('watermarkContrast')?.value || 0);
     const shape = document.querySelector('.option-btn[data-wm-shape].active')?.dataset.wmShape || 'original';
     
     ctx.save();
-    ctx.globalAlpha = opacity;
     
-    // Apply contrast filter
+    // Apply contrast filter for preview
     if (contrast > 0) {
         ctx.filter = `contrast(${1 + contrast / 50})`;
     }
     
-    // Calculate center position
+    // Calculate center position and scale
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
-    
-    // Scale image to fit canvas (80% max size)
     const scale = Math.min(canvas.width * 0.8 / wizardWatermarkImage.width, 
                           canvas.height * 0.8 / wizardWatermarkImage.height);
     const width = wizardWatermarkImage.width * scale;
     const height = wizardWatermarkImage.height * scale;
     
-    // Apply shape mask if needed
+    // Apply shape mask
     if (shape === 'circle') {
         ctx.beginPath();
         ctx.arc(centerX, centerY, width / 2, 0, Math.PI * 2);
@@ -3741,6 +3760,13 @@ function drawWatermarkEditor() {
     
     // Draw image centered
     ctx.drawImage(wizardWatermarkImage, centerX - width / 2, centerY - height / 2, width, height);
+    
+    // Apply opacity as an overlay effect for preview (non-destructive)
+    if (opacity < 1) {
+        ctx.globalCompositeOperation = 'destination-in';
+        ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     
     ctx.restore();
 }
@@ -3799,6 +3825,24 @@ function removeWatermark() {
 }
 
 // ========== END WATERMARK EDITOR ==========
+
+// Export watermark canvas to Blob for upload (separate from logo)
+async function getWatermarkFileForUpload() {
+    const canvas = document.getElementById('watermarkEditorCanvas');
+    if (!canvas || !wizardWatermarkImage) return wizardState.watermarkFile;
+    
+    try {
+        // Use the current canvas state which includes shape masks and contrast
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const filename = wizardState.watermarkFile ? 
+            wizardState.watermarkFile.name.replace(/\.[^.]+$/, '.png') : 
+            'watermark.png';
+        return new File([blob], filename, { type: 'image/png' });
+    } catch (err) {
+        console.warn('Failed to export edited watermark, falling back to original:', err);
+        return wizardState.watermarkFile;
+    }
+}
 
 // Get mouse position on canvas
 function getStep3MousePos(e) {
@@ -4177,8 +4221,11 @@ async function saveWizardBrandWithWatermark() {
         if (wizardState.watermarkFile) {
             status.innerHTML = '<div class="status-msg info">Uploading watermark...</div>';
             
+            // Use the edited canvas state for upload to preserve shape/contrast edits
+            const watermarkFileToUpload = await getWatermarkFileForUpload();
+            
             const wmForm = new FormData();
-            wmForm.append('file', wizardState.watermarkFile);
+            wmForm.append('file', watermarkFileToUpload);
             wmForm.append('watermark_scale', wizardState.watermarkScale / 100);
             wmForm.append('watermark_opacity', wizardState.watermarkOpacity / 100);
             wmForm.append('watermark_mode', wizardState.watermarkMode);
