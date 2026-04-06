@@ -4216,11 +4216,30 @@ const SNAP_THRESHOLD = 0.08;
 function drawPlacementPreview(platform) {
     const canvasId = `preview${platform.charAt(0).toUpperCase() + platform.slice(1)}`;
     const canvas = document.getElementById(canvasId);
-    if (!canvas || !wizardWatermarkImage) return;
+    if (!canvas) {
+        console.warn(`[DRAW] Canvas ${canvasId} not found`);
+        return;
+    }
+    
+    if (!wizardWatermarkImage) {
+        console.warn(`[DRAW] wizardWatermarkImage is null`);
+        return;
+    }
+    
+    if (!wizardWatermarkImage.complete) {
+        console.warn(`[DRAW] Image not complete, waiting for onload`);
+        wizardWatermarkImage.onload = () => {
+            console.log(`[DRAW] Image loaded, triggering redraw`);
+            updateAllPreviews();
+        };
+        return;
+    }
 
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawCheckerboard(ctx, canvas.width, canvas.height);
+
+    console.log(`[DRAW] Rendering ${platform} preview: mode=${placementMode}, image=${wizardWatermarkImage.width}x${wizardWatermarkImage.height}`);
 
     if (placementMode === 'fullscreen') {
         drawFullscreenWatermark(ctx, canvas, wizardWatermarkImage);
@@ -4230,11 +4249,6 @@ function drawPlacementPreview(platform) {
 
     if (document.getElementById('showSafeZones')?.checked) {
         drawSafeZones(ctx, canvas.width, canvas.height, platform);
-    }
-    
-    // Debug logging for TikTok (master) preview
-    if (platform === 'tiktok') {
-        console.log(`[PLACEMENT RENDER] mode=${placementMode}, anchor=${placementConfig.anchor}, scale=${wizardState.watermarkScale}%, opacity=${wizardState.watermarkOpacity}%`);
     }
 }
 
@@ -4281,6 +4295,19 @@ function drawPositionedWatermark(ctx, canvas, img, platform) {
 
     // CANONICAL: Use wizardState opacity (from Step 3 slider)
     const userOpacity = (wizardState.watermarkOpacity || 50) / 100;
+    
+    // DEBUG: Log computed values
+    console.log(`[DRAW VALUES] ${platform}: x=${baseX.toFixed(0)}, y=${baseY.toFixed(0)}, w=${wmWidth.toFixed(0)}, h=${wmHeight.toFixed(0)}, scale=${userScale.toFixed(2)}, opacity=${userOpacity.toFixed(2)}, anchor=${a}`);
+    
+    // FALLBACK TEST: If dimensions are suspicious, draw hardcoded box
+    if (wmWidth < 5 || wmHeight < 5) {
+        console.error(`[DRAW ERROR] Watermark too small! wmWidth=${wmWidth}, wmHeight=${wmHeight}`);
+        ctx.save();
+        ctx.fillStyle = 'red';
+        ctx.fillRect(50, 50, 100, 100);
+        ctx.restore();
+        return;
+    }
     
     ctx.save();
     ctx.globalAlpha = userOpacity;
