@@ -543,7 +543,7 @@
                 
                 <!-- Logo Upload - Large zone (shown before upload) -->
                 <div class="upload-zone" id="wizardLogoUploadZone">
-                    <input type="file" id="wizardLogoInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden>
+                    <input type="file" id="wizardLogoInput" accept="image/*" capture="environment" hidden>
                     <div class="upload-placeholder" onclick="document.getElementById('wizardLogoInput').click()">
                         <span class="upload-icon">🎨</span>
                         <p>Click to upload logo</p>
@@ -1129,30 +1129,69 @@
 @media (max-width: 768px) {
     .wizard-content.step-2-active {
         max-width: 95vw;
+        min-height: 80vh;
     }
     
     .editor-layout {
         flex-direction: column;
+        min-height: auto;
     }
     
+    /* Stack tools horizontally at the top */
     .editor-tools {
         flex-direction: row;
         width: 100%;
         border-right: none;
         border-bottom: 1px solid rgba(255,255,255,0.1);
-        padding: 8px 12px;
-        justify-content: center;
+        padding: 8px 4px;
+        justify-content: space-around;
+        overflow-x: auto;
+    }
+
+    .tool-btn {
+        padding: 8px 4px;
+        font-size: 9px;
+        min-width: 50px;
     }
     
     .editor-tools .brush-settings {
         display: none; /* Hide brush settings on mobile - use default */
     }
     
+    /* Stack properties below canvas */
     .editor-props {
         width: 100%;
         border-left: none;
         border-top: 1px solid rgba(255,255,255,0.1);
-        max-height: 200px;
+        padding: 16px;
+        max-height: none;
+        overflow-y: visible;
+    }
+
+    .prop-group {
+        margin-bottom: 12px;
+    }
+
+    /* Ensure canvas area is full width */
+    .editor-canvas-area {
+        width: 100%;
+    }
+
+    .editor-canvas-wrap {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+
+    #wizardEditorCanvas {
+        max-width: 100%;
+        height: auto;
+    }
+
+    /* Tool strip below canvas */
+    .editor-tool-strip {
+        flex-wrap: wrap;
+        justify-content: center;
     }
 }
 
