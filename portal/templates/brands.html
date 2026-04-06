@@ -4133,6 +4133,63 @@ let placementConfig = {
     opacity: 0.8
 };
 
+// Convert placementConfig to normalized wm_x/wm_y for saving
+function placementToXY(config) {
+    const anchor = config.anchor;
+    const padX = config.offsetX;
+    const padY = config.offsetY;
+    
+    // Map anchor to base position
+    const basePositions = {
+        'top_left': { x: padX, y: padY },
+        'top_center': { x: 0.5, y: padY },
+        'top_right': { x: 1 - padX, y: padY },
+        'center_left': { x: padX, y: 0.5 },
+        'center': { x: 0.5, y: 0.5 },
+        'center_right': { x: 1 - padX, y: 0.5 },
+        'bottom_left': { x: padX, y: 1 - padY },
+        'bottom_center': { x: 0.5, y: 1 - padY },
+        'bottom_right': { x: 1 - padX, y: 1 - padY }
+    };
+    
+    const pos = basePositions[anchor] || basePositions['bottom_right'];
+    return { x: pos.x, y: pos.y };
+}
+
+// Convert saved wm_x/wm_y back to placementConfig
+function xyToPlacement(x, y) {
+    // Determine closest anchor based on position
+    let anchor = 'bottom_right';
+    let offsetX = 0.02;
+    let offsetY = 0.02;
+    
+    // Determine horizontal anchor
+    if (x < 0.33) {
+        anchor = anchor.includes('top') ? 'top_left' : anchor.includes('center') ? 'center_left' : 'bottom_left';
+        offsetX = x;
+    } else if (x > 0.67) {
+        anchor = anchor.includes('top') ? 'top_right' : anchor.includes('center') ? 'center_right' : 'bottom_right';
+        offsetX = 1 - x;
+    } else {
+        anchor = anchor.includes('top') ? 'top_center' : anchor.includes('bottom') ? 'bottom_center' : 'center';
+        offsetX = 0;
+    }
+    
+    // Determine vertical anchor
+    if (y < 0.33) {
+        anchor = anchor.includes('left') ? 'top_left' : anchor.includes('right') ? 'top_right' : 'top_center';
+        offsetY = y;
+    } else if (y > 0.67) {
+        anchor = anchor.includes('left') ? 'bottom_left' : anchor.includes('right') ? 'bottom_right' : 'bottom_center';
+        offsetY = 1 - y;
+    } else {
+        anchor = anchor.includes('left') ? 'center_left' : anchor.includes('right') ? 'center_right' : 'center';
+        offsetY = 0;
+    }
+    
+    return { anchor, offsetX, offsetY };
+}
+
 // Smart Presets Configuration
 const PRESETS = {
     corner_fade: { anchor: 'bottom_right', offsetX: 0.03, offsetY: 0.03, scale: 0.15, opacity: 0.6 },
@@ -4792,9 +4849,10 @@ async function saveWizardBrandWithWatermark() {
             settingsPayload.wm_mode = wizardState.watermarkMode || 'positioned';
             settingsPayload.wm_scale = wizardState.watermarkScale / 100;
             settingsPayload.wm_opacity = wizardState.watermarkOpacity / 100;
-            // Use safe default position for positioned mode
-            settingsPayload.wm_x = 0.85; // bottom-right (85% from left)
-            settingsPayload.wm_y = 0.85; // bottom-right (85% from top)
+            // PHASE 2: Save actual placement position instead of hardcoded fallback
+            const pos = placementToXY(placementConfig);
+            settingsPayload.wm_x = pos.x;
+            settingsPayload.wm_y = pos.y;
         }
         
         const settingsRes = await fetch(`${apiBase}/api/brands/${brandId}`, {
@@ -4918,8 +4976,10 @@ async function saveWizardBrand() {
             settingsPayload.wm_mode = wizardState.watermarkMode || 'positioned';
             settingsPayload.wm_scale = wizardState.watermarkScale / 100;
             settingsPayload.wm_opacity = wizardState.watermarkOpacity / 100;
-            settingsPayload.wm_x = 0.85;
-            settingsPayload.wm_y = 0.85;
+            // PHASE 2: Save actual placement position
+            const pos = placementToXY(placementConfig);
+            settingsPayload.wm_x = pos.x;
+            settingsPayload.wm_y = pos.y;
         }
         
         const settingsRes = await fetch(`${apiBase}/api/brands/${brandId}`, {
