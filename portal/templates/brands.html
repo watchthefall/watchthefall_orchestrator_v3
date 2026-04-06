@@ -801,10 +801,10 @@
                 </div>
 
                 <!-- Main Layout: Previews + Controls -->
-                <div style="display:flex;gap:20px;flex:1;min-height:0;">
+                <div style="display:flex;gap:20px;flex:1;min-height:0;" class="composition-previews-container">
                     
                     <!-- Left: Presets & Smart Actions -->
-                    <div style="width:200px;flex-shrink:0;display:flex;flex-direction:column;gap:16px;">
+                    <div style="width:200px;flex-shrink:0;display:flex;flex-direction:column;gap:16px;" class="controls-sidebar">
                         
                         <!-- Mode Toggle -->
                         <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
@@ -844,8 +844,8 @@
                     </div>
 
                     <!-- Center: Multi-Platform Previews -->
-                    <div style="flex:1;display:flex;flex-direction:column;gap:12px;overflow-y:auto;">
-                        <div style="display:flex;gap:12px;justify-content:center;align-items:flex-start;">
+                    <div style="flex:1;display:flex;flex-direction:column;gap:12px;overflow-y:auto;" class="composition-previews-container">
+                        <div style="display:flex;gap:12px;justify-content:center;align-items:flex-start;" class="previews-row">
                             <!-- TikTok Preview (Master) -->
                             <div style="text-align:center;">
                                 <canvas id="previewTiktok" width="180" height="320" style="background:#000;border-radius:8px;cursor:crosshair;"></canvas>
@@ -1661,6 +1661,44 @@
         min-height: 40px;
         padding: 8px 12px;
         font-size: 12px;
+    }
+}
+
+/* Step 4 Composition: Mobile Responsive */
+@media (max-width: 768px) {
+    /* Stack previews vertically on mobile */
+    #wizardStep4 .composition-previews-container {
+        flex-direction: column !important;
+    }
+    
+    #wizardStep4 .previews-row {
+        flex-direction: column !important;
+        align-items: center !important;
+    }
+    
+    /* Make TikTok canvas larger on mobile (master preview) */
+    #previewTiktok {
+        width: 240px !important;
+        height: 427px !important;
+    }
+    
+    /* Hide Instagram and YouTube on mobile to save space */
+    #previewInstagram,
+    #previewYoutube {
+        display: none !important;
+    }
+    
+    /* Simplify controls on mobile */
+    #wizardStep4 .controls-sidebar {
+        width: 100% !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
+    
+    #wizardStep4 .controls-sidebar > div {
+        flex: 1;
+        min-width: 140px;
     }
 }
 </style>
@@ -4303,8 +4341,11 @@ function drawFullscreenWatermark(ctx, canvas, img) {
     const x = (canvas.width - wmWidth) / 2;
     const y = (canvas.height - wmHeight) / 2;
 
+    // CANONICAL: Use wizardState opacity
+    const userOpacity = (wizardState.watermarkOpacity || 50) / 100;
+    
     ctx.save();
-    ctx.globalAlpha = placementConfig.opacity;
+    ctx.globalAlpha = userOpacity;
     ctx.drawImage(img, x, y, wmWidth, wmHeight);
     ctx.restore();
 }
