@@ -4231,6 +4231,11 @@ function drawPlacementPreview(platform) {
     if (document.getElementById('showSafeZones')?.checked) {
         drawSafeZones(ctx, canvas.width, canvas.height, platform);
     }
+    
+    // Debug logging for TikTok (master) preview
+    if (platform === 'tiktok') {
+        console.log(`[PLACEMENT RENDER] mode=${placementMode}, anchor=${placementConfig.anchor}, scale=${wizardState.watermarkScale}%, opacity=${wizardState.watermarkOpacity}%`);
+    }
 }
 
 function drawFullscreenWatermark(ctx, canvas, img) {
@@ -4248,9 +4253,13 @@ function drawFullscreenWatermark(ctx, canvas, img) {
 }
 
 function drawPositionedWatermark(ctx, canvas, img, platform) {
-    const wmWidth = canvas.width * placementConfig.scale;
-    const wmHeight = wmWidth * (img.height / img.width);
+    // CANONICAL: Use wizardState scale (from Step 3 slider), not placementConfig.scale
+    const userScale = (wizardState.watermarkScale || 50) / 100; // 0-1 range
+    const maxFitScale = Math.min(canvas.width * 0.9 / img.width, canvas.height * 0.9 / img.height);
+    const wmWidth = img.width * maxFitScale * userScale;
+    const wmHeight = img.height * maxFitScale * userScale;
 
+    // Calculate position from placementConfig anchor+offset
     let baseX, baseY;
     const a = placementConfig.anchor;
     const padX = canvas.width * placementConfig.offsetX;
@@ -4270,8 +4279,11 @@ function drawPositionedWatermark(ctx, canvas, img, platform) {
         baseY -= canvas.height * SAFE_ZONES.tiktok.bottom * 0.5;
     }
 
+    // CANONICAL: Use wizardState opacity (from Step 3 slider)
+    const userOpacity = (wizardState.watermarkOpacity || 50) / 100;
+    
     ctx.save();
-    ctx.globalAlpha = placementConfig.opacity;
+    ctx.globalAlpha = userOpacity;
     ctx.drawImage(img, baseX, baseY, wmWidth, wmHeight);
     ctx.restore();
 }
@@ -4367,6 +4379,7 @@ function handlePlacementDrag(e) {
         placementConfig.anchor = nearest;
         placementConfig.offsetX = 0;
         placementConfig.offsetY = 0;
+        console.log(`[PLACEMENT DRAG] SNAP to ${nearest}`);
     } else {
         // Free-form positioning: calculate offset from nearest anchor
         placementConfig.anchor = nearest;
@@ -4379,7 +4392,13 @@ function handlePlacementDrag(e) {
         // Clamp offsets to valid range (0-0.5)
         placementConfig.offsetX = Math.min(0.5, Math.max(0, placementConfig.offsetX));
         placementConfig.offsetY = Math.min(0.5, Math.max(0, placementConfig.offsetY));
+        
+        console.log(`[PLACEMENT DRAG] FREEFORM anchor=${nearest}, offsetX=${placementConfig.offsetX.toFixed(2)}, offsetY=${placementConfig.offsetY.toFixed(2)}`);
     }
+
+    // Log current state before render
+    const pos = placementToXY(placementConfig);
+    console.log(`[PLACEMENT DRAG] STATE: wm_x=${pos.x.toFixed(2)}, wm_y=${pos.y.toFixed(2)}, scale=${wizardState.watermarkScale}%, opacity=${wizardState.watermarkOpacity}%`);
 
     updateAllPreviews();
 }
