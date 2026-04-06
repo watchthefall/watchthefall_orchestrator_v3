@@ -742,8 +742,8 @@
                         <!-- Upload Zone (Secondary/Override) -->
                         <div id="watermarkUploadZone" style="position:absolute;bottom:20px;right:20px;z-index:10;">
                             <input type="file" id="watermarkFileInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden onchange="handleWatermarkFileUpload(event)">
-                            <button type="button" class="btn btn-secondary" style="font-size:11px;padding:8px 12px;" onclick="document.getElementById('watermarkFileInput').click()">
-                                💧 Replace Watermark
+                            <button type="button" id="watermarkUploadBtn" class="btn btn-secondary" style="font-size:11px;padding:8px 12px;" onclick="document.getElementById('watermarkFileInput').click()">
+                                💧 Upload Watermark
                             </button>
                         </div>
                         
@@ -2512,6 +2512,24 @@ async function showWizardStep(step) {
         const wmEditor = document.getElementById('watermarkEditorContainer');
         if (wmEditor) wmEditor.style.display = 'flex';
 
+        // Update watermark upload button text based on state
+        const uploadBtn = document.getElementById('watermarkUploadBtn');
+        if (uploadBtn) {
+            if (wizardState.watermarkFile) {
+                uploadBtn.innerHTML = '💧 Replace Watermark';
+            } else {
+                uploadBtn.innerHTML = '💧 Upload Watermark';
+            }
+        }
+
+        // Set default scale to 50% if not already set (more visible than 15%)
+        if (!wizardState.watermarkScale || wizardState.watermarkScale === 15) {
+            wizardState.watermarkScale = 50;
+        }
+        if (!wizardState.watermarkOpacity || wizardState.watermarkOpacity === 80) {
+            wizardState.watermarkOpacity = 50;
+        }
+
         // CRITICAL: Resize and redraw AFTER step is visible using robust rAF chaining
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -3978,9 +3996,13 @@ function handleWatermarkFileUpload(e) {
             wizardState.watermarkFile = file;
             
             // Show editor canvas and info panel
-            document.getElementById('watermarkUploadZone').style.display = 'none';
+            document.getElementById('watermarkUploadZone').style.display = 'block'; // Keep visible for replace
             document.getElementById('watermarkEditorContainer').style.display = 'block';
             document.getElementById('watermarkInfoPanel').style.display = 'block';
+            
+            // Update button text to "Replace" now that we have a watermark
+            const uploadBtn = document.getElementById('watermarkUploadBtn');
+            if (uploadBtn) uploadBtn.innerHTML = '💧 Replace Watermark';
             
             // Update thumbnail and filename
             document.getElementById('watermarkThumb').src = event.target.result;
@@ -4346,6 +4368,14 @@ function drawPositionedWatermark(ctx, canvas, img, platform) {
     ctx.save();
     ctx.globalAlpha = userOpacity;
     ctx.drawImage(img, baseX, baseY, wmWidth, wmHeight);
+    
+    // Visual feedback: subtle bounding box to show watermark boundary
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(baseX, baseY, wmWidth, wmHeight);
+    ctx.setLineDash([]);
+    
     ctx.restore();
 }
 
