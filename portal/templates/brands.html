@@ -705,6 +705,12 @@
                             </div>
                         </div>
                         
+                        <!-- Watermark Size -->
+                        <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                            <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Watermark Size <span id="wmSizeVal">50%</span></label>
+                            <input type="range" id="watermarkSize" min="10" max="100" value="50" style="width:100%;" oninput="updateWatermarkSize(this.value)">
+                        </div>
+                        
                         <!-- Opacity Preview -->
                         <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
                             <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Opacity <span id="wmOpacityVal">50%</span></label>
@@ -2212,6 +2218,7 @@ let wizardState = {
     // Watermark (Step 3 - Editor)
     watermarkFile: null,
     watermarkShape: 'original',
+    watermarkScale: 50,
     watermarkOpacity: 50,
     watermarkContrast: 0
 };
@@ -3954,6 +3961,7 @@ function drawWatermarkEditor() {
     // Get current settings
     const opacity = parseInt(document.getElementById('watermarkOpacity')?.value || 50) / 100;
     const contrast = parseInt(document.getElementById('watermarkContrast')?.value || 0);
+    const size = parseInt(document.getElementById('watermarkSize')?.value || 50) / 100;
     const shape = document.querySelector('.option-btn[data-wm-shape].active')?.dataset.wmShape || 'original';
     
     ctx.save();
@@ -3963,11 +3971,12 @@ function drawWatermarkEditor() {
         ctx.filter = `contrast(${1 + contrast / 50})`;
     }
     
-    // Calculate center position and scale (Use 70% for better visibility in editor)
+    // Calculate center position and scale based on slider
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
-    const scale = Math.min(canvas.width * 0.7 / wizardWatermarkImage.width, 
-                          canvas.height * 0.7 / wizardWatermarkImage.height);
+    const maxScale = Math.min(canvas.width * 0.9 / wizardWatermarkImage.width, 
+                              canvas.height * 0.9 / wizardWatermarkImage.height);
+    const scale = maxScale * size;
     const width = wizardWatermarkImage.width * scale;
     const height = wizardWatermarkImage.height * scale;
     
@@ -4007,6 +4016,13 @@ function setWatermarkShape(shape) {
     drawWatermarkEditor();
 }
 
+// Update watermark size
+function updateWatermarkSize(value) {
+    document.getElementById('wmSizeVal').textContent = value + '%';
+    wizardState.watermarkScale = parseInt(value);
+    drawWatermarkEditor();
+}
+
 // Update watermark opacity
 function updateWatermarkOpacity(value) {
     document.getElementById('wmOpacityVal').textContent = value + '%';
@@ -4022,10 +4038,13 @@ function updateWatermarkContrast(value) {
 
 // Reset watermark to defaults
 function resetWatermark() {
+    document.getElementById('watermarkSize').value = 50;
+    document.getElementById('wmSizeVal').textContent = '50%';
     document.getElementById('watermarkOpacity').value = 50;
     document.getElementById('wmOpacityVal').textContent = '50%';
     document.getElementById('watermarkContrast').value = 0;
     setWatermarkShape('original');
+    wizardState.watermarkScale = 50;
     wizardState.watermarkOpacity = 50;
     wizardState.watermarkContrast = 0;
     wizardState.watermarkShape = 'original';
