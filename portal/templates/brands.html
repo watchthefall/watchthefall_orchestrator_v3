@@ -674,78 +674,96 @@
             </div>
         </div>
         
-        <!-- Step 3: Watermark (Optional) -->
+        <!-- Step 3: Position & Watermark (Direct Manipulation) -->
         <div id="wizardStep3" class="wizard-step">
-            <div class="wizard-step-content">
-                <h3>Position & Watermark <span style="font-size:14px; color:#888; font-weight:normal;">(Optional)</span></h3>
-                <p class="step-description">Position your logo on video and add an optional watermark.</p>
+            <div class="wizard-step-content" style="display:grid;grid-template-columns:1fr 220px;gap:20px;align-items:start;">
                 
-                <!-- Logo Position on Video (moved from Step 2) -->
-                <div class="step3-logo-placement" style="margin-bottom:20px;padding:16px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                    <label style="display:block;font-size:13px;font-weight:600;color:#EAEAEA;margin-bottom:10px;">Logo Position on Video</label>
-                    <div class="position-grid" style="max-width:160px;margin:0;">
-                        <button type="button" class="position-btn" data-pos="top-left" onclick="setWizardLogoPosition('top-left')">↖</button>
-                        <button type="button" class="position-btn" data-pos="top-right" onclick="setWizardLogoPosition('top-right')">↗</button>
-                        <button type="button" class="position-btn" data-pos="center" onclick="setWizardLogoPosition('center')">•</button>
-                        <button type="button" class="position-btn active" data-pos="bottom-left" onclick="setWizardLogoPosition('bottom-left')">↙</button>
-                        <button type="button" class="position-btn" data-pos="bottom-right" onclick="setWizardLogoPosition('bottom-right')">↘</button>
-                    </div>
-                    <div id="positionLabel" style="margin-top:8px;font-size:11px;color:var(--accent);text-align:center;">Bottom Left</div>
-                </div>
-                
-                <!-- Watermark Upload - Large zone (shown before upload) -->
-                <div class="upload-zone" id="wizardWatermarkUploadZone">
-                    <input type="file" id="wizardWatermarkInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden>
-                    <div class="upload-placeholder" onclick="document.getElementById('wizardWatermarkInput').click()">
-                        <span class="upload-icon">💧</span>
-                        <p>Click to upload watermark</p>
-                        <small>PNG with transparency recommended</small>
-                    </div>
-                </div>
-                
-                <!-- Compact Upload Row (shown after upload) -->
-                <div class="upload-row" id="wizardWatermarkRow" style="display:none;">
-                    <img id="wizardWatermarkThumb" src="" alt="Watermark">
-                    <span class="upload-filename" id="wizardWatermarkFilename">watermark.png</span>
-                    <div class="upload-actions">
-                        <button type="button" class="btn-text" onclick="document.getElementById('wizardWatermarkInput').click()">Change</button>
-                        <button type="button" class="btn-text btn-danger-text" onclick="clearWizardWatermark()">Remove</button>
-                    </div>
-                </div>
-                
-                <!-- 9:16 Preview (shown after upload) -->
-                <div class="preview-container" id="wizardWatermarkPreviewContainer" style="display:none;">
-                    <label>Preview</label>
-                    <div class="video-preview">
-                        <canvas id="wizardWatermarkCanvas" width="270" height="480"></canvas>
-                        <p class="preview-hint">Watermark overlay on 9:16 video frame</p>
-                    </div>
-                </div>
-                
-                <!-- Watermark Options (appear after upload) -->
-                <div id="wizardWatermarkOptions" style="display:none; margin-top:20px;">
+                <!-- Left: Large Interactive Canvas -->
+                <div class="step3-canvas-area">
+                    <h3 style="margin-bottom:8px;">Position Your Logo</h3>
+                    <p class="step-description" style="margin-bottom:12px;font-size:12px;color:#888;">Drag to position • Scroll to scale</p>
                     
-                    <!-- Mode Toggle -->
-                    <div class="option-group">
-                        <label>Watermark Mode</label>
-                        <div class="option-buttons">
-                            <button type="button" class="option-btn active" data-mode="positioned" onclick="setWizardWatermarkMode('positioned')">Positioned</button>
-                            <button type="button" class="option-btn" data-mode="fullscreen" onclick="setWizardWatermarkMode('fullscreen')">Fullscreen</button>
+                    <!-- Logo Preview Canvas (always visible, shows Step 2 output) -->
+                    <div class="preview-container" style="margin-bottom:16px;">
+                        <div class="video-preview" style="position:relative;">
+                            <canvas id="wizardPositionCanvas" width="360" height="640" style="cursor:move;"></canvas>
+                            <!-- Helper text overlay -->
+                            <div id="canvasHelperText" style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);padding:6px 12px;border-radius:4px;font-size:11px;color:#fff;pointer-events:none;opacity:0.8;">
+                                Drag to position • Scroll to scale
+                            </div>
                         </div>
                     </div>
                     
-                    <!-- Scale Slider -->
-                    <div class="slider-group">
-                        <label>Scale <span id="wizardWatermarkScaleVal">25%</span></label>
-                        <input type="range" id="wizardWatermarkScale" min="10" max="200" value="25" style="width:100%;" oninput="updateWizardWatermarkScale(this.value)">
+                    <!-- Optional Watermark Upload -->
+                    <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                        <label style="display:block;font-size:11px;color:#888;margin-bottom:8px;">Optional Watermark Overlay</label>
+                        
+                        <!-- Watermark Upload Zone (shown before upload) -->
+                        <div class="upload-zone" id="wizardWatermarkUploadZone" style="padding:16px;min-height:auto;">
+                            <input type="file" id="wizardWatermarkInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden>
+                            <div class="upload-placeholder" onclick="document.getElementById('wizardWatermarkInput').click()" style="padding:0;">
+                                <span class="upload-icon" style="font-size:20px;">💧</span>
+                                <p style="font-size:12px;margin:4px 0;">Click to add watermark</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Watermark Info Row (shown after upload) -->
+                        <div class="upload-row" id="wizardWatermarkRow" style="display:none;padding:8px;background:rgba(255,255,255,0.05);border-radius:4px;">
+                            <img id="wizardWatermarkThumb" src="" alt="" style="width:24px;height:24px;">
+                            <span class="upload-filename" id="wizardWatermarkFilename" style="font-size:11px;">watermark.png</span>
+                            <div class="upload-actions">
+                                <button type="button" class="btn-text" style="font-size:10px;padding:2px 6px;" onclick="document.getElementById('wizardWatermarkInput').click()">Change</button>
+                                <button type="button" class="btn-text btn-danger-text" style="font-size:10px;padding:2px 6px;" onclick="clearWizardWatermark()">Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right: Properties Panel -->
+                <div class="step3-properties" style="padding:16px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                    <label style="display:block;font-size:12px;font-weight:600;color:#EAEAEA;margin-bottom:12px;">Logo Settings</label>
+                    
+                    <!-- Size Slider -->
+                    <div class="prop-group" style="margin-bottom:16px;">
+                        <label style="font-size:11px;">Size <span id="wizardLogoSizeVal">25%</span></label>
+                        <input type="range" id="wizardLogoSize" min="5" max="50" value="25" style="width:100%;" oninput="updateWizardLogoSize(this.value)">
                     </div>
                     
                     <!-- Opacity Slider -->
-                    <div class="slider-group">
-                        <label>Opacity <span id="wizardWatermarkOpacityVal">20%</span></label>
-                        <input type="range" id="wizardWatermarkOpacity" min="0" max="100" value="20" style="width:100%;" oninput="updateWizardWatermarkOpacity(this.value)">
+                    <div class="prop-group" style="margin-bottom:16px;">
+                        <label style="font-size:11px;">Opacity <span id="wizardLogoOpacityDisplay">100%</span></label>
+                        <input type="range" id="wizardLogoOpacityInput" min="0" max="100" value="100" style="width:100%;" oninput="updateWizardLogoOpacityDisplay(this.value)">
                     </div>
                     
+                    <!-- Snap Toggle -->
+                    <div class="prop-group" style="margin-bottom:16px;">
+                        <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer;">
+                            <input type="checkbox" id="wizardSnapToggle" checked style="cursor:pointer;">
+                            Snap to edges
+                        </label>
+                    </div>
+                    
+                    <!-- Reset / Revert -->
+                    <div class="prop-group" style="padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
+                        <button type="button" class="btn btn-secondary" style="width:100%;font-size:11px;padding:8px;" onclick="resetLogoPosition()">
+                            🔄 Reset Position
+                        </button>
+                    </div>
+                    
+                    <!-- Watermark Settings (shown when watermark exists) -->
+                    <div id="wizardWatermarkSettings" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
+                        <label style="display:block;font-size:12px;font-weight:600;color:#EAEAEA;margin-bottom:12px;">Watermark Settings</label>
+                        
+                        <div class="prop-group" style="margin-bottom:12px;">
+                            <label style="font-size:11px;">WM Size <span id="wizardWMSizeVal">25%</span></label>
+                            <input type="range" id="wizardWMSize" min="10" max="100" value="25" style="width:100%;" oninput="updateWizardWMSize(this.value)">
+                        </div>
+                        
+                        <div class="prop-group">
+                            <label style="font-size:11px;">WM Opacity <span id="wizardWMOpacityVal">50%</span></label>
+                            <input type="range" id="wizardWMOpacity" min="0" max="100" value="50" style="width:100%;" oninput="updateWizardWMOpacity(this.value)">
+                        </div>
+                    </div>
                 </div>
                 
             </div>
@@ -2168,28 +2186,24 @@ async function showWizardStep(step) {
         await updateWizardLogoImageFromEditor();
         // ========== END V2A ==========
         
-        // Re-render previews when entering Step 3
+        // ========== STEP 3 DIRECT MANIPULATION: Init canvas ==========
+        initStep3Canvas();
+        // ========== END STEP 3 ==========
+        
+        // Show watermark UI based on state
         const wmZone = document.getElementById('wizardWatermarkUploadZone');
         const wmRow = document.getElementById('wizardWatermarkRow');
-        const wmPreview = document.getElementById('wizardWatermarkPreviewContainer');
-        const wmOptions = document.getElementById('wizardWatermarkOptions');
-        const skipBtn = document.getElementById('wizardSkipWatermarkBtn');
+        const wmSettings = document.getElementById('wizardWatermarkSettings');
         
-        if (wmZone && wmRow && wmPreview && wmOptions) {
+        if (wmZone && wmRow) {
             if (wizardState.watermarkFile) {
                 wmZone.style.display = 'none';
                 wmRow.style.display = 'flex';
-                wmPreview.style.display = 'block';
-                wmOptions.style.display = 'block';
-                if (skipBtn) skipBtn.style.display = 'none'; // Hide skip button when watermark exists
-                // Delay preview render to ensure wizardLogoImage is updated
-                requestAnimationFrame(() => drawWizardWatermarkPreview());
+                if (wmSettings) wmSettings.style.display = 'block';
             } else {
                 wmZone.style.display = 'block';
                 wmRow.style.display = 'none';
-                wmPreview.style.display = 'none';
-                wmOptions.style.display = 'none';
-                if (skipBtn) skipBtn.style.display = 'block'; // Show skip button when no watermark
+                if (wmSettings) wmSettings.style.display = 'none';
             }
         }
     }
@@ -3515,6 +3529,250 @@ function drawWizardWatermarkPreview() {
             ctx.restore();
         }
     }
+}
+
+// ========== STEP 3 DIRECT MANIPULATION (NEW) ==========
+
+// Step 3 state for direct manipulation
+let step3Canvas = null;
+let step3Ctx = null;
+let step3Dragging = false;
+let step3DragStart = { x: 0, y: 0 };
+let step3LogoPos = { x: 0.1, y: 0.9 }; // Normalized position (0-1)
+let step3LogoScale = 0.25; // 25% default
+
+// Initialize Step 3 canvas and interactions
+function initStep3Canvas() {
+    step3Canvas = document.getElementById('wizardPositionCanvas');
+    if (!step3Canvas) return;
+    
+    step3Ctx = step3Canvas.getContext('2d');
+    
+    // Set initial position from wizardState
+    step3LogoPos = { 
+        x: wizardState.logoX || 0.1, 
+        y: wizardState.logoY || 0.9 
+    };
+    step3LogoScale = (wizardState.logoScale || 25) / 100;
+    
+    // Mouse events for dragging
+    step3Canvas.addEventListener('mousedown', onStep3DragStart);
+    step3Canvas.addEventListener('mousemove', onStep3DragMove);
+    step3Canvas.addEventListener('mouseup', onStep3DragEnd);
+    step3Canvas.addEventListener('mouseleave', onStep3DragEnd);
+    
+    // Touch events
+    step3Canvas.addEventListener('touchstart', onStep3TouchStart, { passive: false });
+    step3Canvas.addEventListener('touchmove', onStep3TouchMove, { passive: false });
+    step3Canvas.addEventListener('touchend', onStep3DragEnd);
+    
+    // Scroll to scale
+    step3Canvas.addEventListener('wheel', onStep3Scroll, { passive: false });
+    
+    // Initial draw
+    drawStep3Canvas();
+}
+
+// Get mouse position on canvas
+function getStep3MousePos(e) {
+    const rect = step3Canvas.getBoundingClientRect();
+    return {
+        x: (e.clientX - rect.left) * (step3Canvas.width / rect.width),
+        y: (e.clientY - rect.top) * (step3Canvas.height / rect.height)
+    };
+}
+
+// Drag start
+function onStep3DragStart(e) {
+    if (!wizardLogoImage) return;
+    e.preventDefault();
+    step3Dragging = true;
+    const pos = getStep3MousePos(e);
+    step3DragStart = { x: pos.x, y: pos.y };
+    step3Canvas.style.cursor = 'grabbing';
+}
+
+// Drag move
+function onStep3DragMove(e) {
+    if (!step3Dragging || !wizardLogoImage) return;
+    e.preventDefault();
+    
+    const pos = getStep3MousePos(e);
+    const dx = pos.x - step3DragStart.x;
+    const dy = pos.y - step3DragStart.y;
+    
+    // Convert pixel delta to normalized delta
+    const logoWidth = step3Canvas.width * step3LogoScale;
+    const logoHeight = logoWidth * (wizardLogoImage.height / wizardLogoImage.width);
+    
+    step3LogoPos.x += dx / (step3Canvas.width - logoWidth);
+    step3LogoPos.y += dy / (step3Canvas.height - logoHeight);
+    
+    // Clamp to safe area (5% padding)
+    step3LogoPos.x = Math.max(0.05, Math.min(0.95, step3LogoPos.x));
+    step3LogoPos.y = Math.max(0.05, Math.min(0.95, step3LogoPos.y));
+    
+    // Snap to edges if enabled
+    if (document.getElementById('wizardSnapToggle')?.checked) {
+        const snapThreshold = 0.05;
+        if (step3LogoPos.x < 0.05 + snapThreshold) step3LogoPos.x = 0.05;
+        if (step3LogoPos.x > 0.95 - snapThreshold) step3LogoPos.x = 0.95;
+        if (step3LogoPos.y < 0.05 + snapThreshold) step3LogoPos.y = 0.05;
+        if (step3LogoPos.y > 0.95 - snapThreshold) step3LogoPos.y = 0.95;
+    }
+    
+    step3DragStart = { x: pos.x, y: pos.y };
+    
+    // Sync to wizardState
+    wizardState.logoX = step3LogoPos.x;
+    wizardState.logoY = step3LogoPos.y;
+    
+    drawStep3Canvas();
+}
+
+// Drag end
+function onStep3DragEnd(e) {
+    if (!step3Dragging) return;
+    step3Dragging = false;
+    step3Canvas.style.cursor = 'move';
+}
+
+// Touch handlers
+function onStep3TouchStart(e) {
+    if (e.touches.length === 1) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        onStep3DragStart({ clientX: touch.clientX, clientY: touch.clientY, preventDefault: () => {} });
+    }
+}
+
+function onStep3TouchMove(e) {
+    if (e.touches.length === 1 && step3Dragging) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        onStep3DragMove({ clientX: touch.clientX, clientY: touch.clientY, preventDefault: () => {} });
+    }
+}
+
+// Scroll to scale
+function onStep3Scroll(e) {
+    if (!wizardLogoImage) return;
+    e.preventDefault();
+    
+    const delta = e.deltaY > 0 ? -0.02 : 0.02;
+    step3LogoScale = Math.max(0.05, Math.min(0.50, step3LogoScale + delta));
+    
+    // Sync to wizardState and slider
+    wizardState.logoScale = Math.round(step3LogoScale * 100);
+    const slider = document.getElementById('wizardLogoSize');
+    const label = document.getElementById('wizardLogoSizeVal');
+    if (slider) slider.value = wizardState.logoScale;
+    if (label) label.textContent = wizardState.logoScale + '%';
+    
+    drawStep3Canvas();
+}
+
+// Draw Step 3 canvas with logo and optional watermark
+function drawStep3Canvas() {
+    if (!step3Ctx || !step3Canvas) return;
+    
+    const ctx = step3Ctx;
+    const canvas = step3Canvas;
+    
+    // Clear
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Background
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Safe margin (5%)
+    const margin = canvas.width * 0.05;
+    
+    // Draw safe area guides
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.setLineDash([5, 5]);
+    ctx.strokeRect(margin, margin, canvas.width - margin * 2, canvas.height - margin * 2);
+    ctx.setLineDash([]);
+    
+    // Draw 3x3 grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.beginPath();
+    ctx.moveTo(canvas.width / 3, 0); ctx.lineTo(canvas.width / 3, canvas.height);
+    ctx.moveTo(2 * canvas.width / 3, 0); ctx.lineTo(2 * canvas.width / 3, canvas.height);
+    ctx.moveTo(0, canvas.height / 3); ctx.lineTo(canvas.width, canvas.height / 3);
+    ctx.moveTo(0, 2 * canvas.height / 3); ctx.lineTo(canvas.width, 2 * canvas.height / 3);
+    ctx.stroke();
+    
+    // Draw logo
+    if (wizardLogoImage && wizardLogoImage.complete) {
+        const logoWidth = canvas.width * step3LogoScale;
+        const logoHeight = logoWidth * (wizardLogoImage.height / wizardLogoImage.width);
+        
+        // Calculate position from normalized coords
+        const maxX = canvas.width - logoWidth - margin * 2;
+        const maxY = canvas.height - logoHeight - margin * 2;
+        const x = margin + step3LogoPos.x * maxX;
+        const y = margin + step3LogoPos.y * maxY;
+        
+        ctx.globalAlpha = (wizardState.logoOpacity || 100) / 100;
+        ctx.drawImage(wizardLogoImage, x, y, logoWidth, logoHeight);
+        ctx.globalAlpha = 1;
+    }
+    
+    // Draw watermark if exists
+    if (wizardWatermarkImage && wizardWatermarkImage.complete && wizardState.watermarkFile) {
+        const wmScale = (wizardState.watermarkScale || 25) / 100;
+        const wmWidth = canvas.width * wmScale * 0.5; // Watermark is smaller
+        const wmHeight = wmWidth * (wizardWatermarkImage.height / wizardWatermarkImage.width);
+        
+        // Watermark in opposite corner from logo
+        const wmX = step3LogoPos.x < 0.5 ? canvas.width - wmWidth - margin : margin;
+        const wmY = step3LogoPos.y < 0.5 ? canvas.height - wmHeight - margin : margin;
+        
+        ctx.globalAlpha = ((wizardState.watermarkOpacity || 50) / 100) * 0.5;
+        ctx.drawImage(wizardWatermarkImage, wmX, wmY, wmWidth, wmHeight);
+        ctx.globalAlpha = 1;
+    }
+}
+
+// Update functions for sliders
+function updateWizardLogoSize(value) {
+    step3LogoScale = value / 100;
+    wizardState.logoScale = parseInt(value);
+    document.getElementById('wizardLogoSizeVal').textContent = value + '%';
+    drawStep3Canvas();
+}
+
+function updateWizardLogoOpacityDisplay(value) {
+    wizardState.logoOpacity = parseInt(value);
+    document.getElementById('wizardLogoOpacityDisplay').textContent = value + '%';
+    drawStep3Canvas();
+}
+
+function updateWizardWMSize(value) {
+    wizardState.watermarkScale = parseInt(value);
+    document.getElementById('wizardWMSizeVal').textContent = value + '%';
+    drawStep3Canvas();
+}
+
+function updateWizardWMOpacity(value) {
+    wizardState.watermarkOpacity = parseInt(value);
+    document.getElementById('wizardWMOpacityVal').textContent = value + '%';
+    drawStep3Canvas();
+}
+
+function resetLogoPosition() {
+    step3LogoPos = { x: 0.1, y: 0.9 };
+    step3LogoScale = 0.25;
+    wizardState.logoX = 0.1;
+    wizardState.logoY = 0.9;
+    wizardState.logoScale = 25;
+    
+    document.getElementById('wizardLogoSize').value = 25;
+    document.getElementById('wizardLogoSizeVal').textContent = '25%';
+    
+    drawStep3Canvas();
 }
 
 function setWizardWatermarkMode(mode) {
