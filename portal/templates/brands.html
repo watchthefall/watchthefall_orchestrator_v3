@@ -689,7 +689,7 @@
                     </button>
                 </div>
                 
-                <!-- Main Content: Upload Zone OR Editor Canvas -->
+                <!-- Main Content: Editor Canvas Dominant -->
                 <div style="display:flex;gap:20px;flex:1;min-height:0;">
                     
                     <!-- Left: Tools Panel -->
@@ -721,22 +721,20 @@
                         <button type="button" class="btn btn-secondary" style="width:100%;font-size:11px;padding:8px;" onclick="resetWatermark()">↺ Reset</button>
                     </div>
                     
-                    <!-- Center: Watermark Editor Canvas -->
+                    <!-- Center: Watermark Editor Canvas (Dominant) -->
                     <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;">
                         
-                        <!-- Upload Zone (shown before watermark exists) -->
-                        <div id="watermarkUploadZone" class="upload-zone" style="width:100%;max-width:400px;">
-                            <input type="file" id="watermarkFileInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden onchange="handleWatermarkFileUpload(event)">
-                            <div class="upload-placeholder" onclick="document.getElementById('watermarkFileInput').click()">
-                                <span class="upload-icon">💧</span>
-                                <p style="font-size:14px;margin:8px 0;">Upload Separate Watermark</p>
-                                <p style="font-size:11px;color:#888;">Or use the logo from Step 2</p>
-                            </div>
-                        </div>
-                        
-                        <!-- Editor Canvas (shown after watermark uploaded) -->
-                        <div id="watermarkEditorContainer" style="display:none;width:100%;height:100%;">
+                        <!-- Editor Canvas (Always visible if logo exists) -->
+                        <div id="watermarkEditorContainer" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
                             <canvas id="watermarkEditorCanvas" width="400" height="400" style="background-image:linear-gradient(45deg, #1a1a1e 25%, transparent 25%), linear-gradient(-45deg, #1a1a1e 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #1a1a1e 75%), linear-gradient(-45deg, transparent 75%, #1a1a1e 75%);background-size:20px 20px;background-position:0 0, 0 10px, 10px -10px, -10px 0px;border-radius:8px;cursor:move;"></canvas>
+                        </div>
+
+                        <!-- Upload Zone (Secondary/Override) -->
+                        <div id="watermarkUploadZone" style="position:absolute;bottom:20px;right:20px;z-index:10;">
+                            <input type="file" id="watermarkFileInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden onchange="handleWatermarkFileUpload(event)">
+                            <button type="button" class="btn btn-secondary" style="font-size:11px;padding:8px 12px;" onclick="document.getElementById('watermarkFileInput').click()">
+                                💧 Replace Watermark
+                            </button>
                         </div>
                         
                     </div>
@@ -745,7 +743,7 @@
                     <div style="width:180px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
                         
                         <!-- Watermark Info -->
-                        <div id="watermarkInfoPanel" style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;display:none;">
+                        <div id="watermarkInfoPanel" style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
                             <img id="watermarkThumb" src="" alt="" style="width:60px;height:60px;object-fit:contain;border-radius:4px;background:rgba(255,255,255,0.05);margin-bottom:8px;">
                             <div id="watermarkFilename" style="font-size:11px;color:#ccc;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">watermark.png</div>
                             <div style="display:flex;gap:6px;">
@@ -2244,15 +2242,6 @@ async function showWizardStep(step) {
             wizardWatermarkImage = wizardLogoImage;
             wizardState.watermarkFile = wizardState.logoFile; // Keep reference for now, will be replaced on save
             
-            // Show editor canvas and info panel
-            const wmZone = document.getElementById('watermarkUploadZone');
-            const wmEditor = document.getElementById('watermarkEditorContainer');
-            const wmInfo = document.getElementById('watermarkInfoPanel');
-            
-            if (wmZone) wmZone.style.display = 'none';
-            if (wmEditor) wmEditor.style.display = 'block';
-            if (wmInfo) wmInfo.style.display = 'block';
-            
             // Update thumbnail and filename
             const thumb = document.getElementById('watermarkThumb');
             const fname = document.getElementById('watermarkFilename');
@@ -2264,22 +2253,17 @@ async function showWizardStep(step) {
         }
         // ========== END WATERMARK MODE ==========
         
-        // Show watermark UI based on state (fallback for manual uploads)
-        const wmZone = document.getElementById('watermarkUploadZone');
-        const wmEditor = document.getElementById('watermarkEditorContainer');
+        // Ensure Info Panel is visible if we have a watermark (auto-loaded or manual)
         const wmInfo = document.getElementById('watermarkInfoPanel');
-        
-        if (wmZone && wmEditor) {
-            if (wizardState.watermarkFile) {
-                wmZone.style.display = 'none';
-                wmEditor.style.display = 'block';
-                if (wmInfo) wmInfo.style.display = 'block';
-            } else {
-                wmZone.style.display = 'block';
-                wmEditor.style.display = 'none';
-                if (wmInfo) wmInfo.style.display = 'none';
-            }
+        if (wmInfo && wizardState.watermarkFile) {
+            wmInfo.style.display = 'block';
+        } else if (wmInfo) {
+            wmInfo.style.display = 'none';
         }
+
+        // Always ensure the editor container is visible in Watermark Mode
+        const wmEditor = document.getElementById('watermarkEditorContainer');
+        if (wmEditor) wmEditor.style.display = 'flex';
     }
 }
 
@@ -3739,11 +3723,11 @@ function drawWatermarkEditor() {
         ctx.filter = `contrast(${1 + contrast / 50})`;
     }
     
-    // Calculate center position and scale
+    // Calculate center position and scale (Use 70% for better visibility in editor)
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
-    const scale = Math.min(canvas.width * 0.8 / wizardWatermarkImage.width, 
-                          canvas.height * 0.8 / wizardWatermarkImage.height);
+    const scale = Math.min(canvas.width * 0.7 / wizardWatermarkImage.width, 
+                          canvas.height * 0.7 / wizardWatermarkImage.height);
     const width = wizardWatermarkImage.width * scale;
     const height = wizardWatermarkImage.height * scale;
     
