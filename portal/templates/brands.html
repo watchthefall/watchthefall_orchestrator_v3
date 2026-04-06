@@ -674,95 +674,108 @@
             </div>
         </div>
         
-        <!-- Step 3: Position & Watermark (Direct Manipulation) -->
+        <!-- Step 3: Watermark (Simplified Direct Manipulation) -->
         <div id="wizardStep3" class="wizard-step">
-            <div class="wizard-step-content" style="display:grid;grid-template-columns:1fr 220px;gap:20px;align-items:start;">
+            <div class="wizard-step-content" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
                 
-                <!-- Left: Large Interactive Canvas -->
-                <div class="step3-canvas-area">
-                    <h3 style="margin-bottom:8px;">Position Your Logo</h3>
-                    <p class="step-description" style="margin-bottom:12px;font-size:12px;color:#888;">Drag to position • Scroll to scale</p>
-                    
-                    <!-- Logo Preview Canvas (always visible, shows Step 2 output) -->
-                    <div class="preview-container" style="margin-bottom:16px;">
-                        <div class="video-preview" style="position:relative;">
-                            <canvas id="wizardPositionCanvas" width="360" height="640" style="cursor:move;"></canvas>
-                            <!-- Helper text overlay -->
-                            <div id="canvasHelperText" style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);padding:6px 12px;border-radius:4px;font-size:11px;color:#fff;pointer-events:none;opacity:0.8;">
-                                Drag to position • Scroll to scale
-                            </div>
-                        </div>
+                <!-- Header with Title and Top-right Icons -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-shrink:0;">
+                    <div>
+                        <h3 style="margin:0;font-size:18px;">Step 3: Watermark</h3>
+                        <p class="step-description" style="margin:4px 0 0;font-size:12px;color:#888;">Place and adjust your watermark on the video</p>
                     </div>
-                    
-                    <!-- Optional Watermark Upload -->
-                    <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                        <label style="display:block;font-size:11px;color:#888;margin-bottom:8px;">Optional Watermark Overlay</label>
-                        
-                        <!-- Watermark Upload Zone (shown before upload) -->
-                        <div class="upload-zone" id="wizardWatermarkUploadZone" style="padding:16px;min-height:auto;">
-                            <input type="file" id="wizardWatermarkInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden>
-                            <div class="upload-placeholder" onclick="document.getElementById('wizardWatermarkInput').click()" style="padding:0;">
-                                <span class="upload-icon" style="font-size:20px;">💧</span>
-                                <p style="font-size:12px;margin:4px 0;">Click to add watermark</p>
-                            </div>
-                        </div>
-                        
-                        <!-- Watermark Info Row (shown after upload) -->
-                        <div class="upload-row" id="wizardWatermarkRow" style="display:none;padding:8px;background:rgba(255,255,255,0.05);border-radius:4px;">
-                            <img id="wizardWatermarkThumb" src="" alt="" style="width:24px;height:24px;">
-                            <span class="upload-filename" id="wizardWatermarkFilename" style="font-size:11px;">watermark.png</span>
-                            <div class="upload-actions">
-                                <button type="button" class="btn-text" style="font-size:10px;padding:2px 6px;" onclick="document.getElementById('wizardWatermarkInput').click()">Change</button>
-                                <button type="button" class="btn-text btn-danger-text" style="font-size:10px;padding:2px 6px;" onclick="clearWizardWatermark()">Remove</button>
-                            </div>
-                        </div>
+                    <div style="display:flex;gap:8px;">
+                        <button type="button" class="btn-icon" onclick="showWizardStep(2)" title="Back to Step 2 - Edit Logo">
+                            🎨
+                        </button>
+                        <button type="button" class="btn-icon" onclick="toggleStep3Settings()" title="Settings">
+                            ⚙️
+                        </button>
                     </div>
                 </div>
                 
-                <!-- Right: Properties Panel -->
-                <div class="step3-properties" style="padding:16px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                    <label style="display:block;font-size:12px;font-weight:600;color:#EAEAEA;margin-bottom:12px;">Logo Settings</label>
+                <!-- Main Content: Canvas + Optional Side Panel -->
+                <div style="display:flex;gap:16px;flex:1;min-height:0;">
                     
-                    <!-- Size Slider -->
-                    <div class="prop-group" style="margin-bottom:16px;">
-                        <label style="font-size:11px;">Size <span id="wizardLogoSizeVal">25%</span></label>
-                        <input type="range" id="wizardLogoSize" min="5" max="50" value="25" style="width:100%;" oninput="updateWizardLogoSize(this.value)">
-                    </div>
-                    
-                    <!-- Opacity Slider -->
-                    <div class="prop-group" style="margin-bottom:16px;">
-                        <label style="font-size:11px;">Opacity <span id="wizardLogoOpacityDisplay">100%</span></label>
-                        <input type="range" id="wizardLogoOpacityInput" min="0" max="100" value="100" style="width:100%;" oninput="updateWizardLogoOpacityDisplay(this.value)">
-                    </div>
-                    
-                    <!-- Snap Toggle -->
-                    <div class="prop-group" style="margin-bottom:16px;">
-                        <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer;">
-                            <input type="checkbox" id="wizardSnapToggle" checked style="cursor:pointer;">
-                            Snap to edges
-                        </label>
-                    </div>
-                    
-                    <!-- Reset / Revert -->
-                    <div class="prop-group" style="padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
-                        <button type="button" class="btn btn-secondary" style="width:100%;font-size:11px;padding:8px;" onclick="resetLogoPosition()">
-                            🔄 Reset Position
-                        </button>
-                    </div>
-                    
-                    <!-- Watermark Settings (shown when watermark exists) -->
-                    <div id="wizardWatermarkSettings" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
-                        <label style="display:block;font-size:12px;font-weight:600;color:#EAEAEA;margin-bottom:12px;">Watermark Settings</label>
-                        
-                        <div class="prop-group" style="margin-bottom:12px;">
-                            <label style="font-size:11px;">WM Size <span id="wizardWMSizeVal">25%</span></label>
-                            <input type="range" id="wizardWMSize" min="10" max="100" value="25" style="width:100%;" oninput="updateWizardWMSize(this.value)">
+                    <!-- Left: Logo Thumbnail (fixed) -->
+                    <div style="width:140px;flex-shrink:0;">
+                        <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;text-align:center;">
+                            <img id="step3LogoThumb" src="" alt="Logo" style="width:80px;height:80px;object-fit:contain;border-radius:8px;background:rgba(255,255,255,0.05);margin-bottom:8px;">
+                            <div id="step3LogoName" style="font-size:11px;color:#ccc;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">logo.png</div>
+                            <div style="display:flex;gap:8px;justify-content:center;">
+                                <button type="button" class="btn-text" style="font-size:10px;" onclick="showWizardStep(2)">Change</button>
+                                <button type="button" class="btn-text btn-danger-text" style="font-size:10px;" onclick="clearWizardLogo()">Remove</button>
+                            </div>
                         </div>
                         
-                        <div class="prop-group">
-                            <label style="font-size:11px;">WM Opacity <span id="wizardWMOpacityVal">50%</span></label>
-                            <input type="range" id="wizardWMOpacity" min="0" max="100" value="50" style="width:100%;" oninput="updateWizardWMOpacity(this.value)">
+                        <!-- Tip -->
+                        <div style="margin-top:12px;padding:10px;background:rgba(255,193,7,0.1);border-radius:6px;border-left:2px solid #ffc107;">
+                            <p style="font-size:10px;color:#ffc107;margin:0;line-height:1.4;">
+                                💡 Tip: Use a high-contrast logo with transparent background for best results.
+                            </p>
                         </div>
+                    </div>
+                    
+                    <!-- Center: Large Canvas -->
+                    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;">
+                        <!-- Safe zone label -->
+                        <div style="position:absolute;top:0;left:0;font-size:10px;color:#888;">Safe zone →</div>
+                        <div style="position:absolute;top:0;right:0;font-size:10px;color:#888;">9:16</div>
+                        
+                        <!-- Canvas Container -->
+                        <div style="position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.5);border-radius:8px;overflow:hidden;">
+                            <canvas id="wizardPositionCanvas" width="360" height="640" style="cursor:move;display:block;"></canvas>
+                            
+                            <!-- Helper text overlay -->
+                            <div style="position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);padding:6px 12px;border-radius:4px;font-size:11px;color:#fff;pointer-events:none;white-space:nowrap;">
+                                Drag to move • Scroll to scale
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Settings Panel (collapsible) -->
+                    <div id="step3SettingsPanel" style="width:200px;flex-shrink:0;padding:16px;background:rgba(0,0,0,0.2);border-radius:8px;transition:all 0.2s;">
+                        <label style="display:block;font-size:12px;font-weight:600;color:#EAEAEA;margin-bottom:16px;">Settings</label>
+                        
+                        <!-- Size (read-only display, controlled by scroll) -->
+                        <div style="margin-bottom:16px;">
+                            <div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-bottom:4px;">
+                                <span>Size</span>
+                                <span id="wizardLogoSizeVal">25%</span>
+                            </div>
+                            <input type="range" id="wizardLogoSize" min="5" max="50" value="25" style="width:100%;" oninput="updateWizardLogoSize(this.value)">
+                        </div>
+                        
+                        <!-- Opacity -->
+                        <div style="margin-bottom:16px;">
+                            <div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-bottom:4px;">
+                                <span>Opacity</span>
+                                <span id="wizardLogoOpacityDisplay">100%</span>
+                            </div>
+                            <input type="range" id="wizardLogoOpacityInput" min="0" max="100" value="100" style="width:100%;" oninput="updateWizardLogoOpacityDisplay(this.value)">
+                        </div>
+                        
+                        <!-- Snap Toggle -->
+                        <div style="margin-bottom:16px;">
+                            <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer;">
+                                <input type="checkbox" id="wizardSnapToggle" checked style="cursor:pointer;">
+                                <span>Snap to edges</span>
+                            </label>
+                        </div>
+                        
+                        <!-- Reset / Revert -->
+                        <div style="padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
+                            <button type="button" class="btn btn-secondary" style="width:100%;font-size:11px;padding:8px;margin-bottom:8px;" onclick="resetLogoPosition()">
+                                ↺ Reset
+                            </button>
+                            <button type="button" class="btn btn-secondary" style="width:100%;font-size:11px;padding:8px;" onclick="revertLogoChanges()">
+                                ↩ Revert
+                            </button>
+                        </div>
+                        
+                        <p style="font-size:10px;color:#666;margin-top:12px;text-align:center;">
+                            ✓ Changes are auto-saved
+                        </p>
                     </div>
                 </div>
                 
@@ -1342,6 +1355,25 @@
     font-size: 13px;
     cursor: pointer;
     text-decoration: underline;
+}
+
+.btn-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.btn-icon:hover {
+    background: rgba(255,255,255,0.2);
 }
 
 /* Mobile optimizations */
@@ -3555,6 +3587,16 @@ function initStep3Canvas() {
     };
     step3LogoScale = (wizardState.logoScale || 25) / 100;
     
+    // Update logo thumbnail and name
+    const thumb = document.getElementById('step3LogoThumb');
+    const name = document.getElementById('step3LogoName');
+    if (thumb && wizardLogoImage) {
+        thumb.src = wizardLogoImage.src;
+    }
+    if (name && wizardState.logoFile) {
+        name.textContent = wizardState.logoFile.name;
+    }
+    
     // Mouse events for dragging
     step3Canvas.addEventListener('mousedown', onStep3DragStart);
     step3Canvas.addEventListener('mousemove', onStep3DragMove);
@@ -3571,6 +3613,35 @@ function initStep3Canvas() {
     
     // Initial draw
     drawStep3Canvas();
+}
+
+// Toggle Settings panel visibility
+function toggleStep3Settings() {
+    const panel = document.getElementById('step3SettingsPanel');
+    if (panel) {
+        const isVisible = panel.style.display !== 'none';
+        panel.style.display = isVisible ? 'none' : 'block';
+    }
+}
+
+// Revert logo changes (go back to Step 2 state)
+function revertLogoChanges() {
+    // Reset to Step 2 defaults
+    step3LogoPos = { x: 0.1, y: 0.9 };
+    step3LogoScale = 0.25;
+    wizardState.logoX = 0.1;
+    wizardState.logoY = 0.9;
+    wizardState.logoScale = 25;
+    wizardState.logoOpacity = 100;
+    
+    // Update UI
+    document.getElementById('wizardLogoSize').value = 25;
+    document.getElementById('wizardLogoSizeVal').textContent = '25%';
+    document.getElementById('wizardLogoOpacityInput').value = 100;
+    document.getElementById('wizardLogoOpacityDisplay').textContent = '100%';
+    
+    drawStep3Canvas();
+    console.log('[Step 3] Logo changes reverted');
 }
 
 // Get mouse position on canvas
