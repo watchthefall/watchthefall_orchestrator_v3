@@ -1251,6 +1251,12 @@
     #watermarkEditorCanvas {
         max-width: 100%;
         height: auto;
+        display: block;
+    }
+
+    .wm-canvas-container canvas {
+        width: 100% !important;
+        height: auto !important;
     }
 
     #watermarkUploadZone {
@@ -3955,6 +3961,7 @@ function drawWatermarkEditor() {
     const canvas = document.getElementById('watermarkEditorCanvas');
     if (!canvas || !wizardWatermarkImage) return;
     
+    // Ensure we are drawing to the actual internal resolution, not the CSS-scaled size
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
@@ -3972,6 +3979,7 @@ function drawWatermarkEditor() {
     }
     
     // Calculate center position and scale based on slider
+    // We use a "max fit" logic so 100% fills most of the canvas
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     const maxScale = Math.min(canvas.width * 0.9 / wizardWatermarkImage.width, 
