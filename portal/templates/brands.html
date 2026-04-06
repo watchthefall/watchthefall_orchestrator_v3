@@ -2236,20 +2236,46 @@ async function showWizardStep(step) {
         await updateWizardLogoImageFromEditor();
         // ========== END V2A ==========
         
-        // ========== WATERMARK MODE: Auto-load Step 2 logo if no watermark exists ==========
+        // ========== WATERMARK MODE: Deep Clone Step 2 Logo into Watermark State ==========
         if (!wizardState.watermarkFile && wizardState.logoFile && wizardLogoImage) {
-            console.log('[Watermark Mode] Auto-loading Step 2 logo as initial watermark source');
-            wizardWatermarkImage = wizardLogoImage;
-            wizardState.watermarkFile = wizardState.logoFile; // Keep reference for now, will be replaced on save
+            console.log('[Watermark Mode] Deep cloning Step 2 logo for watermark isolation');
             
-            // Update thumbnail and filename
-            const thumb = document.getElementById('watermarkThumb');
-            const fname = document.getElementById('watermarkFilename');
-            if (thumb) thumb.src = wizardLogoImage.src;
-            if (fname) fname.textContent = 'Based on: ' + wizardState.logoFile.name;
-            
-            // Draw on canvas with default watermark settings
-            drawWatermarkEditor();
+            // Create a deep clone by exporting the current logo state to a blob and reloading it
+            try {
+                const sourceCanvas = editorWorkingCanvas || document.createElement('canvas');
+                if (editorWorkingCanvas) {
+                    sourceCanvas.width = editorWorkingCanvas.width;
+                    sourceCanvas.height = editorWorkingCanvas.height;
+                    sourceCanvas.getContext('2d').drawImage(editorWorkingCanvas, 0, 0);
+                } else {
+                    sourceCanvas.width = wizardLogoImage.naturalWidth;
+                    sourceCanvas.height = wizardLogoImage.naturalHeight;
+                    sourceCanvas.getContext('2d').drawImage(wizardLogoImage, 0, 0);
+                }
+
+                const blob = await new Promise(resolve => sourceCanvas.toBlob(resolve, 'image/png'));
+                const url = URL.createObjectURL(blob);
+                
+                const clonedImage = new Image();
+                await new Promise((resolve, reject) => {
+                    clonedImage.onload = resolve;
+                    clonedImage.onerror = reject;
+                    clonedImage.src = url;
+                });
+
+                wizardWatermarkImage = clonedImage;
+                wizardState.watermarkFile = new File([blob], 'watermark.png', { type: 'image/png' });
+                
+                // Update UI
+                const thumb = document.getElementById('watermarkThumb');
+                const fname = document.getElementById('watermarkFilename');
+                if (thumb) thumb.src = url;
+                if (fname) fname.textContent = 'Based on: ' + wizardState.logoFile.name;
+                
+                drawWatermarkEditor();
+            } catch (err) {
+                console.error('[Watermark Mode] Clone failed:', err);
+            }
         }
         // ========== END WATERMARK MODE ==========
         
@@ -3792,18 +3818,30 @@ function resetWatermark() {
     drawWatermarkEditor();
 }
 
-// Remove watermark
+// Remove watermark (reset to auto-loaded state if possible)
 function removeWatermark() {
     wizardWatermarkImage = null;
     wizardState.watermarkFile = null;
     
-    // Show upload zone, hide editor
-    document.getElementById('watermarkUploadZone').style.display = 'block';
-    document.getElementById('watermarkEditorContainer').style.display = 'none';
-    document.getElementById('watermarkInfoPanel').style.display = 'none';
-    
     // Clear file input
     document.getElementById('watermarkFileInput').value = '';
+    
+    // If we have a logo, re-clone it so the editor isn't empty
+    if (wizardState.logoFile && wizardLogoImage) {
+        console.log('[Watermark Mode] Re-cloning logo after removal');
+        showWizardStep(3); // This will trigger the clone logic again
+    } else {
+        // Hide info panel if no logo to fall back to
+        const wmInfo = document.getElementById('watermarkInfoPanel');
+        if (wmInfo) wmInfo.style.display = 'none';
+        
+        // Clear canvas
+        const canvas = document.getElementById('watermarkEditorCanvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    }
     
     console.log('[Watermark Editor] Removed');
 }
