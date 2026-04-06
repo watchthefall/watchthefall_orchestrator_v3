@@ -787,12 +787,17 @@
                 <!-- Header -->
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-shrink:0;">
                     <div>
-                        <h3 style="margin:0;font-size:18px;">Placement Engine</h3>
-                        <p class="step-description" style="margin:4px 0 0;font-size:12px;color:#888;">Define intent once, adapt everywhere</p>
+                        <h3 style="margin:0;font-size:18px;">Final Composition</h3>
+                        <p class="step-description" style="margin:4px 0 0;font-size:12px;color:#888;">Position logo and watermark together</p>
                     </div>
-                    <button type="button" class="btn-icon" onclick="showWizardStep(3)" title="Back to Step 3 - Edit Watermark">
-                        💧
-                    </button>
+                    <div style="display:flex;gap:8px;">
+                        <button type="button" class="btn-icon" onclick="showWizardStep(2)" title="Back to Step 2 - Edit Logo">
+                            🎨
+                        </button>
+                        <button type="button" class="btn-icon" onclick="showWizardStep(3)" title="Back to Step 3 - Edit Watermark">
+                            💧
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Main Layout: Previews + Controls -->
@@ -2459,44 +2464,10 @@ async function showWizardStep(step) {
         await updateWizardLogoImageFromEditor();
         // ========== END V2A ==========
         
-        // ========== WATERMARK MODE: Deep Clone Step 2 Logo into Watermark State ==========
-        if (!wizardState.watermarkFile && wizardState.logoFile && wizardLogoImage) {
-            console.log('[Watermark Mode] Deep cloning Step 2 logo for watermark isolation');
-            
-            // Create a deep clone by exporting the current logo state to a blob and reloading it
-            try {
-                const sourceCanvas = editorWorkingCanvas || document.createElement('canvas');
-                if (editorWorkingCanvas) {
-                    sourceCanvas.width = editorWorkingCanvas.width;
-                    sourceCanvas.height = editorWorkingCanvas.height;
-                    sourceCanvas.getContext('2d').drawImage(editorWorkingCanvas, 0, 0);
-                } else {
-                    sourceCanvas.width = wizardLogoImage.naturalWidth;
-                    sourceCanvas.height = wizardLogoImage.naturalHeight;
-                    sourceCanvas.getContext('2d').drawImage(wizardLogoImage, 0, 0);
-                }
-
-                const blob = await new Promise(resolve => sourceCanvas.toBlob(resolve, 'image/png'));
-                const url = URL.createObjectURL(blob);
-                
-                const clonedImage = new Image();
-                await new Promise((resolve, reject) => {
-                    clonedImage.onload = resolve;
-                    clonedImage.onerror = reject;
-                    clonedImage.src = url;
-                });
-
-                wizardWatermarkImage = clonedImage;
-                wizardState.watermarkFile = new File([blob], 'watermark.png', { type: 'image/png' });
-                
-                // Update UI
-                const thumb = document.getElementById('watermarkThumb');
-                const fname = document.getElementById('watermarkFilename');
-                if (thumb) thumb.src = url;
-                if (fname) fname.textContent = 'Based on: ' + wizardState.logoFile.name;
-            } catch (err) {
-                console.error('[Watermark Mode] Clone failed:', err);
-            }
+        // ========== WATERMARK MODE: Do NOT auto-clone, let user upload ==========
+        // Only clone if explicitly requested (future feature). For now, start fresh.
+        if (!wizardState.watermarkFile) {
+            console.log('[Watermark Mode] No watermark uploaded yet - showing Upload CTA');
         }
         // ========== END WATERMARK MODE ==========
         
@@ -2558,17 +2529,20 @@ async function showWizardStep(step) {
             const url = URL.createObjectURL(wizardState.watermarkFile);
             wizardWatermarkImage = new Image();
             wizardWatermarkImage.onload = () => {
-                console.log('[Step 4] Watermark image loaded, initializing placement');
+                console.log('[Step 4] Watermark image loaded, initializing composition');
                 initPlacementInteraction();
                 updateAllPreviews();
             };
             wizardWatermarkImage.src = url;
         } else if (wizardWatermarkImage) {
-            console.log('[Step 4] Watermark image already loaded, initializing placement');
+            console.log('[Step 4] Watermark image already loaded, initializing composition');
             initPlacementInteraction();
             updateAllPreviews();
         } else {
-            console.warn('[Step 4] No watermark image available');
+            console.warn('[Step 4] No watermark image available - showing logo only');
+            // Still init placement and show logo even without watermark
+            initPlacementInteraction();
+            updateAllPreviews();
         }
     }
 }
@@ -4276,36 +4250,49 @@ function drawPlacementPreview(platform) {
         console.warn(`[DRAW] Canvas ${canvasId} not found`);
         return;
     }
-    
-    if (!wizardWatermarkImage) {
-        console.warn(`[DRAW] wizardWatermarkImage is null`);
-        return;
-    }
-    
-    if (!wizardWatermarkImage.complete) {
-        console.warn(`[DRAW] Image not complete, waiting for onload`);
-        wizardWatermarkImage.onload = () => {
-            console.log(`[DRAW] Image loaded, triggering redraw`);
-            updateAllPreviews();
-        };
-        return;
-    }
 
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawCheckerboard(ctx, canvas.width, canvas.height);
 
-    console.log(`[DRAW] Rendering ${platform} preview: mode=${placementMode}, image=${wizardWatermarkImage.width}x${wizardWatermarkImage.height}`);
+    // Draw logo first (if available)
+    if (wizardLogoImage && wizardLogoImage.complete) {
+        drawLogoOnPreview(ctx, canvas, wizardLogoImage, platform);
+    }
 
-    if (placementMode === 'fullscreen') {
-        drawFullscreenWatermark(ctx, canvas, wizardWatermarkImage);
-    } else {
-        drawPositionedWatermark(ctx, canvas, wizardWatermarkImage, platform);
+    // Draw watermark second (if available)
+    if (wizardWatermarkImage && wizardWatermarkImage.complete) {
+        console.log(`[DRAW] Rendering ${platform} preview: mode=${placementMode}, watermark=${wizardWatermarkImage.width}x${wizardWatermarkImage.height}`);
+
+        if (placementMode === 'fullscreen') {
+            drawFullscreenWatermark(ctx, canvas, wizardWatermarkImage);
+        } else {
+            drawPositionedWatermark(ctx, canvas, wizardWatermarkImage, platform);
+        }
+    } else if (!wizardWatermarkImage) {
+        console.warn(`[DRAW] wizardWatermarkImage is null - skipping watermark`);
     }
 
     if (document.getElementById('showSafeZones')?.checked) {
         drawSafeZones(ctx, canvas.width, canvas.height, platform);
     }
+}
+
+// Draw logo on Step 4 composition preview (centered by default)
+function drawLogoOnPreview(ctx, canvas, img, platform) {
+    // Scale logo to fit nicely (30% of canvas width)
+    const logoScale = Math.min(canvas.width * 0.3 / img.width, canvas.height * 0.3 / img.height);
+    const logoWidth = img.width * logoScale;
+    const logoHeight = img.height * logoScale;
+    
+    // Center the logo
+    const x = (canvas.width - logoWidth) / 2;
+    const y = (canvas.height - logoHeight) / 2;
+    
+    ctx.save();
+    ctx.globalAlpha = 0.9; // Slight transparency for composition view
+    ctx.drawImage(img, x, y, logoWidth, logoHeight);
+    ctx.restore();
 }
 
 function drawFullscreenWatermark(ctx, canvas, img) {
