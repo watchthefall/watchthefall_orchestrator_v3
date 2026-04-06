@@ -368,7 +368,7 @@
         <form id="createForm" onsubmit="createBrand(event)">
             <div class="form-group">
                 <label>Brand Name (slug)</label>
-                <input type="text" id="brandName" required placeholder="e.g., mybrand" pattern="[a-z0-9_-]+" title="Lowercase letters, numbers, hyphens, underscores only">
+                <input type="text" id="brandName" required placeholder="e.g., mybrand" pattern="[-a-z0-9_]+" title="Lowercase letters, numbers, hyphens, underscores only">
             </div>
             
             <div class="form-group">
@@ -528,7 +528,7 @@
                 
                 <div class="form-group">
                     <label>URL Slug</label>
-                    <input type="text" id="wizardBrandSlug" placeholder="e.g., my-awesome-brand" pattern="[a-z0-9_-]+">
+                    <input type="text" id="wizardBrandSlug" placeholder="e.g., my-awesome-brand" pattern="[-a-z0-9_]+">
                     <small class="input-hint">Used in URLs. Auto-generated from name, but you can customize.</small>
                 </div>
             </div>
