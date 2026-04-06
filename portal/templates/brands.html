@@ -2489,8 +2489,6 @@ async function showWizardStep(step) {
                 const fname = document.getElementById('watermarkFilename');
                 if (thumb) thumb.src = url;
                 if (fname) fname.textContent = 'Based on: ' + wizardState.logoFile.name;
-                
-                drawWatermarkEditor();
             } catch (err) {
                 console.error('[Watermark Mode] Clone failed:', err);
             }
@@ -2508,6 +2506,12 @@ async function showWizardStep(step) {
         // Always ensure the editor container is visible in Watermark Mode
         const wmEditor = document.getElementById('watermarkEditorContainer');
         if (wmEditor) wmEditor.style.display = 'flex';
+
+        // CRITICAL: Resize canvas AFTER step is visible to get correct dimensions
+        setTimeout(() => {
+            resizeWatermarkCanvas();
+            drawWatermarkEditor();
+        }, 50);
     } else if (step === 4) {
         document.getElementById('wizardStep4').classList.add('active');
         updateUIFromState();
@@ -3946,14 +3950,35 @@ function handleWatermarkFileUpload(e) {
             document.getElementById('watermarkThumb').src = event.target.result;
             document.getElementById('watermarkFilename').textContent = file.name;
             
-            // Draw on canvas
-            drawWatermarkEditor();
+            // Draw on canvas after a brief delay to ensure layout is stable
+            setTimeout(() => {
+                resizeWatermarkCanvas();
+                drawWatermarkEditor();
+            }, 50);
             
             console.log('[Watermark Editor] Loaded:', file.name);
         };
         img.src = event.target.result;
     };
     reader.readAsDataURL(file);
+}
+
+// Resize watermark canvas to match its displayed CSS size
+function resizeWatermarkCanvas() {
+    const canvas = document.getElementById('watermarkEditorCanvas');
+    if (!canvas) return;
+
+    // Get the actual displayed size from CSS
+    const rect = canvas.getBoundingClientRect();
+    
+    // Only update if there's a significant difference (avoids infinite loops)
+    if (Math.abs(canvas.width - rect.width) > 1 || Math.abs(canvas.height - rect.height) > 1) {
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        
+        // Redraw immediately after resizing
+        drawWatermarkEditor();
+    }
 }
 
 // Draw watermark on editor canvas (Watermark Mode)
@@ -3963,6 +3988,7 @@ function drawWatermarkEditor() {
     
     // Ensure we are drawing to the actual internal resolution, not the CSS-scaled size
     const ctx = canvas.getContext('2d');
+    ctx.resetTransform(); // Clear any stale transforms
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     // Get current settings
