@@ -505,6 +505,11 @@
                 <span class="step-number">3</span>
                 <span class="step-label">Watermark</span>
             </div>
+            <div class="progress-line"></div>
+            <div class="progress-step" data-step="4">
+                <span class="step-number">4</span>
+                <span class="step-label">Placement</span>
+            </div>
         </div>
         
         <div id="wizardStatus"></div>
@@ -771,7 +776,7 @@
             
             <div class="wizard-actions">
                 <button type="button" class="btn btn-secondary" onclick="wizardPrevStep()">← Back</button>
-                <button type="button" class="btn btn-primary" onclick="saveWizardFromAnyStep()">Finish</button>
+                <button type="button" class="btn btn-primary" onclick="wizardNextStep()">Next: Placement →</button>
             </div>
         </div>
 
@@ -2516,8 +2521,37 @@ async function showWizardStep(step) {
         });
     } else if (step === 4) {
         document.getElementById('wizardStep4').classList.add('active');
-        updateUIFromState();
-        updateAllPreviews();
+        
+        // Sync Step 4 sliders with wizardState values from Step 3
+        const scaleSlider = document.getElementById('placementScale');
+        const opacitySlider = document.getElementById('placementOpacity');
+        if (scaleSlider) {
+            scaleSlider.value = wizardState.watermarkScale || 50;
+            document.getElementById('wmScaleVal').textContent = (wizardState.watermarkScale || 50) + '%';
+        }
+        if (opacitySlider) {
+            opacitySlider.value = wizardState.watermarkOpacity || 50;
+            document.getElementById('wmOpacityVal').textContent = (wizardState.watermarkOpacity || 50) + '%';
+        }
+        
+        // Ensure we have a watermark image to place
+        if (!wizardWatermarkImage && wizardState.watermarkFile) {
+            console.log('[Step 4] Loading watermark image for placement');
+            const url = URL.createObjectURL(wizardState.watermarkFile);
+            wizardWatermarkImage = new Image();
+            wizardWatermarkImage.onload = () => {
+                console.log('[Step 4] Watermark image loaded, initializing placement');
+                initPlacementInteraction();
+                updateAllPreviews();
+            };
+            wizardWatermarkImage.src = url;
+        } else if (wizardWatermarkImage) {
+            console.log('[Step 4] Watermark image already loaded, initializing placement');
+            initPlacementInteraction();
+            updateAllPreviews();
+        } else {
+            console.warn('[Step 4] No watermark image available');
+        }
     }
 }
 
@@ -4473,13 +4507,15 @@ function applyPreset(name) {
 }
 
 function updatePlacementScale(val) {
-    placementConfig.scale = val / 100;
+    // CANONICAL: Update wizardState scale (Step 3 slider value)
+    wizardState.watermarkScale = parseInt(val);
     document.getElementById('wmScaleVal').textContent = val + '%';
     updateAllPreviews();
 }
 
 function updatePlacementOpacity(val) {
-    placementConfig.opacity = val / 100;
+    // CANONICAL: Update wizardState opacity (Step 3 slider value)
+    wizardState.watermarkOpacity = parseInt(val);
     document.getElementById('wmOpacityVal').textContent = val + '%';
     updateAllPreviews();
 }
