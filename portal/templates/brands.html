@@ -690,10 +690,10 @@
                 </div>
                 
                 <!-- Main Content: Editor Canvas Dominant -->
-                <div style="display:flex;gap:20px;flex:1;min-height:0;">
+                <div class="watermark-editor-layout" style="display:flex;gap:20px;flex:1;min-height:0;">
                     
                     <!-- Left: Tools Panel -->
-                    <div style="width:180px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
+                    <div class="wm-tools-panel" style="width:180px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
                         
                         <!-- Shape Selection -->
                         <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
@@ -721,7 +721,7 @@
                         <button type="button" class="btn btn-secondary" style="width:100%;font-size:11px;padding:8px;" onclick="resetWatermark()">↺ Reset</button>
                     </div>
                     
-                    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;" id="placementCanvasContainer">
+                    <div class="wm-canvas-container" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;" id="placementCanvasContainer">
                         
                         <!-- Editor Canvas (Always visible if logo exists) -->
                         <div id="watermarkEditorContainer" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
@@ -739,7 +739,7 @@
                     </div>
                     
                     <!-- Right: Info + Tip -->
-                    <div style="width:180px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
+                    <div class="wm-info-panel" style="width:180px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
                         
                         <!-- Watermark Info -->
                         <div id="watermarkInfoPanel" style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
@@ -1207,11 +1207,47 @@
         right: 0;
         background: #1a1a2e;
         padding: 12px 16px;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom));
         border-top: 1px solid rgba(255,255,255,0.1);
         z-index: 100;
         display: flex;
         justify-content: space-between;
         gap: 12px;
+    }
+
+    /* Step 3 Mobile Stacking */
+    .watermark-editor-layout {
+        flex-direction: column;
+    }
+
+    .wm-tools-panel, .wm-info-panel {
+        width: 100% !important;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .wm-tools-panel > div, .wm-info-panel > div {
+        flex: 1;
+        min-width: 140px;
+    }
+
+    .wm-canvas-container {
+        order: -1; /* Canvas first on mobile */
+        min-height: 300px;
+    }
+
+    #watermarkEditorCanvas {
+        max-width: 100%;
+        height: auto;
+    }
+
+    #watermarkUploadZone {
+        position: relative;
+        bottom: auto;
+        right: auto;
+        margin-top: 12px;
+        text-align: center;
     }
 }
 
