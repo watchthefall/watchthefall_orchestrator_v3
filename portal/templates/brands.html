@@ -4788,12 +4788,13 @@ async function saveWizardBrandWithWatermark() {
         
         // Add watermark settings if watermark was uploaded
         if (wizardState.watermarkFile) {
-            settingsPayload.watermark_scale = wizardState.watermarkScale / 100;
-            settingsPayload.watermark_opacity = wizardState.watermarkOpacity / 100;
-            settingsPayload.watermark_mode = wizardState.watermarkMode;
+            // CANONICAL: Use wm_* fields that processor actually reads
+            settingsPayload.wm_mode = wizardState.watermarkMode || 'positioned';
+            settingsPayload.wm_scale = wizardState.watermarkScale / 100;
+            settingsPayload.wm_opacity = wizardState.watermarkOpacity / 100;
             // Use safe default position for positioned mode
-            settingsPayload.watermark_x = 0.85; // bottom-right (85% from left)
-            settingsPayload.watermark_y = 0.85; // bottom-right (85% from top)
+            settingsPayload.wm_x = 0.85; // bottom-right (85% from left)
+            settingsPayload.wm_y = 0.85; // bottom-right (85% from top)
         }
         
         const settingsRes = await fetch(`${apiBase}/api/brands/${brandId}`, {
@@ -4900,20 +4901,31 @@ async function saveWizardBrand() {
             }
         }
         
-        // Step 3: Persist logo settings (position, etc.) via PUT
-        status.innerHTML = '<div class="status-msg info">Saving logo settings...</div>';
+        // Step 3: Persist settings via PUT
+        status.innerHTML = '<div class="status-msg info">Saving settings...</div>';
+        
+        const settingsPayload = {
+            logo_scale: wizardState.logoScale / 100,
+            logo_opacity: wizardState.logoOpacity / 100,
+            logo_rotation: wizardState.logoRotation,
+            logo_shape: wizardState.logoShape,
+            logo_x: wizardState.logoX,
+            logo_y: wizardState.logoY
+        };
+        
+        // CANONICAL: Add watermark settings if watermark exists
+        if (wizardState.watermarkFile) {
+            settingsPayload.wm_mode = wizardState.watermarkMode || 'positioned';
+            settingsPayload.wm_scale = wizardState.watermarkScale / 100;
+            settingsPayload.wm_opacity = wizardState.watermarkOpacity / 100;
+            settingsPayload.wm_x = 0.85;
+            settingsPayload.wm_y = 0.85;
+        }
         
         const settingsRes = await fetch(`${apiBase}/api/brands/${brandId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                logo_scale: wizardState.logoScale / 100,
-                logo_opacity: wizardState.logoOpacity / 100,
-                logo_rotation: wizardState.logoRotation,
-                logo_shape: wizardState.logoShape,
-                logo_x: wizardState.logoX,
-                logo_y: wizardState.logoY
-            })
+            body: JSON.stringify(settingsPayload)
         });
         
         const settingsData = await settingsRes.json();

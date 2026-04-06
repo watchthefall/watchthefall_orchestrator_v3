@@ -1509,6 +1509,22 @@ def process_branded_videos():
             # These are per-video adjustments that should NOT affect the brand's default config
             merged_config = db_brand.copy()  # Make a copy to avoid modifying DB record
             
+            # CANONICAL NORMALIZATION: Ensure wm_* fields are populated
+            # Prefer canonical wm_* fields, fallback to legacy watermark_* for backward compat
+            if merged_config.get('wm_mode') is None:
+                merged_config['wm_mode'] = merged_config.get('watermark_mode', 'fullscreen')
+            if merged_config.get('wm_scale') is None:
+                legacy_scale = merged_config.get('watermark_scale')
+                if legacy_scale is not None:
+                    merged_config['wm_scale'] = legacy_scale
+            if merged_config.get('wm_opacity') is None:
+                legacy_opacity = merged_config.get('watermark_opacity')
+                if legacy_opacity is not None:
+                    merged_config['wm_opacity'] = legacy_opacity
+            
+            # Log normalized values for debugging
+            print(f"[PROCESS BRANDS] Normalized wm_mode={merged_config.get('wm_mode')}, wm_scale={merged_config.get('wm_scale')}, wm_opacity={merged_config.get('wm_opacity')}")
+            
             # Apply overrides if provided in the request
             override_applied = False
             if 'watermark_scale' in data:
