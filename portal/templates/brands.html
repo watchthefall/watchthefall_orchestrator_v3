@@ -1249,6 +1249,57 @@
         padding: 12px;
     }
 
+/* Step 3 Watermark Editor Layout */
+.wm-context-grid {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+.wm-card {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+}
+
+.wm-card-label {
+    font-size: 11px;
+    color: #888;
+    margin-top: 8px;
+}
+
+.wm-primary-tag {
+    background: rgba(134, 237, 165, 0.2);
+    color: #86EDA5;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    margin-left: 4px;
+}
+
+.wm-preview-only {
+    color: #666;
+    font-size: 9px;
+    font-style: italic;
+}
+
+.wm-side-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.wm-preview-canvas {
+    display: block;
+    margin: 0 auto;
+    background: transparent;
+    border-radius: 4px;
+}
+
+/* Mobile: Stack vertically */
+@media (max-width: 768px) {
     .wm-context-grid {
         flex-direction: column;
         align-items: stretch;
@@ -1259,7 +1310,12 @@
     }
 
     .wm-side-cards {
-        flex: 0 0 auto;
+        flex-direction: row;
+        gap: 8px;
+    }
+
+    .wm-side-cards .wm-card {
+        flex: 1;
     }
 
     #watermarkEditorCanvas {
@@ -2527,6 +2583,9 @@ async function showWizardStep(step) {
 
         // Always ensure the editor container is visible in Watermark Mode
         const wmEditor = document.getElementById('watermarkEditorContainer');
+        if (wmEditor) {
+            wmEditor.style.display = 'flex';
+        }
         setWatermarkEditorVisibility(true);
 
         // Update watermark upload button text based on state
@@ -4042,56 +4101,77 @@ function handleWatermarkFileUpload(e) {
 }
 
 // Resize watermark canvas to match its displayed CSS size
+// Resize Step 3 watermark canvases using stable aspect ratios (not getBoundingClientRect)
 function resizeWatermarkCanvas() {
-    const canvas = document.getElementById('watermarkEditorCanvas');
-    if (!canvas) return;
+    // Main vertical canvas (9:16)
+    const mainCanvas = document.getElementById('watermarkEditorCanvas');
+    if (mainCanvas) {
+        // Fixed width, calculate height from 9:16 ratio
+        const targetWidth = 330;
+        const targetHeight = Math.round(targetWidth * 16 / 9);
+        mainCanvas.width = targetWidth;
+        mainCanvas.height = targetHeight;
+    }
 
-    // Get the actual displayed size from CSS
-    const rect = canvas.getBoundingClientRect();
-    
-    // Only update if there's a significant difference (avoids infinite loops)
-    if (Math.abs(canvas.width - rect.width) > 1 || Math.abs(canvas.height - rect.height) > 1) {
-        canvas.width = rect.width;
-        canvas.height = rect.height;
-        
-        // Redraw immediately after resizing
-        drawWatermarkEditor();
+    // Square preview (1:1)
+    const squareCanvas = document.getElementById('wmPreviewSquare');
+    if (squareCanvas) {
+        const size = 210;
+        squareCanvas.width = size;
+        squareCanvas.height = size;
+    }
+
+    // Landscape preview (16:9)
+    const landscapeCanvas = document.getElementById('wmPreviewLandscape');
+    if (landscapeCanvas) {
+        const targetWidth = 300;
+        const targetHeight = Math.round(targetWidth * 9 / 16);
+        landscapeCanvas.width = targetWidth;
+        landscapeCanvas.height = targetHeight;
     }
 }
 
-// Draw watermark on editor canvas (Watermark Mode)
+// Draw watermark on all 3 Step 3 preview canvases
 function drawWatermarkEditor() {
-    const canvas = document.getElementById('watermarkEditorCanvas');
+    if (!wizardWatermarkImage) return;
+
+    // Draw on all 3 canvases
+    drawWatermarkOnCanvas('watermarkEditorCanvas');
+    drawWatermarkOnCanvas('wmPreviewSquare');
+    drawWatermarkOnCanvas('wmPreviewLandscape');
+}
+
+// Helper: Draw watermark on a single canvas with aspect-ratio-aware sizing
+function drawWatermarkOnCanvas(canvasId) {
+    const canvas = document.getElementById(canvasId);
     if (!canvas || !wizardWatermarkImage) return;
-    
-    // Ensure we are drawing to the actual internal resolution, not the CSS-scaled size
+
     const ctx = canvas.getContext('2d');
-    ctx.resetTransform(); // Clear any stale transforms
+    ctx.resetTransform();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     // Get current settings
     const opacity = parseInt(document.getElementById('watermarkOpacity')?.value || 50) / 100;
     const contrast = parseInt(document.getElementById('watermarkContrast')?.value || 0);
     const size = parseInt(document.getElementById('watermarkSize')?.value || 50) / 100;
     const shape = document.querySelector('.option-btn[data-wm-shape].active')?.dataset.wmShape || 'original';
-    
+
     ctx.save();
-    
+
     // Apply contrast filter for preview
     if (contrast > 0) {
         ctx.filter = `contrast(${1 + contrast / 50})`;
     }
-    
+
     // Calculate center position and scale based on slider
-    // We use a "max fit" logic so 100% fills most of the canvas
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
-    const maxScale = Math.min(canvas.width * 0.9 / wizardWatermarkImage.width, 
+    const maxScale = Math.min(canvas.width * 0.9 / wizardWatermarkImage.width,
                               canvas.height * 0.9 / wizardWatermarkImage.height);
     const scale = maxScale * size;
     const width = wizardWatermarkImage.width * scale;
     const height = wizardWatermarkImage.height * scale;
-    
+
     // Apply shape mask
     if (shape === 'circle') {
         ctx.beginPath();
@@ -4102,17 +4182,17 @@ function drawWatermarkEditor() {
         ctx.rect(centerX - width / 2, centerY - height / 2, width, height);
         ctx.clip();
     }
-    
+
     // Draw image centered
     ctx.drawImage(wizardWatermarkImage, centerX - width / 2, centerY - height / 2, width, height);
-    
+
     // Apply opacity as an overlay effect for preview (non-destructive)
     if (opacity < 1) {
         ctx.globalCompositeOperation = 'destination-in';
         ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
-    
+
     ctx.restore();
 }
 
