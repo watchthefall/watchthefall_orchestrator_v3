@@ -3983,6 +3983,9 @@ let step3LogoPos = { x: 0.1, y: 0.9 }; // Normalized position (0-1)
 let step3LogoScale = 0.25; // 25% default
 
 // Initialize Step 3 canvas and interactions
+// Guard to prevent duplicate event listener binding
+let step3CanvasInitialized = false;
+
 function initStep3Canvas() {
     step3Canvas = document.getElementById('wizardPositionCanvas');
     if (!step3Canvas) return;
@@ -4006,19 +4009,21 @@ function initStep3Canvas() {
         name.textContent = wizardState.logoFile.name;
     }
     
-    // Mouse events for dragging
-    step3Canvas.addEventListener('mousedown', onStep3DragStart);
-    step3Canvas.addEventListener('mousemove', onStep3DragMove);
-    step3Canvas.addEventListener('mouseup', onStep3DragEnd);
-    step3Canvas.addEventListener('mouseleave', onStep3DragEnd);
-    
-    // Touch events
-    step3Canvas.addEventListener('touchstart', onStep3TouchStart, { passive: false });
-    step3Canvas.addEventListener('touchmove', onStep3TouchMove, { passive: false });
-    step3Canvas.addEventListener('touchend', onStep3DragEnd);
-    
-    // Scroll to scale
-    step3Canvas.addEventListener('wheel', onStep3Scroll, { passive: false });
+    // Only bind events once to prevent duplicate handlers
+    if (!step3CanvasInitialized) {
+        step3Canvas.addEventListener('mousedown', onStep3DragStart);
+        step3Canvas.addEventListener('mousemove', onStep3DragMove);
+        step3Canvas.addEventListener('mouseup', onStep3DragEnd);
+        step3Canvas.addEventListener('mouseleave', onStep3DragEnd);
+        
+        step3Canvas.addEventListener('touchstart', onStep3TouchStart, { passive: false });
+        step3Canvas.addEventListener('touchmove', onStep3TouchMove, { passive: false });
+        step3Canvas.addEventListener('touchend', onStep3DragEnd);
+        
+        step3Canvas.addEventListener('wheel', onStep3Scroll, { passive: false });
+        
+        step3CanvasInitialized = true;
+    }
     
     // Initial draw
     drawStep3Canvas();
@@ -4043,11 +4048,16 @@ function revertLogoChanges() {
     wizardState.logoScale = 25;
     wizardState.logoOpacity = 100;
     
-    // Update UI
-    document.getElementById('wizardLogoSize').value = 25;
-    document.getElementById('wizardLogoSizeVal').textContent = '25%';
-    document.getElementById('wizardLogoOpacityInput').value = 100;
-    document.getElementById('wizardLogoOpacityDisplay').textContent = '100%';
+    // Update UI (safe - guard against missing elements)
+    const sizeInput = document.getElementById('wizardLogoSize');
+    const sizeVal = document.getElementById('wizardLogoSizeVal');
+    const opacityInput = document.getElementById('wizardLogoOpacityInput');
+    const opacityVal = document.getElementById('wizardLogoOpacityDisplay');
+    
+    if (sizeInput) sizeInput.value = 25;
+    if (sizeVal) sizeVal.textContent = '25%';
+    if (opacityInput) opacityInput.value = 100;
+    if (opacityVal) opacityVal.textContent = '100%';
     
     drawStep3Canvas();
     console.log('[Step 3] Logo changes reverted');
@@ -4150,11 +4160,11 @@ function drawWatermarkOnCanvas(canvasId) {
     ctx.resetTransform();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Get current settings
-    const opacity = parseInt(document.getElementById('watermarkOpacity')?.value || 50) / 100;
-    const contrast = parseInt(document.getElementById('watermarkContrast')?.value || 0);
-    const size = parseInt(document.getElementById('watermarkSize')?.value || 50) / 100;
-    const shape = document.querySelector('.option-btn[data-wm-shape].active')?.dataset.wmShape || 'original';
+    // Get current settings from wizardState (canonical source)
+    const opacity = (wizardState.watermarkOpacity || 50) / 100;
+    const contrast = (wizardState.watermarkContrast || 0) / 50;
+    const size = (wizardState.watermarkScale || 50) / 100;
+    const shape = wizardState.watermarkShape || 'original';
 
     ctx.save();
 
@@ -4316,34 +4326,40 @@ function placementToXY(config) {
 
 // Convert saved wm_x/wm_y back to placementConfig
 function xyToPlacement(x, y) {
-    // Determine closest anchor based on position
-    let anchor = 'bottom_right';
-    let offsetX = 0.02;
-    let offsetY = 0.02;
-    
     // Determine horizontal anchor
+    let horizontal;
+    let offsetX = 0;
+    
     if (x < 0.33) {
-        anchor = anchor.includes('top') ? 'top_left' : anchor.includes('center') ? 'center_left' : 'bottom_left';
+        horizontal = 'left';
         offsetX = x;
     } else if (x > 0.67) {
-        anchor = anchor.includes('top') ? 'top_right' : anchor.includes('center') ? 'center_right' : 'bottom_right';
+        horizontal = 'right';
         offsetX = 1 - x;
     } else {
-        anchor = anchor.includes('top') ? 'top_center' : anchor.includes('bottom') ? 'bottom_center' : 'center';
+        horizontal = 'center';
         offsetX = 0;
     }
     
     // Determine vertical anchor
+    let vertical;
+    let offsetY = 0;
+    
     if (y < 0.33) {
-        anchor = anchor.includes('left') ? 'top_left' : anchor.includes('right') ? 'top_right' : 'top_center';
+        vertical = 'top';
         offsetY = y;
     } else if (y > 0.67) {
-        anchor = anchor.includes('left') ? 'bottom_left' : anchor.includes('right') ? 'bottom_right' : 'bottom_center';
+        vertical = 'bottom';
         offsetY = 1 - y;
     } else {
-        anchor = anchor.includes('left') ? 'center_left' : anchor.includes('right') ? 'center_right' : 'center';
+        vertical = 'center';
         offsetY = 0;
     }
+    
+    // Build anchor name
+    const anchor = vertical === 'center' && horizontal === 'center'
+        ? 'center'
+        : `${vertical}_${horizontal}`;
     
     return { anchor, offsetX, offsetY };
 }
@@ -4420,9 +4436,10 @@ function drawLogoOnPreview(ctx, canvas, img, platform) {
 }
 
 function drawFullscreenWatermark(ctx, canvas, img) {
+    // Fullscreen means cover the canvas - no scale multiplier
     const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
-    const wmWidth = img.width * scale * placementConfig.scale;
-    const wmHeight = img.height * scale * placementConfig.scale;
+    const wmWidth = img.width * scale;
+    const wmHeight = img.height * scale;
     
     const x = (canvas.width - wmWidth) / 2;
     const y = (canvas.height - wmHeight) / 2;
