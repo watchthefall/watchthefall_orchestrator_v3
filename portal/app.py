@@ -43,7 +43,8 @@ from .config import (
     TIER_CONFIG, DEFAULT_TIER, get_tier_limits, get_effective_limits,
     get_payment_link, get_badge_info, get_next_visible_tier,
     get_tier_features, TIER_FEATURES,
-    ADMIN_EMAILS, SPECIAL_STATUSES, VISIBLE_TIERS
+    ADMIN_EMAILS, SPECIAL_STATUSES, VISIBLE_TIERS,
+    calculate_output_contract,
 )
 from .database import (
     log_event, get_daily_usage, increment_branding_jobs, increment_downloads,
@@ -1048,7 +1049,44 @@ def api_usage():
             'branding_jobs_per_day': limits['branding_jobs_per_day'],
             'fetches_per_day': limits['fetches_per_day'],
             'max_brands_per_job': limits['max_brands_per_job'],
+            'max_outputs_per_job': limits.get('max_outputs_per_job', limits['max_brands_per_job']),
         }
+    })
+
+
+@app.route('/api/videos/output-contract', methods=['POST'])
+@login_required
+def api_output_contract():
+    """
+    Calculate and return the output contract for a proposed job.
+    
+    Request body:
+    - source_count: number of source videos (Beta-v1: always 1)
+    - brand_count: number of selected brands
+    - variant_count: number of output variants (Beta-v1: always 1)
+    
+    Returns:
+    - computed_outputs: total outputs that will be generated
+    - max_outputs_per_job: tier limit
+    - within_limit: boolean
+    - blocking: boolean
+    """
+    user_id = session.get('user_id')
+    tier = get_user_tier(user_id)
+    special_status = get_user_special_status(user_id)
+    limits = get_effective_limits(tier, special_status)
+    
+    data = request.get_json(force=True) or {}
+    source_count = data.get('source_count', 1)
+    brand_count = data.get('brand_count', 0)
+    variant_count = data.get('variant_count', 1)
+    
+    contract = calculate_output_contract(source_count, brand_count, variant_count, limits)
+    
+    return jsonify({
+        'success': True,
+        'tier': tier,
+        'contract': contract,
     })
 
 
@@ -1111,6 +1149,23 @@ def process_branded_videos():
                 'tier': tier,
                 'limit': max_per_job,
                 'selected': num_brands,
+            }), 403
+
+        # --- Tier enforcement: max outputs per job (OUTPUT CONTRACT) ---
+        # Beta-v1: source_count=1, variant_count=1, so outputs = brands
+        source_count = 1  # Beta-v1: single source only
+        variant_count = 1  # Beta-v1: no multi-variant rendering yet
+        contract = calculate_output_contract(source_count, num_brands, variant_count, limits)
+        
+        if contract['blocking']:
+            return jsonify({
+                'success': False,
+                'error': 'OUTPUTS_PER_JOB_LIMIT',
+                'message': f'{tier} plan allows {contract["max_outputs_per_job"]} outputs per job. Your selection would generate {contract["computed_outputs"]} outputs ({source_count} source × {num_brands} brands × {variant_count} variants).',
+                'tier': tier,
+                'limit': contract['max_outputs_per_job'],
+                'computed_outputs': contract['computed_outputs'],
+                'contract': contract,
             }), 403
 
         # Optional branding configuration overrides (applied temporarily per-video)

@@ -59,6 +59,7 @@ TIER_CONFIG = {
         'ig_per_hour': 3,
         'branding_jobs_per_day': 15,
         'max_brands_per_job': 3,
+        'max_outputs_per_job': 3,  # Beta-v1: sources=1, variants=1, so outputs = brands
         'max_brand_configs': 1,
         'concurrent_jobs': 1,
     },
@@ -72,6 +73,7 @@ TIER_CONFIG = {
         'ig_per_hour': 10,
         'branding_jobs_per_day': 60,
         'max_brands_per_job': 8,
+        'max_outputs_per_job': 20,  # Beta-v1 aligned
         'max_brand_configs': 5,
         'concurrent_jobs': 3,
     },
@@ -85,6 +87,7 @@ TIER_CONFIG = {
         'ig_per_hour': 15,
         'branding_jobs_per_day': 120,
         'max_brands_per_job': 20,
+        'max_outputs_per_job': 60,  # Beta-v1 aligned
         'max_brand_configs': -1,  # unlimited
         'concurrent_jobs': 5,
         'priority_processing': True,
@@ -100,6 +103,7 @@ TIER_CONFIG = {
         'ig_per_hour': 30,
         'branding_jobs_per_day': 300,
         'max_brands_per_job': 50,
+        'max_outputs_per_job': 150,  # Beta-v1 aligned
         'max_brand_configs': -1,
         'concurrent_jobs': 10,
         'priority_processing': True,
@@ -115,6 +119,7 @@ TIER_CONFIG = {
         'ig_per_hour': 60,
         'branding_jobs_per_day': 9999,
         'max_brands_per_job': 100,
+        'max_outputs_per_job': 300,  # Beta-v1 aligned
         'max_brand_configs': -1,
         'concurrent_jobs': 20,
         'priority_processing': True,
@@ -272,6 +277,39 @@ def get_effective_limits(tier_name, special_status=None):
                 if val == -1 or (base[key] != -1 and val > base[key]):
                     base[key] = val
     return base
+
+
+def calculate_output_contract(source_count, brand_count, variant_count, limits):
+    """
+    Calculate the output contract: sources × brands × variants = outputs.
+    
+    Returns dict with:
+    - sources, brands, variants: input counts
+    - computed_outputs: total outputs that will be generated
+    - max_outputs_per_job: tier limit
+    - within_limit: boolean
+    - blocking: boolean (True if exceeds limit)
+    """
+    computed_outputs = source_count * brand_count * variant_count
+    max_outputs = limits.get('max_outputs_per_job', limits.get('max_brands_per_job', 1))
+    
+    # Beta-v1: If max_outputs_per_job not set, fall back to max_brands_per_job
+    if max_outputs == -1:
+        within_limit = True
+        blocking = False
+    else:
+        within_limit = computed_outputs <= max_outputs
+        blocking = not within_limit
+    
+    return {
+        'sources': source_count,
+        'brands': brand_count,
+        'variants': variant_count,
+        'computed_outputs': computed_outputs,
+        'max_outputs_per_job': max_outputs,
+        'within_limit': within_limit,
+        'blocking': blocking,
+    }
 
 
 def get_next_visible_tier(current_tier):
