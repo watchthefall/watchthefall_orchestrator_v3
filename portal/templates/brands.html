@@ -368,7 +368,7 @@
         <form id="createForm" onsubmit="createBrand(event)">
             <div class="form-group">
                 <label>Brand Name (slug)</label>
-                <input type="text" id="brandName" required placeholder="e.g., mybrand" pattern="[-a-z0-9_]+" title="Lowercase letters, numbers, hyphens, underscores only">
+                <input type="text" id="brandName" required placeholder="e.g., mybrand" pattern="[a-z0-9]+(-[a-z0-9]+)*" title="Lowercase letters, numbers, and hyphens only">
             </div>
             
             <div class="form-group">
@@ -528,7 +528,7 @@
                 
                 <div class="form-group">
                     <label>URL Slug</label>
-                    <input type="text" id="wizardBrandSlug" placeholder="e.g., my-awesome-brand" pattern="[-a-z0-9_]+">
+                    <input type="text" id="wizardBrandSlug" placeholder="e.g., my-awesome-brand" pattern="[a-z0-9]+(-[a-z0-9]+)*">
                     <small class="input-hint">Used in URLs. Auto-generated from name, but you can customize.</small>
                 </div>
             </div>
@@ -679,97 +679,95 @@
             </div>
         </div>
         
-        <!-- Step 3: Watermark (Creation Editor - like Step 2 Logo) -->
+                <!-- Step 3: Watermark Styling (appearance + context previews) -->
         <div id="wizardStep3" class="wizard-step">
             <div class="wizard-step-content" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
                 
                 <!-- Header -->
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-shrink:0;">
                     <div>
-                        <h3 style="margin:0;font-size:18px;">Create Your Watermark</h3>
-                        <p class="step-description" style="margin:4px 0 0;font-size:12px;color:#888;">Refine your overlay for video placement</p>
+                        <h3 style="margin:0;font-size:24px;">Step 3: Watermark Creation</h3>
+                        <p class="step-description" style="margin:4px 0 0;font-size:14px;color:#9da3b7;">Design your watermark appearance. Final composition and placement happen in Step 4.</p>
                     </div>
                     <button type="button" class="btn-icon" onclick="showWizardStep(2)" title="Back to Step 2 - Edit Logo">
                         🎨
                     </button>
                 </div>
                 
-                <!-- Main Content: Editor Canvas Dominant -->
-                <div class="watermark-editor-layout" style="display:flex;gap:20px;flex:1;min-height:0;">
+                <!-- Main Content: Controls + Context previews -->
+                <div class="watermark-editor-layout">
                     
                     <!-- Left: Tools Panel -->
-                    <div class="wm-tools-panel" style="width:180px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
-                        
-                        <!-- Shape Selection -->
-                        <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                            <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Shape</label>
-                            <div style="display:flex;gap:6px;">
-                                <button type="button" class="option-btn active" data-wm-shape="original" onclick="setWatermarkShape('original')" style="flex:1;padding:6px;font-size:10px;">Original</button>
-                                <button type="button" class="option-btn" data-wm-shape="circle" onclick="setWatermarkShape('circle')" style="flex:1;padding:6px;font-size:10px;">Circle</button>
-                                <button type="button" class="option-btn" data-wm-shape="square" onclick="setWatermarkShape('square')" style="flex:1;padding:6px;font-size:10px;">Square</button>
-                            </div>
-                        </div>
+                    <aside class="wm-tools-panel">
                         
                         <!-- Watermark Size -->
-                        <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                            <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Watermark Size <span id="wmSizeVal">50%</span></label>
+                        <div class="wm-control-card">
+                            <label style="display:block;font-size:12px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Watermark Size <span id="step3WmSizeVal">50%</span></label>
                             <input type="range" id="watermarkSize" min="10" max="100" value="50" style="width:100%;" oninput="updateWatermarkSize(this.value)">
                         </div>
                         
-                        <!-- Opacity Preview -->
-                        <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                            <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Opacity <span id="wmOpacityVal">50%</span></label>
+                        <!-- Opacity -->
+                        <div class="wm-control-card">
+                            <label style="display:block;font-size:12px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Opacity <span id="step3WmOpacityVal">50%</span></label>
                             <input type="range" id="watermarkOpacity" min="0" max="100" value="50" style="width:100%;" oninput="updateWatermarkOpacity(this.value)">
                         </div>
                         
                         <!-- Contrast Boost -->
-                        <div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                            <label style="display:block;font-size:11px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Contrast Boost</label>
+                        <div class="wm-control-card">
+                            <label style="display:block;font-size:12px;font-weight:600;color:#EAEAEA;margin-bottom:8px;">Contrast Boost</label>
                             <input type="range" id="watermarkContrast" min="0" max="100" value="0" style="width:100%;" oninput="updateWatermarkContrast(this.value)">
                         </div>
-                        
-                        <!-- Reset -->
-                        <button type="button" class="btn btn-secondary" style="width:100%;font-size:11px;padding:8px;" onclick="resetWatermark()">↺ Reset</button>
-                    </div>
-                    
-                    <div class="wm-canvas-container" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;" id="placementCanvasContainer">
-                        
-                        <!-- Editor Canvas (Always visible if logo exists) -->
-                        <div id="watermarkEditorContainer" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
-                            <canvas id="watermarkEditorCanvas" width="400" height="400" style="background-image:linear-gradient(45deg, #1a1a1e 25%, transparent 25%), linear-gradient(-45deg, #1a1a1e 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #1a1a1e 75%), linear-gradient(-45deg, transparent 75%, #1a1a1e 75%);background-size:20px 20px;background-position:0 0, 0 10px, 10px -10px, -10px 0px;border-radius:8px;cursor:move;"></canvas>
-                        </div>
 
-                        <!-- Upload Zone (Secondary/Override) -->
-                        <div id="watermarkUploadZone" style="position:absolute;bottom:20px;right:20px;z-index:10;">
+                        <!-- Advanced shape (demoted) -->
+                        <details class="wm-advanced-card">
+                            <summary style="font-size:11px;color:#bbb;cursor:pointer;">Advanced mask shape</summary>
+                            <div style="display:flex;gap:6px;margin-top:8px;">
+                                <button type="button" class="option-btn active" data-wm-shape="original" onclick="setWatermarkShape('original')" style="flex:1;padding:6px;font-size:10px;">Original</button>
+                                <button type="button" class="option-btn" data-wm-shape="circle" onclick="setWatermarkShape('circle')" style="flex:1;padding:6px;font-size:10px;">Circle</button>
+                                <button type="button" class="option-btn" data-wm-shape="square" onclick="setWatermarkShape('square')" style="flex:1;padding:6px;font-size:10px;">Square</button>
+                            </div>
+                        </details>
+                        
+                        <div id="watermarkUploadZone" class="wm-upload-zone">
                             <input type="file" id="watermarkFileInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden onchange="handleWatermarkFileUpload(event)">
-                            <button type="button" id="watermarkUploadBtn" class="btn btn-secondary" style="font-size:11px;padding:8px 12px;" onclick="document.getElementById('watermarkFileInput').click()">
+                            <button type="button" id="watermarkUploadBtn" class="btn btn-primary" style="width:100%;font-size:14px;padding:10px 12px;" onclick="document.getElementById('watermarkFileInput').click()">
                                 💧 Upload Watermark
                             </button>
+                            <p style="margin:8px 0 0;font-size:11px;color:#8e95a8;">Appearance previews only. Final placement is in Step 4.</p>
                         </div>
-                        
-                    </div>
+                        <!-- Reset -->
+                        <button type="button" class="btn btn-secondary" style="width:100%;font-size:11px;padding:8px;" onclick="resetWatermark()">↺ Reset styling</button>
+                    </aside>
                     
-                    <!-- Right: Info + Tip -->
-                    <div class="wm-info-panel" style="width:180px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
-                        
-                        <!-- Watermark Info -->
-                        <div id="watermarkInfoPanel" style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                            <img id="watermarkThumb" src="" alt="" style="width:60px;height:60px;object-fit:contain;border-radius:4px;background:rgba(255,255,255,0.05);margin-bottom:8px;">
-                            <div id="watermarkFilename" style="font-size:11px;color:#ccc;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">watermark.png</div>
-                            <div style="display:flex;gap:6px;">
-                                <button type="button" class="btn-text" style="font-size:10px;flex:1;" onclick="document.getElementById('watermarkFileInput').click()">Change</button>
-                                <button type="button" class="btn-text btn-danger-text" style="font-size:10px;flex:1;" onclick="removeWatermark()">Remove</button>
+                    <section class="wm-preview-stage">
+                        <div class="wm-preview-heading">
+                            <strong>Watermark Context Preview</strong>
+                            <span>Style your default look here. Step 4 handles final logo + watermark placement.</span>
+                        </div>
+                        <div id="watermarkMetaBar" style="display:none;">
+                            <span id="watermarkFilename" style="display:inline-block; max-width:70%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:middle;">watermark.png</span>
+                            <span style="float:right; display:flex; gap:12px;">
+                                <button type="button" class="btn-text" style="font-size:11px;" onclick="document.getElementById('watermarkFileInput').click()">Change</button>
+                                <button type="button" class="btn-text btn-danger-text" style="font-size:11px;" onclick="removeWatermark()">Remove</button>
+                            </span>
+                        </div>
+                        <div class="wm-context-grid" id="watermarkEditorContainer">
+                            <div class="wm-card wm-card-primary">
+                                <canvas id="watermarkEditorCanvas" width="330" height="586" class="wm-preview-canvas"></canvas>
+                                <div class="wm-card-label">Vertical (9:16) <span class="wm-primary-tag">Primary</span></div>
+                            </div>
+                            <div class="wm-side-cards">
+                                <div class="wm-card">
+                                    <canvas id="wmPreviewSquare" width="210" height="210" class="wm-preview-canvas"></canvas>
+                                    <div class="wm-card-label">Square (1:1) <span class="wm-preview-only">Preview only</span></div>
+                                </div>
+                                <div class="wm-card">
+                                    <canvas id="wmPreviewLandscape" width="300" height="169" class="wm-preview-canvas"></canvas>
+                                    <div class="wm-card-label">Landscape (16:9) <span class="wm-preview-only">Preview only</span></div>
+                                </div>
                             </div>
                         </div>
-                        
-                        <!-- Watermark-Specific Tip -->
-                        <div style="padding:12px;background:rgba(255,193,7,0.1);border-radius:6px;border-left:2px solid #ffc107;">
-                            <p style="font-size:10px;color:#ffc107;margin:0;line-height:1.4;">
-                                💡 <strong>Tip:</strong> Watermarks should be simple, high-contrast, and readable at small sizes
-                            </p>
-                        </div>
-                        
-                    </div>
+                    </section>
                 </div>
                 
             </div>
@@ -780,7 +778,7 @@
             </div>
         </div>
 
-        <!-- Step 4: Placement (Global Intent System) -->
+<!-- Step 4: Placement (Global Intent System) -->
         <div id="wizardStep4" class="wizard-step">
             <div class="wizard-step-content" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
                 
@@ -1241,21 +1239,27 @@
         flex-direction: column;
     }
 
-    .wm-tools-panel, .wm-info-panel {
+    .wm-tools-panel {
         width: 100% !important;
-        flex-direction: row;
-        flex-wrap: wrap;
-        justify-content: center;
+        order: 2;
     }
 
-    .wm-tools-panel > div, .wm-info-panel > div {
-        flex: 1;
-        min-width: 140px;
+    .wm-preview-stage {
+        order: 1;
+        padding: 12px;
     }
 
-    .wm-canvas-container {
-        order: -1; /* Canvas first on mobile */
-        min-height: 300px;
+    .wm-context-grid {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .wm-card-primary {
+        flex: 0 0 auto;
+    }
+
+    .wm-side-cards {
+        flex: 0 0 auto;
     }
 
     #watermarkEditorCanvas {
@@ -1264,17 +1268,9 @@
         display: block;
     }
 
-    .wm-canvas-container canvas {
+    .wm-preview-canvas {
         width: 100% !important;
         height: auto !important;
-    }
-
-    #watermarkUploadZone {
-        position: relative;
-        bottom: auto;
-        right: auto;
-        margin-top: 12px;
-        text-align: center;
     }
 }
 
@@ -1915,7 +1911,7 @@ function updateWmScale(value) {
 }
 
 function updateWmOpacity(value) {
-    document.getElementById('wmOpacityVal').textContent = value + '%';
+    document.getElementById('step3WmOpacityVal').textContent = value + '%';
     if (editor) {
         editor.updateState({ wmOpacity: parseFloat(value) / 100 });
     }
@@ -2282,6 +2278,14 @@ let wizardCtx = null;
 let wizardLogoImage = null;
 let wizardWatermarkImage = null;
 
+function setWatermarkEditorVisibility(isVisible) {
+    const wmEditor = document.getElementById('watermarkEditorContainer');
+    if (!wmEditor) return;
+    // Keep CSS as source of truth for layout (wm-context-grid display:flex).
+    wmEditor.style.display = isVisible ? '' : 'none';
+}
+
+
 // ========== STEP 4: GLOBAL PLACEMENT ENGINE (v2) ==========
 // State and configuration are now defined in the Step 4 section below to ensure v2 logic is used.
 // ========== END STEP 4 ==========
@@ -2350,9 +2354,9 @@ function openBrandWizard() {
     // Reset watermark UI (new editor)
     const wmUploadZone = document.getElementById('watermarkUploadZone');
     const wmEditor = document.getElementById('watermarkEditorContainer');
-    const wmInfo = document.getElementById('watermarkInfoPanel');
+    const wmInfo = document.getElementById('watermarkMetaBar');
     if (wmUploadZone) wmUploadZone.style.display = 'block';
-    if (wmEditor) wmEditor.style.display = 'none';
+    setWatermarkEditorVisibility(false);
     if (wmInfo) wmInfo.style.display = 'none';
     
     // Clear watermark file input
@@ -2364,8 +2368,12 @@ function openBrandWizard() {
     const wmContrast = document.getElementById('watermarkContrast');
     if (wmOpacity) wmOpacity.value = 50;
     if (wmContrast) wmContrast.value = 0;
-    const wmOpacityVal = document.getElementById('wmOpacityVal');
+    const wmOpacityVal = document.getElementById('step3WmOpacityVal');
     if (wmOpacityVal) wmOpacityVal.textContent = '50%';
+    const wmSize = document.getElementById('watermarkSize');
+    const wmSizeVal = document.getElementById('step3WmSizeVal');
+    if (wmSize) wmSize.value = 50;
+    if (wmSizeVal) wmSizeVal.textContent = '50%';
     
     // Reset shape buttons
     document.querySelectorAll('[data-wm-shape]').forEach(btn => {
@@ -2510,7 +2518,7 @@ async function showWizardStep(step) {
         // ========== END WATERMARK MODE ==========
         
         // Ensure Info Panel is visible if we have a watermark (auto-loaded or manual)
-        const wmInfo = document.getElementById('watermarkInfoPanel');
+        const wmInfo = document.getElementById('watermarkMetaBar');
         if (wmInfo && wizardState.watermarkFile) {
             wmInfo.style.display = 'block';
         } else if (wmInfo) {
@@ -2519,17 +2527,10 @@ async function showWizardStep(step) {
 
         // Always ensure the editor container is visible in Watermark Mode
         const wmEditor = document.getElementById('watermarkEditorContainer');
-        if (wmEditor) wmEditor.style.display = 'flex';
+        setWatermarkEditorVisibility(true);
 
         // Update watermark upload button text based on state
-        const uploadBtn = document.getElementById('watermarkUploadBtn');
-        if (uploadBtn) {
-            if (wizardState.watermarkFile) {
-                uploadBtn.innerHTML = '💧 Replace Watermark';
-            } else {
-                uploadBtn.innerHTML = '💧 Upload Watermark';
-            }
-        }
+        updateWatermarkUploadCta();
 
         // Set default scale to 50% if not already set (more visible than 15%)
         if (!wizardState.watermarkScale || wizardState.watermarkScale === 15) {
@@ -3995,6 +3996,12 @@ function revertLogoChanges() {
 
 // ========== WATERMARK EDITOR FUNCTIONS ==========
 
+function updateWatermarkUploadCta() {
+    const uploadBtn = document.getElementById('watermarkUploadBtn');
+    if (!uploadBtn) return;
+    uploadBtn.innerHTML = wizardState.watermarkFile ? '💧 Replace Watermark' : '💧 Upload Watermark';
+}
+
 // Handle watermark file upload
 function handleWatermarkFileUpload(e) {
     const file = e.target.files[0];
@@ -4009,16 +4016,15 @@ function handleWatermarkFileUpload(e) {
             
             // Show editor canvas and info panel
             document.getElementById('watermarkUploadZone').style.display = 'block'; // Keep visible for replace
-            document.getElementById('watermarkEditorContainer').style.display = 'block';
-            document.getElementById('watermarkInfoPanel').style.display = 'block';
+            setWatermarkEditorVisibility(true);
+            const wmMeta = document.getElementById('watermarkMetaBar');
+            if (wmMeta) wmMeta.style.display = 'block';
             
             // Update button text to "Replace" now that we have a watermark
-            const uploadBtn = document.getElementById('watermarkUploadBtn');
-            if (uploadBtn) uploadBtn.innerHTML = '💧 Replace Watermark';
+            updateWatermarkUploadCta();
             
             // Update thumbnail and filename
-            document.getElementById('watermarkThumb').src = event.target.result;
-            document.getElementById('watermarkFilename').textContent = file.name;
+                        document.getElementById('watermarkFilename').textContent = file.name;
             
             // Draw on canvas after layout is stable using rAF chaining
             requestAnimationFrame(() => {
@@ -4124,14 +4130,14 @@ function setWatermarkShape(shape) {
 
 // Update watermark size
 function updateWatermarkSize(value) {
-    document.getElementById('wmSizeVal').textContent = value + '%';
+    document.getElementById('step3WmSizeVal').textContent = value + '%';
     wizardState.watermarkScale = parseInt(value);
     drawWatermarkEditor();
 }
 
 // Update watermark opacity
 function updateWatermarkOpacity(value) {
-    document.getElementById('wmOpacityVal').textContent = value + '%';
+    document.getElementById('step3WmOpacityVal').textContent = value + '%';
     wizardState.watermarkOpacity = parseInt(value);
     drawWatermarkEditor();
 }
@@ -4145,9 +4151,9 @@ function updateWatermarkContrast(value) {
 // Reset watermark to defaults
 function resetWatermark() {
     document.getElementById('watermarkSize').value = 50;
-    document.getElementById('wmSizeVal').textContent = '50%';
+    document.getElementById('step3WmSizeVal').textContent = '50%';
     document.getElementById('watermarkOpacity').value = 50;
-    document.getElementById('wmOpacityVal').textContent = '50%';
+    document.getElementById('step3WmOpacityVal').textContent = '50%';
     document.getElementById('watermarkContrast').value = 0;
     setWatermarkShape('original');
     wizardState.watermarkScale = 50;
@@ -4171,7 +4177,7 @@ function removeWatermark() {
         showWizardStep(3); // This will trigger the clone logic again
     } else {
         // Hide info panel if no logo to fall back to
-        const wmInfo = document.getElementById('watermarkInfoPanel');
+        const wmInfo = document.getElementById('watermarkMetaBar');
         if (wmInfo) wmInfo.style.display = 'none';
         
         // Clear canvas
@@ -4590,18 +4596,44 @@ function updateAllPreviews() {
 document.addEventListener('DOMContentLoaded', () => {
     initPlacementInteraction();
     
-    // Set up ResizeObserver for watermark canvas to handle layout changes automatically
-    const wmContainer = document.getElementById('watermarkEditorContainer');
-    if (wmContainer && typeof ResizeObserver !== 'undefined') {
-        const resizeObserver = new ResizeObserver(() => {
+    // Set up ResizeObserver for watermark canvas to handle layout changes automatically.
+// Guard against feedback loops by ignoring unchanged sizes and batching redraw to one RAF.
+const wmContainer = document.getElementById('watermarkEditorContainer');
+if (wmContainer && typeof ResizeObserver !== 'undefined') {
+    let lastWidth = 0;
+    let lastHeight = 0;
+    let resizeRafId = null;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+        const rect = entries && entries[0] ? entries[0].contentRect : null;
+        if (!rect) return;
+
+        const width = Math.round(rect.width);
+        const height = Math.round(rect.height);
+
+        // Ignore invalid runaway dimensions (seen when observer loops).
+        if (width <= 0 || height <= 0 || width > 10000 || height > 10000) return;
+
+        // No-op if dimensions are effectively unchanged.
+        if (Math.abs(width - lastWidth) < 1 && Math.abs(height - lastHeight) < 1) return;
+
+        lastWidth = width;
+        lastHeight = height;
+
+        if (resizeRafId !== null) cancelAnimationFrame(resizeRafId);
+        resizeRafId = requestAnimationFrame(() => {
+            resizeRafId = null;
+
             // Only resize if the step is currently visible
             const step3 = document.getElementById('wizardStep3');
             if (step3 && step3.classList.contains('active')) {
                 resizeWatermarkCanvas();
             }
         });
-        resizeObserver.observe(wmContainer);
-    }
+    });
+
+    resizeObserver.observe(wmContainer);
+}
 });
 
 // ========== END STEP 4: SMART PLACEMENT ENGINE ==========
