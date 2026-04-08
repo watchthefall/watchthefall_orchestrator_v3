@@ -694,11 +694,11 @@
                     </button>
                 </div>
                 
-                <!-- Main Content: Controls + Context previews -->
+                <!-- Main Content: 3-column editor layout -->
                 <div class="watermark-editor-layout">
                     
-                    <!-- Left: Tools Panel -->
-                    <aside class="wm-tools-panel">
+                    <!-- Column 1: Controls -->
+                    <aside class="wm-controls">
                         
                         <!-- Watermark Size -->
                         <div class="wm-control-card">
@@ -739,43 +739,31 @@
                         <button type="button" class="btn btn-secondary" style="width:100%;font-size:11px;padding:8px;" onclick="resetWatermark()">↺ Reset styling</button>
                     </aside>
                     
-                    <section class="wm-preview-stage">
-                        <!-- Compact header -->
-                        <div class="wm-preview-heading">
-                            <strong>Watermark Preview</strong>
-                            <span>Style your watermark. Step 4 handles placement.</span>
-                        </div>
-                        
+                    <!-- Column 2: Primary vertical preview -->
+                    <div class="wm-card wm-card-primary" id="watermarkEditorContainer">
                         <!-- Meta bar (shown after upload) -->
-                        <div id="watermarkMetaBar" style="display:none;">
-                            <span id="watermarkFilename" style="display:inline-block; max-width:70%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:middle;">watermark.png</span>
-                            <span style="float:right; display:flex; gap:12px;">
-                                <button type="button" class="btn-text" style="font-size:11px;" onclick="document.getElementById('watermarkFileInput').click()">Change</button>
-                                <button type="button" class="btn-text btn-danger-text" style="font-size:11px;" onclick="removeWatermark()">Remove</button>
+                        <div id="watermarkMetaBar" style="display:none;margin-bottom:8px;">
+                            <span id="watermarkFilename" style="display:inline-block; max-width:70%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:middle;font-size:10px;">watermark.png</span>
+                            <span style="float:right; display:flex; gap:8px;">
+                                <button type="button" class="btn-text" style="font-size:9px;" onclick="document.getElementById('watermarkFileInput').click()">Change</button>
+                                <button type="button" class="btn-text btn-danger-text" style="font-size:9px;" onclick="removeWatermark()">Remove</button>
                             </span>
                         </div>
-                        
-                        <!-- 3-zone preview layout -->
-                        <div class="wm-context-grid" id="watermarkEditorContainer">
-                            <!-- Primary vertical preview -->
-                            <div class="wm-card wm-card-primary">
-                                <canvas id="watermarkEditorCanvas" width="330" height="586" class="wm-preview-canvas"></canvas>
-                                <div class="wm-card-label">Vertical (9:16) <span class="wm-primary-tag">Primary</span></div>
-                            </div>
-                            
-                            <!-- Secondary previews stack -->
-                            <div class="wm-side-cards">
-                                <div class="wm-card" data-tier-required="Creator">
-                                    <canvas id="wmPreviewSquare" width="210" height="210" class="wm-preview-canvas"></canvas>
-                                    <div class="wm-card-label">Square (1:1) <span class="wm-tier-badge" data-tier="Creator">Creator+</span></div>
-                                </div>
-                                <div class="wm-card" data-tier-required="Studio">
-                                    <canvas id="wmPreviewLandscape" width="300" height="169" class="wm-preview-canvas"></canvas>
-                                    <div class="wm-card-label">Landscape (16:9) <span class="wm-tier-badge" data-tier="Studio">Studio+</span></div>
-                                </div>
-                            </div>
+                        <canvas id="watermarkEditorCanvas" width="330" height="586" class="wm-preview-canvas"></canvas>
+                        <div class="wm-card-label">Vertical (9:16) <span class="wm-primary-tag">Primary</span></div>
+                    </div>
+                    
+                    <!-- Column 3: Variant stack -->
+                    <div class="wm-side-cards">
+                        <div class="wm-card" data-tier-required="Creator">
+                            <canvas id="wmPreviewSquare" width="210" height="210" class="wm-preview-canvas"></canvas>
+                            <div class="wm-card-label">Square (1:1) <span class="wm-tier-badge" data-tier="Creator">Creator+</span></div>
                         </div>
-                    </section>
+                        <div class="wm-card" data-tier-required="Studio">
+                            <canvas id="wmPreviewLandscape" width="300" height="169" class="wm-preview-canvas"></canvas>
+                            <div class="wm-card-label">Landscape (16:9) <span class="wm-tier-badge" data-tier="Studio">Studio+</span></div>
+                        </div>
+                    </div>
                 </div>
                 
             </div>
@@ -1279,35 +1267,68 @@
 
 /* ========== END STEP 2 LOGO EDITOR V1 STYLES ========== */
 
-/* ========== STEP 3 WATERMARK EDITOR LAYOUT (Desktop + Mobile Base) ========== */
+/* ========== STEP 3 WATERMARK EDITOR LAYOUT (3-Column) ========== */
 
-/* Desktop layout: side-by-side controls + preview (~42/58 split) */
+/* 3-column editor layout: controls | primary | variants */
 .watermark-editor-layout {
     display: flex;
+    flex-direction: row;
     gap: 20px;
-    align-items: stretch; /* Equal height columns */
-    flex: 1; /* Take available space from parent */
-    min-height: 0; /* Allow flex shrinking */
+    align-items: flex-start;
+    flex: 1;
+    min-height: 0;
 }
 
-.wm-tools-panel {
-    width: 320px; /* Increased from 280px for better control spacing */
+/* Column 1: Controls */
+.wm-controls {
+    flex: 0 0 320px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px; /* Tightened from 12px */
+    gap: 10px;
 }
 
-.wm-preview-stage {
-    flex: 1;
+/* Column 2: Primary vertical preview */
+.wm-card-primary {
+    flex: 0 0 260px;
+    max-width: 260px;
+    background: #1a1a2e;
+    border: 1px solid rgba(134, 237, 165, 0.3);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    box-shadow: 0 4px 16px rgba(134, 237, 165, 0.1);
     min-width: 0;
-    min-height: 0; /* Allow flex shrinking */
-    padding: 16px;
-    background: linear-gradient(135deg, rgba(26, 26, 46, 0.6) 0%, rgba(20, 20, 38, 0.8) 100%);
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    overflow: auto;
-    overflow-x: hidden; /* Safety: prevent horizontal scrolling */
+}
+
+.wm-card-primary:hover {
+    box-shadow: 0 6px 20px rgba(134, 237, 165, 0.2);
+}
+
+/* Column 3: Variant stack */
+.wm-side-cards {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+}
+
+/* Generic card styling */
+.wm-card {
+    background: #1a1a2e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    min-width: 0;
+}
+
+.wm-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
 .wm-preview-heading {
@@ -1355,47 +1376,11 @@
 
 #watermarkMetaBar {
     background: rgba(255, 255, 255, 0.05);
-    padding: 6px 10px; /* Reduced from 8px 12px */
-    border-radius: 6px; /* Reduced from 8px */
-    margin-bottom: 12px; /* Reduced from 16px */
-    font-size: 11px; /* Reduced from 12px */
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    font-size: 11px;
     color: #EAEAEA;
-}
-
-/* Preview grid layout */
-.wm-context-grid {
-    display: flex;
-    flex-direction: row; /* Force horizontal layout */
-    align-items: stretch; /* Equal height columns */
-    gap: 16px;
-    min-width: 0;
-}
-
-.wm-card {
-    background: #1a1a2e;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    padding: 10px;
-    text-align: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    min-width: 0;
-}
-
-.wm-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-}
-
-.wm-card-primary {
-    flex: 0 0 260px; /* Fixed width - stable visual anchor */
-    max-width: 260px;
-    border-color: rgba(134, 237, 165, 0.3);
-    box-shadow: 0 4px 16px rgba(134, 237, 165, 0.1);
-}
-
-.wm-card-primary:hover {
-    box-shadow: 0 6px 20px rgba(134, 237, 165, 0.2);
 }
 
 .wm-card-label {
@@ -1509,18 +1494,18 @@
         flex-direction: column;
     }
 
-    .wm-tools-panel {
+    .wm-controls {
         width: 100% !important;
         order: 2;
     }
 
-    .wm-preview-stage {
+    .wm-card-primary {
         order: 1;
-        padding: 12px;
+        max-width: 100%;
     }
 
-    /* Mobile: stack side cards horizontally */
     .wm-side-cards {
+        order: 3;
         flex-direction: row;
         gap: 8px;
     }
