@@ -740,10 +740,13 @@
                     </aside>
                     
                     <section class="wm-preview-stage">
+                        <!-- Compact header -->
                         <div class="wm-preview-heading">
-                            <strong>Watermark Context Preview</strong>
-                            <span>Style your default look here. Step 4 handles final logo + watermark placement.</span>
+                            <strong>Watermark Preview</strong>
+                            <span>Style your watermark. Step 4 handles placement.</span>
                         </div>
+                        
+                        <!-- Meta bar (shown after upload) -->
                         <div id="watermarkMetaBar" style="display:none;">
                             <span id="watermarkFilename" style="display:inline-block; max-width:70%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:middle;">watermark.png</span>
                             <span style="float:right; display:flex; gap:12px;">
@@ -751,19 +754,24 @@
                                 <button type="button" class="btn-text btn-danger-text" style="font-size:11px;" onclick="removeWatermark()">Remove</button>
                             </span>
                         </div>
+                        
+                        <!-- 3-zone preview layout -->
                         <div class="wm-context-grid" id="watermarkEditorContainer">
+                            <!-- Primary vertical preview -->
                             <div class="wm-card wm-card-primary">
                                 <canvas id="watermarkEditorCanvas" width="330" height="586" class="wm-preview-canvas"></canvas>
                                 <div class="wm-card-label">Vertical (9:16) <span class="wm-primary-tag">Primary</span></div>
                             </div>
+                            
+                            <!-- Secondary previews stack -->
                             <div class="wm-side-cards">
-                                <div class="wm-card">
+                                <div class="wm-card" data-tier-required="Explorer">
                                     <canvas id="wmPreviewSquare" width="210" height="210" class="wm-preview-canvas"></canvas>
-                                    <div class="wm-card-label">Square (1:1) <span class="wm-preview-only">Preview only</span></div>
+                                    <div class="wm-card-label">Square (1:1) <span class="wm-tier-badge" data-tier="Creator">Creator+</span></div>
                                 </div>
-                                <div class="wm-card">
+                                <div class="wm-card" data-tier-required="Creator">
                                     <canvas id="wmPreviewLandscape" width="300" height="169" class="wm-preview-canvas"></canvas>
-                                    <div class="wm-card-label">Landscape (16:9) <span class="wm-preview-only">Preview only</span></div>
+                                    <div class="wm-card-label">Landscape (16:9) <span class="wm-tier-badge" data-tier="Studio">Studio+</span></div>
                                 </div>
                             </div>
                         </div>
@@ -1303,23 +1311,46 @@
 }
 
 .wm-preview-heading {
-    margin-bottom: 12px; /* Reduced from 20px */
-    padding-bottom: 8px; /* Reduced from 12px */
+    margin-bottom: 10px; /* Reduced from 12px */
+    padding-bottom: 6px; /* Reduced from 8px */
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .wm-preview-heading strong {
     display: block;
-    font-size: 13px; /* Reduced from 15px */
+    font-size: 12px; /* Reduced from 13px */
     color: #EAEAEA;
-    margin-bottom: 3px; /* Reduced from 6px */
+    margin-bottom: 2px; /* Reduced from 3px */
     letter-spacing: 0.2px;
 }
 
 .wm-preview-heading span {
-    font-size: 10px; /* Reduced from 11px */
+    font-size: 10px;
     color: #8e95a8;
-    line-height: 1.3; /* Tightened from 1.4 */
+    line-height: 1.3;
+}
+
+/* Tier badge for locked previews */
+.wm-tier-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 600;
+    margin-left: 4px;
+    background: rgba(255, 152, 0, 0.2);
+    color: #ff9800;
+    letter-spacing: 0.3px;
+}
+
+.wm-tier-badge[data-tier="Creator"] {
+    background: rgba(168, 85, 247, 0.2);
+    color: #A855F7;
+}
+
+.wm-tier-badge[data-tier="Studio"] {
+    background: rgba(245, 166, 35, 0.2);
+    color: #F5A623;
 }
 
 #watermarkMetaBar {
@@ -1398,6 +1429,26 @@
     gap: 12px;
     flex: 1; /* Take remaining space */
     min-width: 0;
+}
+
+/* Tier-locked preview cards */
+.wm-card[data-tier-required] {
+    position: relative;
+}
+
+.wm-card[data-tier-required].locked {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.wm-card[data-tier-required].locked::after {
+    content: "🔒";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    opacity: 0.6;
 }
 
 /* Canvas backgrounds - checkerboard pattern for transparency */
@@ -2757,6 +2808,9 @@ async function showWizardStep(step) {
         if (!wizardState.watermarkOpacity || wizardState.watermarkOpacity === 80) {
             wizardState.watermarkOpacity = 50;
         }
+
+        // Apply tier gating to secondary preview cards
+        applyStep3TierGating();
 
         // CRITICAL: Resize and redraw AFTER step is visible using robust rAF chaining
         requestAnimationFrame(() => {
@@ -4267,6 +4321,30 @@ function handleWatermarkFileUpload(e) {
         img.src = event.target.result;
     };
     reader.readAsDataURL(file);
+}
+
+// Apply tier gating to Step 3 secondary preview cards
+function applyStep3TierGating() {
+    // Get current user tier from HTML data attribute
+    const htmlEl = document.documentElement;
+    const userTier = htmlEl.getAttribute('data-tier') || 'Explorer';
+    
+    // Tier hierarchy (higher index = higher tier)
+    const tierOrder = ['Explorer', 'Creator', 'Studio'];
+    const userTierIndex = tierOrder.indexOf(userTier);
+    
+    // Apply gating to each card with data-tier-required
+    document.querySelectorAll('.wm-card[data-tier-required]').forEach(card => {
+        const requiredTier = card.getAttribute('data-tier-required');
+        const requiredIndex = tierOrder.indexOf(requiredTier);
+        
+        // User can access if their tier index >= required tier index
+        if (userTierIndex >= requiredIndex) {
+            card.classList.remove('locked');
+        } else {
+            card.classList.add('locked');
+        }
+    });
 }
 
 // Resize watermark canvas to match its displayed CSS size
