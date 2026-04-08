@@ -1294,11 +1294,12 @@
     flex: 1;
     min-width: 0;
     min-height: 0; /* Allow flex shrinking */
-    padding: 16px; /* Reduced from 20px */
+    padding: 16px;
     background: linear-gradient(135deg, rgba(26, 26, 46, 0.6) 0%, rgba(20, 20, 38, 0.8) 100%);
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    overflow: auto; /* Single scroll point if content exceeds available space */
+    overflow: auto;
+    overflow-x: hidden; /* Safety: prevent horizontal scrolling */
 }
 
 .wm-preview-heading {
@@ -1333,19 +1334,21 @@
 /* Preview grid layout */
 .wm-context-grid {
     display: flex;
-    gap: 16px; /* Reduced from 20px */
+    gap: 16px;
     align-items: flex-start;
     justify-content: center;
+    min-width: 0; /* Allow flex shrinking to prevent overflow */
 }
 
 .wm-card {
     background: #1a1a2e;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px; /* Reduced from 10px */
-    padding: 10px; /* Reduced from 12px */
+    border-radius: 8px;
+    padding: 10px;
     text-align: center;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    min-width: 0; /* Allow flex shrinking */
 }
 
 .wm-card:hover {
@@ -1354,7 +1357,8 @@
 }
 
 .wm-card-primary {
-    flex: 0 0 auto;
+    flex: 0 1 auto; /* Changed from 0 0 auto - allow shrinking */
+    max-width: 360px; /* Cap width to prevent overflow */
     border-color: rgba(134, 237, 165, 0.3);
     box-shadow: 0 4px 16px rgba(134, 237, 165, 0.1);
 }
@@ -1366,7 +1370,7 @@
 .wm-card-label {
     font-size: 11px;
     color: #888;
-    margin-top: 6px; /* Reduced from 10px */
+    margin-top: 6px;
     font-weight: 500;
 }
 
@@ -1392,6 +1396,9 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    min-width: 0; /* Allow flex shrinking */
+    flex: 1; /* Take remaining space */
+    max-width: 280px; /* Cap width to prevent overflow */
 }
 
 /* Canvas backgrounds - checkerboard pattern for transparency */
@@ -1408,10 +1415,12 @@
     background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
     background-color: #1e1e32;
     box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
+    max-width: 100%; /* Prevent canvas from exceeding card width */
+    height: auto; /* Maintain aspect ratio */
 }
 
 .wm-card-primary .wm-preview-canvas {
-    max-height: 420px; /* Reduced from 480px to fit comfortably above footer */
+    max-height: 420px;
     width: auto;
 }
 
