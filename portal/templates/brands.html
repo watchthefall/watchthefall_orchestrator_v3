@@ -962,10 +962,41 @@
     background: rgba(255,255,255,0.2);
 }
 
+.wizard-content {
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+}
+
+.wizard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 24px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    flex-shrink: 0;
+}
+
+.wizard-header h2 {
+    margin: 0;
+    font-size: 20px;
+}
+
+.wizard-progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    flex-shrink: 0;
+}
+
 .wizard-step {
     display: none;
     flex-direction: column;
-    min-height: 400px; /* Ensure step has minimum height for content to render */
+    flex: 1;
+    min-height: 0; /* Allow flex shrinking */
+    overflow: hidden; /* Prevent content from expanding beyond available space */
 }
 
 .wizard-step.active {
@@ -975,6 +1006,8 @@
 .wizard-step-content {
     padding: 0 24px 20px;
     flex: 1;
+    min-height: 0; /* Critical: allows flex child to shrink and enable scrolling */
+    overflow-y: auto; /* Make content scrollable within available space */
 }
 
 .wizard-step-content h3 {
@@ -1261,6 +1294,8 @@
     background: linear-gradient(135deg, rgba(26, 26, 46, 0.6) 0%, rgba(20, 20, 38, 0.8) 100%);
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.08);
+    max-height: calc(90vh - 280px); /* Constrain height: viewport - header - progress - footer - padding */
+    overflow-y: auto; /* Scroll if preview cards exceed available space */
 }
 
 .wm-preview-heading {
@@ -1373,7 +1408,7 @@
 }
 
 .wm-card-primary .wm-preview-canvas {
-    max-height: 480px;
+    max-height: 420px; /* Reduced from 480px to fit comfortably above footer */
     width: auto;
 }
 
