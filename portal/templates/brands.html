@@ -1334,10 +1334,10 @@
 /* Preview grid layout */
 .wm-context-grid {
     display: flex;
+    flex-direction: row; /* Force horizontal layout */
+    align-items: stretch; /* Equal height columns */
     gap: 16px;
-    align-items: flex-start;
-    justify-content: center;
-    min-width: 0; /* Allow flex shrinking to prevent overflow */
+    min-width: 0;
 }
 
 .wm-card {
@@ -1348,7 +1348,7 @@
     text-align: center;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
-    min-width: 0; /* Allow flex shrinking */
+    min-width: 0;
 }
 
 .wm-card:hover {
@@ -1357,8 +1357,8 @@
 }
 
 .wm-card-primary {
-    flex: 0 1 auto; /* Changed from 0 0 auto - allow shrinking */
-    max-width: 360px; /* Cap width to prevent overflow */
+    flex: 0 0 260px; /* Fixed width - stable visual anchor */
+    max-width: 260px;
     border-color: rgba(134, 237, 165, 0.3);
     box-shadow: 0 4px 16px rgba(134, 237, 165, 0.1);
 }
@@ -1394,11 +1394,10 @@
 
 .wm-side-cards {
     display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-width: 0; /* Allow flex shrinking */
+    flex-direction: column; /* Vertical stack */
+    gap: 12px;
     flex: 1; /* Take remaining space */
-    max-width: 280px; /* Cap width to prevent overflow */
+    min-width: 0;
 }
 
 /* Canvas backgrounds - checkerboard pattern for transparency */
@@ -1415,13 +1414,13 @@
     background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
     background-color: #1e1e32;
     box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
-    max-width: 100%; /* Prevent canvas from exceeding card width */
-    height: auto; /* Maintain aspect ratio */
+    width: 100%;
+    height: auto;
+    max-width: 100%;
 }
 
 .wm-card-primary .wm-preview-canvas {
     max-height: 420px;
-    width: auto;
 }
 
 .wm-control-card {
