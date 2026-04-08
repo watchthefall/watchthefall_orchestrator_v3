@@ -684,10 +684,10 @@
             <div class="wizard-step-content" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
                 
                 <!-- Header -->
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-shrink:0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-shrink:0;">
                     <div>
-                        <h3 style="margin:0;font-size:24px;">Step 3: Watermark Creation</h3>
-                        <p class="step-description" style="margin:4px 0 0;font-size:14px;color:#9da3b7;">Design your watermark appearance. Final composition and placement happen in Step 4.</p>
+                        <h3 style="margin:0;font-size:20px;">Step 3: Watermark Creation</h3>
+                        <p class="step-description" style="margin:3px 0 0;font-size:12px;color:#9da3b7;">Design your watermark appearance. Final composition and placement happen in Step 4.</p>
                     </div>
                     <button type="button" class="btn-icon" onclick="showWizardStep(2)" title="Back to Step 2 - Edit Logo">
                         🎨
@@ -1273,28 +1273,28 @@
 
 /* ========== STEP 3 WATERMARK EDITOR LAYOUT (Desktop + Mobile Base) ========== */
 
-/* Desktop layout: side-by-side controls + preview */
+/* Desktop layout: side-by-side controls + preview (~42/58 split) */
 .watermark-editor-layout {
     display: flex;
-    gap: 24px;
-    align-items: flex-start;
+    gap: 20px;
+    align-items: stretch; /* Equal height columns */
     flex: 1; /* Take available space from parent */
     min-height: 0; /* Allow flex shrinking */
 }
 
 .wm-tools-panel {
-    width: 280px;
+    width: 320px; /* Increased from 280px for better control spacing */
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px; /* Tightened from 12px */
 }
 
 .wm-preview-stage {
     flex: 1;
     min-width: 0;
     min-height: 0; /* Allow flex shrinking */
-    padding: 20px;
+    padding: 16px; /* Reduced from 20px */
     background: linear-gradient(135deg, rgba(26, 26, 46, 0.6) 0%, rgba(20, 20, 38, 0.8) 100%);
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1302,38 +1302,38 @@
 }
 
 .wm-preview-heading {
-    margin-bottom: 20px;
-    padding-bottom: 12px;
+    margin-bottom: 12px; /* Reduced from 20px */
+    padding-bottom: 8px; /* Reduced from 12px */
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .wm-preview-heading strong {
     display: block;
-    font-size: 15px;
+    font-size: 13px; /* Reduced from 15px */
     color: #EAEAEA;
-    margin-bottom: 6px;
+    margin-bottom: 3px; /* Reduced from 6px */
     letter-spacing: 0.2px;
 }
 
 .wm-preview-heading span {
-    font-size: 11px;
+    font-size: 10px; /* Reduced from 11px */
     color: #8e95a8;
-    line-height: 1.4;
+    line-height: 1.3; /* Tightened from 1.4 */
 }
 
 #watermarkMetaBar {
     background: rgba(255, 255, 255, 0.05);
-    padding: 8px 12px;
-    border-radius: 8px;
-    margin-bottom: 16px;
-    font-size: 12px;
+    padding: 6px 10px; /* Reduced from 8px 12px */
+    border-radius: 6px; /* Reduced from 8px */
+    margin-bottom: 12px; /* Reduced from 16px */
+    font-size: 11px; /* Reduced from 12px */
     color: #EAEAEA;
 }
 
 /* Preview grid layout */
 .wm-context-grid {
     display: flex;
-    gap: 20px;
+    gap: 16px; /* Reduced from 20px */
     align-items: flex-start;
     justify-content: center;
 }
@@ -1341,8 +1341,8 @@
 .wm-card {
     background: #1a1a2e;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-    padding: 12px;
+    border-radius: 8px; /* Reduced from 10px */
+    padding: 10px; /* Reduced from 12px */
     text-align: center;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -1366,7 +1366,7 @@
 .wm-card-label {
     font-size: 11px;
     color: #888;
-    margin-top: 10px;
+    margin-top: 6px; /* Reduced from 10px */
     font-weight: 500;
 }
 
@@ -1417,8 +1417,8 @@
 
 .wm-control-card {
     background: rgba(255, 255, 255, 0.04);
-    padding: 14px;
-    border-radius: 10px;
+    padding: 10px 12px; /* Reduced from 14px */
+    border-radius: 8px; /* Reduced from 10px */
     border: 1px solid rgba(255, 255, 255, 0.06);
     transition: background 0.2s ease;
 }
@@ -1430,15 +1430,15 @@
 .wm-advanced-card {
     background: rgba(255, 255, 255, 0.03);
     border-radius: 8px;
-    padding: 10px;
+    padding: 8px 10px; /* Reduced from 10px */
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .wm-upload-zone {
-    margin-top: 12px;
-    padding: 16px;
+    margin-top: 8px; /* Reduced from 12px */
+    padding: 12px; /* Reduced from 16px */
     background: rgba(255, 255, 255, 0.02);
-    border-radius: 10px;
+    border-radius: 8px; /* Reduced from 10px */
     border: 1px dashed rgba(255, 255, 255, 0.15);
 }
 
