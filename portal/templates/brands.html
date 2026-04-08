@@ -1277,6 +1277,8 @@
     align-items: flex-start;
     flex: 1;
     min-height: 0;
+    min-width: 0; /* Allow flex shrinking to prevent last-column collapse */
+    width: 100%; /* Ensure it takes full parent width */
 }
 
 /* Column 1: Controls */
@@ -1286,19 +1288,21 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+    min-width: 320px; /* Prevent collapse */
 }
 
 /* Column 2: Primary vertical preview */
 .wm-card-primary {
     flex: 0 0 260px;
+    flex-shrink: 0; /* Prevent primary from consuming all space */
     max-width: 260px;
+    min-width: 260px; /* Fixed width, no shrinking */
     background: #1a1a2e;
     border: 1px solid rgba(134, 237, 165, 0.3);
     border-radius: 8px;
     padding: 10px;
     text-align: center;
     box-shadow: 0 4px 16px rgba(134, 237, 165, 0.1);
-    min-width: 0;
 }
 
 .wm-card-primary:hover {
@@ -1307,11 +1311,12 @@
 
 /* Column 3: Variant stack */
 .wm-side-cards {
-    flex: 1;
+    flex: 1 1 240px; /* flex-grow: 1, flex-shrink: 1, flex-basis: 240px */
     display: flex;
     flex-direction: column;
     gap: 12px;
-    min-width: 200px; /* Ensure minimum width for visibility */
+    min-width: 200px; /* Absolute minimum to prevent zero-width collapse */
+    max-width: 320px; /* Prevent it from growing too large */
 }
 
 /* Generic card styling */
