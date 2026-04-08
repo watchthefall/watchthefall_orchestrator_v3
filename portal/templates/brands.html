@@ -1006,8 +1006,9 @@
 .wizard-step-content {
     padding: 0 24px 20px;
     flex: 1;
-    min-height: 0; /* Critical: allows flex child to shrink and enable scrolling */
-    overflow-y: auto; /* Make content scrollable within available space */
+    min-height: 0; /* Critical: allows flex child to shrink */
+    display: flex;
+    flex-direction: column;
 }
 
 .wizard-step-content h3 {
@@ -1277,6 +1278,8 @@
     display: flex;
     gap: 24px;
     align-items: flex-start;
+    flex: 1; /* Take available space from parent */
+    min-height: 0; /* Allow flex shrinking */
 }
 
 .wm-tools-panel {
@@ -1290,12 +1293,12 @@
 .wm-preview-stage {
     flex: 1;
     min-width: 0;
+    min-height: 0; /* Allow flex shrinking */
     padding: 20px;
     background: linear-gradient(135deg, rgba(26, 26, 46, 0.6) 0%, rgba(20, 20, 38, 0.8) 100%);
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    max-height: calc(90vh - 280px); /* Constrain height: viewport - header - progress - footer - padding */
-    overflow-y: auto; /* Scroll if preview cards exceed available space */
+    overflow: auto; /* Single scroll point if content exceeds available space */
 }
 
 .wm-preview-heading {
