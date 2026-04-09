@@ -681,7 +681,7 @@
         
                 <!-- Step 3: Watermark Styling (appearance + context previews) -->
         <div id="wizardStep3" class="wizard-step">
-            <div class="wizard-step-content" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+            <div class="wizard-step-content" style="display:flex;flex-direction:column;height:100%;">
                 
                 <!-- Header — compact -->
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-shrink:0;">
@@ -703,7 +703,7 @@
                         <!-- Watermark Size -->
                         <div class="wm-control-row">
                             <label>Watermark Size <span id="step3WmSizeVal">50%</span></label>
-                            <input type="range" id="watermarkSize" min="10" max="100" value="50" oninput="updateWatermarkSize(this.value)">
+                            <input type="range" id="watermarkSize" min="10" max="200" value="50" oninput="updateWatermarkSize(this.value)">
                         </div>
                         
                         <!-- Opacity -->
@@ -776,7 +776,7 @@
 
 <!-- Step 4: Placement (Global Intent System) -->
         <div id="wizardStep4" class="wizard-step">
-            <div class="wizard-step-content" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+            <div class="wizard-step-content" style="display:flex;flex-direction:column;height:100%;">
                 
                 <!-- Header -->
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-shrink:0;">
@@ -794,78 +794,37 @@
                     </div>
                 </div>
 
-                <!-- Main Layout: Previews + Controls -->
+                <!-- Main Layout: Previews + Controls (no left sidebar — direct drag on canvas) -->
+                <input type="hidden" id="modePositioned" value="positioned">
                 <div style="display:flex;gap:14px;flex:1;min-height:0;" class="composition-previews-container">
-                    
-                    <!-- Left: Presets & Smart Actions (compressed) -->
-                    <div style="width:150px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;align-self:flex-start;" class="controls-sidebar">
-                        
-                        <!-- Mode Toggle (inline) -->
-                        <div style="padding:6px;background:rgba(0,0,0,0.2);border-radius:6px;">
-                            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-                                <span style="font-size:9px;color:#888;">Mode:</span>
-                                <button type="button" class="option-btn active" id="modePositioned" onclick="setPlacementMode('positioned')" style="flex:1;padding:4px 6px;font-size:9px;">⚪ Positioned</button>
-                                <button type="button" class="option-btn" id="modeFullscreen" onclick="setPlacementMode('fullscreen')" style="flex:1;padding:4px 6px;font-size:9px;">🟡 Full</button>
-                            </div>
-                            <p id="modeMicrocopy" style="font-size:8px;color:#666;margin:0;line-height:1.2;">Place on screen</p>
-                        </div>
 
-                        <!-- Placement Grid (tightened) -->
-                        <div id="placementGridContainer" style="padding:6px;background:rgba(0,0,0,0.2);border-radius:6px;">
-                            <label style="display:block;font-size:9px;font-weight:600;color:#EAEAEA;margin-bottom:4px;">Position</label>
-                            <div style="display:grid;grid-template-columns:repeat(3, 28px);gap:2px;justify-content:center;">
-                                <button type="button" class="option-btn" data-anchor="top_left" onclick="applyPreset('top_left')" style="width:28px;height:28px;padding:0;font-size:11px;">↖</button>
-                                <button type="button" class="option-btn" data-anchor="top_center" onclick="applyPreset('top_center')" style="width:28px;height:28px;padding:0;font-size:11px;">↑</button>
-                                <button type="button" class="option-btn" data-anchor="top_right" onclick="applyPreset('top_right')" style="width:28px;height:28px;padding:0;font-size:11px;">↗</button>
-                                <button type="button" class="option-btn" data-anchor="center_left" onclick="applyPreset('center_left')" style="width:28px;height:28px;padding:0;font-size:11px;">←</button>
-                                <button type="button" class="option-btn" data-anchor="center" onclick="applyPreset('center')" style="width:28px;height:28px;padding:0;font-size:11px;">●</button>
-                                <button type="button" class="option-btn" data-anchor="center_right" onclick="applyPreset('center_right')" style="width:28px;height:28px;padding:0;font-size:11px;">→</button>
-                                <button type="button" class="option-btn" data-anchor="bottom_left" onclick="applyPreset('bottom_left')" style="width:28px;height:28px;padding:0;font-size:11px;">↙</button>
-                                <button type="button" class="option-btn" data-anchor="bottom_center" onclick="applyPreset('bottom_center')" style="width:28px;height:28px;padding:0;font-size:11px;">↓</button>
-                                <button type="button" class="option-btn active" data-anchor="bottom_right" onclick="applyPreset('bottom_right')" style="width:28px;height:28px;padding:0;font-size:11px;">↘</button>
-                            </div>
-                        </div>
-
-                        <!-- Smart Presets (compact) -->
-                        <div style="padding:6px;background:rgba(0,0,0,0.2);border-radius:6px;">
-                            <label style="display:block;font-size:9px;font-weight:600;color:#EAEAEA;margin-bottom:4px;">Quick Presets</label>
-                            <div style="display:flex;flex-direction:column;gap:3px;">
-                                <button type="button" class="btn btn-secondary" style="font-size:9px;padding:4px 6px;text-align:left;" onclick="applyPreset('corner_fade')">✨ Corner</button>
-                                <button type="button" class="btn btn-secondary" style="font-size:9px;padding:4px 6px;text-align:left;" onclick="applyPreset('story_safe')">📱 Story</button>
-                                <button type="button" class="btn btn-secondary" style="font-size:9px;padding:4px 6px;text-align:left;" onclick="applyPreset('center_ghost')">👻 Ghost</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Center: Multi-Platform Previews (expanded) -->
-                    <div style="flex:1;display:flex;flex-direction:column;gap:10px;overflow-y:visible;align-items:flex-start;max-width:none;" class="composition-previews-center">
-                        <!-- Row 1: TikTok (hero) + Instagram (secondary, top-aligned) -->
-                        <div style="display:flex;gap:10px;align-items:flex-start;" class="previews-row">
-                            <!-- TikTok Preview (Master — dominant) -->
+                    <!-- Center: Multi-Platform Previews (full width, no sidebar) -->
+                    <div style="flex:1;display:flex;flex-direction:column;gap:10px;overflow-y:auto;align-items:flex-start;" class="composition-previews-center">
+                        <div style="display:flex;gap:12px;align-items:flex-start;" class="previews-row">
+                            <!-- TikTok Preview (hero) -->
                             <div class="preview-card" style="text-align:center;">
-                                <canvas id="previewTiktok" width="170" height="302" style="display:block;background:#000;border-radius:6px;cursor:crosshair;width:170px;box-shadow:0 2px 10px rgba(0,0,0,0.4);"></canvas>
+                                <canvas id="previewTiktok" width="200" height="356" style="display:block;background:#000;border-radius:6px;cursor:grab;width:200px;box-shadow:0 2px 12px rgba(0,0,0,0.5);"></canvas>
                                 <div style="font-size:9px;color:#888;margin-top:4px;">TikTok 9:16</div>
                             </div>
-                            <!-- Instagram Preview (smaller, secondary) -->
+                            <!-- Instagram + YouTube stacked -->
                             <div style="display:flex;flex-direction:column;gap:10px;">
                                 <div class="preview-card" style="text-align:center;">
-                                    <canvas id="previewInstagram" width="130" height="130" style="display:block;background:#000;border-radius:6px;cursor:crosshair;width:130px;box-shadow:0 2px 10px rgba(0,0,0,0.4);"></canvas>
+                                    <canvas id="previewInstagram" width="160" height="160" style="display:block;background:#000;border-radius:6px;cursor:grab;width:160px;box-shadow:0 2px 10px rgba(0,0,0,0.4);"></canvas>
                                     <div style="font-size:9px;color:#888;margin-top:4px;">Instagram 1:1</div>
                                 </div>
-                                <!-- YouTube Preview (support, tucked under Instagram) -->
                                 <div class="preview-card" style="text-align:center;">
-                                    <canvas id="previewYoutube" width="230" height="130" style="display:block;background:#000;border-radius:6px;cursor:crosshair;width:230px;box-shadow:0 2px 10px rgba(0,0,0,0.4);"></canvas>
+                                    <canvas id="previewYoutube" width="260" height="146" style="display:block;background:#000;border-radius:6px;cursor:grab;width:260px;box-shadow:0 2px 10px rgba(0,0,0,0.4);"></canvas>
                                     <div style="font-size:9px;color:#888;margin-top:4px;">YouTube 16:9</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Right: Contextual Controls (compressed, no scroll) -->
-                    <div style="width:140px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;align-self:flex-start;overflow:visible;" class="controls-right">
+                    <!-- Right: Scale + Opacity controls only -->
+                    <div style="width:140px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;align-self:flex-start;" class="controls-right">
                         <div style="padding:6px;background:rgba(0,0,0,0.2);border-radius:6px;">
                             <label style="display:block;font-size:9px;font-weight:600;color:#EAEAEA;margin-bottom:4px;">Scale <span id="wmScaleVal">15%</span></label>
-                            <input type="range" id="placementScale" min="5" max="100" value="15" style="width:100%;" oninput="updatePlacementScale(this.value)">
+                            <input type="range" id="placementScale" min="5" max="200" value="15" style="width:100%;" oninput="updatePlacementScale(this.value)">
                         </div>
                         <div style="padding:6px;background:rgba(0,0,0,0.2);border-radius:6px;">
                             <label style="display:block;font-size:9px;font-weight:600;color:#EAEAEA;margin-bottom:4px;">Opacity <span id="wmOpacityVal">80%</span></label>
@@ -876,6 +835,7 @@
                                 <input type="checkbox" id="showSafeZones" onchange="updateAllPreviews()"> Show Guide
                             </label>
                         </div>
+                        <p style="font-size:8px;color:#555;margin:6px 0 0;line-height:1.3;text-align:center;">Drag on any preview to position. Pinch or scroll to resize.</p>
                     </div>
                 </div>
             </div>
@@ -995,7 +955,7 @@
     flex-direction: column;
     flex: 1;
     min-height: 0; /* Allow flex shrinking */
-    overflow: hidden; /* Prevent content from expanding beyond available space */
+    overflow-y: auto; /* Allow scrolling when content exceeds modal height */
 }
 
 .wizard-step.active {
@@ -1023,24 +983,31 @@
 
 /* ========== STEP 2 LOGO EDITOR V1 STYLES ========== */
 
-/* Wizard modal width expansion for Step 2 */
+/* Wizard modal width expansion for Step 2 — near-fullscreen */
 .wizard-content.step-2-active {
-    max-width: 900px;
-    transition: max-width 0.3s ease;
+    max-width: 95vw;
+    width: 95vw;
+    height: 92vh;
+    max-height: 92vh;
+    transition: max-width 0.3s ease, width 0.3s ease;
 }
 
-/* Wizard modal width expansion for Step 3 (3-column watermark editor) */
-/* 180 + 290 + 210 + 2*20gap + 2*24padding = 788 → 820 with breathing room */
+/* Wizard modal width expansion for Step 3 (3-column watermark editor) — near-fullscreen */
 .wizard-content.step-3-active {
-    max-width: 820px;
-    transition: max-width 0.3s ease;
+    max-width: 95vw;
+    width: 95vw;
+    height: 92vh;
+    max-height: 92vh;
+    transition: max-width 0.3s ease, width 0.3s ease;
 }
 
-/* Wizard modal width expansion for Step 4 (3-panel composition view) */
-/* Left 170 + center(170+230+10) + right 160 + 2*14gap + ~48pad = ~846 → 900 gives breathing room */
+/* Wizard modal width expansion for Step 4 (composition view) — near-fullscreen */
 .wizard-content.step-4-active {
-    max-width: 900px;
-    transition: max-width 0.3s ease;
+    max-width: 95vw;
+    width: 95vw;
+    height: 92vh;
+    max-height: 92vh;
+    transition: max-width 0.3s ease, width 0.3s ease;
 }
 
 /* Logo Editor Container */
@@ -1149,7 +1116,7 @@
     background-color: #1a1a2e;
     border-radius: 8px;
     max-width: 100%;
-    max-height: 60vh;
+    max-height: 70vh;
     box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
 
@@ -1194,7 +1161,8 @@
 /* Mobile Responsive */
 @media (max-width: 768px) {
     .wizard-content.step-2-active,
-    .wizard-content.step-3-active {
+    .wizard-content.step-3-active,
+    .wizard-content.step-4-active {
         max-width: 100vw;
         height: 100vh;
         border-radius: 0;
@@ -1291,21 +1259,20 @@
 .watermark-editor-layout {
     display: flex;
     flex-direction: row;
-    gap: 20px;
-    align-items: flex-start;
+    gap: 12px;
+    align-items: stretch;
     flex: 1;
     min-height: 0;
-    min-width: 760px; /* 180 + 290 + 210 + 2*20gap + padding safety */
     width: 100%;
 }
 
 /* Column 1: Controls — compact, bare sliders */
 .wm-controls {
-    flex: 0 0 180px;
+    flex: 0 0 150px;
     display: flex;
     flex-direction: column;
     gap: 6px;
-    min-width: 180px;
+    min-width: 130px;
     max-width: 180px;
 }
 
@@ -1332,11 +1299,10 @@
     margin: 0;
 }
 
-/* Column 2: Primary vertical preview — HERO element */
+/* Column 2: Primary vertical preview — HERO element, grows to fill space */
 .wm-card-primary {
-    flex: 0 0 290px;
-    min-width: 290px;
-    max-width: 290px;
+    flex: 1 1 220px;
+    min-width: 200px;
     background: linear-gradient(180deg, rgba(26, 26, 46, 0.95) 0%, rgba(15, 12, 41, 0.98) 100%);
     border: 1px solid rgba(134, 237, 165, 0.2);
     border-radius: 12px;
@@ -1347,6 +1313,8 @@
         0 0 0 1px rgba(134, 237, 165, 0.06);
     position: relative;
     z-index: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .wm-card-primary:hover {
@@ -1355,14 +1323,13 @@
         0 0 0 1px rgba(134, 237, 165, 0.12);
 }
 
-/* Column 3: Variant stack — secondary, stable */
+/* Column 3: Variant stack — secondary, grows to fill */
 .wm-side-cards {
-    flex: 0 0 210px;
+    flex: 0 1 220px;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    min-width: 210px;
-    max-width: 210px;
+    min-width: 160px;
 }
 
 /* Generic card styling — secondary visual weight */
@@ -1497,9 +1464,14 @@
     max-width: 100%;
 }
 
-/* Hero canvas — constrained height to prevent modal overflow */
+/* Hero canvas — maintains 9:16 portrait aspect ratio, centered in card */
 .wm-card-primary .wm-preview-canvas {
-    max-height: 380px;
+    aspect-ratio: 9 / 16;
+    width: auto;
+    height: 100%;
+    max-height: 100%;
+    max-width: 100%;
+    margin: 0 auto;
     border-radius: 10px;
     box-shadow:
         inset 0 1px 6px rgba(0, 0, 0, 0.5),
@@ -1537,7 +1509,7 @@
 /* ========== END STEP 3 WATERMARK EDITOR LAYOUT ========== */
 
 /* Step 3 Mobile Overrides */
-@media (max-width: 768px) {
+@media (max-width: 580px) {
     .watermark-editor-layout {
         flex-direction: column;
         min-width: 0;
@@ -1851,6 +1823,7 @@
     gap: 12px;
     padding: 20px 24px;
     border-top: 1px solid rgba(255,255,255,0.1);
+    flex-shrink: 0;
 }
 
 .wizard-actions .btn {
@@ -1972,7 +1945,7 @@
 }
 
 /* Step 4 Composition: Mobile Responsive */
-@media (max-width: 768px) {
+@media (max-width: 580px) {
     /* Stack previews vertically on mobile */
     #wizardStep4 .composition-previews-container {
         flex-direction: column !important;
@@ -2775,6 +2748,7 @@ async function showWizardStep(step) {
     
     // ========== STEP 2/3/4: Toggle modal width for multi-column layouts ==========
     const wizardContent = document.querySelector('.wizard-content');
+    const wizardProgress = document.querySelector('.wizard-progress');
     if (wizardContent) {
         if (step === 2) {
             wizardContent.classList.add('step-2-active');
@@ -2791,6 +2765,10 @@ async function showWizardStep(step) {
         } else {
             wizardContent.classList.remove('step-4-active');
         }
+    }
+    // Hide progress bar on Step 4 to reclaim vertical space for composition
+    if (wizardProgress) {
+        wizardProgress.style.display = (step === 4) ? 'none' : '';
     }
     // ========== END STEP 2/3/4 ==========
     
@@ -4407,33 +4385,43 @@ function applyStep3TierGating() {
 }
 
 // Resize watermark canvas to match its displayed CSS size
-// Resize Step 3 watermark canvases using stable aspect ratios (not getBoundingClientRect)
+// Resize Step 3 watermark canvases to match displayed size for crisp rendering
 function resizeWatermarkCanvas() {
-    // Main vertical canvas (9:16)
+    // Main vertical canvas (9:16) — match container width for crisp pixels
     const mainCanvas = document.getElementById('watermarkEditorCanvas');
     if (mainCanvas) {
-        // Fixed width, calculate height from 9:16 ratio
-        const targetWidth = 330;
-        const targetHeight = Math.round(targetWidth * 16 / 9);
-        mainCanvas.width = targetWidth;
-        mainCanvas.height = targetHeight;
+        const rect = mainCanvas.getBoundingClientRect();
+        const dpr = 1; // keep 1:1 for performance; bump to window.devicePixelRatio if needed
+        const displayW = Math.round(rect.width) || 330;
+        const displayH = Math.round(rect.height) || Math.round(displayW * 16 / 9);
+        // Only resize if substantially different (avoids observer loop)
+        if (Math.abs(mainCanvas.width - displayW) > 2 || Math.abs(mainCanvas.height - displayH) > 2) {
+            mainCanvas.width = displayW * dpr;
+            mainCanvas.height = displayH * dpr;
+        }
     }
 
     // Square preview (1:1)
     const squareCanvas = document.getElementById('wmPreviewSquare');
     if (squareCanvas) {
-        const size = 210;
-        squareCanvas.width = size;
-        squareCanvas.height = size;
+        const rect = squareCanvas.getBoundingClientRect();
+        const size = Math.round(rect.width) || 210;
+        if (Math.abs(squareCanvas.width - size) > 2) {
+            squareCanvas.width = size;
+            squareCanvas.height = size;
+        }
     }
 
     // Landscape preview (16:9)
     const landscapeCanvas = document.getElementById('wmPreviewLandscape');
     if (landscapeCanvas) {
-        const targetWidth = 300;
-        const targetHeight = Math.round(targetWidth * 9 / 16);
-        landscapeCanvas.width = targetWidth;
-        landscapeCanvas.height = targetHeight;
+        const rect = landscapeCanvas.getBoundingClientRect();
+        const w = Math.round(rect.width) || 300;
+        const h = Math.round(rect.height) || Math.round(w * 9 / 16);
+        if (Math.abs(landscapeCanvas.width - w) > 2 || Math.abs(landscapeCanvas.height - h) > 2) {
+            landscapeCanvas.width = w;
+            landscapeCanvas.height = h;
+        }
     }
 }
 
@@ -4450,7 +4438,10 @@ function drawWatermarkEditor() {
 // Helper: Draw watermark on a single canvas with aspect-ratio-aware sizing
 function drawWatermarkOnCanvas(canvasId) {
     const canvas = document.getElementById(canvasId);
-    if (!canvas || !wizardWatermarkImage) return;
+    if (!canvas || !wizardWatermarkImage) {
+        console.warn('[WM Draw] Skip:', canvasId, '- canvas:', !!canvas, 'img:', !!wizardWatermarkImage);
+        return;
+    }
 
     const ctx = canvas.getContext('2d');
     ctx.resetTransform();
@@ -4458,16 +4449,9 @@ function drawWatermarkOnCanvas(canvasId) {
 
     // Get current settings from wizardState (canonical source)
     const opacity = (wizardState.watermarkOpacity || 50) / 100;
-    const contrast = (wizardState.watermarkContrast || 0) / 50;
     const size = (wizardState.watermarkScale || 50) / 100;
     const shape = wizardState.watermarkShape || 'original';
-
-    ctx.save();
-
-    // Apply contrast filter for preview
-    if (contrast > 0) {
-        ctx.filter = `contrast(${1 + contrast / 50})`;
-    }
+    const contrast = (wizardState.watermarkContrast || 0);
 
     // Calculate center position and scale based on slider
     const centerX = canvas.width / 2;
@@ -4478,26 +4462,32 @@ function drawWatermarkOnCanvas(canvasId) {
     const width = wizardWatermarkImage.width * scale;
     const height = wizardWatermarkImage.height * scale;
 
+    console.log(`[WM Draw] ${canvasId}: canvas=${canvas.width}x${canvas.height}, img=${wizardWatermarkImage.width}x${wizardWatermarkImage.height}, scale=${scale.toFixed(3)}, draw=${Math.round(width)}x${Math.round(height)}, opacity=${opacity}`);
+
+    ctx.save();
+
+    // Apply contrast filter for preview
+    if (contrast > 0) {
+        ctx.filter = `contrast(${1 + contrast / 50})`;
+    }
+
+    // Apply opacity via globalAlpha (simpler and more reliable than destination-in)
+    ctx.globalAlpha = opacity;
+
     // Apply shape mask
     if (shape === 'circle') {
         ctx.beginPath();
-        ctx.arc(centerX, centerY, width / 2, 0, Math.PI * 2);
+        ctx.arc(centerX, centerY, Math.min(width, height) / 2, 0, Math.PI * 2);
         ctx.clip();
     } else if (shape === 'square') {
+        const side = Math.min(width, height);
         ctx.beginPath();
-        ctx.rect(centerX - width / 2, centerY - height / 2, width, height);
+        ctx.rect(centerX - side / 2, centerY - side / 2, side, side);
         ctx.clip();
     }
 
     // Draw image centered
     ctx.drawImage(wizardWatermarkImage, centerX - width / 2, centerY - height / 2, width, height);
-
-    // Apply opacity as an overlay effect for preview (non-destructive)
-    if (opacity < 1) {
-        ctx.globalCompositeOperation = 'destination-in';
-        ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
 
     ctx.restore();
 }
@@ -4679,6 +4669,52 @@ const SAFE_ZONES = {
 const SNAP_THRESHOLD = 0.08;
 
 // --- Rendering Logic ---
+
+// Transparency checkerboard background for preview canvases
+function drawCheckerboard(ctx, w, h) {
+    const size = 8;
+    for (let y = 0; y < h; y += size) {
+        for (let x = 0; x < w; x += size) {
+            ctx.fillStyle = ((x / size + y / size) % 2 === 0) ? '#1a1a2e' : '#16162a';
+            ctx.fillRect(x, y, size, size);
+        }
+    }
+}
+
+// Draw safe zone overlays for platform-specific UI areas
+function drawSafeZones(ctx, w, h, platform) {
+    const zones = SAFE_ZONES[platform];
+    if (!zones) return;
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 50, 50, 0.12)';
+    // Top safe zone
+    if (zones.top) {
+        ctx.fillRect(0, 0, w, h * zones.top);
+    }
+    // Bottom safe zone
+    if (zones.bottom) {
+        ctx.fillRect(0, h - h * zones.bottom, w, h * zones.bottom);
+    }
+    // Dashed border for safe area
+    ctx.strokeStyle = 'rgba(255, 100, 100, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    if (zones.top) {
+        ctx.beginPath();
+        ctx.moveTo(0, h * zones.top);
+        ctx.lineTo(w, h * zones.top);
+        ctx.stroke();
+    }
+    if (zones.bottom) {
+        ctx.beginPath();
+        ctx.moveTo(0, h - h * zones.bottom);
+        ctx.lineTo(w, h - h * zones.bottom);
+        ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+}
+
 function drawPlacementPreview(platform) {
     const canvasId = `preview${platform.charAt(0).toUpperCase() + platform.slice(1)}`;
     const canvas = document.getElementById(canvasId);
@@ -4712,23 +4748,35 @@ function drawPlacementPreview(platform) {
     if (document.getElementById('showSafeZones')?.checked) {
         drawSafeZones(ctx, canvas.width, canvas.height, platform);
     }
+
+    // Draw selection box on the selected element (master canvas only)
+    if (platform === 'tiktok' && selectedElement && elementBounds[selectedElement]) {
+        drawSelectionBox(ctx, elementBounds[selectedElement]);
+    }
 }
 
-// Draw logo on Step 4 composition preview (centered by default)
+// Draw logo on Step 4 composition preview — position/scale from wizardState
 function drawLogoOnPreview(ctx, canvas, img, platform) {
-    // Scale logo to fit nicely (30% of canvas width)
-    const logoScale = Math.min(canvas.width * 0.3 / img.width, canvas.height * 0.3 / img.height);
-    const logoWidth = img.width * logoScale;
-    const logoHeight = img.height * logoScale;
-    
-    // Center the logo
-    const x = (canvas.width - logoWidth) / 2;
-    const y = (canvas.height - logoHeight) / 2;
-    
+    const scalePct = (wizardState.logoScalePct || 30) / 100;
+    const fitScale = Math.min(canvas.width / img.width, canvas.height / img.height);
+    const logoWidth = img.width * fitScale * scalePct;
+    const logoHeight = img.height * fitScale * scalePct;
+
+    // Position (normalized 0-1)
+    const posX = wizardState.logoPositionX != null ? wizardState.logoPositionX : 0.5;
+    const posY = wizardState.logoPositionY != null ? wizardState.logoPositionY : 0.5;
+    const x = posX * canvas.width - logoWidth / 2;
+    const y = posY * canvas.height - logoHeight / 2;
+
     ctx.save();
-    ctx.globalAlpha = 0.9; // Slight transparency for composition view
+    ctx.globalAlpha = 0.9;
     ctx.drawImage(img, x, y, logoWidth, logoHeight);
     ctx.restore();
+
+    // Store bounds for hit-testing (only for master canvas)
+    if (platform === 'tiktok') {
+        elementBounds.logo = { x, y, w: logoWidth, h: logoHeight };
+    }
 }
 
 function drawFullscreenWatermark(ctx, canvas, img) {
@@ -4795,20 +4843,80 @@ function drawPositionedWatermark(ctx, canvas, img, platform) {
     ctx.save();
     ctx.globalAlpha = userOpacity;
     ctx.drawImage(img, baseX, baseY, wmWidth, wmHeight);
-    
-    // Visual feedback: subtle bounding box to show watermark boundary
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
-    ctx.strokeRect(baseX, baseY, wmWidth, wmHeight);
-    ctx.setLineDash([]);
-    
     ctx.restore();
+
+    // Store bounds for hit-testing (only for master canvas)
+    if (platform === 'tiktok') {
+        elementBounds.watermark = { x: baseX, y: baseY, w: wmWidth, h: wmHeight };
+    }
 }
 
 // --- Interaction: Master Drag & Snap ---
 let isDraggingPlacement = false;
 let placementDragStartOffset = { x: 0, y: 0 };
+
+// --- Selection & Resize state ---
+let selectedElement = null;       // 'logo' | 'watermark' | null
+let resizingHandle = null;        // 'nw' | 'ne' | 'sw' | 'se' | null
+let resizeStartInfo = null;       // {mouseX, mouseY, origScale, bounds}
+let elementBounds = { logo: null, watermark: null }; // cached {x,y,w,h} from last draw
+let logoDragOffset = { x: 0, y: 0 };
+
+// Logo position state (normalized 0-1, default center)
+if (!wizardState.logoPositionX) wizardState.logoPositionX = 0.5;
+if (!wizardState.logoPositionY) wizardState.logoPositionY = 0.5;
+if (!wizardState.logoScalePct) wizardState.logoScalePct = 30; // % of canvas
+
+const HANDLE_SIZE = 10; // pixels
+
+function drawSelectionBox(ctx, bounds) {
+    if (!bounds) return;
+    const { x, y, w, h } = bounds;
+    ctx.save();
+    // Dashed green bounding box
+    ctx.strokeStyle = 'rgba(134, 237, 165, 0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.strokeRect(x, y, w, h);
+    ctx.setLineDash([]);
+    // Corner handles
+    const corners = [
+        { cx: x, cy: y },
+        { cx: x + w, cy: y },
+        { cx: x, cy: y + h },
+        { cx: x + w, cy: y + h }
+    ];
+    ctx.fillStyle = '#86eda5';
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 1;
+    corners.forEach(c => {
+        ctx.fillRect(c.cx - HANDLE_SIZE / 2, c.cy - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
+        ctx.strokeRect(c.cx - HANDLE_SIZE / 2, c.cy - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
+    });
+    ctx.restore();
+}
+
+function hitTestHandle(px, py, bounds) {
+    if (!bounds) return null;
+    const { x, y, w, h } = bounds;
+    const r = HANDLE_SIZE * 1.5; // generous hit area
+    const corners = [
+        { id: 'nw', cx: x, cy: y },
+        { id: 'ne', cx: x + w, cy: y },
+        { id: 'sw', cx: x, cy: y + h },
+        { id: 'se', cx: x + w, cy: y + h }
+    ];
+    for (const c of corners) {
+        if (Math.abs(px - c.cx) < r && Math.abs(py - c.cy) < r) return c.id;
+    }
+    return null;
+}
+
+function hitTestBounds(px, py, bounds) {
+    if (!bounds) return false;
+    return px >= bounds.x && px <= bounds.x + bounds.w &&
+           py >= bounds.y && py <= bounds.y + bounds.h;
+}
 
 function initPlacementInteraction() {
     const masterCanvas = document.getElementById('previewTiktok');
@@ -4816,7 +4924,7 @@ function initPlacementInteraction() {
 
     // Mouse events
     masterCanvas.addEventListener('mousedown', startPlacementDrag);
-    masterCanvas.addEventListener('mousemove', handlePlacementDrag);
+    masterCanvas.addEventListener('mousemove', handlePlacementMove);
     window.addEventListener('mouseup', endPlacementDrag);
     
     // Touch events for mobile
@@ -4837,92 +4945,169 @@ function handleTouchMove(e) {
     e.preventDefault();
     if (e.touches.length === 1 && isDraggingPlacement) {
         const touch = e.touches[0];
-        handlePlacementDrag({ clientX: touch.clientX, clientY: touch.clientY });
+        handlePlacementMove({ clientX: touch.clientX, clientY: touch.clientY });
     }
 }
 
-function setPlacementMode(mode) {
-    placementMode = mode;
-    document.getElementById('modePositioned').classList.toggle('active', mode === 'positioned');
-    document.getElementById('modeFullscreen').classList.toggle('active', mode === 'fullscreen');
-    
-    const grid = document.getElementById('placementGridContainer');
-    const microcopy = document.getElementById('modeMicrocopy');
-    const masterCanvas = document.getElementById('previewTiktok');
-    
-    if (mode === 'fullscreen') {
-        grid.style.display = 'none';
-        microcopy.textContent = "Covers entire video";
-        if (masterCanvas) masterCanvas.style.cursor = 'default';
-    } else {
-        grid.style.display = 'block';
-        microcopy.textContent = "Drag to place watermark";
-        if (masterCanvas) masterCanvas.style.cursor = 'move';
-    }
-    
-    updateAllPreviews();
-}
-
-function startPlacementDrag(e) {
-    if (placementMode !== 'positioned') return;
-    isDraggingPlacement = true;
-    
-    // Capture initial offset from anchor for smooth dragging
+// Convert mouse event to canvas pixel coordinates
+function canvasCoords(e) {
     const canvas = document.getElementById('previewTiktok');
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
-    
-    const anchorCoords = getAnchorCoords(placementConfig.anchor);
-    placementDragStartOffset = {
-        x: x - anchorCoords.x,
-        y: y - anchorCoords.y
+    return {
+        px: (e.clientX - rect.left) / rect.width * canvas.width,
+        py: (e.clientY - rect.top) / rect.height * canvas.height,
+        nx: (e.clientX - rect.left) / rect.width,   // normalized 0-1
+        ny: (e.clientY - rect.top) / rect.height
     };
 }
 
-function handlePlacementDrag(e) {
-    if (!isDraggingPlacement) return;
-    
+function startPlacementDrag(e) {
+    const { px, py, nx, ny } = canvasCoords(e);
     const canvas = document.getElementById('previewTiktok');
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
 
-    // Find nearest anchor
-    const nearest = findNearestAnchor(x, y);
-    const dist = Math.hypot(x - getAnchorCoords(nearest).x, y - getAnchorCoords(nearest).y);
-    
-    if (dist < SNAP_THRESHOLD) {
-        // Snap to anchor
-        placementConfig.anchor = nearest;
-        placementConfig.offsetX = 0;
-        placementConfig.offsetY = 0;
-        console.log(`[PLACEMENT DRAG] SNAP to ${nearest}`);
-    } else {
-        // Free-form positioning: calculate offset from nearest anchor
-        placementConfig.anchor = nearest;
-        const anchorCoords = getAnchorCoords(nearest);
-        
-        // Calculate signed offset from anchor
-        placementConfig.offsetX = Math.abs(x - anchorCoords.x);
-        placementConfig.offsetY = Math.abs(y - anchorCoords.y);
-        
-        // Clamp offsets to valid range (0-0.5)
-        placementConfig.offsetX = Math.min(0.5, Math.max(0, placementConfig.offsetX));
-        placementConfig.offsetY = Math.min(0.5, Math.max(0, placementConfig.offsetY));
-        
-        console.log(`[PLACEMENT DRAG] FREEFORM anchor=${nearest}, offsetX=${placementConfig.offsetX.toFixed(2)}, offsetY=${placementConfig.offsetY.toFixed(2)}`);
+    // 1. Check if clicking a resize handle on the currently selected element
+    if (selectedElement && elementBounds[selectedElement]) {
+        const handle = hitTestHandle(px, py, elementBounds[selectedElement]);
+        if (handle) {
+            resizingHandle = handle;
+            isDraggingPlacement = true;
+            const key = selectedElement === 'logo' ? 'logoScalePct' : 'watermarkScale';
+            resizeStartInfo = {
+                mouseX: px, mouseY: py,
+                origScale: wizardState[key] || (selectedElement === 'logo' ? 30 : 50),
+                bounds: { ...elementBounds[selectedElement] },
+                diagLen: Math.hypot(elementBounds[selectedElement].w, elementBounds[selectedElement].h)
+            };
+            canvas.style.cursor = 'nwse-resize';
+            return;
+        }
     }
 
-    // Log current state before render
-    const pos = placementToXY(placementConfig);
-    console.log(`[PLACEMENT DRAG] STATE: wm_x=${pos.x.toFixed(2)}, wm_y=${pos.y.toFixed(2)}, scale=${wizardState.watermarkScale}%, opacity=${wizardState.watermarkOpacity}%`);
+    // 2. Check if clicking on logo body
+    if (hitTestBounds(px, py, elementBounds.logo)) {
+        selectedElement = 'logo';
+        resizingHandle = null;
+        isDraggingPlacement = true;
+        logoDragOffset = {
+            x: px / canvas.width - (wizardState.logoPositionX || 0.5),
+            y: py / canvas.height - (wizardState.logoPositionY || 0.5)
+        };
+        canvas.style.cursor = 'grabbing';
+        updateAllPreviews();
+        return;
+    }
 
+    // 3. Check if clicking on watermark body
+    if (hitTestBounds(px, py, elementBounds.watermark)) {
+        selectedElement = 'watermark';
+        resizingHandle = null;
+        isDraggingPlacement = true;
+        // Use existing anchor-offset drag system
+        const anchorCoords = getAnchorCoords(placementConfig.anchor);
+        placementDragStartOffset = { x: nx - anchorCoords.x, y: ny - anchorCoords.y };
+        canvas.style.cursor = 'grabbing';
+        updateAllPreviews();
+        return;
+    }
+
+    // 4. Clicked empty area — deselect
+    selectedElement = null;
+    resizingHandle = null;
     updateAllPreviews();
+}
+
+function handlePlacementMove(e) {
+    const canvas = document.getElementById('previewTiktok');
+    const { px, py, nx, ny } = canvasCoords(e);
+
+    // Update cursor based on hover
+    if (!isDraggingPlacement) {
+        if (selectedElement && elementBounds[selectedElement]) {
+            const handle = hitTestHandle(px, py, elementBounds[selectedElement]);
+            if (handle) { canvas.style.cursor = 'nwse-resize'; return; }
+        }
+        if (hitTestBounds(px, py, elementBounds.logo) || hitTestBounds(px, py, elementBounds.watermark)) {
+            canvas.style.cursor = 'grab';
+        } else {
+            canvas.style.cursor = 'default';
+        }
+        return;
+    }
+
+    // --- Dragging / Resizing ---
+
+    // Resize handle drag
+    if (resizingHandle && resizeStartInfo) {
+        const dx = px - resizeStartInfo.mouseX;
+        const dy = py - resizeStartInfo.mouseY;
+        // Diagonal distance change determines scale delta
+        const diagDelta = (dx + dy) * (resizingHandle.includes('n') || resizingHandle.includes('w') ? -1 : 1);
+        const scaleMult = 1 + diagDelta / resizeStartInfo.diagLen;
+        const newScale = Math.max(5, Math.round(resizeStartInfo.origScale * scaleMult));
+
+        if (selectedElement === 'logo') {
+            wizardState.logoScalePct = newScale;
+        } else {
+            wizardState.watermarkScale = newScale;
+            // Sync Step 3 slider if visible
+            const s3Slider = document.getElementById('watermarkSize');
+            if (s3Slider) { s3Slider.value = Math.min(newScale, 200); }
+            const s3Val = document.getElementById('step3WmSizeVal');
+            if (s3Val) s3Val.textContent = newScale + '%';
+            // Sync Step 4 slider
+            const s4Slider = document.getElementById('placementScale');
+            if (s4Slider) { s4Slider.value = Math.min(newScale, 200); }
+            const s4Val = document.getElementById('wmScaleVal');
+            if (s4Val) s4Val.textContent = newScale + '%';
+        }
+        updateAllPreviews();
+        return;
+    }
+
+    // Logo body drag — update normalized position
+    if (selectedElement === 'logo') {
+        wizardState.logoPositionX = Math.min(1, Math.max(0, nx - logoDragOffset.x));
+        wizardState.logoPositionY = Math.min(1, Math.max(0, ny - logoDragOffset.y));
+        updateAllPreviews();
+        return;
+    }
+
+    // Watermark body drag — existing anchor+offset system
+    if (selectedElement === 'watermark') {
+        const nearest = findNearestAnchor(nx, ny);
+        const dist = Math.hypot(nx - getAnchorCoords(nearest).x, ny - getAnchorCoords(nearest).y);
+        if (dist < SNAP_THRESHOLD) {
+            placementConfig.anchor = nearest;
+            placementConfig.offsetX = 0;
+            placementConfig.offsetY = 0;
+        } else {
+            placementConfig.anchor = nearest;
+            const ac = getAnchorCoords(nearest);
+            placementConfig.offsetX = Math.min(0.5, Math.max(0, Math.abs(nx - ac.x)));
+            placementConfig.offsetY = Math.min(0.5, Math.max(0, Math.abs(ny - ac.y)));
+        }
+        updateAllPreviews();
+        return;
+    }
 }
 
 function endPlacementDrag() {
     isDraggingPlacement = false;
+    resizingHandle = null;
+    resizeStartInfo = null;
+    const canvas = document.getElementById('previewTiktok');
+    if (canvas) canvas.style.cursor = selectedElement ? 'grab' : 'default';
+}
+
+function setPlacementMode(mode) {
+    placementMode = mode;
+    const modePos = document.getElementById('modePositioned');
+    const modeFull = document.getElementById('modeFullscreen');
+    if (modePos) modePos.classList.toggle('active', mode === 'positioned');
+    if (modeFull) modeFull.classList.toggle('active', mode === 'fullscreen');
+    const masterCanvas = document.getElementById('previewTiktok');
+    if (masterCanvas) masterCanvas.style.cursor = mode === 'fullscreen' ? 'default' : 'grab';
+    updateAllPreviews();
 }
 
 function findNearestAnchor(x, y) {
@@ -5021,6 +5206,7 @@ if (wmContainer && typeof ResizeObserver !== 'undefined') {
             const step3 = document.getElementById('wizardStep3');
             if (step3 && step3.classList.contains('active')) {
                 resizeWatermarkCanvas();
+                drawWatermarkEditor();
             }
         });
     });
@@ -5508,127 +5694,7 @@ async function saveWizardBrandWithWatermark() {
     }
 }
 
-async function saveWizardBrand() {
-    const status = document.getElementById('wizardStatus');
-    const saveBtn = document.getElementById('wizardSaveBtn');
-    
-    // Validate
-    if (!wizardState.displayName || !wizardState.slug) {
-        status.innerHTML = '<div class="status-msg error">Brand name is required.</div>';
-        return;
-    }
-    
-    // Disable button
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving...';
-    
-    try {
-        // Step 1: Create brand
-        status.innerHTML = '<div class="status-msg info">Creating brand...</div>';
-        
-        const createRes = await fetch(`${apiBase}/api/brands`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                name: wizardState.slug,
-                display_name: wizardState.displayName
-            })
-        });
-        
-        const createData = await createRes.json();
-        if (!createData.success) {
-            if (createData.code === 'TIER_LIMIT_REACHED') {
-                closeBrandWizard();
-                showUpgradeModal(null, createData.error);
-                return;
-            }
-            throw new Error(createData.error || 'Failed to create brand');
-        }
-        
-        const brandId = createData.brand_id;
-        
-        // Step 2: Upload logo if present
-        if (wizardState.logoFile) {
-            status.innerHTML = '<div class="status-msg info">Uploading logo...</div>';
-            
-            // ========== V2A: Use edited logo if canvas was modified ==========
-            const logoFileToUpload = await getLogoFileForUpload();
-            // ========== END V2A ==========
-            
-            const logoForm = new FormData();
-            logoForm.append('file', logoFileToUpload);
-            logoForm.append('remove_bg_mode', wizardState.logoCleanup);
-            logoForm.append('bg_strength', wizardState.logoCleanupStrength);
-            logoForm.append('logo_scale', wizardState.logoScale / 100);
-            logoForm.append('logo_opacity', wizardState.logoOpacity / 100);
-            logoForm.append('logo_shape', wizardState.logoShape);
-            
-            const logoRes = await fetch(`${apiBase}/api/brands/${brandId}/upload_logo`, {
-                method: 'POST',
-                body: logoForm
-            });
-            
-            const logoData = await logoRes.json();
-            if (!logoData.success) {
-                console.warn('Logo upload warning:', logoData.error);
-                // Continue anyway - brand is created
-            }
-        }
-        
-        // Step 3: Persist settings via PUT
-        status.innerHTML = '<div class="status-msg info">Saving settings...</div>';
-        
-        const settingsPayload = {
-            logo_scale: wizardState.logoScale / 100,
-            logo_opacity: wizardState.logoOpacity / 100,
-            logo_rotation: wizardState.logoRotation,
-            logo_shape: wizardState.logoShape,
-            logo_x: wizardState.logoX,
-            logo_y: wizardState.logoY
-        };
-        
-        // CANONICAL: Add watermark settings if watermark exists
-        if (wizardState.watermarkFile) {
-            settingsPayload.wm_mode = wizardState.watermarkMode || 'positioned';
-            settingsPayload.wm_scale = wizardState.watermarkScale / 100;
-            settingsPayload.wm_opacity = wizardState.watermarkOpacity / 100;
-            // PHASE 2: Save actual placement position
-            const pos = placementToXY(placementConfig);
-            settingsPayload.wm_x = pos.x;
-            settingsPayload.wm_y = pos.y;
-        }
-        
-        const settingsRes = await fetch(`${apiBase}/api/brands/${brandId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(settingsPayload)
-        });
-        
-        const settingsData = await settingsRes.json();
-        if (!settingsData.success) {
-            console.warn('Logo settings warning:', settingsData.error);
-            // Continue anyway - brand and logo are created
-        }
-        
-        status.innerHTML = '<div class="status-msg success">✅ Brand created successfully!</div>';
-        
-        // ========== WIZARD STABILIZATION (Commit A): Re-enable button before close ==========
-        // Reset button state so next wizard open starts fresh
-        saveBtn.disabled = false;
-        saveBtn.textContent = 'Save Brand';
-        // ========== END STABILIZATION ==========
-        
-        setTimeout(() => {
-            closeBrandWizard();
-            loadBrands();
-        }, 1000);
-        
-    } catch (err) {
-        saveBtn.disabled = false;
-        saveBtn.textContent = 'Save Brand';
-        status.innerHTML = `<div class="status-msg error">❌ ${err.message}</div>`;
-    }
-}
+// (saveWizardBrand removed — saveWizardBrandWithWatermark handles all cases including logo-only)
 
 // Auto-slugify on display name input
 document.getElementById('wizardDisplayName')?.addEventListener('input', function(e) {

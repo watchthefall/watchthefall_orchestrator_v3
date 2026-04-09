@@ -1092,7 +1092,7 @@
 <div class="step-progress" id="stepProgress">
     <div class="step-item active" id="step1">
         <span class="step-dot">1</span>
-        <span>Video</span>
+        <span>Media</span>
     </div>
     <div class="step-line" id="stepLine1"></div>
     <div class="step-item" id="step2">
@@ -1113,19 +1113,36 @@
     <!-- Intake Layer: shown when no video is selected -->
     <div id="intakeLayer">
         <div class="tab-switcher">
-            <button class="tab-btn active" data-tab="download" onclick="switchTab('download')">Paste Link</button>
+            <button class="tab-btn active" data-tab="download" onclick="switchTab('download')">Paste Links</button>
             <button class="tab-btn" data-tab="library" onclick="switchTab('library')">From Library</button>
             <button class="tab-btn" data-tab="upload" onclick="switchTab('upload')">Upload New</button>
         </div>
         <div class="tab-content">
-            <!-- Tab 1: Get Media — inline URL paste + download -->
+            <!-- Tab 1: Get Media — single or batch URL paste + download -->
             <div id="tabDownload" style="display:block;">
                 <div style="padding:24px 20px;">
-                    <div style="display:flex; gap:8px; max-width:600px; margin:0 auto;">
+                    <!-- Mode toggle: single vs batch -->
+                    <div style="display:flex; gap:6px; max-width:600px; margin:0 auto 12px; justify-content:center;">
+                        <button type="button" id="singleLinkModeBtn" class="tab-btn active" data-link-mode="single" onclick="setLinkMode('single')" style="font-size:12px; padding:6px 14px;">Single Link</button>
+                        <button type="button" id="batchLinkModeBtn" class="tab-btn" data-link-mode="batch" onclick="setLinkMode('batch')" style="font-size:12px; padding:6px 14px;">Batch (Multi)</button>
+                    </div>
+                    <!-- Single mode input -->
+                    <div id="singleLinkInput" style="display:flex; gap:8px; max-width:600px; margin:0 auto;">
                         <input type="text" id="inlineUrlInput" placeholder="Paste a TikTok, Instagram, or YouTube link..." style="flex:1; min-width:0; width:auto; background:#121214; border:1px solid #444; border-radius:8px; padding:12px 16px; color:#fff; font-size:14px; outline:none; margin:0;" onkeydown="if(event.key==='Enter')inlineFetchVideo()">
                         <button id="inlineFetchBtn" onclick="inlineFetchVideo()" style="width:auto; flex-shrink:0; padding:12px 20px; font-size:14px; white-space:nowrap; margin:0; border-radius:8px;">Get Media</button>
                     </div>
+                    <!-- Batch mode input -->
+                    <div id="batchLinkInput" style="display:none; max-width:600px; margin:0 auto;">
+                        <textarea id="batchUrlInput" placeholder="Paste multiple links, one per line (max 5)&#10;https://www.tiktok.com/...&#10;https://www.instagram.com/..." style="width:100%; min-height:100px; background:#121214; border:1px solid #444; border-radius:8px; padding:12px 16px; color:#fff; font-size:13px; outline:none; resize:vertical; font-family:inherit; box-sizing:border-box;"></textarea>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                            <small style="color:#666; font-size:11px;">One link per line. Duplicates removed automatically.</small>
+                            <button id="batchFetchBtn" onclick="batchFetchVideos()" style="padding:10px 20px; font-size:14px; white-space:nowrap; border-radius:8px;">Fetch All</button>
+                        </div>
+                    </div>
+                    <!-- Shared status area -->
                     <div id="inlineFetchStatus" style="text-align:center; margin-top:12px; font-size:13px; color:#888; display:none;"></div>
+                    <!-- Batch results area -->
+                    <div id="batchResultsArea" style="display:none; max-width:600px; margin:12px auto 0;"></div>
                 </div>
             </div>
             <!-- Tab 2: Library -->
@@ -1136,7 +1153,7 @@
                     <div style="font-size:32px; margin-bottom:8px;">📁</div>
                     <p style="color:#ccc; margin-bottom:4px; font-size:15px;">Your library is empty</p>
                     <p style="color:#666; margin-bottom:12px; font-size:13px;">Import a video from Instagram, TikTok, or YouTube to get started.</p>
-                    <a href="{{ url_for('download') }}" style="color:var(--accent); text-decoration:none; font-size:13px;">Import Media &rarr;</a>
+                    <button onclick="switchTab('download')" style="background:none; border:none; color:var(--accent); cursor:pointer; font-size:13px; padding:0;">Paste a link to get started &rarr;</button>
                 </div>
                 <div class="library-footer" id="libraryFooter" style="display:none;">
                     <a href="{{ url_for('library') }}">View full library &rarr;</a>
@@ -1152,7 +1169,7 @@
                     <input type="file" id="uploadFileInput" accept=".mp4,.mov,.avi" style="display:none;">
                 </div>
                 <p class="upload-hint">MP4, MOV, AVI &mdash; Max 500 MB</p>
-                <p class="upload-alt">or <a href="{{ url_for('download') }}">paste a link in Get Media</a></p>
+                <p class="upload-alt">or <button onclick="switchTab('download')" style="background:none; border:none; color:var(--accent); cursor:pointer; font-size:inherit; padding:0; font-family:inherit;">paste a link instead</button></p>
                 <div id="uploadProgress" class="upload-progress" style="display:none;">
                     <div class="upload-progress-bar"><div class="upload-progress-fill" id="uploadProgressFill"></div></div>
                     <div class="upload-progress-text" id="uploadProgressText">Uploading...</div>
@@ -3577,8 +3594,8 @@ function getPlatformIcon(sourceUrl) {
 }
 
 function switchTab(tabName) {
-    // Update tab button states
-    document.querySelectorAll('.tab-btn').forEach(btn => {
+    // Update tab button states (only main tab buttons with data-tab, not mode toggles)
+    document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
         const btnTab = btn.getAttribute('data-tab');
         btn.classList.toggle('active', btnTab === tabName);
     });
@@ -3855,7 +3872,9 @@ function goToLibrary() {
 }
 
 function goToDownload() {
-    window.location.href = '/portal/download';
+    // Media intake is now inside Create — just switch to the Paste Links tab
+    switchTab('download');
+    showIntakeLayer();
 }
 
 function inlineFetchVideo() {
@@ -3910,6 +3929,143 @@ function inlineFetchVideo() {
         btn.textContent = 'Get Media';
     });
 }
+
+// ========== LINK MODE TOGGLE (single vs batch) ==========
+let linkMode = 'single';
+
+function setLinkMode(mode) {
+    linkMode = mode;
+    const singleBtn = document.getElementById('singleLinkModeBtn');
+    const batchBtn = document.getElementById('batchLinkModeBtn');
+    const singleInput = document.getElementById('singleLinkInput');
+    const batchInput = document.getElementById('batchLinkInput');
+    const batchResults = document.getElementById('batchResultsArea');
+
+    if (singleBtn) singleBtn.classList.toggle('active', mode === 'single');
+    if (batchBtn) batchBtn.classList.toggle('active', mode === 'batch');
+    if (singleInput) singleInput.style.display = mode === 'single' ? 'flex' : 'none';
+    if (batchInput) batchInput.style.display = mode === 'batch' ? 'block' : 'none';
+    // Clear status when switching modes
+    const status = document.getElementById('inlineFetchStatus');
+    if (status) status.style.display = 'none';
+    if (batchResults) batchResults.style.display = 'none';
+}
+
+function batchFetchVideos() {
+    const textarea = document.getElementById('batchUrlInput');
+    const btn = document.getElementById('batchFetchBtn');
+    const status = document.getElementById('inlineFetchStatus');
+    const resultsArea = document.getElementById('batchResultsArea');
+    const raw = (textarea.value || '').trim();
+
+    if (!raw) {
+        status.style.display = 'block';
+        status.style.color = '#ff6b6b';
+        status.textContent = 'Please paste at least one URL.';
+        return;
+    }
+
+    // Parse, dedupe, validate
+    const urls = [...new Set(
+        raw.split('\n')
+            .map(u => u.trim())
+            .filter(u => u.startsWith('http://') || u.startsWith('https://'))
+    )];
+
+    if (urls.length === 0) {
+        status.style.display = 'block';
+        status.style.color = '#ff6b6b';
+        status.textContent = 'No valid URLs found. Each link should start with http:// or https://';
+        return;
+    }
+
+    if (urls.length > 5) {
+        status.style.display = 'block';
+        status.style.color = '#ff6b6b';
+        status.textContent = 'Max 5 links per batch. You pasted ' + urls.length + '.';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Fetching ' + urls.length + '...';
+    status.style.display = 'block';
+    status.style.color = '#888';
+    status.textContent = 'Fetching ' + urls.length + ' video(s)... this may take a moment.';
+    resultsArea.style.display = 'none';
+
+    fetch('/api/videos/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: urls })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error === 'DAILY_LIMIT_REACHED') {
+            status.style.color = '#ff6b6b';
+            status.textContent = data.message || 'Daily download limit reached.';
+            if (typeof openUpgradeModal === 'function') {
+                openUpgradeModal('Download limit reached', data.message);
+            }
+            return;
+        }
+
+        const results = data.results || [];
+        const successes = results.filter(r => r.success);
+        const failures = results.filter(r => !r.success);
+
+        // Show summary status
+        status.style.display = 'block';
+        if (successes.length === results.length) {
+            status.style.color = 'var(--accent)';
+            status.textContent = successes.length + ' video(s) fetched successfully!';
+        } else {
+            status.style.color = '#ffaa00';
+            status.textContent = successes.length + ' of ' + results.length + ' succeeded. ' + failures.length + ' failed.';
+        }
+
+        // Build results list
+        let html = '';
+        results.forEach(function(r) {
+            const icon = getPlatformIcon(r.url || '');
+            if (r.success) {
+                const safeFilename = (r.filename || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                const safeUrl = (r.url || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                html += '<div style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:rgba(134,237,165,0.08); border-radius:8px; margin-bottom:6px; cursor:pointer;" onclick="selectVideoFromBatch(\'' + safeFilename + '\', \'' + safeUrl + '\')">' +
+                    '<span style="font-size:18px;">' + icon + '</span>' +
+                    '<span style="flex:1; font-size:13px; color:#ccc; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (r.filename || 'Unknown') + '</span>' +
+                    '<span style="color:var(--accent); font-size:12px; flex-shrink:0;">Select</span>' +
+                    '</div>';
+            } else {
+                html += '<div style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:rgba(255,107,107,0.08); border-radius:8px; margin-bottom:6px;">' +
+                    '<span style="font-size:18px;">' + icon + '</span>' +
+                    '<span style="flex:1; font-size:13px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (r.error || 'Failed') + '</span>' +
+                    '<span style="color:#ff6b6b; font-size:12px; flex-shrink:0;">Failed</span>' +
+                    '</div>';
+            }
+        });
+
+        resultsArea.innerHTML = html;
+        resultsArea.style.display = 'block';
+
+        // If only 1 success, auto-select it
+        if (successes.length === 1) {
+            selectVideo(successes[0].filename, { source_url: successes[0].url });
+        }
+    })
+    .catch(function(err) {
+        status.style.color = '#ff6b6b';
+        status.textContent = 'Network error. Please try again.';
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Fetch All';
+    });
+}
+
+function selectVideoFromBatch(filename, sourceUrl) {
+    selectVideo(filename, { source_url: sourceUrl });
+}
+// ========== END LINK MODE ==========
 
 function clearVideo() {
     // Same as changeVideo but stay on current page

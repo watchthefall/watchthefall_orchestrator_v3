@@ -14,6 +14,43 @@ from yt_dlp import YoutubeDL
 import hashlib
 import sqlite3
 from functools import wraps
+import shutil
+import re
+
+# --- ffmpeg detection: find ffmpeg and set yt-dlp format accordingly ---
+_WINGET_FFMPEG = os.path.expandvars(
+    r'%LOCALAPPDATA%\Microsoft\WinGet\Packages'
+    r'\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe'
+    r'\ffmpeg-8.1-full_build\bin'
+)
+
+def _find_ffmpeg_location():
+    """Return the directory containing ffmpeg, or None."""
+    # 1. Already on PATH?
+    if shutil.which('ffmpeg'):
+        return os.path.dirname(shutil.which('ffmpeg'))
+    # 2. Winget default install location
+    if os.path.isfile(os.path.join(_WINGET_FFMPEG, 'ffmpeg.exe')):
+        return _WINGET_FFMPEG
+    return None
+
+FFMPEG_DIR = _find_ffmpeg_location()
+HAS_FFMPEG = FFMPEG_DIR is not None
+
+# If ffmpeg is found but not on PATH, inject it so yt-dlp / subprocess can find it
+if HAS_FFMPEG and not shutil.which('ffmpeg'):
+    os.environ['PATH'] = FFMPEG_DIR + os.pathsep + os.environ.get('PATH', '')
+    print(f"[INIT] Added ffmpeg to PATH from: {FFMPEG_DIR}")
+
+# yt-dlp format string: use merge (best quality) when ffmpeg is available,
+# otherwise fall back to best single pre-muxed format.
+YTDLP_FORMAT = 'bv*+ba/b' if HAS_FFMPEG else 'b/best'
+print(f"[INIT] ffmpeg={'found' if HAS_FFMPEG else 'MISSING'}, yt-dlp format='{YTDLP_FORMAT}'")
+
+def _strip_ansi(text):
+    """Remove ANSI escape codes from a string."""
+    return re.sub(r'\x1b\[[0-9;]*m', '', text)
+
 
 def ensure_video_stream(path):
     import subprocess, json, os
@@ -826,10 +863,8 @@ def api_root():
 @app.route('/portal/download')
 @login_required
 def download():
-    """Downloader page - main entry point"""
-    user_id = session.get('user_id')
-    tier = get_user_tier(user_id)
-    return render_template('downloader.html', tier=tier)
+    """Deprecated: redirect to Create (which now includes full media intake)"""
+    return redirect(url_for('brand_video'))
 
 @app.route('/portal/library')
 @login_required
@@ -1199,12 +1234,14 @@ def process_branded_videos():
                     ydl_opts = {
                         'outtmpl': os.path.join(RAW_DIR, '%(id)s.%(ext)s'),
                         'merge_output_format': 'mp4',
-                        'format': 'bv*+ba/best',
-                        'prefer_ffmpeg': True,
+                        'format': YTDLP_FORMAT,
+                        'prefer_ffmpeg': HAS_FFMPEG,
                         'retries': 5,
                         'fragment_retries': 5,
                         'socket_timeout': 300,
                     }
+                    if HAS_FFMPEG and FFMPEG_DIR:
+                        ydl_opts['ffmpeg_location'] = FFMPEG_DIR
                     
                     # Apply Instagram-specific headers only for Instagram URLs
                     if is_instagram:
@@ -1271,9 +1308,9 @@ def process_branded_videos():
                             import traceback
                             traceback.print_exc()
                             return {
-                                'error': str(download_error),
+                                'error': _strip_ansi(str(download_error)),
                                 'success': False,
-                                'details': traceback.format_exc()
+                                'details': _strip_ansi(traceback.format_exc())
                             }
                     
                     # Ensure .mp4 extension
@@ -1734,12 +1771,14 @@ def fetch_videos_from_urls():
                 ydl_opts = {
                     'outtmpl': os.path.join(RAW_DIR, '%(id)s.%(ext)s'),
                     'merge_output_format': 'mp4',
-                    'format': 'bv*+ba/best',
-                    'prefer_ffmpeg': True,
+                    'format': YTDLP_FORMAT,
+                    'prefer_ffmpeg': HAS_FFMPEG,
                     'retries': 5,
                     'fragment_retries': 5,
                     'socket_timeout': 300,
                 }
+                if HAS_FFMPEG and FFMPEG_DIR:
+                    ydl_opts['ffmpeg_location'] = FFMPEG_DIR
                 
                 # Apply Instagram-specific headers only for Instagram URLs
                 if is_instagram:
@@ -1807,9 +1846,9 @@ def fetch_videos_from_urls():
                         traceback.print_exc()
                         return {
                             'url': url_input,
-                            'error': str(download_error),
+                            'error': _strip_ansi(str(download_error)),
                             'success': False,
-                            'details': traceback.format_exc()
+                            'details': _strip_ansi(traceback.format_exc())
                         }
                 
                 # Ensure .mp4 extension
@@ -2180,8 +2219,8 @@ def list_brands():
             
             # Watermark Config (wm_* keys are canonical)
             'wm_mode': brand.get('wm_mode', 'positioned'),
-            'wm_scale': brand.get('wm_scale', 1.0),
-            'wm_opacity': brand.get('wm_opacity', 0.10),
+            'wm_scale': brand.get('wm_scale') or brand.get('watermark_scale') or 1.0,
+            'wm_opacity': brand.get('wm_opacity') or brand.get('watermark_opacity') or 0.10,
             'wm_x': brand.get('wm_x', 0.5),
             'wm_y': brand.get('wm_y', 0.5),
             
@@ -2193,10 +2232,6 @@ def list_brands():
             'logo_padding': brand.get('logo_padding', 40),
             'logo_shape': brand.get('logo_shape'),
             'logo_rotation': brand.get('logo_rotation', 0.0),
-            
-            # Legacy fields (for backward compat with old code)
-            'watermark_scale': brand.get('watermark_scale', brand.get('wm_scale', 1.15)),
-            'watermark_opacity': brand.get('watermark_opacity', brand.get('wm_opacity', 0.4)),
             
             # Text Layer Config
             'text_enabled': brand.get('text_enabled', False),
