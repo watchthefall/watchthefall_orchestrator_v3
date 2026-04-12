@@ -519,6 +519,28 @@
         background: var(--accent);
         color: #121214;
     }
+    .library-item .item-bookmark-btn {
+        padding: 6px 8px;
+        border-radius: 6px;
+        background: transparent;
+        color: #666;
+        border: 1px solid #444;
+        font-size: 16px;
+        cursor: pointer;
+        width: auto;
+        margin-top: 0;
+        flex-shrink: 0;
+        transition: all 0.2s;
+    }
+    .library-item .item-bookmark-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+    .library-item .item-bookmark-btn.bookmarked {
+        color: var(--accent);
+        border-color: var(--accent);
+        background: rgba(57, 255, 20, 0.1);
+    }
     .library-item.unavailable {
         opacity: 0.4;
         pointer-events: none;
@@ -1092,17 +1114,17 @@
 <div class="step-progress" id="stepProgress">
     <div class="step-item active" id="step1">
         <span class="step-dot">1</span>
-        <span>Media</span>
+        <span>Downloadr</span>
     </div>
     <div class="step-line" id="stepLine1"></div>
     <div class="step-item" id="step2">
         <span class="step-dot">2</span>
-        <span>Brands</span>
+        <span>Brandr</span>
     </div>
     <div class="step-line" id="stepLine2"></div>
     <div class="step-item" id="step3">
         <span class="step-dot">3</span>
-        <span>Process</span>
+        <span>Shipr</span>
     </div>
 </div>
 
@@ -1147,6 +1169,9 @@
             </div>
             <!-- Tab 2: Library -->
             <div id="tabLibrary">
+                <div class="library-info-banner" style="background:rgba(57,255,20,0.08); border:1px solid rgba(57,255,20,0.2); border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:12px; color:#ccc; display:none;" id="libraryInfoBanner">
+                    <strong style="color:var(--accent);">💡 Library tips:</strong> Bookmark items you want to keep. Non-bookmarked items may be cleaned up automatically later.
+                </div>
                 <div id="libraryLoading" style="text-align:center; padding:20px; color:#888;">Loading library...</div>
                 <div id="libraryGrid" class="library-grid" style="display:none;"></div>
                 <div id="libraryEmpty" style="display:none; text-align:center; padding:20px;">
@@ -1189,7 +1214,8 @@
             </div>
         </div>
         <div class="selected-video-actions">
-            <button id="changeVideoBtn" onclick="changeVideo()" class="btn-primary" style="font-size:13px; padding:6px 12px;">Change Video</button>
+            <button id="downloadRawBtn" onclick="downloadRawVideo()" style="font-size:13px; padding:6px 14px; background:#28a745; color:#fff; border:none; border-radius:6px; cursor:pointer;">Download Raw MP4</button>
+            <button id="changeVideoBtn" onclick="changeVideo()" class="btn-primary" style="font-size:13px; padding:6px 12px; margin-left:8px;">Change Video</button>
             <button id="libraryBtn" onclick="goToLibrary()" class="btn-secondary" style="font-size:13px; padding:6px 12px; margin-left:8px;">Library</button>
             <button id="clearVideoBtn" onclick="clearVideo()" class="btn-text" style="font-size:13px; padding:6px 12px; margin-left:8px; color:#888;">Clear</button>
         </div>
@@ -1624,12 +1650,12 @@ function getBrandDefaults(brandId) {
     const cfg = brandDataCache[brandId];
     if (!cfg) return getDefaultOverrides();
     return {
-        watermark_scale: cfg.wm_scale || 1.15,
-        watermark_opacity: cfg.wm_opacity || 0.4,
-        logo_x: cfg.logo_x || 0,
-        logo_y: cfg.logo_y || 0,
+        watermark_scale: cfg.wm_scale || 0.25,
+        watermark_opacity: cfg.wm_opacity || 0.20,
+        logo_x: cfg.logo_x || 0.85,
+        logo_y: cfg.logo_y || 0.85,
         logo_rotation: cfg.logo_rotation || 0,
-        logo_scale: cfg.logo_scale || 0.15,
+        logo_scale: cfg.logo_scale || 0.25,
         text_enabled: !!cfg.text_enabled,
         text_content: cfg.text_content || '',
         text_x: cfg.text_x || 0,
@@ -2931,9 +2957,9 @@ async function switchToBrand(idx) {
         const brandData = brandDataCache[current.brand_id];
         if (brandData) {
             current.overrides = {
-                watermark_scale: brandData.wm_scale || 1.0,
-                watermark_opacity: brandData.wm_opacity || 0.10,
-                logo_scale: brandData.logo_scale || 0.15,
+                watermark_scale: brandData.wm_scale || 0.25,
+                watermark_opacity: brandData.wm_opacity || 0.20,
+                logo_scale: brandData.logo_scale || 0.25,
                 text_enabled: !!brandData.text_enabled,
                 text_content: brandData.text_content || '',
                 text_x: brandData.text_x || 0,
@@ -2961,9 +2987,12 @@ async function switchToBrand(idx) {
 
 function getDefaultOverrides() {
     return {
-        watermark_scale: 1.15,
-        watermark_opacity: 0.4,
-        logo_scale: 0.15,
+        watermark_scale: 0.25,
+        watermark_opacity: 0.20,
+        logo_scale: 0.25,
+        logo_x: 0.85,
+        logo_y: 0.85,
+        logo_rotation: 0,
         text_enabled: false,
         text_content: '',
         text_x: 0,
@@ -3627,11 +3656,13 @@ async function loadLibraryItems() {
     const grid = document.getElementById('libraryGrid');
     const empty = document.getElementById('libraryEmpty');
     const footer = document.getElementById('libraryFooter');
+    const infoBanner = document.getElementById('libraryInfoBanner');
 
     loading.style.display = 'block';
     grid.style.display = 'none';
     empty.style.display = 'none';
     footer.style.display = 'none';
+    infoBanner.style.display = 'none';
 
     try {
         const res = await fetch('/api/downloads/recent?limit=12');
@@ -3646,6 +3677,9 @@ async function loadLibraryItems() {
             return;
         }
 
+        // Show info banner on first load
+        infoBanner.style.display = 'block';
+
         let html = '';
         downloads.forEach(dl => {
             const icon = getPlatformIcon(dl.source_url);
@@ -3653,12 +3687,18 @@ async function loadLibraryItems() {
             const fname = dl.filename || 'Unknown file';
             const safeFilename = fname.replace(/'/g, "\\'").replace(/"/g, '&quot;');
             const safeSource = (dl.source_url || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            html += `<div class="library-item" onclick="selectVideoFromLibrary('${safeFilename}', '${safeSource}')">
+            const downloadId = dl.id;
+            const isBookmarked = dl.bookmarked === 1;
+            const bookmarkIcon = isBookmarked ? '★' : '☆';
+            const bookmarkClass = isBookmarked ? 'bookmarked' : '';
+            
+            html += `<div class="library-item" data-id="${downloadId}" onclick="selectVideoFromLibrary('${safeFilename}', '${safeSource}')">
                 <span class="source-icon">${icon}</span>
                 <div class="item-info">
                     <span class="item-filename">${fname}</span>
                     <span class="item-date">${date}</span>
                 </div>
+                <button class="item-bookmark-btn ${bookmarkClass}" type="button" onclick="event.stopPropagation(); toggleLibraryBookmark(${downloadId}, this)" title="${isBookmarked ? 'Remove bookmark' : 'Bookmark this item'}">${bookmarkIcon}</button>
                 <button class="item-select-btn" type="button">Select</button>
             </div>`;
         });
@@ -3676,6 +3716,38 @@ async function loadLibraryItems() {
 function selectVideoFromLibrary(filename, sourceUrl) {
     selectVideo(filename, { source_url: sourceUrl });
 }
+
+// ========== LIBRARY BOOKMARK ==========
+async function toggleLibraryBookmark(downloadId, btn) {
+    try {
+        const res = await fetch(`/api/downloads/${downloadId}/bookmark`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!res.ok) throw new Error('Failed to toggle bookmark');
+        
+        const data = await res.json();
+        
+        // Update button appearance
+        if (data.bookmarked) {
+            btn.textContent = '★';
+            btn.classList.add('bookmarked');
+            btn.title = 'Remove bookmark';
+        } else {
+            btn.textContent = '☆';
+            btn.classList.remove('bookmarked');
+            btn.title = 'Bookmark this item';
+        }
+        
+        console.log(`[Bookmark] Item ${downloadId} bookmarked: ${data.bookmarked}, Total bookmarks: ${data.bookmark_count}`);
+    } catch (err) {
+        console.error('[Bookmark] Error:', err);
+        // Revert button on error
+        btn.textContent = btn.classList.contains('bookmarked') ? '☆' : '★';
+    }
+}
+// ========== END LIBRARY BOOKMARK ==========
 
 function selectVideo(filename, meta) {
     meta = meta || {};
@@ -3877,6 +3949,35 @@ function goToDownload() {
     showIntakeLayer();
 }
 
+function downloadRawVideo() {
+    if (!currentFile) return;
+    window.open('/api/videos/download/' + encodeURIComponent(currentFile), '_blank');
+}
+
+function persistFetchedDownload(result, sourceUrl) {
+    if (!result || !result.success || !result.filename || !result.local_path) {
+        return Promise.resolve(null);
+    }
+
+    return fetch('/api/videos/save-download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            source_url: sourceUrl || result.url || '',
+            filename: result.filename,
+            file_path: result.local_path,
+            display_name: result.display_name || result.filename.replace(/\.[^/.]+$/, '')
+        })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to save download');
+        }
+        return data;
+    });
+}
+
 function inlineFetchVideo() {
     var input = document.getElementById('inlineUrlInput');
     var btn = document.getElementById('inlineFetchBtn');
@@ -3905,9 +4006,11 @@ function inlineFetchVideo() {
     .then(function(data) {
         if (data.success && data.results && data.results[0] && data.results[0].success) {
             var result = data.results[0];
-            status.style.color = 'var(--accent)';
-            status.textContent = 'Ready! Loading preview...';
-            selectVideo(result.filename, { source_url: url });
+            return persistFetchedDownload(result, url).then(function() {
+                status.style.color = 'var(--accent)';
+                status.textContent = 'Ready! Loading preview...';
+                selectVideo(result.filename, { source_url: url });
+            });
         } else if (data.error === 'DAILY_LIMIT_REACHED') {
             status.style.color = '#ff6b6b';
             status.textContent = data.message || 'Daily download limit reached.';
@@ -4013,44 +4116,53 @@ function batchFetchVideos() {
         const successes = results.filter(r => r.success);
         const failures = results.filter(r => !r.success);
 
-        // Show summary status
-        status.style.display = 'block';
-        if (successes.length === results.length) {
-            status.style.color = 'var(--accent)';
-            status.textContent = successes.length + ' video(s) fetched successfully!';
-        } else {
-            status.style.color = '#ffaa00';
-            status.textContent = successes.length + ' of ' + results.length + ' succeeded. ' + failures.length + ' failed.';
-        }
-
-        // Build results list
-        let html = '';
-        results.forEach(function(r) {
-            const icon = getPlatformIcon(r.url || '');
-            if (r.success) {
-                const safeFilename = (r.filename || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                const safeUrl = (r.url || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                html += '<div style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:rgba(134,237,165,0.08); border-radius:8px; margin-bottom:6px; cursor:pointer;" onclick="selectVideoFromBatch(\'' + safeFilename + '\', \'' + safeUrl + '\')">' +
-                    '<span style="font-size:18px;">' + icon + '</span>' +
-                    '<span style="flex:1; font-size:13px; color:#ccc; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (r.filename || 'Unknown') + '</span>' +
-                    '<span style="color:var(--accent); font-size:12px; flex-shrink:0;">Select</span>' +
-                    '</div>';
+        return Promise.all(successes.map(function(result) {
+            return persistFetchedDownload(result, result.url).catch(function(err) {
+                console.warn('[Library Save] Failed to persist fetched download:', err);
+            });
+        })).then(function() {
+            // Show summary status
+            status.style.display = 'block';
+            if (successes.length === results.length) {
+                status.style.color = 'var(--accent)';
+                status.textContent = successes.length + ' video(s) fetched successfully!';
             } else {
-                html += '<div style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:rgba(255,107,107,0.08); border-radius:8px; margin-bottom:6px;">' +
-                    '<span style="font-size:18px;">' + icon + '</span>' +
-                    '<span style="flex:1; font-size:13px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (r.error || 'Failed') + '</span>' +
-                    '<span style="color:#ff6b6b; font-size:12px; flex-shrink:0;">Failed</span>' +
-                    '</div>';
+                status.style.color = '#ffaa00';
+                status.textContent = successes.length + ' of ' + results.length + ' succeeded. ' + failures.length + ' failed.';
+            }
+
+            // Build results list with state badges
+            let html = '';
+            results.forEach(function(r) {
+                const icon = getPlatformIcon(r.url || '');
+                if (r.success) {
+                    const safeFilename = (r.filename || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    const safeUrl = (r.url || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    const dlUrl = '/api/videos/download/' + encodeURIComponent(r.filename || '');
+                    html += '<div id="batchItem_' + safeFilename + '" style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:rgba(134,237,165,0.08); border-radius:8px; margin-bottom:6px;">' +
+                        '<span style="font-size:18px;">' + icon + '</span>' +
+                        '<span style="flex:1; font-size:13px; color:#ccc; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (r.filename || 'Unknown') + '</span>' +
+                        '<span class="batch-state-badge" style="background:#555; color:#fff; font-size:10px; padding:3px 8px; border-radius:4px; flex-shrink:0;">Raw</span>' +
+                        '<a href="' + dlUrl + '" target="_blank" onclick="event.stopPropagation(); markBatchItemDone(\'' + safeFilename + '\')" style="color:#28a745; font-size:12px; flex-shrink:0; text-decoration:none; margin-right:6px;">Download</a>' +
+                        '<span style="color:var(--accent); font-size:12px; flex-shrink:0; cursor:pointer;" onclick="selectVideoFromBatch(\'' + safeFilename + '\', \'' + safeUrl + '\'); markBatchItemBranding(\'' + safeFilename + '\')">Brand it</span>' +
+                        '</div>';
+                } else {
+                    html += '<div style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:rgba(255,107,107,0.08); border-radius:8px; margin-bottom:6px;">' +
+                        '<span style="font-size:18px;">' + icon + '</span>' +
+                        '<span style="flex:1; font-size:13px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (r.error || 'Failed') + '</span>' +
+                        '<span style="color:#ff6b6b; font-size:12px; flex-shrink:0;">Failed</span>' +
+                        '</div>';
+                }
+            });
+
+            resultsArea.innerHTML = html;
+            resultsArea.style.display = 'block';
+
+            // If only 1 success, auto-select it
+            if (successes.length === 1) {
+                selectVideo(successes[0].filename, { source_url: successes[0].url });
             }
         });
-
-        resultsArea.innerHTML = html;
-        resultsArea.style.display = 'block';
-
-        // If only 1 success, auto-select it
-        if (successes.length === 1) {
-            selectVideo(successes[0].filename, { source_url: successes[0].url });
-        }
     })
     .catch(function(err) {
         status.style.color = '#ff6b6b';
@@ -4065,6 +4177,27 @@ function batchFetchVideos() {
 function selectVideoFromBatch(filename, sourceUrl) {
     selectVideo(filename, { source_url: sourceUrl });
 }
+
+// ========== BATCH ITEM STATE BADGES ==========
+// Session-only state tracking for batch fetch results
+function markBatchItemDone(filename) {
+    const badge = document.querySelector('#batchItem_' + filename + ' .batch-state-badge');
+    if (badge) {
+        badge.textContent = 'Done';
+        badge.style.background = '#28a745';
+    }
+}
+
+function markBatchItemBranding(filename) {
+    const badge = document.querySelector('#batchItem_' + filename + ' .batch-state-badge');
+    if (badge) {
+        badge.textContent = 'Ready to Brand';
+        badge.style.background = 'var(--accent)';
+        badge.style.color = '#121214';
+    }
+}
+// ========== END BATCH ITEM STATE BADGES ==========
+
 // ========== END LINK MODE ==========
 
 function clearVideo() {

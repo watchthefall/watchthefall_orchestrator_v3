@@ -149,6 +149,24 @@
             padding: 6px 12px;
             font-size: 0.85rem;
         }
+        .media-card .bookmark-indicator {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .media-card .bookmark-indicator.bookmarked {
+            color: var(--accent);
+            font-weight: 600;
+        }
+        .btn-bookmark-toggle {
+            background: transparent;
+            border: 1px solid #444;
+            color: #666;
+        }
+        .btn-bookmark-toggle:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
     </style>
 </head>
 <body>
@@ -205,13 +223,21 @@
                     const truncatedUrl = sourceUrl.length > 50 ? sourceUrl.substring(0, 50) + '...' : sourceUrl;
                     const createdAt = download.created_at ? new Date(download.created_at).toLocaleDateString() : 'Unknown date';
                     const isAvailable = download.file_exists;
+                    const isBookmarked = download.bookmarked === 1;
+                    const downloadId = download.id;
                     
                     card.innerHTML = `
                         <div class="filename">${escapeHtml(filename)}</div>
                         <div class="source">${escapeHtml(truncatedUrl)}</div>
                         <div class="meta">${escapeHtml(createdAt)}</div>
                         <span class="status ${isAvailable ? 'available' : 'missing'}">${isAvailable ? 'Available' : 'File missing'}</span>
+                        <div class="bookmark-indicator ${isBookmarked ? 'bookmarked' : ''}">
+                            ${isBookmarked ? '★ Bookmarked' : '☆ Not bookmarked'}
+                        </div>
                         <div class="actions">
+                            <button class="btn btn-small btn-bookmark-toggle" onclick="toggleLibraryBookmarkFull(${downloadId}, this)">
+                                ${isBookmarked ? 'Remove Bookmark' : 'Bookmark'}
+                            </button>
                             ${isAvailable ? `<button class="btn btn-small" onclick="useInCreate('${escapeHtml(filename)}')">Use in Create</button>` : ''}
                             ${download.file_path ? `<a href="/portal/download-file/${download.id}" class="btn btn-secondary btn-small" download>Download</a>` : ''}
                         </div>
@@ -245,6 +271,27 @@
         function useInCreate(filename) {
             sessionStorage.setItem('lastDownloadFilename', filename);
             window.location.href = "{{ url_for('brand_video') }}";
+        }
+        
+        async function toggleLibraryBookmarkFull(downloadId, btn) {
+            try {
+                const res = await fetch(`/api/downloads/${downloadId}/bookmark`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (!res.ok) throw new Error('Failed to toggle bookmark');
+                
+                const data = await res.json();
+                
+                // Reload library to reflect changes
+                await loadLibrary();
+                
+                console.log(`[Bookmark] Item ${downloadId} bookmarked: ${data.bookmarked}, Total: ${data.bookmark_count}`);
+            } catch (err) {
+                console.error('[Bookmark] Error:', err);
+                alert('Failed to update bookmark. Please try again.');
+            }
         }
         
         // Load library on page load

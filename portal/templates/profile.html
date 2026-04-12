@@ -227,6 +227,22 @@
                 </div>
                 {% endif %}
             </div>
+
+            <div class="profile-section">
+                <h3 class="section-title">Today's Usage</h3>
+                <div class="limits-grid">
+                    <div class="limit-card">
+                        <div class="limit-label">Branding Jobs</div>
+                        <div class="limit-value">{{ usage.branding_jobs }}</div>
+                        <div class="limit-unit">used today</div>
+                    </div>
+                    <div class="limit-card">
+                        <div class="limit-label">Fetches</div>
+                        <div class="limit-value">{{ usage.downloads }}</div>
+                        <div class="limit-unit">used today</div>
+                    </div>
+                </div>
+            </div>
             
             <!-- Compare Plans -->
             <div class="profile-section">

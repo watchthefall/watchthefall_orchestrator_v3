@@ -480,383 +480,229 @@
     </div>
 </div>
 
-<!-- Brand Creation Wizard (Slice 1: New brands only) -->
+<!-- Brand Creation Wizard (MVP 2-Step Flow) -->
 <div id="brandWizard" class="modal">
     <div class="wizard-content">
         <!-- Wizard Header -->
         <div class="wizard-header">
-            <h2>Create New Brand</h2>
+            <h2 id="wizardTitle">Create New Brand</h2>
             <button class="modal-close" onclick="closeBrandWizard()">×</button>
         </div>
         
-        <!-- Progress Indicator -->
-        <div class="wizard-progress">
-            <div class="progress-step active" data-step="1">
-                <span class="step-number">1</span>
-                <span class="step-label">Identity</span>
-            </div>
-            <div class="progress-line"></div>
-            <div class="progress-step" data-step="2">
-                <span class="step-number">2</span>
-                <span class="step-label">Logo</span>
-            </div>
-            <div class="progress-line"></div>
-            <div class="progress-step" data-step="3">
-                <span class="step-number">3</span>
-                <span class="step-label">Watermark</span>
-            </div>
-            <div class="progress-line"></div>
-            <div class="progress-step" data-step="4">
-                <span class="step-number">4</span>
-                <span class="step-label">Placement</span>
-            </div>
+        <!-- Simple Step Indicator (2 steps only) -->
+        <div class="wizard-progress-simple">
+            <div class="progress-dot active" id="stepDot1"></div>
+            <div class="progress-line-simple"></div>
+            <div class="progress-dot" id="stepDot2"></div>
         </div>
         
         <div id="wizardStatus"></div>
         
-        <!-- Step 1: Brand Identity -->
-        <div id="wizardStep1" class="wizard-step">
+        <!-- STEP 1: Brand Basics (Name + Upload) -->
+        <div id="wizardStep1" class="wizard-step active">
             <div class="wizard-step-content">
-                <h3>Name Your Brand</h3>
-                <p class="step-description">This is how your brand will appear throughout Brandr.</p>
-                
-                <div class="form-group">
-                    <label>Brand Name *</label>
-                    <input type="text" id="wizardDisplayName" placeholder="e.g., My Awesome Brand" required>
-                    <small class="input-hint">The human-friendly name for your brand.</small>
-                </div>
-                
-                <div class="form-group">
-                    <label>URL Slug</label>
-                    <input type="text" id="wizardBrandSlug" placeholder="e.g., my-awesome-brand" pattern="[a-z0-9]+(-[a-z0-9]+)*">
-                    <small class="input-hint">Used in URLs. Auto-generated from name, but you can customize.</small>
+                <div class="step1-layout">
+                    <!-- Left: Name input -->
+                    <div class="step1-form">
+                        <h3>Name Your Brand</h3>
+                        <div class="form-group">
+                            <label>Brand Name *</label>
+                            <input type="text" id="wizardDisplayName" placeholder="e.g., My Awesome Brand" required>
+                        </div>
+                        <!-- Slug is auto-generated, hidden from MVP -->
+                        <input type="hidden" id="wizardBrandSlug">
+                    </div>
+                    
+                    <!-- Right: Upload zone -->
+                    <div class="step1-upload">
+                        <h3>Upload Brand Image</h3>
+                        <div class="upload-zone-large" id="wizardLogoUploadZone" onclick="document.getElementById('wizardLogoInput').click()">
+                            <input type="file" id="wizardLogoInput" accept="image/*" hidden>
+                            <div class="upload-placeholder-large">
+                                <span class="upload-icon-large">🎨</span>
+                                <p>Drop your logo here or click to browse</p>
+                                <small>PNG, JPG, WEBP supported</small>
+                            </div>
+                            <div class="upload-preview" id="wizardLogoPreview" style="display:none;">
+                                <img id="wizardLogoPreviewImg" src="" alt="Brand preview">
+                                <button type="button" class="btn-text" onclick="event.stopPropagation(); clearWizardLogo()">Change</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
             <div class="wizard-actions">
                 <button type="button" class="btn btn-secondary" onclick="closeBrandWizard()">Cancel</button>
-                <button type="button" class="btn btn-secondary" onclick="saveWizardFromAnyStep()">Save Brand</button>
-                <button type="button" class="btn btn-primary" onclick="wizardNextStep()">Next: Add Logo →</button>
+                <button type="button" class="btn btn-primary" id="step1ContinueBtn" onclick="wizardNextStep()" disabled>Continue →</button>
             </div>
         </div>
         
-        <!-- Step 2: Primary Logo Editor -->
+        <!-- STEP 2: Live Composer (Unified drag + scale + opacity) -->
         <div id="wizardStep2" class="wizard-step">
-            <div class="wizard-step-content">
-                <h3>Edit Your Logo</h3>
-                <p class="step-description">Upload and edit your logo. Position it on video in the next step.</p>
-                
-                <!-- Logo Upload - Large zone (shown before upload) -->
-                <div class="upload-zone" id="wizardLogoUploadZone">
-                    <input type="file" id="wizardLogoInput" accept="image/*" hidden>
-                    <div class="upload-placeholder" onclick="document.getElementById('wizardLogoInput').click()">
-                        <span class="upload-icon">🎨</span>
-                        <p>Click to upload logo</p>
-                        <small>PNG, JPG, WEBP</small>
-                    </div>
-                </div>
-                
-                <!-- Logo Editor Layout (shown after upload) -->
-                <div class="logo-editor" id="wizardLogoEditor" style="display:none;">
-                    <!-- File Info Bar -->
-                    <div class="editor-file-info">
-                        <img id="wizardLogoThumb" src="" alt="Logo" style="width:40px;height:40px;object-fit:contain;border-radius:4px;background:rgba(255,255,255,0.1);">
-                        <span class="upload-filename" id="wizardLogoFilename" style="flex:1;font-size:13px;color:#ccc;">logo.png</span>
-                        <button type="button" class="btn-text" onclick="document.getElementById('wizardLogoInput').click()">Change</button>
-                        <button type="button" class="btn-text btn-danger-text" onclick="clearWizardLogo()">Remove</button>
-                    </div>
-                    
-                    <!-- Two-Panel Editor Layout: Canvas + Properties -->
-                    <div class="editor-layout" style="display:grid;grid-template-columns:1fr 200px;gap:16px;">
-                        <!-- Left: Canvas with Tools Below -->
-                        <div class="editor-canvas-area">
-                            <div class="editor-canvas-wrap">
-                                <canvas id="wizardEditorCanvas" width="480" height="480"></canvas>
+            <div class="wizard-step-content composer-content">
+                <!-- Main Composer Layout -->
+                <div class="composer-layout">
+                    <!-- Left: Controls -->
+                    <div class="composer-controls">
+                        <h3>Composer</h3>
+                        
+                        <div class="composer-layer-switcher">
+                            <div class="composer-section-label">Editing</div>
+                            <div class="layer-toggle-group">
+                                <button type="button" id="composerLogoLayerBtn" class="layer-toggle-btn active" onclick="setActiveComposerElement('logo')">Logo</button>
+                                <button type="button" id="composerWatermarkLayerBtn" class="layer-toggle-btn" onclick="setActiveComposerElement('watermark')">Watermark</button>
                             </div>
-                            
-                            <!-- Tool Strip Below Canvas -->
-                            <div class="editor-tool-strip" style="display:flex;gap:8px;margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;align-items:center;">
-                                <button type="button" class="tool-btn" data-tool="erase" onclick="setEditorTool('erase')" title="Erase brush">
-                                    <span>✏️</span>
-                                    <small>Erase</small>
-                                </button>
-                                <button type="button" class="tool-btn" data-tool="restore" onclick="setEditorTool('restore')" title="Restore brush">
-                                    <span>↩️</span>
-                                    <small>Restore</small>
-                                </button>
-                                <button type="button" class="tool-btn" data-tool="wand" onclick="setEditorTool('wand')" title="Magic Wand - click to remove connected background">
-                                    <span>🪄</span>
-                                    <small>Wand</small>
-                                    <span class="tool-badge">Beta</span>
-                                </button>
-                                
-                                <div style="width:1px;height:32px;background:rgba(255,255,255,0.1);margin:0 8px;"></div>
-                                
-                                <!-- Brush/Wand Settings -->
-                                <div class="brush-settings" id="wizardBrushSettings" style="display:none;flex:1;">
-                                    <label style="font-size:10px;color:#888;display:block;margin-bottom:4px;" id="brushSettingsLabel">Brush Size</label>
-                                    <input type="range" id="wizardBrushSize" min="1" max="100" value="20" style="width:120px;" oninput="updateWizardBrushSize(this.value)">
-                                    <span id="wizardBrushSizeVal" style="font-size:10px;color:var(--accent);margin-left:8px;">20px</span>
-                                </div>
-                                
-                                <div style="flex:1;"></div>
-                                
-                                <!-- Revert Button (restore original image) -->
-                                <button type="button" class="btn-text" onclick="revertEditorImage()" title="Restore original uploaded image and clear all edits" style="font-size:11px;">
-                                    ↩️ Revert
-                                </button>
-                            </div>
+                            <p class="help-text" id="composerActiveHelp">Drag the selected layer on canvas. Use the sliders below to resize and fade it.</p>
+                            <button type="button" class="btn-text btn-sm composer-watermark-action" id="composerWatermarkAction" onclick="openComposerWatermarkAccess()">Add Watermark</button>
                         </div>
                         
-                        <!-- Right: Properties -->
-                        <div class="editor-props">
-                            <!-- Shape -->
-                            <div class="prop-group">
-                                <label>Shape</label>
-                                <div class="option-buttons" style="flex-wrap:wrap;gap:4px;">
-                                    <button type="button" class="option-btn active" data-shape="original" onclick="setWizardLogoShape('original')" style="padding:6px 10px;font-size:11px;">Original</button>
-                                    <button type="button" class="option-btn" data-shape="circle" onclick="setWizardLogoShape('circle')" style="padding:6px 10px;font-size:11px;">Circle</button>
-                                    <button type="button" class="option-btn" data-shape="square" onclick="setWizardLogoShape('square')" style="padding:6px 10px;font-size:11px;">Square</button>
-                                </div>
-                            </div>
-                            
-                            <!-- Default Output Size -->
-                            <div class="prop-group">
-                                <label>Default Output Size <span id="wizardLogoScaleVal">25%</span></label>
-                                <input type="range" id="wizardLogoScale" min="5" max="100" value="25" oninput="updateWizardLogoScale(this.value)">
-                            </div>
-                            
-                            <!-- Opacity -->
-                            <div class="prop-group">
-                                <label>Opacity <span id="wizardLogoOpacityVal">100%</span></label>
-                                <input type="range" id="wizardLogoOpacity" min="0" max="100" value="100" oninput="updateWizardLogoOpacity(this.value)">
-                            </div>
-                            
-                            <!-- Reset Defaults Button (size/opacity/shape only) -->
-                            <div class="prop-group" style="margin-top:auto;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
-                                <button type="button" class="btn btn-secondary" onclick="resetEditorDefaults()" title="Reset size, opacity, and shape to defaults" style="width:100%;font-size:12px;">
-                                    🔄 Reset Defaults
-                                </button>
-                            </div>
-                            
-                            <!-- Auto Remove BG (V2B - Beta) -->
-                            <div class="prop-group" style="padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
-                                <label style="font-size:10px;color:#888;margin-bottom:8px;display:block;">Auto Remove BG <span class="tool-badge">Beta</span></label>
-                                
-                                <!-- Light backgrounds -->
-                                <div style="display:flex;gap:6px;margin-bottom:6px;">
-                                    <button type="button" class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px 4px;" onclick="autoRemoveBackgroundWhite()" title="Remove white/near-white backgrounds">
-                                        White
-                                    </button>
-                                    <button type="button" class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px 4px;" onclick="autoRemoveBackgroundLight()" title="Remove light gray backgrounds">
-                                        Light
-                                    </button>
-                                </div>
-                                
-                                <!-- Dark backgrounds -->
-                                <div style="display:flex;gap:6px;">
-                                    <button type="button" class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px 4px;" onclick="autoRemoveBackgroundBlack()" title="Remove black/near-black backgrounds">
-                                        Black
-                                    </button>
-                                    <button type="button" class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px 4px;" onclick="autoRemoveBackgroundDark()" title="Remove dark gray backgrounds">
-                                        Dark
-                                    </button>
-                                </div>
-                                
-                                <p style="font-size:10px;color:#666;margin-top:8px;margin-bottom:0;line-height:1.4;">
-                                    Removes solid color backgrounds. Use Erase/Restore to clean up edges.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="wizard-actions">
-                <button type="button" class="btn btn-secondary" onclick="wizardPrevStep()">← Back</button>
-                <button type="button" class="btn btn-secondary" onclick="saveWizardFromAnyStep()">Save Brand</button>
-                <button type="button" class="btn btn-primary" onclick="wizardNextStep()">Next: Position & Watermark →</button>
-            </div>
-        </div>
-        
-                <!-- Step 3: Watermark Styling (appearance + context previews) -->
-        <div id="wizardStep3" class="wizard-step">
-            <div class="wizard-step-content" style="display:flex;flex-direction:column;height:100%;">
-                
-                <!-- Header — compact -->
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-shrink:0;">
-                    <div>
-                        <h3 style="margin:0;font-size:16px;font-weight:600;">Step 3: Watermark Creation</h3>
-                        <p class="step-description" style="margin:2px 0 0;font-size:11px;color:#8e95a8;">Design your video watermark, default appearance &amp; feel.</p>
-                    </div>
-                    <button type="button" class="btn-icon" onclick="showWizardStep(2)" title="Back to Step 2 - Edit Logo" style="width:30px;height:30px;font-size:14px;">
-                        🎨
-                    </button>
-                </div>
-                
-                <!-- Main Content: 3-column editor layout -->
-                <div class="watermark-editor-layout">
-                    
-                    <!-- Column 1: Controls — bare sliders, compact -->
-                    <aside class="wm-controls">
-                        
-                        <!-- Watermark Size -->
-                        <div class="wm-control-row">
-                            <label>Watermark Size <span id="step3WmSizeVal">50%</span></label>
-                            <input type="range" id="watermarkSize" min="10" max="200" value="50" oninput="updateWatermarkSize(this.value)">
+                        <!-- Size -->
+                        <div class="control-group composer-primary-control">
+                            <label><span id="composerSizeLabel">Logo Size</span> <span id="composerSizeVal">25%</span></label>
+                            <input type="range" id="composerSize" min="5" max="100" value="25" oninput="updateComposerSize(this.value)">
                         </div>
                         
                         <!-- Opacity -->
-                        <div class="wm-control-row">
-                            <label>Opacity <span id="step3WmOpacityVal">50%</span></label>
-                            <input type="range" id="watermarkOpacity" min="0" max="100" value="50" oninput="updateWatermarkOpacity(this.value)">
+                        <div class="control-group composer-primary-control">
+                            <label><span id="composerOpacityLabel">Logo Opacity</span> <span id="composerOpacityVal">100%</span></label>
+                            <input type="range" id="composerOpacity" min="0" max="100" value="100" oninput="updateComposerOpacity(this.value)">
                         </div>
                         
-                        <!-- Contrast Boost -->
-                        <div class="wm-control-row">
-                            <label>Contrast Boost</label>
-                            <input type="range" id="watermarkContrast" min="0" max="100" value="0" oninput="updateWatermarkContrast(this.value)">
-                        </div>
-
-                        <!-- Advanced shape (demoted) -->
-                        <details class="wm-advanced-card">
-                            <summary style="font-size:10px;color:#888;cursor:pointer;">Advanced mask shape</summary>
-                            <div style="display:flex;gap:6px;margin-top:6px;">
-                                <button type="button" class="option-btn active" data-wm-shape="original" onclick="setWatermarkShape('original')" style="flex:1;padding:5px;font-size:10px;">Original</button>
-                                <button type="button" class="option-btn" data-wm-shape="circle" onclick="setWatermarkShape('circle')" style="flex:1;padding:5px;font-size:10px;">Circle</button>
-                                <button type="button" class="option-btn" data-wm-shape="square" onclick="setWatermarkShape('square')" style="flex:1;padding:5px;font-size:10px;">Square</button>
+                        <!-- Shape -->
+                        <div class="control-group composer-logo-only">
+                            <label>Shape</label>
+                            <div class="shape-options">
+                                <button type="button" class="shape-option active" data-shape="original" onclick="setComposerShape('original')">
+                                    <span class="shape-icon shape-original"></span>
+                                    <span class="shape-label">Original</span>
+                                </button>
+                                <button type="button" class="shape-option" data-shape="circle" onclick="setComposerShape('circle')">
+                                    <span class="shape-icon shape-circle"></span>
+                                    <span class="shape-label">Circle</span>
+                                </button>
+                                <button type="button" class="shape-option" data-shape="square" onclick="setComposerShape('square')">
+                                    <span class="shape-icon shape-square"></span>
+                                    <span class="shape-label">Square</span>
+                                </button>
                             </div>
-                        </details>
+                        </div>
                         
-                        <div id="watermarkUploadZone" class="wm-upload-zone">
-                            <input type="file" id="watermarkFileInput" accept="image/png,image/jpeg,image/jpg,image/webp" hidden onchange="handleWatermarkFileUpload(event)">
-                            <button type="button" id="watermarkUploadBtn" class="btn btn-primary" style="width:100%;font-size:12px;padding:8px 10px;" onclick="document.getElementById('watermarkFileInput').click()">
-                                💧 Upload Watermark
+                        <!-- Simple BG Removal -->
+                        <div class="control-group composer-logo-only">
+                            <label>Background</label>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="toggleComposerBgRemoval()" id="composerBgBtn">
+                                ✨ Auto-Remove BG
                             </button>
-                            <p style="margin:4px 0 0;font-size:10px;color:#666;">Appearance previews only. Final placement is in Step 4.</p>
                         </div>
-                        <!-- Reset -->
-                        <button type="button" class="btn btn-secondary" style="width:100%;font-size:10px;padding:6px;" onclick="resetWatermark()">↺ Reset styling</button>
-                    </aside>
-                    
-                    <!-- Column 2: Primary vertical preview -->
-                    <div class="wm-card wm-card-primary" id="watermarkEditorContainer">
-                        <!-- Meta bar (shown after upload) -->
-                        <div id="watermarkMetaBar" style="display:none;margin-bottom:6px;">
-                            <span id="watermarkFilename" style="display:inline-block; max-width:70%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:middle;font-size:10px;">watermark.png</span>
-                            <span style="float:right; display:flex; gap:8px;">
-                                <button type="button" class="btn-text" style="font-size:9px;" onclick="document.getElementById('watermarkFileInput').click()">Change</button>
-                                <button type="button" class="btn-text btn-danger-text" style="font-size:9px;" onclick="removeWatermark()">Remove</button>
-                            </span>
+                        
+                        <!-- Advanced toggle (hidden features) -->
+                        <div class="control-group advanced-toggle">
+                            <button type="button" class="btn-text btn-sm" onclick="toggleAdvancedMode()">
+                                ⚙️ Advanced Options
+                            </button>
                         </div>
-                        <canvas id="watermarkEditorCanvas" width="248" height="440" class="wm-preview-canvas"></canvas>
-                        <div class="wm-card-label">Vertical (9:16) <span class="wm-primary-tag">Primary</span></div>
+                        
+                        <!-- Advanced options (hidden by default) -->
+                        <div id="composerAdvanced" style="display:none;">
+                            <!-- Rotation -->
+                            <div class="control-group composer-logo-only">
+                                <label>Rotation <span id="composerRotationVal">0°</span></label>
+                                <input type="range" id="composerRotation" min="0" max="360" value="0" oninput="updateComposerRotation(this.value)">
+                            </div>
+                            <p class="help-text composer-watermark-note" id="composerWatermarkNote" style="display:none;">Watermark editing uses position, size, and opacity only in this pass.</p>
+                            
+                            <!-- Separate Watermark Toggle -->
+                            <div class="control-group">
+                                <label class="toggle-label">
+                                    <input type="checkbox" id="useSeparateWatermark" onchange="toggleSeparateWatermark()">
+                                    <span>Use separate watermark</span>
+                                </label>
+                                <p class="help-text">If left empty, Brandr uses your main brand image</p>
+                            </div>
+                            
+                            <!-- Watermark Upload (shown when toggle is on) -->
+                            <div id="watermarkUploadSection" style="display:none;">
+                                <div class="control-group">
+                                    <label>Watermark Image</label>
+                                    <div class="watermark-upload-zone" id="watermarkUploadZone" onclick="document.getElementById('watermarkFileInput').click()">
+                                        <input type="file" id="watermarkFileInput" accept="image/*" hidden onchange="handleWatermarkUpload(event)">
+                                        <div class="watermark-placeholder" id="watermarkPlaceholder">
+                                            <span>💧</span>
+                                            <small>Click to upload watermark</small>
+                                        </div>
+                                        <div class="watermark-preview" id="watermarkPreview" style="display:none;">
+                                            <img id="watermarkPreviewImg" src="" alt="Watermark">
+                                            <button type="button" class="btn-text btn-xs" onclick="event.stopPropagation(); clearWatermark()">Remove</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Watermark Preview Mode -->
+                                <div class="control-group">
+                                    <label>Preview Shows</label>
+                                    <div class="preview-mode-options">
+                                        <button type="button" class="preview-mode-btn active" data-mode="logo" onclick="setPreviewMode('logo')">
+                                            Main Brand
+                                        </button>
+                                        <button type="button" class="preview-mode-btn" data-mode="watermark" onclick="setPreviewMode('watermark')">
+                                            Watermark
+                                        </button>
+                                        <button type="button" class="preview-mode-btn" data-mode="both" onclick="setPreviewMode('both')">
+                                            Both
+                                        </button>
+                                    </div>
+                                    <p class="help-text" id="previewModeHelp">Currently showing: Main brand image only</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
-                    <!-- Column 3: Variant stack -->
-                    <div class="wm-side-cards">
-                        <div class="wm-card" data-tier-required="Creator">
-                            <canvas id="wmPreviewSquare" width="190" height="190" class="wm-preview-canvas"></canvas>
-                            <div class="wm-card-label">Square (1:1) <span class="wm-tier-badge" data-tier="Creator">Creator+</span></div>
+                    <!-- Center: Main Preview (TikTok/Vertical) -->
+                    <div class="composer-main">
+                        <div class="canvas-container" id="composerCanvasContainer">
+                            <canvas id="composerMainCanvas" width="360" height="640"></canvas>
+                            <div class="canvas-layer-chip" id="composerActiveChip">Editing Logo</div>
+                            <div class="canvas-hint">Tap a layer to select it, drag to position, use sliders to resize.</div>
                         </div>
-                        <div class="wm-card" data-tier-required="Studio">
-                            <canvas id="wmPreviewLandscape" width="190" height="107" class="wm-preview-canvas"></canvas>
-                            <div class="wm-card-label">Landscape (16:9) <span class="wm-tier-badge" data-tier="Studio">Studio+</span></div>
+                    </div>
+                    
+                    <!-- Right: Secondary Previews -->
+                    <div class="composer-previews">
+                        <h4>Other Platforms</h4>
+                        <div class="preview-card">
+                            <canvas id="composerPreviewSquare" width="150" height="150"></canvas>
+                            <span>Instagram</span>
+                        </div>
+                        <div class="preview-card">
+                            <canvas id="composerPreviewLandscape" width="200" height="112"></canvas>
+                            <span>YouTube</span>
                         </div>
                     </div>
                 </div>
-                
             </div>
             
             <div class="wizard-actions">
                 <button type="button" class="btn btn-secondary" onclick="wizardPrevStep()">← Back</button>
-                <button type="button" class="btn btn-primary" onclick="wizardNextStep()">Next: Placement →</button>
+                <button type="button" class="btn btn-primary btn-lg" onclick="saveWizardBrand()">Save Brand</button>
             </div>
         </div>
+        
 
-<!-- Step 4: Placement (Global Intent System) -->
-        <div id="wizardStep4" class="wizard-step">
-            <div class="wizard-step-content" style="display:flex;flex-direction:column;height:100%;">
-                
-                <!-- Header -->
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-shrink:0;">
-                    <div>
-                        <h3 style="margin:0;font-size:16px;">Final Composition</h3>
-                        <p class="step-description" style="margin:2px 0 0;font-size:11px;color:#888;">Position logo and watermark together</p>
-                    </div>
-                    <div style="display:flex;gap:6px;">
-                        <button type="button" class="btn-icon" onclick="showWizardStep(2)" title="Back to Step 2 - Edit Logo">
-                            🎨
-                        </button>
-                        <button type="button" class="btn-icon" onclick="showWizardStep(3)" title="Back to Step 3 - Edit Watermark">
-                            💧
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Main Layout: Previews + Controls (no left sidebar — direct drag on canvas) -->
-                <input type="hidden" id="modePositioned" value="positioned">
-                <div style="display:flex;gap:14px;flex:1;min-height:0;" class="composition-previews-container">
-
-                    <!-- Center: Multi-Platform Previews (full width, no sidebar) -->
-                    <div style="flex:1;display:flex;flex-direction:column;gap:10px;overflow-y:auto;align-items:flex-start;" class="composition-previews-center">
-                        <div style="display:flex;gap:12px;align-items:flex-start;" class="previews-row">
-                            <!-- TikTok Preview (hero) -->
-                            <div class="preview-card" style="text-align:center;">
-                                <canvas id="previewTiktok" width="200" height="356" style="display:block;background:#000;border-radius:6px;cursor:grab;width:200px;box-shadow:0 2px 12px rgba(0,0,0,0.5);"></canvas>
-                                <div style="font-size:9px;color:#888;margin-top:4px;">TikTok 9:16</div>
-                            </div>
-                            <!-- Instagram + YouTube stacked -->
-                            <div style="display:flex;flex-direction:column;gap:10px;">
-                                <div class="preview-card" style="text-align:center;">
-                                    <canvas id="previewInstagram" width="160" height="160" style="display:block;background:#000;border-radius:6px;cursor:grab;width:160px;box-shadow:0 2px 10px rgba(0,0,0,0.4);"></canvas>
-                                    <div style="font-size:9px;color:#888;margin-top:4px;">Instagram 1:1</div>
-                                </div>
-                                <div class="preview-card" style="text-align:center;">
-                                    <canvas id="previewYoutube" width="260" height="146" style="display:block;background:#000;border-radius:6px;cursor:grab;width:260px;box-shadow:0 2px 10px rgba(0,0,0,0.4);"></canvas>
-                                    <div style="font-size:9px;color:#888;margin-top:4px;">YouTube 16:9</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Right: Scale + Opacity controls only -->
-                    <div style="width:140px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;align-self:flex-start;" class="controls-right">
-                        <div style="padding:6px;background:rgba(0,0,0,0.2);border-radius:6px;">
-                            <label style="display:block;font-size:9px;font-weight:600;color:#EAEAEA;margin-bottom:4px;">Scale <span id="wmScaleVal">15%</span></label>
-                            <input type="range" id="placementScale" min="5" max="200" value="15" style="width:100%;" oninput="updatePlacementScale(this.value)">
-                        </div>
-                        <div style="padding:6px;background:rgba(0,0,0,0.2);border-radius:6px;">
-                            <label style="display:block;font-size:9px;font-weight:600;color:#EAEAEA;margin-bottom:4px;">Opacity <span id="wmOpacityVal">80%</span></label>
-                            <input type="range" id="placementOpacity" min="0" max="100" value="80" style="width:100%;" oninput="updatePlacementOpacity(this.value)">
-                        </div>
-                        <div style="padding:6px;background:rgba(0,0,0,0.2);border-radius:6px;">
-                            <label style="display:flex;align-items:center;gap:4px;font-size:9px;color:#EAEAEA;cursor:pointer;">
-                                <input type="checkbox" id="showSafeZones" onchange="updateAllPreviews()"> Show Guide
-                            </label>
-                        </div>
-                        <p style="font-size:8px;color:#555;margin:6px 0 0;line-height:1.3;text-align:center;">Drag on any preview to position. Pinch or scroll to resize.</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="wizard-actions" style="padding:10px 16px;">
-                <button type="button" class="btn btn-secondary" onclick="wizardPrevStep()">← Back</button>
-                <button type="button" class="btn btn-primary" onclick="saveWizardFromAnyStep()">Finish Brand</button>
-            </div>
-        </div>
     </div>
 </div>
 
 <style>
-/* Brand Wizard Styles */
+/* ===== MVP 2-STEP WIZARD STYLES ===== */
+
+/* Wizard Container */
 .wizard-content {
     background: #1a1a2e;
     border-radius: 12px;
-    max-width: 600px;
+    max-width: 900px;
     width: 90%;
     max-height: 90vh;
-    min-height: 500px; /* Ensure wizard has enough height for all steps */
+    min-height: 500px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -866,7 +712,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 24px;
+    padding: 16px 24px;
     border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
@@ -875,12 +721,624 @@
     font-size: 20px;
 }
 
-.wizard-progress {
+/* Simple 2-Step Progress Indicator */
+.wizard-progress-simple {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px 24px;
+    padding: 16px 24px;
+    gap: 12px;
+}
+
+.progress-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    transition: all 0.2s;
+}
+
+.progress-dot.active {
+    background: var(--accent, #86EDA5);
+    box-shadow: 0 0 8px var(--accent, #86EDA5);
+}
+
+.progress-line-simple {
+    width: 40px;
+    height: 2px;
+    background: rgba(255,255,255,0.2);
+}
+
+/* Step Visibility */
+.wizard-step {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+}
+
+.wizard-step.active {
+    display: flex;
+}
+
+/* ===== STEP 1: BRAND BASICS ===== */
+.step1-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    padding: 24px;
+}
+
+.step1-form h3,
+.step1-upload h3 {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.upload-zone-large {
+    border: 2px dashed rgba(255,255,255,0.2);
+    border-radius: 12px;
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.upload-zone-large:hover {
+    border-color: var(--accent, #86EDA5);
+    background: rgba(255,255,255,0.02);
+}
+
+.upload-zone-large.has-file {
+    border-style: solid;
+    border-color: var(--accent, #86EDA5);
+    background: rgba(134, 237, 165, 0.05);
+}
+
+.upload-icon-large {
+    font-size: 48px;
+    display: block;
+    margin-bottom: 12px;
+}
+
+.upload-placeholder-large p {
+    margin: 0 0 8px 0;
+    color: #EAEAEA;
+    font-size: 14px;
+}
+
+.upload-placeholder-large small {
+    color: #888;
+    font-size: 12px;
+}
+
+.upload-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.upload-preview img {
+    max-width: 150px;
+    max-height: 150px;
+    object-fit: contain;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.05);
+    padding: 8px;
+}
+
+/* ===== STEP 2: LIVE COMPOSER ===== */
+.composer-content {
+    flex: 1;
+    padding: 0 24px 24px;
+    min-height: 0;
+}
+
+.composer-layout {
+    display: grid;
+    grid-template-columns: 180px 1fr 160px;
+    gap: 20px;
+    height: 100%;
+}
+
+/* Left Controls */
+.composer-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 12px;
+}
+
+.composer-controls h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.composer-layer-switcher {
+    padding: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+}
+
+.composer-section-label {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #777;
+    margin-bottom: 8px;
+}
+
+.layer-toggle-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
+    margin-bottom: 8px;
+}
+
+.layer-toggle-btn {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.05);
+    color: #9a9a9a;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.layer-toggle-btn:hover:not(:disabled) {
+    border-color: rgba(255,255,255,0.24);
+    color: #eaeaea;
+}
+
+.layer-toggle-btn.active {
+    background: rgba(134, 237, 165, 0.18);
+    border-color: var(--accent, #86EDA5);
+    color: var(--accent, #86EDA5);
+    box-shadow: 0 0 0 1px rgba(134, 237, 165, 0.12) inset;
+}
+
+.layer-toggle-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.composer-primary-control {
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+}
+
+.composer-watermark-action {
+    align-self: flex-start;
+    margin-top: 2px;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.control-group label {
+    font-size: 12px;
+    color: #aaa;
+    display: flex;
+    justify-content: space-between;
+}
+
+.control-group input[type="range"] {
+    width: 100%;
+}
+
+.composer-logo-only.is-dimmed {
+    opacity: 0.45;
+}
+
+.composer-logo-only.is-dimmed button,
+.composer-logo-only.is-dimmed input {
+    pointer-events: none;
+}
+
+/* Shape Options - Improved */
+.shape-options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.shape-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+}
+
+.shape-option:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.2);
+}
+
+.shape-option.active {
+    background: rgba(134, 237, 165, 0.15);
+    border-color: var(--accent, #86EDA5);
+}
+
+.shape-icon {
+    width: 24px;
+    height: 24px;
+    border: 2px solid currentColor;
+    flex-shrink: 0;
+}
+
+.shape-icon.shape-original {
+    border-radius: 4px;
+    background: linear-gradient(135deg, transparent 50%, currentColor 50%);
+}
+
+.shape-icon.shape-circle {
+    border-radius: 50%;
+}
+
+.shape-icon.shape-square {
+    border-radius: 4px;
+}
+
+.shape-option.active .shape-icon {
+    color: var(--accent, #86EDA5);
+}
+
+.shape-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #ccc;
+}
+
+.shape-option.active .shape-label {
+    color: var(--accent, #86EDA5);
+}
+
+/* Toggle Label */
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #ccc;
+}
+
+.toggle-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent, #86EDA5);
+}
+
+/* Help Text */
+.help-text {
+    font-size: 10px;
+    color: #666;
+    margin: 4px 0 0 0;
+    line-height: 1.4;
+}
+
+/* Watermark Upload */
+.watermark-upload-zone {
+    border: 2px dashed rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.watermark-upload-zone:hover {
+    border-color: var(--accent, #86EDA5);
+    background: rgba(255,255,255,0.02);
+}
+
+.watermark-upload-zone.has-file {
+    border-style: solid;
+    border-color: var(--accent, #86EDA5);
+}
+
+.watermark-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.watermark-placeholder span {
+    font-size: 24px;
+}
+
+.watermark-placeholder small {
+    font-size: 10px;
+    color: #888;
+}
+
+.watermark-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.watermark-preview img {
+    max-width: 80px;
+    max-height: 80px;
+    object-fit: contain;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.05);
+    padding: 4px;
+}
+
+/* Preview Mode Options */
+.preview-mode-options {
+    display: flex;
+    gap: 4px;
+}
+
+.preview-mode-btn {
+    flex: 1;
+    padding: 6px 4px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    color: #888;
+    transition: all 0.2s;
+}
+
+.preview-mode-btn:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.preview-mode-btn.active {
+    background: rgba(134, 237, 165, 0.2);
+    border-color: var(--accent, #86EDA5);
+    color: var(--accent, #86EDA5);
+}
+
+/* Extra small button */
+.btn-xs {
+    padding: 4px 8px;
+    font-size: 10px;
+}
+
+/* Legacy shape styles (keep for compatibility) */
+.shape-toggle {
+    display: flex;
+    gap: 8px;
+}
+
+.shape-btn {
+    flex: 1;
+    padding: 8px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+}
+
+.shape-btn:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.shape-btn.active {
+    background: var(--accent, #86EDA5);
+    border-color: var(--accent, #86EDA5);
+    color: #121214;
+}
+
+.btn-sm {
+    padding: 8px 12px;
+    font-size: 12px;
+}
+
+.advanced-toggle {
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+/* Center Canvas */
+.composer-main {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.canvas-container {
+    position: relative;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+#composerMainCanvas {
+    display: block;
+    cursor: grab;
+    max-width: 100%;
+    max-height: 60vh;
+    touch-action: none;
+}
+
+#composerMainCanvas:active {
+    cursor: grabbing;
+}
+
+.canvas-layer-chip {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.78);
+    color: #d8d8d8;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.12);
+    pointer-events: none;
+}
+
+.canvas-hint {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    color: #888;
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+/* Right Previews */
+.composer-previews {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+}
+
+.composer-previews h4 {
+    margin: 0;
+    font-size: 12px;
+    color: #888;
+    font-weight: 500;
+}
+
+.preview-card {
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 8px;
+    text-align: center;
+}
+
+.preview-card canvas {
+    display: block;
+    background: #000;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    max-width: 100%;
+}
+
+.preview-card span {
+    font-size: 10px;
+    color: #666;
+}
+
+/* Wizard Actions */
+.wizard-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    gap: 12px;
+}
+
+.wizard-actions .btn-lg {
+    padding: 12px 32px;
+    font-size: 14px;
+}
+
+@media (max-width: 768px) {
+    .composer-layout {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .composer-main {
+        order: 1;
+        padding: 0;
+    }
+
+    .composer-controls {
+        order: 2;
+        padding: 14px;
+    }
+
+    .composer-previews {
+        order: 3;
+        padding: 0;
+        flex-direction: row;
+        align-items: stretch;
+        overflow-x: auto;
+    }
+
+    .preview-card {
+        min-width: 140px;
+        flex: 1 0 140px;
+    }
+
+    #composerMainCanvas {
+        width: min(100%, 420px);
+        height: auto;
+        max-height: none;
+    }
+
+    .canvas-hint {
+        bottom: 10px;
+        width: calc(100% - 24px);
+        white-space: normal;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .composer-content {
+        padding: 0 12px 16px;
+    }
+
+    .composer-controls {
+        border-radius: 10px;
+    }
+
+    .layer-toggle-group {
+        grid-template-columns: 1fr;
+    }
+
+    .canvas-layer-chip {
+        top: 8px;
+        left: 8px;
+        font-size: 10px;
+    }
+}
+
+/* Legacy Wizard Styles (keep for compatibility) */
+.wizard-progress {
+    display: none; /* Hidden in MVP */
 }
 
 .progress-step {
@@ -2195,7 +2653,7 @@ function updateWmScale(value) {
 }
 
 function updateWmOpacity(value) {
-    document.getElementById('step3WmOpacityVal').textContent = value + '%';
+    document.getElementById('wmOpacityVal').textContent = value + '%';
     if (editor) {
         editor.updateState({ wmOpacity: parseFloat(value) / 100 });
     }
@@ -2426,7 +2884,7 @@ async function createBrand(e) {
 }
 
 function editBrand(brandId) {
-    // Fetch brand data and open editor
+    // Fetch brand data and open the 2-step wizard in edit mode
     fetch(`${apiBase}/api/brands/${brandId}`)
         .then(res => res.json())
         .then(data => {
@@ -2436,79 +2894,127 @@ function editBrand(brandId) {
             
             const brand = data.brand;
             
-            // Open modal
-            document.getElementById('createModal').classList.add('active');
-            document.getElementById('modalStatus').innerHTML = '';
+            // Clear stale globals
+            wizardLogoImage = null;
+            wizardWatermarkImage = null;
+            wizardDragging = false;
+            wizardPinching = false;
+            wizardDragOffset = { x: 0, y: 0 };
+            composerDragging = false;
             
-            // Initialize editor if needed
-            if (!editor) {
-                editor = initBrandEditor();
+            // Determine if this brand has a separate watermark
+            const hasSeparateWatermark = !!brand.watermark_path;
+            
+            // Hydrate wizardState from saved brand data
+            wizardState = {
+                step: 1,
+                editMode: true,
+                editBrandId: brandId,
+                displayName: brand.display_name || '',
+                slug: brand.name || '',
+                // In edit mode, logoFile stays null (asset already on server)
+                logoFile: null,
+                logoPreviewUrl: brand.logo_path ? `${apiBase}/api/preview/brand-asset/${brandId}/logo` : null,
+                logoShape: brand.logo_shape || 'original',
+                logoScale: Math.round((brand.logo_scale || 0.25) * 100),
+                logoOpacity: Math.round((brand.logo_opacity || 1.0) * 100),
+                logoRotation: brand.logo_rotation || 0,
+                logoX: brand.logo_x != null ? brand.logo_x : 0.5,
+                logoY: brand.logo_y != null ? brand.logo_y : 0.5,
+                activeElement: 'logo',
+                bgRemovalEnabled: false,
+                logoCleanup: 'none',
+                logoCleanupStrength: 30,
+                useSeparateWatermark: hasSeparateWatermark,
+                watermarkFile: null,
+                watermarkPreviewUrl: hasSeparateWatermark ? `${apiBase}/api/preview/brand-asset/${brandId}/watermark` : null,
+                watermarkX: brand.wm_x != null ? brand.wm_x : 0.18,
+                watermarkY: brand.wm_y != null ? brand.wm_y : 0.18,
+                watermarkScale: Math.round((brand.wm_scale || 0.25) * 100),
+                watermarkOpacity: Math.round((brand.wm_opacity || 0.50) * 100),
+                previewMode: hasSeparateWatermark ? 'both' : 'logo'
+            };
+            
+            // Populate Step 1 UI
+            const wizardDisplayNameEl = document.getElementById('wizardDisplayName');
+            const wizardBrandSlugEl = document.getElementById('wizardBrandSlug');
+            if (wizardDisplayNameEl) wizardDisplayNameEl.value = wizardState.displayName;
+            if (wizardBrandSlugEl) wizardBrandSlugEl.value = wizardState.slug;
+            
+            // Show logo preview in Step 1 upload zone
+            if (wizardState.logoPreviewUrl) {
+                const logoPreview = document.getElementById('wizardLogoPreview');
+                const logoPreviewImg = document.getElementById('wizardLogoPreviewImg');
+                const logoUploadZone = document.getElementById('wizardLogoUploadZone');
+                const logoPlaceholder = logoUploadZone?.querySelector('.upload-placeholder-large');
+                
+                if (logoPreviewImg) logoPreviewImg.src = wizardState.logoPreviewUrl;
+                if (logoPreview) logoPreview.style.display = 'flex';
+                if (logoPlaceholder) logoPlaceholder.style.display = 'none';
+                if (logoUploadZone) logoUploadZone.classList.add('has-file');
             }
             
-            // Set form to edit mode
-            const form = document.getElementById('createForm');
-            form.dataset.mode = 'edit';
-            form.dataset.brandId = brandId;
-            
-            // Populate fields
-            document.getElementById('brandName').value = brand.name;
-            document.getElementById('brandName').disabled = true; // Can't change slug
-            document.getElementById('displayName').value = brand.display_name;
-            
-            // Load editor state
-            editor.loadState(brand);
-            
-            // Update logo status to reflect truth
-            const logoStatus = document.getElementById('logoStatus');
-            if (brand.logo_path) {
-                logoStatus.textContent = '✅ Logo loaded (upload new to replace)';
-                logoStatus.className = 'badge-success';
-                logoStatus.style.display = 'block';
-            } else {
-                logoStatus.textContent = '⚠️ No logo uploaded';
-                logoStatus.className = 'badge-warning';
-                logoStatus.style.display = 'block';
+            // Show watermark preview if exists
+            if (hasSeparateWatermark && wizardState.watermarkPreviewUrl) {
+                const wmPreview = document.getElementById('watermarkPreview');
+                const wmPreviewImg = document.getElementById('watermarkPreviewImg');
+                const wmPlaceholder = document.getElementById('watermarkPlaceholder');
+                const wmUploadZone = document.getElementById('watermarkUploadZone');
+                
+                if (wmPreviewImg) wmPreviewImg.src = wizardState.watermarkPreviewUrl;
+                if (wmPreview) wmPreview.style.display = 'flex';
+                if (wmPlaceholder) wmPlaceholder.style.display = 'none';
+                if (wmUploadZone) wmUploadZone.classList.add('has-file');
             }
             
-            // Update UI controls to match loaded state
-            document.getElementById('logoScale').value = (brand.logo_scale || 0.15) * 100;
-            document.getElementById('logoScaleVal').textContent = Math.round((brand.logo_scale || 0.15) * 100) + '%';
-            document.getElementById('logoRotation').value = brand.logo_rotation || 0;
-            document.getElementById('logoRotationVal').textContent = Math.round(brand.logo_rotation || 0) + '°';
-            document.getElementById('logoOpacity').value = (brand.logo_opacity || 1.0) * 100;
-            document.getElementById('logoOpacityVal').textContent = Math.round((brand.logo_opacity || 1.0) * 100) + '%';
+            // Reset step visibility
+            const step1 = document.getElementById('wizardStep1');
+            const step2 = document.getElementById('wizardStep2');
+            const step3 = document.getElementById('wizardStep3');
+            const step4 = document.getElementById('wizardStep4');
+            if (step1) step1.classList.add('active');
+            if (step2) step2.classList.remove('active');
+            if (step3) step3.classList.remove('active');
+            if (step4) step4.classList.remove('active');
             
-            // Hydrate logo shape buttons
-            setLogoShape(brand.logo_shape || 'original');
+            // Clear status
+            const wizardStatus = document.getElementById('wizardStatus');
+            if (wizardStatus) wizardStatus.innerHTML = '';
             
-            const wmMode = brand.wm_mode || 'fullscreen';
-            if (wmMode === 'fullscreen') {
-                document.getElementById('wmFullscreenBtn').classList.add('active');
-                document.getElementById('wmPositionedBtn').classList.remove('active');
-            } else {
-                document.getElementById('wmFullscreenBtn').classList.remove('active');
-                document.getElementById('wmPositionedBtn').classList.add('active');
+            // Enable continue button (we have name + logo already)
+            const step1ContinueBtn = document.getElementById('step1ContinueBtn');
+            if (step1ContinueBtn) step1ContinueBtn.disabled = false;
+            
+            // Update wizard title for edit mode
+            const title = document.getElementById('wizardTitle');
+            if (title) title.textContent = 'Edit Brand';
+            
+            // Update progress dots
+            const dot1 = document.getElementById('stepDot1');
+            const dot2 = document.getElementById('stepDot2');
+            if (dot1) dot1.classList.add('active');
+            if (dot2) dot2.classList.remove('active');
+            
+            // Reset wizard content width
+            const wizardContent = document.querySelector('.wizard-content');
+            if (wizardContent) {
+                wizardContent.classList.remove('step-2-active');
+                wizardContent.classList.remove('step-3-active');
+                wizardContent.classList.remove('step-4-active');
             }
             
-            document.getElementById('wmScale').value = (brand.wm_scale || 1.0) * 100;
-            document.getElementById('wmScaleVal').textContent = Math.round((brand.wm_scale || 1.0) * 100) + '%';
-            document.getElementById('wmOpacity').value = (brand.wm_opacity || 0.10) * 100;
-            document.getElementById('wmOpacityVal').textContent = Math.round((brand.wm_opacity || 0.10) * 100) + '%';
-            
-            const textEnabled = brand.text_enabled || false;
-            document.getElementById('textEnabled').checked = textEnabled;
-            document.getElementById('textControls').style.display = textEnabled ? 'block' : 'none';
-            
-            if (textEnabled) {
-                document.getElementById('textContent').value = brand.text_content || '';
-                document.getElementById('textSize').value = brand.text_size || 48;
-                document.getElementById('textSizeVal').textContent = (brand.text_size || 48) + 'px';
-                document.getElementById('textColor').value = brand.text_color || '#FFFFFF';
+            // Reset save button state
+            const saveBtn = document.querySelector('#wizardStep2 .wizard-actions .btn-primary');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Brand';
             }
             
-            // Change button text
-            const submitBtn = form.querySelector('button[type="submit"]');
-            submitBtn.textContent = 'Save Changes';
+            // Show wizard
+            const wizardEl = document.getElementById('brandWizard');
+            if (wizardEl) wizardEl.classList.add('active');
+            
+            console.log(`[Brand Wizard] Editing brand #${brandId}: ${brand.display_name}`);
         })
         .catch(err => {
             alert('Error loading brand: ' + err.message);
@@ -2533,28 +3039,38 @@ async function deleteBrand(brandId, brandName) {
     }
 }
 
-// ========== BRAND CREATION WIZARD (Slice 1) ==========
+// ========== BRAND CREATION WIZARD (MVP 2-Step) ==========
 let wizardState = {
     step: 1,
     displayName: '',
     slug: '',
+    // Brand asset (single source for MVP)
     logoFile: null,
-    logoCleanup: 'none',
-    logoCleanupStrength: 30,
+    logoPreviewUrl: null,
+    // Visual composition settings
     logoShape: 'original',
     logoScale: 25,
-    logoRotation: 0,
     logoOpacity: 100,
-    logoPosition: 'bottom-left',
-    logoX: 0.15,
-    logoY: 0.85,
-    logoPreviewUrl: null,
-    // Watermark (Step 3 - Editor)
+    logoRotation: 0,
+    // Position (centered by default for drag interaction)
+    logoX: 0.5,
+    logoY: 0.5,
+    activeElement: 'logo',
+    // Background removal
+    bgRemovalEnabled: false,
+    // Advanced (hidden in MVP)
+    logoCleanup: 'none',
+    logoCleanupStrength: 30,
+    // Separate watermark (Advanced option)
+    useSeparateWatermark: false,
     watermarkFile: null,
-    watermarkShape: 'original',
-    watermarkScale: 50,
+    watermarkPreviewUrl: null,
+    watermarkX: 0.18,
+    watermarkY: 0.18,
+    watermarkScale: 25,
     watermarkOpacity: 50,
-    watermarkContrast: 0
+    // Preview mode for composer
+    previewMode: 'logo'  // 'logo' | 'watermark' | 'both'
 };
 
 let wizardCanvas = null;
@@ -2575,7 +3091,7 @@ function setWatermarkEditorVisibility(isVisible) {
 // ========== END STEP 4 ==========
 
 function openBrandWizard() {
-    console.log('[Brand Wizard] Opening wizard...');
+    console.log('[Brand Wizard] Opening wizard (MVP 2-step)...');
     
     // Velvet rope: if at tier limit, show upgrade modal instead of blocking
     if (window._brandLimitReached) {
@@ -2584,68 +3100,62 @@ function openBrandWizard() {
         return;
     }
     
-    // ========== WIZARD STABILIZATION (Commit A): Clear stale globals ==========
-    // Clear any stale image references from previous wizard sessions
+    // Clear stale globals
     wizardLogoImage = null;
     wizardWatermarkImage = null;
-    
-    // Reset drag/pinch globals to prevent state leakage
     wizardDragging = false;
     wizardPinching = false;
     wizardDragOffset = { x: 0, y: 0 };
-    // ========== END STABILIZATION ==========
     
-    // Reset state
+    // Reset state to defaults
     wizardState = {
         step: 1,
         displayName: '',
         slug: '',
         logoFile: null,
-        logoCleanup: 'none',
-        logoCleanupStrength: 30,
+        logoPreviewUrl: null,
         logoShape: 'original',
         logoScale: 25,
-        logoRotation: 0,
         logoOpacity: 100,
-        logoPosition: 'bottom-left',
-        logoX: 0.15,
-        logoY: 0.85,
-        logoPreviewUrl: null,
+        logoRotation: 0,
+        logoX: 0.5,
+        logoY: 0.5,
+        activeElement: 'logo',
+        bgRemovalEnabled: false,
+        logoCleanup: 'none',
+        logoCleanupStrength: 30,
+        useSeparateWatermark: false,
         watermarkFile: null,
-        watermarkMode: 'positioned',
+        watermarkPreviewUrl: null,
+        watermarkX: 0.18,
+        watermarkY: 0.18,
         watermarkScale: 25,
-        watermarkOpacity: 20
+        watermarkOpacity: 50,
+        previewMode: 'logo'
     };
     
-    // Reset UI - with null checks for elements that may not exist
+    // Reset UI
     const wizardDisplayName = document.getElementById('wizardDisplayName');
     const wizardBrandSlug = document.getElementById('wizardBrandSlug');
     const wizardLogoInput = document.getElementById('wizardLogoInput');
-    const wizardWatermarkInput = document.getElementById('wizardWatermarkInput');
+    const step1ContinueBtn = document.getElementById('step1ContinueBtn');
+    
     if (wizardDisplayName) wizardDisplayName.value = '';
     if (wizardBrandSlug) wizardBrandSlug.value = '';
     if (wizardLogoInput) wizardLogoInput.value = '';
-    if (wizardWatermarkInput) wizardWatermarkInput.value = '';
+    if (step1ContinueBtn) step1ContinueBtn.disabled = true;
     
-    // Reset upload UI - V2 Editor layout
+    // Reset Step 1 upload UI
     const logoUploadZone = document.getElementById('wizardLogoUploadZone');
-    const logoEditor = document.getElementById('wizardLogoEditor');
-    if (logoUploadZone) logoUploadZone.style.display = 'block';
-    if (logoEditor) logoEditor.style.display = 'none';
-    const logoThumb = document.getElementById('wizardLogoThumb');
-    if (logoThumb) logoThumb.src = '';
+    const logoPreview = document.getElementById('wizardLogoPreview');
+    const logoPlaceholder = logoUploadZone?.querySelector('.upload-placeholder-large');
     
-    // Reset watermark UI (new editor)
-    const wmUploadZone = document.getElementById('watermarkUploadZone');
-    const wmEditor = document.getElementById('watermarkEditorContainer');
-    const wmInfo = document.getElementById('watermarkMetaBar');
-    if (wmUploadZone) wmUploadZone.style.display = 'block';
-    setWatermarkEditorVisibility(false);
-    if (wmInfo) wmInfo.style.display = 'none';
-    
-    // Clear watermark file input
-    const wmFileInput = document.getElementById('watermarkFileInput');
-    if (wmFileInput) wmFileInput.value = '';
+    if (logoUploadZone) {
+        logoUploadZone.classList.remove('has-file');
+        logoUploadZone.style.display = 'flex';
+    }
+    if (logoPreview) logoPreview.style.display = 'none';
+    if (logoPlaceholder) logoPlaceholder.style.display = 'block';
     
     // Reset watermark controls
     const wmOpacity = document.getElementById('watermarkOpacity');
@@ -2736,163 +3246,734 @@ function initWizardCanvas() {
 async function showWizardStep(step) {
     wizardState.step = step;
     
-    // Update progress indicator
-    document.querySelectorAll('.progress-step').forEach((el, idx) => {
-        el.classList.remove('active', 'completed');
-        if (idx + 1 < step) {
-            el.classList.add('completed');
-        } else if (idx + 1 === step) {
-            el.classList.add('active');
+    // Update simple progress dots
+    const dot1 = document.getElementById('stepDot1');
+    const dot2 = document.getElementById('stepDot2');
+    if (dot1 && dot2) {
+        dot1.classList.toggle('active', step === 1);
+        dot2.classList.toggle('active', step === 2);
+    }
+    
+    // Update wizard title (preserve "Edit Brand" in edit mode)
+    const title = document.getElementById('wizardTitle');
+    if (title && !wizardState.editMode) {
+        title.textContent = step === 1 ? 'Create New Brand' : 'Position Your Brand';
+    } else if (title && wizardState.editMode) {
+        title.textContent = step === 1 ? 'Edit Brand' : 'Edit Brand Position';
+    }
+    
+    // Hide all steps
+    document.getElementById('wizardStep1')?.classList.remove('active');
+    document.getElementById('wizardStep2')?.classList.remove('active');
+    
+    // Show current step
+    if (step === 1) {
+        document.getElementById('wizardStep1')?.classList.add('active');
+        updateStep1ContinueButton();
+    } else if (step === 2) {
+        document.getElementById('wizardStep2')?.classList.add('active');
+        
+        // Initialize composer
+        await initComposer();
+    }
+}
+
+// Step 1: Update continue button state
+function updateStep1ContinueButton() {
+    const btn = document.getElementById('step1ContinueBtn');
+    const hasName = wizardState.displayName.trim().length > 0;
+    // In edit mode, logoFile is null but logoPreviewUrl points to existing server asset
+    const hasLogo = wizardState.logoFile !== null || wizardState.logoPreviewUrl !== null;
+    if (btn) {
+        btn.disabled = !(hasName && hasLogo);
+    }
+}
+
+// Step 2: Initialize Live Composer
+async function initComposer() {
+    console.log('[Composer] Initializing...');
+    
+    // Load logo image if needed
+    if (!wizardLogoImage && (wizardState.logoFile || wizardState.logoPreviewUrl)) {
+        wizardLogoImage = new Image();
+        wizardLogoImage.crossOrigin = 'anonymous';
+        wizardLogoImage.onload = () => {
+            console.log('[Composer] Logo loaded');
+            drawComposerCanvas();
+            initComposerDrag();
+        };
+        if (wizardState.logoFile) {
+            wizardLogoImage.src = wizardState.logoPreviewUrl || URL.createObjectURL(wizardState.logoFile);
+        } else {
+            // Edit mode: load from server URL
+            wizardLogoImage.src = wizardState.logoPreviewUrl;
         }
+    } else if (wizardLogoImage) {
+        drawComposerCanvas();
+        initComposerDrag();
+    }
+    
+    // Load watermark image if separate watermark exists
+    if (!wizardWatermarkImage && wizardState.useSeparateWatermark && wizardState.watermarkPreviewUrl) {
+        wizardWatermarkImage = new Image();
+        wizardWatermarkImage.crossOrigin = 'anonymous';
+        wizardWatermarkImage.onload = () => {
+            console.log('[Composer] Watermark loaded');
+            syncComposerControls();
+            drawComposerCanvas();
+        };
+        wizardWatermarkImage.src = wizardState.watermarkPreviewUrl;
+    }
+    
+    // Sync rotation
+    const rotSlider = document.getElementById('composerRotation');
+    const rotVal = document.getElementById('composerRotationVal');
+    if (rotSlider) rotSlider.value = wizardState.logoRotation;
+    if (rotVal) rotVal.textContent = wizardState.logoRotation + '°';
+    
+    // Update shape buttons
+    document.querySelectorAll('.shape-option').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.shape === wizardState.logoShape);
+    });
+    document.querySelectorAll('.shape-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.shape === wizardState.logoShape);
     });
     
-    // ========== STEP 2/3/4: Toggle modal width for multi-column layouts ==========
-    const wizardContent = document.querySelector('.wizard-content');
-    const wizardProgress = document.querySelector('.wizard-progress');
-    if (wizardContent) {
-        if (step === 2) {
-            wizardContent.classList.add('step-2-active');
-        } else {
-            wizardContent.classList.remove('step-2-active');
-        }
-        if (step === 3) {
-            wizardContent.classList.add('step-3-active');
-        } else {
-            wizardContent.classList.remove('step-3-active');
-        }
-        if (step === 4) {
-            wizardContent.classList.add('step-4-active');
-        } else {
-            wizardContent.classList.remove('step-4-active');
-        }
+    // Sync advanced options visibility for edit mode
+    if (wizardState.useSeparateWatermark) {
+        const advancedEl = document.getElementById('composerAdvanced');
+        if (advancedEl) advancedEl.style.display = 'block';
+        const wmCheckbox = document.getElementById('useSeparateWatermark');
+        if (wmCheckbox) wmCheckbox.checked = true;
+        const wmSection = document.getElementById('watermarkUploadSection');
+        if (wmSection) wmSection.style.display = 'block';
     }
-    // Hide progress bar on Step 4 to reclaim vertical space for composition
-    if (wizardProgress) {
-        wizardProgress.style.display = (step === 4) ? 'none' : '';
-    }
-    // ========== END STEP 2/3/4 ==========
     
-    // Hide all steps first
-    document.getElementById('wizardStep1').classList.remove('active');
-    document.getElementById('wizardStep2').classList.remove('active');
-    document.getElementById('wizardStep3').classList.remove('active');
-    document.getElementById('wizardStep4').classList.remove('active');
-    
-    // Show only the current step
-    if (step === 1) {
-        document.getElementById('wizardStep1').classList.add('active');
-    } else if (step === 2) {
-        document.getElementById('wizardStep2').classList.add('active');
-        // ========== STEP 2 EDITOR V1: New layout handling ==========
-        if (wizardState.logoFile) {
-            const logoZone = document.getElementById('wizardLogoUploadZone');
-            const logoEditor = document.getElementById('wizardLogoEditor');
-            if (logoZone && logoEditor) {
-                logoZone.style.display = 'none';
-                logoEditor.style.display = 'flex';
-                // Initialize editor canvas if not already done
-                if (!editorCanvas) {
-                    initEditorCanvas();
-                } else {
-                    drawEditorCanvas();
-                }
-            }
-        } else {
-            const logoZone = document.getElementById('wizardLogoUploadZone');
-            const logoEditor = document.getElementById('wizardLogoEditor');
-            if (logoZone && logoEditor) {
-                logoZone.style.display = 'block';
-                logoEditor.style.display = 'none';
-            }
-        }
-        // ========== END EDITOR V1 ==========
-    } else if (step === 3) {
-        document.getElementById('wizardStep3').classList.add('active');
-        
-        // ========== V2A: Update logo image from editor before showing Step 3 preview ==========
-        await updateWizardLogoImageFromEditor();
-        // ========== END V2A ==========
-        
-        // ========== WATERMARK MODE: Do NOT auto-clone, let user upload ==========
-        // Only clone if explicitly requested (future feature). For now, start fresh.
-        if (!wizardState.watermarkFile) {
-            console.log('[Watermark Mode] No watermark uploaded yet - showing Upload CTA');
-        }
-        // ========== END WATERMARK MODE ==========
-        
-        // Ensure Info Panel is visible if we have a watermark (auto-loaded or manual)
-        const wmInfo = document.getElementById('watermarkMetaBar');
-        if (wmInfo && wizardState.watermarkFile) {
-            wmInfo.style.display = 'block';
-        } else if (wmInfo) {
-            wmInfo.style.display = 'none';
-        }
+    syncComposerControls();
+}
 
-        // Always ensure the editor container is visible in Watermark Mode
-        const wmEditor = document.getElementById('watermarkEditorContainer');
-        if (wmEditor) {
-            wmEditor.style.display = 'flex';
-        }
-        setWatermarkEditorVisibility(true);
+function hasComposerWatermark() {
+    return !!(wizardState.useSeparateWatermark && wizardWatermarkImage && wizardWatermarkImage.complete && (wizardState.watermarkFile || wizardState.watermarkPreviewUrl));
+}
 
-        // Update watermark upload button text based on state
-        updateWatermarkUploadCta();
-
-        // Set default scale to 50% if not already set (more visible than 15%)
-        if (!wizardState.watermarkScale || wizardState.watermarkScale === 15) {
-            wizardState.watermarkScale = 50;
-        }
-        if (!wizardState.watermarkOpacity || wizardState.watermarkOpacity === 80) {
-            wizardState.watermarkOpacity = 50;
-        }
-
-        // Apply tier gating to secondary preview cards
-        applyStep3TierGating();
-
-        // CRITICAL: Resize and redraw AFTER step is visible using robust rAF chaining
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                resizeWatermarkCanvas();
-                drawWatermarkEditor();
-            });
-        });
-    } else if (step === 4) {
-        document.getElementById('wizardStep4').classList.add('active');
-        
-        // Sync Step 4 sliders with wizardState values from Step 3
-        const scaleSlider = document.getElementById('placementScale');
-        const opacitySlider = document.getElementById('placementOpacity');
-        if (scaleSlider) {
-            scaleSlider.value = wizardState.watermarkScale || 50;
-            document.getElementById('wmScaleVal').textContent = (wizardState.watermarkScale || 50) + '%';
-        }
-        if (opacitySlider) {
-            opacitySlider.value = wizardState.watermarkOpacity || 50;
-            document.getElementById('wmOpacityVal').textContent = (wizardState.watermarkOpacity || 50) + '%';
-        }
-        
-        // Ensure we have a watermark image to place
-        if (!wizardWatermarkImage && wizardState.watermarkFile) {
-            console.log('[Step 4] Loading watermark image for placement');
-            const url = URL.createObjectURL(wizardState.watermarkFile);
-            wizardWatermarkImage = new Image();
-            wizardWatermarkImage.onload = () => {
-                console.log('[Step 4] Watermark image loaded, initializing composition');
-                initPlacementInteraction();
-                updateAllPreviews();
-            };
-            wizardWatermarkImage.src = url;
-        } else if (wizardWatermarkImage) {
-            console.log('[Step 4] Watermark image already loaded, initializing composition');
-            initPlacementInteraction();
-            updateAllPreviews();
-        } else {
-            console.warn('[Step 4] No watermark image available - showing logo only');
-            // Still init placement and show logo even without watermark
-            initPlacementInteraction();
-            updateAllPreviews();
-        }
+function getActiveComposerElement() {
+    if (wizardState.activeElement === 'watermark' && hasComposerWatermark()) {
+        return 'watermark';
     }
+    return 'logo';
+}
+
+function setActiveComposerElement(element) {
+    wizardState.activeElement = (element === 'watermark' && hasComposerWatermark()) ? 'watermark' : 'logo';
+    syncComposerControls();
+    drawComposerCanvas();
+}
+
+function syncComposerControls() {
+    const active = getActiveComposerElement();
+    const isWatermark = active === 'watermark';
+    const sizeValue = isWatermark ? wizardState.watermarkScale : wizardState.logoScale;
+    const opacityValue = isWatermark ? wizardState.watermarkOpacity : wizardState.logoOpacity;
+    const sizeMax = isWatermark ? 200 : 100;
+
+    const sizeSlider = document.getElementById('composerSize');
+    const opacitySlider = document.getElementById('composerOpacity');
+    const sizeVal = document.getElementById('composerSizeVal');
+    const opacityVal = document.getElementById('composerOpacityVal');
+    const sizeLabel = document.getElementById('composerSizeLabel');
+    const opacityLabel = document.getElementById('composerOpacityLabel');
+    const help = document.getElementById('composerActiveHelp');
+    const chip = document.getElementById('composerActiveChip');
+    const logoBtn = document.getElementById('composerLogoLayerBtn');
+    const wmBtn = document.getElementById('composerWatermarkLayerBtn');
+    const wmNote = document.getElementById('composerWatermarkNote');
+    const wmAction = document.getElementById('composerWatermarkAction');
+
+    if (sizeSlider) sizeSlider.value = sizeValue;
+    if (sizeSlider) sizeSlider.max = sizeMax;
+    if (opacitySlider) opacitySlider.value = opacityValue;
+    if (sizeVal) sizeVal.textContent = sizeValue + '%';
+    if (opacityVal) opacityVal.textContent = opacityValue + '%';
+    if (sizeLabel) sizeLabel.textContent = isWatermark ? 'Watermark Size' : 'Logo Size';
+    if (opacityLabel) opacityLabel.textContent = isWatermark ? 'Watermark Opacity' : 'Logo Opacity';
+    if (help) help.textContent = isWatermark
+        ? 'Watermark selected. Drag it on canvas and use the main sliders for size and opacity. Larger scaling is available here.'
+        : 'Logo selected. Drag it on canvas and use the main sliders for size and opacity.';
+    if (chip) chip.textContent = isWatermark ? 'Editing Watermark' : 'Editing Logo';
+    if (logoBtn) logoBtn.classList.toggle('active', !isWatermark);
+    if (wmBtn) {
+        wmBtn.classList.toggle('active', isWatermark);
+        wmBtn.disabled = !hasComposerWatermark();
+    }
+    if (wmNote) wmNote.style.display = isWatermark ? 'block' : 'none';
+    if (wmAction) wmAction.textContent = hasComposerWatermark() ? 'Edit Watermark' : 'Add Watermark';
+
+    document.querySelectorAll('.composer-logo-only').forEach(el => {
+        el.classList.toggle('is-dimmed', isWatermark);
+    });
+}
+
+function openComposerWatermarkAccess() {
+    const advanced = document.getElementById('composerAdvanced');
+    const checkbox = document.getElementById('useSeparateWatermark');
+    const uploadSection = document.getElementById('watermarkUploadSection');
+    const uploadZone = document.getElementById('watermarkUploadZone');
+    const fileInput = document.getElementById('watermarkFileInput');
+
+    if (advanced) {
+        advanced.style.display = 'block';
+    }
+
+    if (!wizardState.useSeparateWatermark && checkbox) {
+        checkbox.checked = true;
+        toggleSeparateWatermark();
+    } else if (uploadSection) {
+        uploadSection.style.display = 'block';
+    }
+
+    if (hasComposerWatermark()) {
+        setActiveComposerElement('watermark');
+        uploadZone?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else if (fileInput) {
+        fileInput.click();
+    }
+}
+
+// Composer control handlers
+function updateComposerSize(value) {
+    const numericValue = parseInt(value);
+    if (getActiveComposerElement() === 'watermark') {
+        wizardState.watermarkScale = numericValue;
+    } else {
+        wizardState.logoScale = numericValue;
+    }
+    syncComposerControls();
+    drawComposerCanvas();
+}
+
+function updateComposerOpacity(value) {
+    const numericValue = parseInt(value);
+    if (getActiveComposerElement() === 'watermark') {
+        wizardState.watermarkOpacity = numericValue;
+    } else {
+        wizardState.logoOpacity = numericValue;
+    }
+    syncComposerControls();
+    drawComposerCanvas();
+}
+
+function updateComposerRotation(value) {
+    wizardState.logoRotation = parseInt(value);
+    document.getElementById('composerRotationVal').textContent = value + '°';
+    drawComposerCanvas();
+}
+
+// Watermark-specific control handlers (kept for compatibility with any legacy callers)
+function updateWmComposerSize(value) {
+    wizardState.watermarkScale = Math.min(parseInt(value), 200);
+    syncComposerControls();
+    drawComposerCanvas();
+}
+
+function updateWmComposerOpacity(value) {
+    wizardState.watermarkOpacity = parseInt(value);
+    syncComposerControls();
+    drawComposerCanvas();
+}
+
+function setComposerShape(shape) {
+    wizardState.logoShape = shape;
+    document.querySelectorAll('.shape-option').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.shape === shape);
+    });
+    // Also update legacy shape-btn if present
+    document.querySelectorAll('.shape-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.shape === shape);
+    });
+    drawComposerCanvas();
+}
+
+function toggleComposerBgRemoval() {
+    wizardState.bgRemovalEnabled = !wizardState.bgRemovalEnabled;
+    const btn = document.getElementById('composerBgBtn');
+    if (btn) {
+        btn.classList.toggle('active', wizardState.bgRemovalEnabled);
+        btn.textContent = wizardState.bgRemovalEnabled ? '✨ BG Removed' : '✨ Auto-Remove BG';
+    }
+}
+
+function toggleAdvancedMode() {
+    const advanced = document.getElementById('composerAdvanced');
+    if (advanced) {
+        advanced.style.display = advanced.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+// Separate Watermark Functions
+function toggleSeparateWatermark() {
+    const checkbox = document.getElementById('useSeparateWatermark');
+    const uploadSection = document.getElementById('watermarkUploadSection');
+    
+    wizardState.useSeparateWatermark = checkbox?.checked || false;
+    
+    if (uploadSection) {
+        uploadSection.style.display = wizardState.useSeparateWatermark ? 'block' : 'none';
+    }
+    if (!wizardState.useSeparateWatermark) {
+        wizardState.activeElement = 'logo';
+        wizardState.previewMode = 'logo';
+    } else if (wizardState.watermarkPreviewUrl || wizardState.watermarkFile) {
+        wizardState.activeElement = 'watermark';
+        wizardState.previewMode = 'both';
+    }
+    
+    // Redraw canvas to reflect change
+    syncComposerControls();
+    drawComposerCanvas();
+    updatePreviewModeHelp();
+}
+
+function handleWatermarkUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    console.log('[Watermark] Selected:', file.name);
+    wizardState.watermarkFile = file;
+    wizardState.watermarkPreviewUrl = URL.createObjectURL(file);
+    
+    // Load watermark image
+    wizardWatermarkImage = new Image();
+    wizardWatermarkImage.onload = () => {
+        console.log('[Watermark] Image loaded');
+        wizardState.activeElement = 'watermark';
+        wizardState.previewMode = 'both';
+        syncComposerControls();
+        drawComposerCanvas();
+    };
+    wizardWatermarkImage.src = wizardState.watermarkPreviewUrl;
+    
+    // Update UI
+    const placeholder = document.getElementById('watermarkPlaceholder');
+    const preview = document.getElementById('watermarkPreview');
+    const previewImg = document.getElementById('watermarkPreviewImg');
+    const uploadZone = document.getElementById('watermarkUploadZone');
+    
+    if (previewImg) previewImg.src = wizardState.watermarkPreviewUrl;
+    if (preview) preview.style.display = 'flex';
+    if (placeholder) placeholder.style.display = 'none';
+    if (uploadZone) uploadZone.classList.add('has-file');
+    
+    setPreviewMode('both');
+    updatePreviewModeHelp();
+}
+
+function clearWatermark() {
+    wizardState.watermarkFile = null;
+    if (wizardState.watermarkPreviewUrl) {
+        URL.revokeObjectURL(wizardState.watermarkPreviewUrl);
+        wizardState.watermarkPreviewUrl = null;
+    }
+    wizardWatermarkImage = null;
+    
+    const placeholder = document.getElementById('watermarkPlaceholder');
+    const preview = document.getElementById('watermarkPreview');
+    const uploadZone = document.getElementById('watermarkUploadZone');
+    const fileInput = document.getElementById('watermarkFileInput');
+    
+    if (preview) preview.style.display = 'none';
+    if (placeholder) placeholder.style.display = 'flex';
+    if (uploadZone) uploadZone.classList.remove('has-file');
+    if (fileInput) fileInput.value = '';
+    
+    wizardState.activeElement = 'logo';
+    wizardState.previewMode = 'logo';
+    syncComposerControls();
+    drawComposerCanvas();
+    updatePreviewModeHelp();
+}
+
+// Preview Mode Functions
+function setPreviewMode(mode) {
+    wizardState.previewMode = mode;
+    
+    // Update button states
+    document.querySelectorAll('.preview-mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+    
+    drawComposerCanvas();
+    updatePreviewModeHelp();
+}
+
+function updatePreviewModeHelp() {
+    const help = document.getElementById('previewModeHelp');
+    if (!help) return;
+    
+    const hasWatermark = wizardState.useSeparateWatermark && (wizardState.watermarkFile || wizardState.watermarkPreviewUrl);
+    const mode = wizardState.previewMode || 'logo';
+    
+    if (!hasWatermark) {
+        help.textContent = 'Currently showing: Main brand image only';
+    } else if (mode === 'logo') {
+        help.textContent = 'Currently showing: Main brand image';
+    } else if (mode === 'watermark') {
+        help.textContent = 'Currently showing: Watermark only';
+    } else if (mode === 'both') {
+        help.textContent = 'Currently showing: Both brand + watermark';
+    }
+}
+
+// Draw composer canvas (main preview)
+// Shared shape clipping utility — applies circle/square/original clip to ctx
+// assetType: 'logo' (circle=max radius, square=rounded) or 'watermark' (circle=min radius, square=rect)
+function applyShapeClip(ctx, shape, x, y, w, h, assetType) {
+    if (shape === 'circle') {
+        ctx.beginPath();
+        const r = assetType === 'watermark' ? Math.min(w, h) / 2 : Math.max(w, h) / 2;
+        ctx.arc(x + w / 2, y + h / 2, r, 0, Math.PI * 2);
+        ctx.clip();
+    } else if (shape === 'square') {
+        ctx.beginPath();
+        if (assetType === 'watermark') {
+            const side = Math.min(w, h);
+            ctx.rect(x + w / 2 - side / 2, y + h / 2 - side / 2, side, side);
+        } else {
+            const cr = Math.min(w, h) * 0.1;
+            ctx.moveTo(x + cr, y);
+            ctx.lineTo(x + w - cr, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + cr);
+            ctx.lineTo(x + w, y + h - cr);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - cr, y + h);
+            ctx.lineTo(x + cr, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - cr);
+            ctx.lineTo(x, y + cr);
+            ctx.quadraticCurveTo(x, y, x + cr, y);
+            ctx.closePath();
+        }
+        ctx.clip();
+    }
+    // 'original' = no clip
+}
+
+function drawComposerCanvas() {
+    const canvas = document.getElementById('composerMainCanvas');
+    if (!canvas || !wizardLogoImage) return;
+    
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    
+    // Determine what to show based on preview mode
+    const hasWatermark = hasComposerWatermark();
+    const previewMode = wizardState.previewMode || 'logo';
+    const activeElement = getActiveComposerElement();
+    
+    // Clear
+    ctx.clearRect(0, 0, W, H);
+    composerLayerBounds = { logo: null, watermark: null };
+    
+    // Draw video background (dark gradient)
+    const gradient = ctx.createLinearGradient(0, 0, W, H);
+    gradient.addColorStop(0, '#1a1a2e');
+    gradient.addColorStop(0.5, '#0f0c29');
+    gradient.addColorStop(1, '#1a1a2e');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, W, H);
+    
+    // Draw grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(W / 2, 0);
+    ctx.lineTo(W / 2, H);
+    ctx.moveTo(0, H / 2);
+    ctx.lineTo(W, H / 2);
+    ctx.stroke();
+    
+    if (!wizardLogoImage.complete) return;
+    
+    // Calculate dimensions
+    const scale = wizardState.logoScale / 100;
+    const drawWidth = W * scale;
+    const aspectRatio = wizardLogoImage.height / wizardLogoImage.width;
+    const drawHeight = drawWidth * aspectRatio;
+    
+    // Position (center anchor)
+    const x = (W * wizardState.logoX) - (drawWidth / 2);
+    const y = (H * wizardState.logoY) - (drawHeight / 2);
+    
+    const centerX = x + drawWidth / 2;
+    const centerY = y + drawHeight / 2;
+    composerLayerBounds.logo = { x, y, w: drawWidth, h: drawHeight };
+    
+    // Draw based on preview mode
+    if (previewMode === 'logo' || previewMode === 'both' || !hasWatermark) {
+        ctx.save();
+        ctx.globalAlpha = wizardState.logoOpacity / 100;
+        if (wizardState.logoShape === 'circle') {
+            ctx.beginPath();
+            ctx.arc(x + drawWidth / 2, y + drawHeight / 2, Math.max(drawWidth, drawHeight) / 2, 0, Math.PI * 2);
+            ctx.clip();
+        } else if (wizardState.logoShape === 'square') {
+            const cornerRadius = Math.min(drawWidth, drawHeight) * 0.1;
+            ctx.beginPath();
+            ctx.moveTo(x + cornerRadius, y);
+            ctx.lineTo(x + drawWidth - cornerRadius, y);
+            ctx.quadraticCurveTo(x + drawWidth, y, x + drawWidth, y + cornerRadius);
+            ctx.lineTo(x + drawWidth, y + drawHeight - cornerRadius);
+            ctx.quadraticCurveTo(x + drawWidth, y + drawHeight, x + drawWidth - cornerRadius, y + drawHeight);
+            ctx.lineTo(x + cornerRadius, y + drawHeight);
+            ctx.quadraticCurveTo(x, y + drawHeight, x, y + drawHeight - cornerRadius);
+            ctx.lineTo(x, y + cornerRadius);
+            ctx.quadraticCurveTo(x, y, x + cornerRadius, y);
+            ctx.closePath();
+            ctx.clip();
+        }
+
+        const rotationRadians = (wizardState.logoRotation * Math.PI) / 180;
+        ctx.translate(centerX, centerY);
+        ctx.rotate(rotationRadians);
+        ctx.drawImage(wizardLogoImage, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+        ctx.restore();
+    }
+    
+    if ((previewMode === 'watermark' || previewMode === 'both') && hasWatermark && wizardWatermarkImage.complete) {
+        // Use independent watermark scale/opacity
+        const wmScale = (wizardState.watermarkScale || 25) / 100;
+        const wmAlpha = (wizardState.watermarkOpacity != null ? wizardState.watermarkOpacity : 50) / 100;
+        const wmAspectRatio = wizardWatermarkImage.height / wizardWatermarkImage.width;
+        const wmDrawWidth = W * wmScale * 0.5;
+        const wmDrawHeight = wmDrawWidth * wmAspectRatio;
+        
+        const wmX = (W * wizardState.watermarkX) - (wmDrawWidth / 2);
+        const wmY = (H * wizardState.watermarkY) - (wmDrawHeight / 2);
+        composerLayerBounds.watermark = { x: wmX, y: wmY, w: wmDrawWidth, h: wmDrawHeight };
+        
+        // Apply watermark shape clipping
+        ctx.save();
+        ctx.globalAlpha = wmAlpha;
+        const wmShape = wizardState.watermarkShape || 'original';
+        applyShapeClip(ctx, wmShape, wmX, wmY, wmDrawWidth, wmDrawHeight, 'watermark');
+        ctx.drawImage(wizardWatermarkImage, wmX, wmY, wmDrawWidth, wmDrawHeight);
+        ctx.restore();
+    }
+    
+    ctx.globalAlpha = 1.0;
+    
+    const activeBounds = composerLayerBounds[activeElement];
+    if (activeBounds) {
+        ctx.save();
+        ctx.strokeStyle = activeElement === 'watermark' ? 'rgba(89, 183, 255, 0.95)' : 'rgba(134, 237, 165, 0.95)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 6]);
+        ctx.strokeRect(activeBounds.x - 4, activeBounds.y - 4, activeBounds.w + 8, activeBounds.h + 8);
+        ctx.setLineDash([]);
+        ctx.fillStyle = activeElement === 'watermark' ? 'rgba(89, 183, 255, 0.18)' : 'rgba(134, 237, 165, 0.18)';
+        ctx.fillRect(activeBounds.x - 4, activeBounds.y - 4, activeBounds.w + 8, activeBounds.h + 8);
+        ctx.fillStyle = activeElement === 'watermark' ? '#59b7ff' : '#86EDA5';
+        ctx.font = '600 12px Arial';
+        ctx.fillText(activeElement === 'watermark' ? 'Watermark' : 'Logo', activeBounds.x, Math.max(14, activeBounds.y - 10));
+        ctx.restore();
+    }
+    
+    // Draw secondary previews
+    drawSecondaryPreviews();
+}
+
+// Draw Instagram and YouTube previews
+function drawSecondaryPreviews() {
+    drawPreviewCanvas('composerPreviewSquare', 1, 1);
+    drawPreviewCanvas('composerPreviewLandscape', 16, 9);
+}
+
+function drawPreviewCanvas(canvasId, aspectW, aspectH) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    
+    // Determine preview mode
+    const hasWatermark = wizardState.useSeparateWatermark && (wizardState.watermarkFile || wizardState.watermarkPreviewUrl) && wizardWatermarkImage;
+    const previewMode = wizardState.previewMode || 'logo';
+    
+    // Clear
+    ctx.clearRect(0, 0, W, H);
+    
+    // Background
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+    
+    // Draw logo when mode is logo/both or no watermark
+    if (wizardLogoImage && wizardLogoImage.complete && (previewMode === 'logo' || previewMode === 'both' || !hasWatermark)) {
+        const scale = wizardState.logoScale / 100;
+        const drawWidth = W * scale;
+        const aspectRatio = wizardLogoImage.height / wizardLogoImage.width;
+        const drawHeight = drawWidth * aspectRatio;
+        
+        const x = (W * wizardState.logoX) - (drawWidth / 2);
+        const y = (H * wizardState.logoY) - (drawHeight / 2);
+        
+        ctx.globalAlpha = wizardState.logoOpacity / 100;
+        ctx.save();
+        applyShapeClip(ctx, wizardState.logoShape || 'original', x, y, drawWidth, drawHeight, 'logo');
+        ctx.drawImage(wizardLogoImage, x, y, drawWidth, drawHeight);
+        ctx.restore();
+        ctx.globalAlpha = 1.0;
+    }
+    
+    // Draw watermark when mode is watermark/both and watermark exists
+    if ((previewMode === 'watermark' || previewMode === 'both') && hasWatermark && wizardWatermarkImage.complete) {
+        const wmScale = (wizardState.watermarkScale || 25) / 100;
+        const wmAlpha = (wizardState.watermarkOpacity != null ? wizardState.watermarkOpacity : 50) / 100;
+        const wmAspectRatio = wizardWatermarkImage.height / wizardWatermarkImage.width;
+        const wmDrawWidth = W * wmScale * 0.5;
+        const wmDrawHeight = wmDrawWidth * wmAspectRatio;
+        
+        const wmX = (W * wizardState.watermarkX) - (wmDrawWidth / 2);
+        const wmY = (H * wizardState.watermarkY) - (wmDrawHeight / 2);
+        
+        ctx.globalAlpha = wmAlpha;
+        ctx.save();
+        applyShapeClip(ctx, wizardState.watermarkShape || 'original', wmX, wmY, wmDrawWidth, wmDrawHeight, 'watermark');
+        ctx.drawImage(wizardWatermarkImage, wmX, wmY, wmDrawWidth, wmDrawHeight);
+        ctx.restore();
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+// Drag interaction for composer
+let composerDragging = false;
+let composerDragStart = { x: 0, y: 0 };
+let composerLayerBounds = { logo: null, watermark: null };
+let composerDragElement = 'logo';
+let composerDragOffset = { x: 0, y: 0 };
+let composerDragBoundSize = { w: 0, h: 0 };
+
+function initComposerDrag() {
+    const canvas = document.getElementById('composerMainCanvas');
+    if (!canvas) return;
+    if (canvas.dataset.composerBound === 'true') return;
+    
+    canvas.addEventListener('mousedown', onComposerDragStart);
+    canvas.addEventListener('mousemove', onComposerDragMove);
+    canvas.addEventListener('mouseup', onComposerDragEnd);
+    canvas.addEventListener('mouseleave', onComposerDragEnd);
+    
+    // Touch support
+    canvas.addEventListener('touchstart', onComposerTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', onComposerTouchMove, { passive: false });
+    canvas.addEventListener('touchend', onComposerDragEnd);
+    canvas.addEventListener('wheel', onComposerWheel, { passive: false });
+    canvas.dataset.composerBound = 'true';
+}
+
+function onComposerDragStart(e) {
+    const canvas = document.getElementById('composerMainCanvas');
+    const rect = canvas.getBoundingClientRect();
+    const point = {
+        x: (e.clientX - rect.left) * (canvas.width / rect.width),
+        y: (e.clientY - rect.top) * (canvas.height / rect.height)
+    };
+    const hitWatermark = composerLayerBounds.watermark && point.x >= composerLayerBounds.watermark.x && point.x <= composerLayerBounds.watermark.x + composerLayerBounds.watermark.w && point.y >= composerLayerBounds.watermark.y && point.y <= composerLayerBounds.watermark.y + composerLayerBounds.watermark.h;
+    const hitLogo = composerLayerBounds.logo && point.x >= composerLayerBounds.logo.x && point.x <= composerLayerBounds.logo.x + composerLayerBounds.logo.w && point.y >= composerLayerBounds.logo.y && point.y <= composerLayerBounds.logo.y + composerLayerBounds.logo.h;
+
+    if (hitWatermark) {
+        composerDragElement = 'watermark';
+        setActiveComposerElement('watermark');
+    } else if (hitLogo) {
+        composerDragElement = 'logo';
+        setActiveComposerElement('logo');
+    } else {
+        composerDragElement = getActiveComposerElement();
+    }
+
+    const bounds = composerLayerBounds[composerDragElement];
+    if (!bounds) return;
+
+    composerDragging = true;
+    composerDragStart = point;
+    composerDragOffset = { x: point.x - bounds.x, y: point.y - bounds.y };
+    composerDragBoundSize = { w: bounds.w, h: bounds.h };
+    canvas.style.cursor = 'grabbing';
+}
+
+function onComposerDragMove(e) {
+    if (!composerDragging) return;
+    
+    const canvas = document.getElementById('composerMainCanvas');
+    const rect = canvas.getBoundingClientRect();
+    
+    const pointX = e.offsetX * (canvas.width / rect.width);
+    const pointY = e.offsetY * (canvas.height / rect.height);
+    const newCenterX = pointX - composerDragOffset.x + (composerDragBoundSize.w / 2);
+    const newCenterY = pointY - composerDragOffset.y + (composerDragBoundSize.h / 2);
+    const normalizedX = Math.max(0.05, Math.min(0.95, newCenterX / canvas.width));
+    const normalizedY = Math.max(0.05, Math.min(0.95, newCenterY / canvas.height));
+
+    if (composerDragElement === 'watermark') {
+        wizardState.watermarkX = normalizedX;
+        wizardState.watermarkY = normalizedY;
+    } else {
+        wizardState.logoX = normalizedX;
+        wizardState.logoY = normalizedY;
+    }
+    
+    drawComposerCanvas();
+}
+
+function onComposerDragEnd() {
+    composerDragging = false;
+    const canvas = document.getElementById('composerMainCanvas');
+    if (canvas) canvas.style.cursor = 'grab';
+}
+
+function onComposerTouchStart(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    onComposerDragStart({
+        clientX: touch.clientX,
+        clientY: touch.clientY
+    });
+}
+
+function onComposerTouchMove(e) {
+    if (!composerDragging) return;
+    e.preventDefault();
+    
+    const touch = e.touches[0];
+    const canvas = document.getElementById('composerMainCanvas');
+    const rect = canvas.getBoundingClientRect();
+    
+    const pointX = (touch.clientX - rect.left) * (canvas.width / rect.width);
+    const pointY = (touch.clientY - rect.top) * (canvas.height / rect.height);
+    const newCenterX = pointX - composerDragOffset.x + (composerDragBoundSize.w / 2);
+    const newCenterY = pointY - composerDragOffset.y + (composerDragBoundSize.h / 2);
+    const normalizedX = Math.max(0.05, Math.min(0.95, newCenterX / canvas.width));
+    const normalizedY = Math.max(0.05, Math.min(0.95, newCenterY / canvas.height));
+
+    if (composerDragElement === 'watermark') {
+        wizardState.watermarkX = normalizedX;
+        wizardState.watermarkY = normalizedY;
+    } else {
+        wizardState.logoX = normalizedX;
+        wizardState.logoY = normalizedY;
+    }
+    
+    drawComposerCanvas();
+}
+
+function onComposerWheel(e) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -2 : 2;
+    if (getActiveComposerElement() === 'watermark') {
+        wizardState.watermarkScale = Math.max(5, Math.min(200, wizardState.watermarkScale + delta));
+    } else {
+        wizardState.logoScale = Math.max(5, Math.min(100, wizardState.logoScale + delta));
+    }
+    syncComposerControls();
+    drawComposerCanvas();
 }
 
 async function wizardNextStep() {
@@ -2956,45 +4037,13 @@ document.getElementById('wizardLogoInput')?.addEventListener('change', function(
 });
 
 function handleWizardLogoUpload(file) {
-    wizardState.logoFile = file;
-    
-    // Create preview URL
-    const url = URL.createObjectURL(file);
-    wizardState.logoPreviewUrl = url;
-    
-    // ========== STEP 2 EDITOR V1: New layout ==========
-    // Update UI - hide large upload zone, show editor layout
-    document.getElementById('wizardLogoUploadZone').style.display = 'none';
-    document.getElementById('wizardLogoEditor').style.display = 'flex';
-    document.getElementById('wizardLogoThumb').src = url;
-    document.getElementById('wizardLogoFilename').textContent = file.name;
-    
-    // Load image and initialize editor canvas
-    wizardLogoImage = new Image();
-    wizardLogoImage.onload = function() {
-        initEditorCanvas();
-    };
-    wizardLogoImage.src = url;
-    // ========== END EDITOR V1 ==========
+    // Legacy handler - Step 1 now handles upload directly
+    console.log('[Legacy] Old Step 2 logo handler called - ignoring');
 }
 
-function clearWizardLogo() {
-    wizardState.logoFile = null;
-    if (wizardState.logoPreviewUrl) {
-        URL.revokeObjectURL(wizardState.logoPreviewUrl);
-        wizardState.logoPreviewUrl = null;
-    }
-    wizardLogoImage = null;
-    
-    // ========== STEP 2 EDITOR V1: Reset editor state ==========
-    resetEditorState();
-    
-    // Reset UI - show large upload zone, hide editor
-    document.getElementById('wizardLogoInput').value = '';
-    document.getElementById('wizardLogoUploadZone').style.display = 'block';
-    document.getElementById('wizardLogoEditor').style.display = 'none';
-    document.getElementById('wizardLogoThumb').src = '';
-    // ========== END EDITOR V1 ==========
+// Legacy clear handler - replaced by Step 1 version
+function clearWizardLogoLegacy() {
+    console.log('[Legacy] Old clear handler called - use clearWizardLogo() instead');
 }
 
 function setWizardLogoCleanup(mode) {
@@ -4128,8 +5177,11 @@ function drawWizardWatermarkPreview() {
         // Apply opacity
         ctx.globalAlpha = wizardState.logoOpacity / 100;
         
-        // Save context for rotation
+        // Save context for rotation and shape
         ctx.save();
+        
+        // Apply logo shape clipping
+        applyShapeClip(ctx, wizardState.logoShape || 'original', x, y, drawWidth, drawHeight, 'logo');
         
         // Apply rotation around logo center
         const rotationRadians = (wizardState.logoRotation * Math.PI) / 180;
@@ -4185,22 +5237,24 @@ function drawWizardWatermarkPreview() {
             // Save context state
             ctx.save();
             
-            // Apply opacity (lower for fullscreen to stay subtle)
-            ctx.globalAlpha = opacity * 0.5;
+            // Apply opacity (direct match to backend, no halving)
+            ctx.globalAlpha = opacity;
             
             // Draw centered
             const x = (canvas.width - wmWidth) / 2;
             const y = (canvas.height - wmHeight) / 2;
             
+            // Apply watermark shape clipping
+            applyShapeClip(ctx, wizardState.watermarkShape || 'original', x, y, wmWidth, wmHeight, 'watermark');
             ctx.drawImage(wmImg, x, y, wmWidth, wmHeight);
             
             // Restore context
             ctx.restore();
             
         } else {
-            // Positioned mode: small corner watermark sized relative to canvas width (matches backend)
+            // Positioned mode: small corner watermark sized relative to canvas width (matches backend * 0.5)
             const margin = 20;
-            const wmWidth = canvas.width * scale;
+            const wmWidth = canvas.width * scale * 0.5;
             const wmHeight = (wmImg.height / wmImg.width) * wmWidth;
             
             // Safe default: bottom-right corner
@@ -4213,6 +5267,8 @@ function drawWizardWatermarkPreview() {
             // Apply opacity
             ctx.globalAlpha = opacity;
             
+            // Apply watermark shape clipping
+            applyShapeClip(ctx, wizardState.watermarkShape || 'original', x, y, wmWidth, wmHeight, 'watermark');
             // Draw watermark
             ctx.drawImage(wmImg, x, y, wmWidth, wmHeight);
             
@@ -4502,6 +5558,7 @@ function setWatermarkShape(shape) {
     
     wizardState.watermarkShape = shape;
     drawWatermarkEditor();
+    drawStep3Canvas();
 }
 
 // Update watermark size
@@ -4509,6 +5566,7 @@ function updateWatermarkSize(value) {
     document.getElementById('step3WmSizeVal').textContent = value + '%';
     wizardState.watermarkScale = parseInt(value);
     drawWatermarkEditor();
+    drawStep3Canvas();
 }
 
 // Update watermark opacity
@@ -4516,12 +5574,14 @@ function updateWatermarkOpacity(value) {
     document.getElementById('step3WmOpacityVal').textContent = value + '%';
     wizardState.watermarkOpacity = parseInt(value);
     drawWatermarkEditor();
+    drawStep3Canvas();
 }
 
 // Update watermark contrast
 function updateWatermarkContrast(value) {
     wizardState.watermarkContrast = parseInt(value);
     drawWatermarkEditor();
+    drawStep3Canvas();
 }
 
 // Reset watermark to defaults
@@ -4537,6 +5597,7 @@ function resetWatermark() {
     wizardState.watermarkContrast = 0;
     wizardState.watermarkShape = 'original';
     drawWatermarkEditor();
+    drawStep3Canvas();
 }
 
 // Remove watermark (reset to auto-loaded state if possible)
@@ -4770,6 +5831,7 @@ function drawLogoOnPreview(ctx, canvas, img, platform) {
 
     ctx.save();
     ctx.globalAlpha = 0.9;
+    applyShapeClip(ctx, wizardState.logoShape || 'original', x, y, logoWidth, logoHeight, 'logo');
     ctx.drawImage(img, x, y, logoWidth, logoHeight);
     ctx.restore();
 
@@ -4793,16 +5855,17 @@ function drawFullscreenWatermark(ctx, canvas, img) {
     
     ctx.save();
     ctx.globalAlpha = userOpacity;
+    applyShapeClip(ctx, wizardState.watermarkShape || 'original', x, y, wmWidth, wmHeight, 'watermark');
     ctx.drawImage(img, x, y, wmWidth, wmHeight);
     ctx.restore();
 }
 
 function drawPositionedWatermark(ctx, canvas, img, platform) {
-    // CANONICAL: Use wizardState scale (from Step 3 slider), not placementConfig.scale
-    const userScale = (wizardState.watermarkScale || 50) / 100; // 0-1 range
-    const maxFitScale = Math.min(canvas.width * 0.9 / img.width, canvas.height * 0.9 / img.height);
-    const wmWidth = img.width * maxFitScale * userScale;
-    const wmHeight = img.height * maxFitScale * userScale;
+    // ALIGNED WITH BACKEND: video_processor uses wm_target_w = wm_scale * W * 0.5
+    // So watermark width = userScale * canvasWidth * 0.5, height preserves aspect ratio
+    const userScale = (wizardState.watermarkScale || 50) / 100; // 0-2 range (saved as 0-1 to backend)
+    const wmWidth = canvas.width * userScale * 0.5;
+    const wmHeight = wmWidth * (img.height / img.width);
 
     // Calculate position from placementConfig anchor+offset
     let baseX, baseY;
@@ -4810,7 +5873,7 @@ function drawPositionedWatermark(ctx, canvas, img, platform) {
     const padX = canvas.width * placementConfig.offsetX;
     const padY = canvas.height * placementConfig.offsetY;
 
-    // Anchor-based mapping logic
+    // Anchor-based mapping logic (baseX/baseY = top-left corner of watermark)
     if (a.includes('left')) baseX = padX;
     else if (a.includes('right')) baseX = canvas.width - wmWidth - padX;
     else baseX = (canvas.width - wmWidth) / 2;
@@ -4827,9 +5890,6 @@ function drawPositionedWatermark(ctx, canvas, img, platform) {
     // CANONICAL: Use wizardState opacity (from Step 3 slider)
     const userOpacity = (wizardState.watermarkOpacity || 50) / 100;
     
-    // DEBUG: Log computed values
-    console.log(`[DRAW VALUES] ${platform}: x=${baseX.toFixed(0)}, y=${baseY.toFixed(0)}, w=${wmWidth.toFixed(0)}, h=${wmHeight.toFixed(0)}, scale=${userScale.toFixed(2)}, opacity=${userOpacity.toFixed(2)}, anchor=${a}`);
-    
     // FALLBACK TEST: If dimensions are suspicious, draw hardcoded box
     if (wmWidth < 5 || wmHeight < 5) {
         console.error(`[DRAW ERROR] Watermark too small! wmWidth=${wmWidth}, wmHeight=${wmHeight}`);
@@ -4842,6 +5902,7 @@ function drawPositionedWatermark(ctx, canvas, img, platform) {
     
     ctx.save();
     ctx.globalAlpha = userOpacity;
+    applyShapeClip(ctx, wizardState.watermarkShape || 'original', baseX, baseY, wmWidth, wmHeight, 'watermark');
     ctx.drawImage(img, baseX, baseY, wmWidth, wmHeight);
     ctx.restore();
 
@@ -5057,7 +6118,7 @@ function handlePlacementMove(e) {
             // Sync Step 4 slider
             const s4Slider = document.getElementById('placementScale');
             if (s4Slider) { s4Slider.value = Math.min(newScale, 200); }
-            const s4Val = document.getElementById('wmScaleVal');
+            const s4Val = document.getElementById('step4WmScaleVal');
             if (s4Val) s4Val.textContent = newScale + '%';
         }
         updateAllPreviews();
@@ -5151,14 +6212,14 @@ function applyPreset(name) {
 function updatePlacementScale(val) {
     // CANONICAL: Update wizardState scale (Step 3 slider value)
     wizardState.watermarkScale = parseInt(val);
-    document.getElementById('wmScaleVal').textContent = val + '%';
+    document.getElementById('step4WmScaleVal').textContent = val + '%';
     updateAllPreviews();
 }
 
 function updatePlacementOpacity(val) {
     // CANONICAL: Update wizardState opacity (Step 3 slider value)
     wizardState.watermarkOpacity = parseInt(val);
-    document.getElementById('wmOpacityVal').textContent = val + '%';
+    document.getElementById('step4WmOpacityVal').textContent = val + '%';
     updateAllPreviews();
 }
 
@@ -5378,12 +6439,15 @@ function drawStep3Canvas() {
         const y = margin + step3LogoPos.y * maxY;
         
         ctx.globalAlpha = (wizardState.logoOpacity || 100) / 100;
+        ctx.save();
+        applyShapeClip(ctx, wizardState.logoShape || 'original', x, y, logoWidth, logoHeight, 'logo');
         ctx.drawImage(wizardLogoImage, x, y, logoWidth, logoHeight);
+        ctx.restore();
         ctx.globalAlpha = 1;
     }
     
     // Draw watermark if exists
-    if (wizardWatermarkImage && wizardWatermarkImage.complete && wizardState.watermarkFile) {
+    if (wizardWatermarkImage && wizardWatermarkImage.complete && (wizardState.watermarkFile || wizardState.watermarkPreviewUrl)) {
         const wmScale = (wizardState.watermarkScale || 25) / 100;
         const wmWidth = canvas.width * wmScale * 0.5; // Watermark is smaller
         const wmHeight = wmWidth * (wizardWatermarkImage.height / wizardWatermarkImage.width);
@@ -5392,8 +6456,11 @@ function drawStep3Canvas() {
         const wmX = step3LogoPos.x < 0.5 ? canvas.width - wmWidth - margin : margin;
         const wmY = step3LogoPos.y < 0.5 ? canvas.height - wmHeight - margin : margin;
         
-        ctx.globalAlpha = ((wizardState.watermarkOpacity || 50) / 100) * 0.5;
+        ctx.globalAlpha = (wizardState.watermarkOpacity || 50) / 100;
+        ctx.save();
+        applyShapeClip(ctx, wizardState.watermarkShape || 'original', wmX, wmY, wmWidth, wmHeight, 'watermark');
         ctx.drawImage(wizardWatermarkImage, wmX, wmY, wmWidth, wmHeight);
+        ctx.restore();
         ctx.globalAlpha = 1;
     }
 }
@@ -5520,21 +6587,177 @@ function showStep4Placeholder() {
     }, 5000);
 }
 
-async function saveWizardFromAnyStep() {
+// MVP: Single save function for 2-step flow (supports both create and edit)
+async function saveWizardBrand() {
     const status = document.getElementById('wizardStatus');
+    const isEdit = wizardState.editMode === true;
     
-    // Validate minimum requirements: brand name is required
+    // Validate
     if (!wizardState.displayName || !wizardState.slug) {
-        status.innerHTML = '<div class="status-msg error">❌ Brand name is required.</div>';
+        status.innerHTML = '<div class="status-msg error">Brand name is required.</div>';
         return;
     }
     
-    // Check if we have at least one asset (logo OR watermark)
-    // For now, just allow saving with whatever state exists
-    // The backend validation will catch truly empty brands
+    // In create mode, a logo file is required; in edit mode, an existing logo is acceptable
+    if (!wizardState.logoFile && !isEdit) {
+        status.innerHTML = '<div class="status-msg error">Please upload a brand image.</div>';
+        return;
+    }
     
-    // Call the existing save flow - it handles partial data gracefully
-    saveWizardBrandWithWatermark();
+    const saveBtn = document.querySelector('#wizardStep2 .wizard-actions .btn-primary');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+    }
+    
+    try {
+        let brandId;
+        
+        if (isEdit) {
+            // Edit mode: use existing brand ID
+            brandId = wizardState.editBrandId;
+            status.innerHTML = '<div class="status-msg info">Updating brand...</div>';
+        } else {
+            // Create mode: create new brand
+            status.innerHTML = '<div class="status-msg info">Creating brand...</div>';
+            
+            const createRes = await fetch(`${apiBase}/api/brands`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: wizardState.slug,
+                    display_name: wizardState.displayName
+                })
+            });
+            
+            const createData = await createRes.json();
+            if (!createData.success) {
+                if (createData.code === 'TIER_LIMIT_REACHED') {
+                    closeBrandWizard();
+                    showUpgradeModal(null, createData.error);
+                    return;
+                }
+                throw new Error(createData.error || 'Failed to create brand');
+            }
+            
+            brandId = createData.brand_id;
+        }
+        
+        // Upload logo only if a new file was selected
+        if (wizardState.logoFile) {
+            status.innerHTML = '<div class="status-msg info">Uploading brand image...</div>';
+            
+            const logoForm = new FormData();
+            logoForm.append('file', wizardState.logoFile);
+            logoForm.append('remove_bg', wizardState.bgRemovalEnabled ? 'auto' : 'none');
+            logoForm.append('logo_scale', wizardState.logoScale / 100);
+            logoForm.append('logo_opacity', wizardState.logoOpacity / 100);
+            logoForm.append('logo_shape', wizardState.logoShape);
+            
+            const logoRes = await fetch(`${apiBase}/api/brands/${brandId}/upload_logo`, {
+                method: 'POST',
+                body: logoForm
+            });
+            
+            const logoData = await logoRes.json();
+            if (!logoData.success) {
+                console.warn('Logo upload warning:', logoData.error);
+            }
+        }
+        
+        // Upload separate watermark only if a new file was selected
+        if (wizardState.useSeparateWatermark && wizardState.watermarkFile) {
+            status.innerHTML = '<div class="status-msg info">Uploading watermark...</div>';
+            
+            const wmForm = new FormData();
+            wmForm.append('file', wizardState.watermarkFile);
+            wmForm.append('watermark_scale', wizardState.watermarkScale / 100);
+            wmForm.append('watermark_opacity', wizardState.watermarkOpacity / 100);
+            
+            const wmRes = await fetch(`${apiBase}/api/brands/${brandId}/upload_watermark`, {
+                method: 'POST',
+                body: wmForm
+            });
+            
+            const wmData = await wmRes.json();
+            if (!wmData.success) {
+                console.warn('Watermark upload warning:', wmData.error);
+            }
+        }
+        
+        // Save visual settings (position, etc.)
+        status.innerHTML = '<div class="status-msg info">Saving settings...</div>';
+        
+        const settingsPayload = {
+            logo_scale: wizardState.logoScale / 100,
+            logo_opacity: wizardState.logoOpacity / 100,
+            logo_rotation: wizardState.logoRotation,
+            logo_shape: wizardState.logoShape,
+            logo_x: wizardState.logoX,
+            logo_y: wizardState.logoY,
+            wm_mode: 'positioned'
+        };
+        
+        // In edit mode, include display_name so name changes persist
+        if (isEdit) {
+            settingsPayload.display_name = wizardState.displayName;
+        }
+        
+        // Watermark fields: use independent values when separate watermark enabled, else mirror logo
+        const hasSeparateWatermark = wizardState.useSeparateWatermark &&
+            (wizardState.watermarkFile || wizardState.watermarkPreviewUrl);
+        if (hasSeparateWatermark) {
+            settingsPayload.wm_scale = wizardState.watermarkScale / 100;
+            settingsPayload.wm_opacity = wizardState.watermarkOpacity / 100;
+            settingsPayload.watermark_scale = wizardState.watermarkScale / 100;
+            settingsPayload.watermark_opacity = wizardState.watermarkOpacity / 100;
+        } else {
+            settingsPayload.watermark_path = null;
+            settingsPayload.wm_scale = wizardState.logoScale / 100;
+            settingsPayload.wm_opacity = wizardState.logoOpacity / 100;
+            settingsPayload.watermark_scale = wizardState.logoScale / 100;
+            settingsPayload.watermark_opacity = wizardState.logoOpacity / 100;
+        }
+        settingsPayload.wm_x = wizardState.watermarkX;
+        settingsPayload.wm_y = wizardState.watermarkY;
+        
+        const settingsRes = await fetch(`${apiBase}/api/brands/${brandId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settingsPayload)
+        });
+        
+        const settingsData = await settingsRes.json();
+        if (!settingsData.success) {
+            console.warn('Settings warning:', settingsData.error);
+        }
+        
+        const successMsg = isEdit ? 'Brand updated successfully!' : 'Brand created successfully!';
+        status.innerHTML = `<div class="status-msg success">✅ ${successMsg}</div>`;
+        
+        // Re-enable save button before closing
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Brand';
+        }
+        
+        setTimeout(() => {
+            closeBrandWizard();
+            loadBrands();
+        }, 1000);
+        
+    } catch (err) {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Brand';
+        }
+        status.innerHTML = `<div class="status-msg error">❌ ${err.message}</div>`;
+    }
+}
+
+// Legacy wrapper for any remaining calls
+async function saveWizardFromAnyStep() {
+    await saveWizardBrand();
 }
 
 async function saveWizardBrandWithWatermark() {
@@ -5590,7 +6813,7 @@ async function saveWizardBrandWithWatermark() {
             
             const logoForm = new FormData();
             logoForm.append('file', logoFileToUpload);
-            logoForm.append('remove_bg_mode', wizardState.logoCleanup);
+            logoForm.append('remove_bg', wizardState.logoCleanup);
             logoForm.append('bg_strength', wizardState.logoCleanupStrength);
             logoForm.append('logo_scale', wizardState.logoScale / 100);
             logoForm.append('logo_opacity', wizardState.logoOpacity / 100);
@@ -5636,25 +6859,61 @@ async function saveWizardBrandWithWatermark() {
         // Step 4: Persist settings via PUT
         status.innerHTML = '<div class="status-msg info">Saving settings...</div>';
         
+        // Use Step 4 canvas state if user interacted with placement,
+        // otherwise fall back to wizardState defaults.
+        const logoX = wizardState.logoPositionX != null ? wizardState.logoPositionX : wizardState.logoX;
+        const logoY = wizardState.logoPositionY != null ? wizardState.logoPositionY : wizardState.logoY;
+        const logoScaleDec = (wizardState.logoScalePct != null ? wizardState.logoScalePct : wizardState.logoScale) / 100;
+        
         const settingsPayload = {
-            logo_scale: wizardState.logoScale / 100,
+            logo_scale: logoScaleDec,
             logo_opacity: wizardState.logoOpacity / 100,
             logo_rotation: wizardState.logoRotation,
             logo_shape: wizardState.logoShape,
-            logo_x: wizardState.logoX,
-            logo_y: wizardState.logoY
+            logo_x: logoX,
+            logo_y: logoY
         };
         
         // Add watermark settings if watermark was uploaded
         if (wizardState.watermarkFile) {
-            // CANONICAL: Use wm_* fields that processor actually reads
             settingsPayload.wm_mode = wizardState.watermarkMode || 'positioned';
             settingsPayload.wm_scale = wizardState.watermarkScale / 100;
             settingsPayload.wm_opacity = wizardState.watermarkOpacity / 100;
-            // PHASE 2: Save actual placement position instead of hardcoded fallback
-            const pos = placementToXY(placementConfig);
-            settingsPayload.wm_x = pos.x;
-            settingsPayload.wm_y = pos.y;
+            
+            // Compute wm_x/wm_y as the CENTER of the watermark in normalized coords.
+            // Must match how the backend interprets these values:
+            //   backend: wm_x_px = wm_x * W - wm_target_w/2  (center-anchored)
+            // Use the same layout formula as drawPositionedWatermark to ensure
+            // what the user sees in the preview matches the rendered output.
+            const wmScale = wizardState.watermarkScale / 100;
+            if (wizardWatermarkImage && wizardWatermarkImage.width > 0) {
+                // Use a reference canvas (1080x1920) for computing normalized center
+                const refW = 1080;
+                const refH = 1920;
+                const wmW = refW * wmScale * 0.5;  // matches backend: wm_scale * W * 0.5
+                const wmH = wmW * (wizardWatermarkImage.height / wizardWatermarkImage.width);
+                
+                const a = placementConfig.anchor;
+                const padX = refW * placementConfig.offsetX;
+                const padY = refH * placementConfig.offsetY;
+                
+                let baseX, baseY;
+                if (a.includes('left')) baseX = padX;
+                else if (a.includes('right')) baseX = refW - wmW - padX;
+                else baseX = (refW - wmW) / 2;
+                
+                if (a.includes('top')) baseY = padY;
+                else if (a.includes('bottom')) baseY = refH - wmH - padY;
+                else baseY = (refH - wmH) / 2;
+                
+                settingsPayload.wm_x = (baseX + wmW / 2) / refW;
+                settingsPayload.wm_y = (baseY + wmH / 2) / refH;
+            } else {
+                // Fallback if no image available
+                const pos = placementToXY(placementConfig);
+                settingsPayload.wm_x = pos.x;
+                settingsPayload.wm_y = pos.y;
+            }
         }
         
         const settingsRes = await fetch(`${apiBase}/api/brands/${brandId}`, {
@@ -5696,20 +6955,70 @@ async function saveWizardBrandWithWatermark() {
 
 // (saveWizardBrand removed — saveWizardBrandWithWatermark handles all cases including logo-only)
 
-// Auto-slugify on display name input
-document.getElementById('wizardDisplayName')?.addEventListener('input', function(e) {
-    const slugInput = document.getElementById('wizardBrandSlug');
-    if (!slugInput.value || slugInput.dataset.auto === 'true') {
-        slugInput.value = slugify(e.target.value);
-        slugInput.dataset.auto = 'true';
+// Step 1: Handle brand name input
+const wizardDisplayName = document.getElementById('wizardDisplayName');
+const wizardBrandSlug = document.getElementById('wizardBrandSlug');
+const wizardLogoInput = document.getElementById('wizardLogoInput');
+
+wizardDisplayName?.addEventListener('input', function(e) {
+    wizardState.displayName = e.target.value.trim();
+    // Auto-generate slug only in create mode; in edit mode slug is immutable
+    if (!wizardState.editMode) {
+        wizardState.slug = slugify(e.target.value);
+        if (wizardBrandSlug) wizardBrandSlug.value = wizardState.slug;
     }
+    updateStep1ContinueButton();
 });
 
-document.getElementById('wizardBrandSlug')?.addEventListener('input', function(e) {
-    // User manually edited slug, stop auto-updating
-    if (e.target.value !== slugify(document.getElementById('wizardDisplayName').value)) {
-        e.target.dataset.auto = 'false';
+// Step 1: Handle logo file upload
+wizardLogoInput?.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    console.log('[Step 1] Logo selected:', file.name);
+    wizardState.logoFile = file;
+    
+    // Create preview URL
+    wizardState.logoPreviewUrl = URL.createObjectURL(file);
+    
+    // Update UI
+    const logoUploadZone = document.getElementById('wizardLogoUploadZone');
+    const logoPreview = document.getElementById('wizardLogoPreview');
+    const logoPreviewImg = document.getElementById('wizardLogoPreviewImg');
+    const logoPlaceholder = logoUploadZone?.querySelector('.upload-placeholder-large');
+    
+    if (logoPreviewImg) logoPreviewImg.src = wizardState.logoPreviewUrl;
+    if (logoPreview) logoPreview.style.display = 'flex';
+    if (logoPlaceholder) logoPlaceholder.style.display = 'none';
+    if (logoUploadZone) logoUploadZone.classList.add('has-file');
+    
+    updateStep1ContinueButton();
+});
+
+// Clear logo for Step 1
+function clearWizardLogo() {
+    wizardState.logoFile = null;
+    if (wizardState.logoPreviewUrl) {
+        URL.revokeObjectURL(wizardState.logoPreviewUrl);
+        wizardState.logoPreviewUrl = null;
     }
+    
+    const logoUploadZone = document.getElementById('wizardLogoUploadZone');
+    const logoPreview = document.getElementById('wizardLogoPreview');
+    const logoPlaceholder = logoUploadZone?.querySelector('.upload-placeholder-large');
+    const wizardLogoInput = document.getElementById('wizardLogoInput');
+    
+    if (logoPreview) logoPreview.style.display = 'none';
+    if (logoPlaceholder) logoPlaceholder.style.display = 'block';
+    if (logoUploadZone) logoUploadZone.classList.remove('has-file');
+    if (wizardLogoInput) wizardLogoInput.value = '';
+    
+    updateStep1ContinueButton();
+}
+
+// Legacy slug handlers (keep for compatibility)
+document.getElementById('wizardBrandSlug')?.addEventListener('input', function(e) {
+    wizardState.slug = e.target.value.trim() || slugify(wizardState.displayName);
 });
 
 // Upgrade modal helpers

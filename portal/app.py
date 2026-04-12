@@ -253,6 +253,10 @@ def register():
         email = request.form['email']
         password = request.form['password']
         
+        if len(password) < 6:
+            flash('Password must be at least 6 characters.', 'error')
+            return render_template('register.html')
+        
         user_id = register_user(email, password)
         if user_id:
             session['user_id'] = user_id
@@ -909,7 +913,7 @@ def brands_page():
 @login_required
 def profile_page():
     """User profile page with graceful error handling"""
-    from .database import get_connection, get_all_brands, get_user_downloads
+    from .database import get_connection, get_all_brands
     from datetime import datetime
     
     try:
@@ -935,6 +939,7 @@ def profile_page():
         tier = get_user_tier(user_id)
         special_status = get_user_special_status(user_id)
         limits = get_effective_limits(tier, special_status)
+        usage = get_daily_usage(user_id)
         
         # Get actual brand count
         user_brands = get_all_brands(user_id=user_id, include_system=False)
@@ -945,6 +950,7 @@ def profile_page():
             created_at=created_at,
             tier=tier,
             limits=limits,
+            usage=usage,
             brand_configs=brand_configs,
         )
     except Exception as e:
@@ -957,6 +963,7 @@ def profile_page():
             created_at='Recently',
             tier=DEFAULT_TIER,
             limits=fallback_limits,
+            usage={'branding_jobs': 0, 'downloads': 0},
             brand_configs=0,
         ), 200
 
@@ -2219,13 +2226,13 @@ def list_brands():
             
             # Watermark Config (wm_* keys are canonical)
             'wm_mode': brand.get('wm_mode', 'positioned'),
-            'wm_scale': brand.get('wm_scale') or brand.get('watermark_scale') or 1.0,
-            'wm_opacity': brand.get('wm_opacity') or brand.get('watermark_opacity') or 0.10,
+            'wm_scale': brand.get('wm_scale') or brand.get('watermark_scale') or 0.25,
+            'wm_opacity': brand.get('wm_opacity') or brand.get('watermark_opacity') or 0.20,
             'wm_x': brand.get('wm_x', 0.5),
             'wm_y': brand.get('wm_y', 0.5),
             
             # Logo Config
-            'logo_scale': brand.get('logo_scale', 0.15),
+            'logo_scale': brand.get('logo_scale', 0.25),
             'logo_opacity': brand.get('logo_opacity', 1.0),
             'logo_x': brand.get('logo_x', 0.85),
             'logo_y': brand.get('logo_y', 0.85),
@@ -2257,8 +2264,9 @@ def list_brands():
         }), 500
 
 @app.route('/api/brands/<brand_name>/config', methods=['GET'])
+@login_required
 def get_brand_config_api(brand_name):
-    """Get saved configuration for a brand"""
+    """Get saved configuration for a brand (legacy)"""
     try:
         from .database import get_brand_config
         config = get_brand_config(brand_name)
@@ -2282,9 +2290,9 @@ def save_brand_config_api(brand_name):
         
         # Build config object from request
         config = {
-            'watermark_scale': float(data.get('watermark_scale', 1.15)),
-            'watermark_opacity': float(data.get('watermark_opacity', 0.4)),
-            'logo_scale': float(data.get('logo_scale', 0.15)),
+            'watermark_scale': float(data.get('watermark_scale', 0.25)),
+            'watermark_opacity': float(data.get('watermark_opacity', 0.20)),
+            'logo_scale': float(data.get('logo_scale', 0.25)),
             'logo_padding': int(data.get('logo_padding', 40)),
             'text_enabled': bool(data.get('text_enabled', False)),
             'text_content': str(data.get('text_content', '')),
@@ -2362,7 +2370,8 @@ def get_single_brand_api(brand_id):
     """Get a single brand by ID"""
     try:
         from .database import get_brand
-        brand = get_brand(brand_id=brand_id)
+        user_id = session.get('user_id')
+        brand = get_brand(brand_id=brand_id, user_id=user_id)
         
         if not brand:
             return jsonify({'success': False, 'error': 'Brand not found'}), 404
@@ -2423,9 +2432,9 @@ def create_brand_api():
             watermark_square=data.get('watermark_square'),
             watermark_landscape=data.get('watermark_landscape'),
             logo_path=data.get('logo_path'),
-            watermark_scale=data.get('watermark_scale', 1.15),
-            watermark_opacity=data.get('watermark_opacity', 0.4),
-            logo_scale=data.get('logo_scale', 0.15),
+            watermark_scale=data.get('watermark_scale', 0.25),
+            watermark_opacity=data.get('watermark_opacity', 0.20),
+            logo_scale=data.get('logo_scale', 0.25),
             logo_padding=data.get('logo_padding', 40),
             text_enabled=data.get('text_enabled', False),
             text_content=data.get('text_content', ''),
@@ -2447,8 +2456,8 @@ def create_brand_api():
             wm_mode=data.get('wm_mode', 'positioned'),
             wm_x=data.get('wm_x', 0.5),
             wm_y=data.get('wm_y', 0.5),
-            wm_scale=data.get('wm_scale', 1.0),
-            wm_opacity=data.get('wm_opacity', 0.10),
+            wm_scale=data.get('wm_scale', 0.25),
+            wm_opacity=data.get('wm_opacity', 0.20),
             text_x_percent=data.get('text_x_percent', 0.5),
             text_y_percent=data.get('text_y_percent', 0.2)
         )
@@ -2493,8 +2502,10 @@ def update_brand_api(brand_id):
     try:
         from .database import get_brand, update_brand
         
-        # Check brand exists
-        brand = get_brand(brand_id=brand_id)
+        user_id = session.get('user_id')
+        
+        # Check brand exists and belongs to user
+        brand = get_brand(brand_id=brand_id, user_id=user_id)
         if not brand:
             return jsonify({'success': False, 'error': 'Brand not found'}), 404
         
@@ -2539,8 +2550,10 @@ def delete_brand_api(brand_id):
     try:
         from .database import get_brand, delete_brand
         
-        # Check brand exists
-        brand = get_brand(brand_id=brand_id)
+        user_id = session.get('user_id')
+        
+        # Check brand exists and belongs to user
+        brand = get_brand(brand_id=brand_id, user_id=user_id)
         if not brand:
             return jsonify({'success': False, 'error': 'Brand not found'}), 404
         
@@ -2573,12 +2586,9 @@ def upload_brand_logo(brand_id):
         user_id = session.get('user_id')
         
         # Check brand exists and belongs to user
-        brand = get_brand(brand_id=brand_id)
+        brand = get_brand(brand_id=brand_id, user_id=user_id)
         if not brand:
             return jsonify({'success': False, 'error': 'Brand not found'}), 404
-        
-        if brand['user_id'] != user_id:
-            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
         
         # Check file uploaded
         if 'file' not in request.files:
@@ -2659,12 +2669,9 @@ def upload_brand_watermark(brand_id):
         user_id = session.get('user_id')
         
         # Check brand exists and belongs to user
-        brand = get_brand(brand_id=brand_id)
+        brand = get_brand(brand_id=brand_id, user_id=user_id)
         if not brand:
             return jsonify({'success': False, 'error': 'Brand not found'}), 404
-        
-        if brand['user_id'] != user_id:
-            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
         
         # Check file uploaded
         if 'file' not in request.files:
@@ -3195,6 +3202,30 @@ def get_recent_downloads():
         'success': True,
         'downloads': downloads,
         'count': len(downloads)
+    })
+
+
+@app.route('/api/downloads/<int:download_id>/bookmark', methods=['POST'])
+@login_required
+def toggle_download_bookmark_api(download_id):
+    """Toggle bookmark status for a download"""
+    from .database import toggle_download_bookmark, get_user_bookmark_count
+    
+    user_id = session['user_id']
+    new_state = toggle_download_bookmark(download_id, user_id)
+    
+    if new_state is None:
+        return jsonify({
+            'success': False,
+            'error': 'Download not found'
+        }), 404
+    
+    bookmark_count = get_user_bookmark_count(user_id)
+    
+    return jsonify({
+        'success': True,
+        'bookmarked': new_state,
+        'bookmark_count': bookmark_count
     })
 
 

@@ -111,8 +111,8 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 brand_name TEXT UNIQUE NOT NULL,
                 user_id TEXT,
-                watermark_scale REAL DEFAULT 1.15,
-                watermark_opacity REAL DEFAULT 0.4,
+                watermark_scale REAL DEFAULT 0.25,
+                watermark_opacity REAL DEFAULT 0.20,
                 logo_scale REAL DEFAULT 0.25,
                 logo_padding INTEGER DEFAULT 40,
                 text_enabled INTEGER DEFAULT 0,
@@ -144,8 +144,8 @@ def init_db():
                 watermark_square TEXT,
                 watermark_landscape TEXT,
                 logo_path TEXT,
-                watermark_scale REAL DEFAULT 1.15,
-                watermark_opacity REAL DEFAULT 0.4,
+                watermark_scale REAL DEFAULT 0.25,
+                watermark_opacity REAL DEFAULT 0.20,
                 logo_scale REAL DEFAULT 0.25,
                 logo_padding INTEGER DEFAULT 40,
                 text_enabled INTEGER DEFAULT 0,
@@ -173,10 +173,18 @@ def init_db():
                 filename TEXT,
                 display_name TEXT,
                 file_path TEXT,
+                bookmarked INTEGER DEFAULT 0,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users (id)
             )
         ''')
+        
+        # Add bookmarked column if it doesn't exist (migration for existing databases)
+        try:
+            c.execute('ALTER TABLE downloads ADD COLUMN bookmarked INTEGER DEFAULT 0')
+            conn.commit()
+        except Exception:
+            pass  # Column already exists
         
         # Daily usage tracking table
         c.execute('''
@@ -224,11 +232,11 @@ def _run_migrations():
             c.execute("ALTER TABLE brands ADD COLUMN logo_y REAL DEFAULT 0.85")
             c.execute("ALTER TABLE brands ADD COLUMN logo_opacity REAL DEFAULT 1.0")
             # Watermark positioning
-            c.execute("ALTER TABLE brands ADD COLUMN wm_mode TEXT DEFAULT 'fullscreen'")
+            c.execute("ALTER TABLE brands ADD COLUMN wm_mode TEXT DEFAULT 'positioned'")
             c.execute("ALTER TABLE brands ADD COLUMN wm_x REAL DEFAULT 0.5")
             c.execute("ALTER TABLE brands ADD COLUMN wm_y REAL DEFAULT 0.5")
-            c.execute("ALTER TABLE brands ADD COLUMN wm_scale REAL DEFAULT 1.0")
-            c.execute("ALTER TABLE brands ADD COLUMN wm_opacity REAL DEFAULT 0.10")
+            c.execute("ALTER TABLE brands ADD COLUMN wm_scale REAL DEFAULT 0.25")
+            c.execute("ALTER TABLE brands ADD COLUMN wm_opacity REAL DEFAULT 0.20")
             # Text positioning (convert old text_x/text_y to REAL, add new fields)
             c.execute("ALTER TABLE brands ADD COLUMN text_x_percent REAL DEFAULT 0.5")
             c.execute("ALTER TABLE brands ADD COLUMN text_y_percent REAL DEFAULT 0.2")
@@ -507,8 +515,8 @@ def get_brand_config(brand_name):
     # Return defaults if no saved config
     return {
         'brand_name': brand_name,
-        'watermark_scale': 1.15,
-        'watermark_opacity': 0.4,
+        'watermark_scale': 0.25,
+        'watermark_opacity': 0.20,
         'logo_scale': 0.25,
         'logo_padding': 40,
         'text_enabled': 0,
@@ -554,8 +562,8 @@ def save_brand_config(brand_name, config):
                     updated_at = ?
                 WHERE brand_name = ?
             ''', (
-                config.get('watermark_scale', 1.15),
-                config.get('watermark_opacity', 0.4),
+                config.get('watermark_scale', 0.25),
+                config.get('watermark_opacity', 0.20),
                 config.get('logo_scale', 0.25),
                 config.get('logo_padding', 40),
                 1 if config.get('text_enabled') else 0,
@@ -582,8 +590,8 @@ def save_brand_config(brand_name, config):
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 brand_name,
-                config.get('watermark_scale', 1.15),
-                config.get('watermark_opacity', 0.4),
+                config.get('watermark_scale', 0.25),
+                config.get('watermark_opacity', 0.20),
                 config.get('logo_scale', 0.25),
                 config.get('logo_padding', 40),
                 1 if config.get('text_enabled') else 0,
@@ -618,12 +626,15 @@ def get_all_brand_configs():
 # ============================================================================
 
 def get_brand(brand_id=None, name=None, user_id=None):
-    """Get a brand by ID or name"""
+    """Get a brand by ID or name. When user_id is provided, enforces ownership."""
     with get_connection() as conn:
         c = conn.cursor()
         
         if brand_id:
-            c.execute('SELECT * FROM brands WHERE id = ?', (brand_id,))
+            if user_id is not None:
+                c.execute('SELECT * FROM brands WHERE id = ? AND (user_id = ? OR is_system = 1)', (brand_id, user_id))
+            else:
+                c.execute('SELECT * FROM brands WHERE id = ?', (brand_id,))
         elif name:
             if user_id is not None:
                 c.execute('SELECT * FROM brands WHERE name = ? AND (user_id = ? OR user_id IS NULL)', (name, user_id))
@@ -704,8 +715,8 @@ def create_brand(name, display_name, user_id=None, is_system=False, is_locked=Fa
         ''', (
             name, display_name, user_id, 1 if is_system else 0, 1 if is_locked else 0,
             watermark_vertical, watermark_square, watermark_landscape, logo_path,
-            config.get('watermark_scale', 1.15),
-            config.get('watermark_opacity', 0.4),
+            config.get('watermark_scale', 0.25),
+            config.get('watermark_opacity', 0.20),
             config.get('logo_scale', 0.25),
             config.get('logo_padding', 40),
             1 if config.get('text_enabled') else 0,
@@ -728,8 +739,8 @@ def create_brand(name, display_name, user_id=None, is_system=False, is_locked=Fa
             config.get('wm_mode', 'positioned'),
             config.get('wm_x', 0.5),
             config.get('wm_y', 0.5),
-            config.get('wm_scale', 1.0),
-            config.get('wm_opacity', 0.10),
+            config.get('wm_scale', 0.25),
+            config.get('wm_opacity', 0.20),
             config.get('text_x_percent', 0.5),
             config.get('text_y_percent', 0.2),
             now, now
@@ -940,12 +951,41 @@ def get_user_downloads(user_id, limit=10):
         c.execute('''
             SELECT * FROM downloads 
             WHERE user_id = ? 
-            ORDER BY created_at DESC 
+            ORDER BY bookmarked DESC, created_at DESC 
             LIMIT ?
         ''', (user_id, limit))
         
         rows = c.fetchall()
         return [dict(row) for row in rows]
+
+def toggle_download_bookmark(download_id, user_id):
+    """Toggle bookmark status for a download"""
+    def _do_toggle():
+        with get_connection() as conn:
+            c = conn.cursor()
+            
+            # Check if download exists and belongs to user
+            c.execute('SELECT bookmarked FROM downloads WHERE id = ? AND user_id = ?', (download_id, user_id))
+            row = c.fetchone()
+            if not row:
+                return None
+            
+            # Toggle bookmark
+            new_state = 0 if row['bookmarked'] else 1
+            c.execute('UPDATE downloads SET bookmarked = ? WHERE id = ? AND user_id = ?', 
+                     (new_state, download_id, user_id))
+            conn.commit()
+            return new_state
+    
+    return _retry_write(_do_toggle)
+
+def get_user_bookmark_count(user_id):
+    """Get count of bookmarked items for tier limit enforcement"""
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT COUNT(*) as count FROM downloads WHERE user_id = ? AND bookmarked = 1', (user_id,))
+        row = c.fetchone()
+        return row['count'] if row else 0
 
 def get_download(download_id, user_id):
     """Get a specific download for a user"""
