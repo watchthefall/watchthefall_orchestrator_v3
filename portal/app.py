@@ -2165,7 +2165,16 @@ def get_brand_asset_preview(brand_id, asset_type):
         if asset_type == 'logo':
             asset_path = brand.get('logo_path')
         elif asset_type == 'watermark':
-            asset_path = brand.get('watermark_path') or brand.get('watermark_vertical')
+            # CONTAINMENT PATCH 2026-04-11: User-owned brands use ONLY explicit watermark_path
+            # Do NOT fallback to watermark_vertical/square/landscape for user brands
+            if brand.get('user_id') and not brand.get('is_system'):
+                # User brand: ONLY use explicit watermark_path
+                asset_path = brand.get('watermark_path')
+                if not asset_path:
+                    return jsonify({'error': 'Watermark not found'}), 404
+            else:
+                # System brand: allow legacy fallback (for backward compat)
+                asset_path = brand.get('watermark_path') or brand.get('watermark_vertical')
         else:
             return jsonify({'error': 'Invalid asset type'}), 400
         
@@ -2219,7 +2228,8 @@ def list_brands():
             
             # Asset Paths
             'logo_path': brand.get('logo_path'),
-            'watermark_path': brand.get('watermark_path') or brand.get('watermark_vertical'),
+            # CONTAINMENT PATCH: User brands use ONLY explicit watermark_path
+            'watermark_path': brand.get('watermark_path') if (brand.get('user_id') and not brand.get('is_system')) else (brand.get('watermark_path') or brand.get('watermark_vertical')),
             'watermark_vertical': brand.get('watermark_vertical'),
             'watermark_square': brand.get('watermark_square'),
             'watermark_landscape': brand.get('watermark_landscape'),
