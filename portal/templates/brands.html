@@ -660,57 +660,24 @@
                     
                     <!-- Center: Main Preview (TikTok/Vertical) -->
                     <div class="composer-main">
-                        <div class="composer-stage-header">
-                            <div class="composer-stage-copy">
-                                <div class="composer-section-label">Master Surface</div>
-                                <h4>9:16 drives every preview</h4>
-                                <p id="composerRatioHelp">Edit the vertical master here. Square and landscape stay auto-derived from it.</p>
-                            </div>
-                            <div class="composer-ratio-nav" id="composerRatioNav">
-                                <button type="button" class="composer-ratio-btn active" data-ratio="vertical" onclick="setComposerRatioView('vertical')">
-                                    <span>9:16</span>
-                                    <small>Master Editor</small>
-                                </button>
-                                <button type="button" class="composer-ratio-btn" data-ratio="square" onclick="setComposerRatioView('square')">
-                                    <span>1:1</span>
-                                    <small>Auto Preview</small>
-                                </button>
-                                <button type="button" class="composer-ratio-btn" data-ratio="landscape" onclick="setComposerRatioView('landscape')">
-                                    <span>16:9</span>
-                                    <small>Auto Preview</small>
-                                </button>
-                            </div>
-                        </div>
                         <div class="canvas-container" id="composerCanvasContainer">
                             <canvas id="composerMainCanvas" width="360" height="640"></canvas>
                             <div class="canvas-layer-chip" id="composerActiveChip">Editing Logo</div>
-                            <div class="canvas-ratio-chip" id="composerRatioChip">9:16 Master Editor</div>
                             <div class="canvas-hint">Tap a layer to select it, drag to position, use sliders to resize.</div>
                         </div>
                     </div>
                     
                     <!-- Right: Secondary Previews -->
                     <div class="composer-previews">
-                        <div class="composer-preview-header">
-                            <h4>Other Ratios</h4>
-                            <span class="composer-preview-note">Auto-derived by default</span>
-                        </div>
-                        <button type="button" class="preview-card ratio-preview-card" data-ratio="square" onclick="setComposerRatioView('square')">
-                            <div class="preview-card-head">
-                                <strong>Instagram</strong>
-                                <span class="preview-card-badge">Auto-Derived</span>
-                            </div>
+                        <h4>Other Platforms</h4>
+                        <div class="preview-card">
                             <canvas id="composerPreviewSquare" width="150" height="150"></canvas>
-                            <span>True square preview, derived from the 9:16 master editor.</span>
-                        </button>
-                        <button type="button" class="preview-card ratio-preview-card" data-ratio="landscape" onclick="setComposerRatioView('landscape')">
-                            <div class="preview-card-head">
-                                <strong>YouTube</strong>
-                                <span class="preview-card-badge">Auto-Derived</span>
-                            </div>
+                            <span>Instagram</span>
+                        </div>
+                        <div class="preview-card">
                             <canvas id="composerPreviewLandscape" width="200" height="112"></canvas>
-                            <span>True landscape preview, derived from the same 9:16 master.</span>
-                        </button>
+                            <span>YouTube</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -759,7 +726,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 12px 24px 10px;
+    padding: 16px 24px;
     gap: 12px;
 }
 
@@ -867,35 +834,26 @@
 
 /* ===== STEP 2: LIVE COMPOSER ===== */
 .composer-content {
-    flex: 0 1 auto;
-    padding: 0 20px 18px;
+    flex: 1;
+    padding: 0 24px 24px;
     min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
 }
 
 .composer-layout {
     display: grid;
-    grid-template-columns: minmax(232px, 268px) minmax(0, 1.18fr) minmax(176px, 212px);
-    gap: 12px;
-    align-items: start;
-    align-content: start;
-    min-height: 0;
-    flex: 0 1 auto;
+    grid-template-columns: 180px 1fr 160px;
+    gap: 20px;
+    height: 100%;
 }
 
 /* Left Controls */
 .composer-controls {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 14px;
-    background: rgba(0,0,0,0.22);
-    border-radius: 16px;
-    border: 1px solid rgba(255,255,255,0.08);
-    min-height: 0;
-    overflow-y: auto;
+    gap: 16px;
+    padding: 16px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 12px;
 }
 
 .composer-controls h3 {
@@ -905,7 +863,7 @@
 }
 
 .composer-layer-switcher {
-    padding: 10px;
+    padding: 12px;
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 10px;
@@ -916,14 +874,14 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #777;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 
 .layer-toggle-group {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 6px;
-    margin-bottom: 6px;
+    gap: 8px;
+    margin-bottom: 8px;
 }
 
 .layer-toggle-btn {
@@ -956,7 +914,7 @@
 }
 
 .composer-primary-control {
-    padding: 8px 10px;
+    padding: 10px 12px;
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 10px;
@@ -970,7 +928,7 @@
 .control-group {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
 }
 
 .control-group label {
@@ -997,14 +955,14 @@
 .shape-options {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
 }
 
 .shape-option {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 10px;
+    padding: 10px 12px;
     background: rgba(255,255,255,0.05);
     border: 2px solid rgba(255,255,255,0.1);
     border-radius: 8px;
@@ -1085,11 +1043,11 @@
 .watermark-upload-zone {
     border: 2px dashed rgba(255,255,255,0.2);
     border-radius: 8px;
-    padding: 12px;
+    padding: 16px;
     text-align: center;
     cursor: pointer;
     transition: all 0.2s;
-    min-height: 64px;
+    min-height: 80px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1140,12 +1098,12 @@
 /* Preview Mode Options */
 .preview-mode-options {
     display: flex;
-    gap: 3px;
+    gap: 4px;
 }
 
 .preview-mode-btn {
     flex: 1;
-    padding: 5px 4px;
+    padding: 6px 4px;
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 4px;
@@ -1204,123 +1162,32 @@
 }
 
 .advanced-toggle {
-    margin-top: 4px;
-    padding-top: 10px;
+    margin-top: auto;
+    padding-top: 16px;
     border-top: 1px solid rgba(255,255,255,0.1);
 }
 
 /* Center Canvas */
 .composer-main {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    align-items: start;
-    justify-items: center;
-    gap: 12px;
-    padding: 18px 20px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015));
-    border-radius: 18px;
-    border: 1px solid rgba(255,255,255,0.08);
-    min-width: 0;
-    min-height: 0;
-}
-
-.composer-stage-header {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    width: 100%;
-}
-
-.composer-stage-copy h4 {
-    margin: 0;
-    font-size: 16px;
-    color: #f1f1f1;
-}
-
-.composer-stage-copy p {
-    margin: 4px 0 0;
-    font-size: 11px;
-    line-height: 1.45;
-    color: #8f95a3;
-    max-width: 380px;
-}
-
-.composer-ratio-nav {
-    display: inline-grid;
-    grid-template-columns: repeat(3, minmax(78px, 1fr));
-    gap: 6px;
-}
-
-.composer-ratio-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    padding: 8px 10px;
-    border-radius: 12px;
-    border: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.04);
-    color: #adb3c0;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.composer-ratio-btn span {
-    font-size: 13px;
-    font-weight: 700;
-}
-
-.composer-ratio-btn small {
-    font-size: 10px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #6f7687;
-}
-
-.composer-ratio-btn:hover {
-    border-color: rgba(255,255,255,0.18);
-    color: #f1f1f1;
-}
-
-.composer-ratio-btn.active {
-    background: rgba(134, 237, 165, 0.14);
-    border-color: rgba(134, 237, 165, 0.42);
-    color: #f4fff6;
-    box-shadow: 0 0 0 1px rgba(134, 237, 165, 0.12) inset;
-}
-
-.composer-ratio-btn.active small {
-    color: var(--accent, #86EDA5);
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
 }
 
 .canvas-container {
     position: relative;
     background: #000;
-    border-radius: 16px;
+    border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 24px 50px rgba(0,0,0,0.36);
-    border: 1px solid rgba(255,255,255,0.08);
-    width: min(100%, 390px);
-    aspect-ratio: 9 / 16;
-    min-height: 0;
-    display: flex;
-    align-items: stretch;
-    justify-content: stretch;
-    align-self: center;
-}
-
-.canvas-container.ratio-focus-vertical {
-    box-shadow: 0 24px 50px rgba(0,0,0,0.36), 0 0 0 1px rgba(134, 237, 165, 0.18);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
 
 #composerMainCanvas {
     display: block;
     cursor: grab;
-    width: 100%;
-    height: 100%;
-    max-width: none;
-    max-height: none;
+    max-width: 100%;
+    max-height: 60vh;
     touch-action: none;
 }
 
@@ -1334,20 +1201,6 @@
     left: 10px;
     background: rgba(0,0,0,0.78);
     color: #d8d8d8;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 6px 10px;
-    border-radius: 999px;
-    border: 1px solid rgba(255,255,255,0.12);
-    pointer-events: none;
-}
-
-.canvas-ratio-chip {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: rgba(15,16,24,0.82);
-    color: #d6dce8;
     font-size: 11px;
     font-weight: 600;
     padding: 6px 10px;
@@ -1374,18 +1227,8 @@
 .composer-previews {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px;
-    background: rgba(0,0,0,0.16);
-    border-radius: 16px;
-    border: 1px solid rgba(255,255,255,0.06);
-    min-height: 0;
-}
-
-.composer-preview-header {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    gap: 12px;
+    padding: 16px;
 }
 
 .composer-previews h4 {
@@ -1395,83 +1238,24 @@
     font-weight: 500;
 }
 
-.composer-preview-note {
-    font-size: 11px;
-    color: #6f7687;
-}
-
 .preview-card {
-    background: rgba(0,0,0,0.14);
-    border-radius: 12px;
-    padding: 7px;
-    text-align: left;
-    border: 1px solid rgba(255,255,255,0.06);
-}
-
-.ratio-preview-card {
-    cursor: pointer;
-    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-}
-
-.ratio-preview-card:hover {
-    border-color: rgba(255,255,255,0.16);
-    transform: translateY(-1px);
-}
-
-.ratio-preview-card.active {
-    border-color: rgba(134, 237, 165, 0.35);
-    background: rgba(134, 237, 165, 0.08);
-    box-shadow: 0 0 0 1px rgba(134, 237, 165, 0.08) inset;
-}
-
-.preview-card-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 6px;
-    gap: 8px;
-}
-
-.preview-card-head strong {
-    font-size: 11px;
-    color: #f1f1f1;
-}
-
-.preview-card-badge {
-    font-size: 9px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #86EDA5;
-    background: rgba(134, 237, 165, 0.12);
-    border: 1px solid rgba(134, 237, 165, 0.2);
-    padding: 3px 6px;
-    border-radius: 999px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 8px;
+    text-align: center;
 }
 
 .preview-card canvas {
     display: block;
     background: #000;
-    border-radius: 8px;
+    border-radius: 4px;
     margin-bottom: 6px;
     max-width: 100%;
-    border: 1px solid rgba(255,255,255,0.06);
 }
 
 .preview-card span {
-    display: block;
     font-size: 10px;
-    line-height: 1.4;
-    color: #8a90a0;
-}
-
-@media (min-width: 1200px) {
-    .composer-layout {
-        grid-template-columns: minmax(228px, 262px) minmax(0, 1.18fr) minmax(164px, 188px);
-    }
-
-    .canvas-container {
-        width: min(100%, 420px);
-    }
+    color: #666;
 }
 
 /* Wizard Actions */
@@ -1489,175 +1273,66 @@
     font-size: 14px;
 }
 
-#wizardStep2 .wizard-actions {
-    margin: 0 20px 16px;
-    padding: 10px 14px;
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 16px;
-    background: rgba(7, 8, 13, 0.72);
-    position: static;
-    z-index: 3;
-    backdrop-filter: blur(12px);
-}
-
-#wizardStep2 {
-    overflow-y: visible;
-}
-
-#wizardStep2 .wizard-step-content {
-    flex: 0 1 auto;
-}
-
 @media (max-width: 768px) {
-    .composer-content {
-        gap: 12px;
-        padding: 0 12px 16px;
-    }
-
     .composer-layout {
         grid-template-columns: 1fr;
-        gap: 12px;
+        gap: 14px;
     }
 
     .composer-main {
         order: 1;
-        display: flex;
-        flex-direction: column;
-        padding: 12px;
-        gap: 12px;
+        padding: 0;
     }
 
     .composer-controls {
         order: 2;
-        padding: 12px;
-        overflow: visible;
+        padding: 14px;
     }
 
     .composer-previews {
         order: 3;
-        padding: 12px;
+        padding: 0;
         flex-direction: row;
         align-items: stretch;
         overflow-x: auto;
-        gap: 10px;
-        scroll-snap-type: x proximity;
-    }
-
-    .composer-stage-header {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
-    }
-
-    .composer-stage-copy h4 {
-        font-size: 16px;
-    }
-
-    .composer-stage-copy p {
-        font-size: 11px;
-        max-width: none;
-    }
-
-    .composer-ratio-nav {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 6px;
-        padding: 4px;
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 14px;
-        overflow-x: auto;
-        scroll-snap-type: x proximity;
-    }
-
-    .composer-ratio-btn {
-        min-width: 84px;
-        padding: 9px 10px;
-        scroll-snap-align: start;
     }
 
     .preview-card {
-        min-width: 132px;
-        flex: 0 0 132px;
-        scroll-snap-align: start;
+        min-width: 140px;
+        flex: 1 0 140px;
     }
 
     #composerMainCanvas {
-        width: min(100%, 320px);
+        width: min(100%, 420px);
         height: auto;
-    }
-
-    .canvas-container {
-        width: min(100%, 320px);
-        aspect-ratio: 9 / 16;
+        max-height: none;
     }
 
     .canvas-hint {
-        bottom: 8px;
-        width: calc(100% - 18px);
+        bottom: 10px;
+        width: calc(100% - 24px);
         white-space: normal;
         text-align: center;
-        font-size: 10px;
-        padding: 4px 10px;
-    }
-
-    .canvas-layer-chip,
-    .canvas-ratio-chip {
-        font-size: 10px;
-        padding: 5px 8px;
-    }
-
-    #wizardStep2 .wizard-actions {
-        margin: 0 12px 16px;
-        position: static;
-        backdrop-filter: none;
     }
 }
 
 @media (max-width: 480px) {
+    .composer-content {
+        padding: 0 12px 16px;
+    }
+
     .composer-controls {
         border-radius: 10px;
     }
 
-    .composer-main,
-    .composer-controls,
-    .composer-previews {
-        padding: 10px;
-        border-radius: 12px;
-    }
-
-    .composer-ratio-nav {
-        display: flex;
-        grid-template-columns: none;
-    }
-
-    .composer-ratio-btn {
-        flex: 1 0 92px;
+    .layer-toggle-group {
+        grid-template-columns: 1fr;
     }
 
     .canvas-layer-chip {
         top: 8px;
         left: 8px;
         font-size: 10px;
-    }
-
-    .canvas-ratio-chip {
-        top: 8px;
-        right: 8px;
-        font-size: 10px;
-    }
-
-    .canvas-container,
-    #composerMainCanvas {
-        width: min(100%, 280px);
-    }
-
-    #composerMainCanvas {
-        height: auto;
-    }
-
-    .preview-card {
-        min-width: 124px;
-        flex-basis: 124px;
     }
 }
 
@@ -1714,7 +1389,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 18px 24px 12px;
+    padding: 24px 24px 16px;
     border-bottom: 1px solid rgba(255,255,255,0.1);
     flex-shrink: 0;
 }
@@ -1746,7 +1421,7 @@
 }
 
 .wizard-step-content {
-    padding: 0 20px 16px;
+    padding: 0 24px 20px;
     flex: 1;
     min-height: 0; /* Critical: allows flex child to shrink */
     display: flex;
@@ -1770,8 +1445,8 @@
 .wizard-content.step-2-active {
     max-width: 95vw;
     width: 95vw;
-    height: 86vh;
-    max-height: 86vh;
+    height: 92vh;
+    max-height: 92vh;
     transition: max-width 0.3s ease, width 0.3s ease;
 }
 
@@ -3209,10 +2884,6 @@ async function createBrand(e) {
 }
 
 function editBrand(brandId) {
-    // CONTAINMENT PATCH: Hard reset ALL UI state before loading brand
-    const sessionToken = resetWizardUi();
-    console.log(`[Edit Brand] Reset complete, session token: ${sessionToken}`);
-    
     // Fetch brand data and open the 2-step wizard in edit mode
     fetch(`${apiBase}/api/brands/${brandId}`)
         .then(res => res.json())
@@ -3223,11 +2894,13 @@ function editBrand(brandId) {
             
             const brand = data.brand;
             
-            // TOKEN CHECK: Verify session hasn't changed during fetch
-            if (wizardSessionToken !== sessionToken) {
-                console.log(`[Edit Brand] Session changed during fetch (${sessionToken} -> ${wizardSessionToken}), aborting`);
-                return;
-            }
+            // Clear stale globals
+            wizardLogoImage = null;
+            wizardWatermarkImage = null;
+            wizardDragging = false;
+            wizardPinching = false;
+            wizardDragOffset = { x: 0, y: 0 };
+            composerDragging = false;
             
             // Determine if this brand has a separate watermark
             const hasSeparateWatermark = !!brand.watermark_path;
@@ -3259,7 +2932,6 @@ function editBrand(brandId) {
                 watermarkY: brand.wm_y != null ? brand.wm_y : 0.18,
                 watermarkScale: Math.round((brand.wm_scale || 0.25) * 100),
                 watermarkOpacity: Math.round((brand.wm_opacity || 0.50) * 100),
-                ratioView: 'vertical',
                 previewMode: hasSeparateWatermark ? 'both' : 'logo'
             };
             
@@ -3368,154 +3040,6 @@ async function deleteBrand(brandId, brandName) {
 }
 
 // ========== BRAND CREATION WIZARD (MVP 2-Step) ==========
-// CONTAINMENT PATCH 2026-04-11: Prevent cross-brand watermark leakage
-
-// Session token for image load isolation
-let wizardSessionToken = 0;
-
-function resetWizardUi() {
-    /**
-     * HARD RESET: Clears ALL wizard UI state deterministically.
-     * MUST be called before loading ANY brand (create or edit).
-     * This prevents cross-brand contamination from stale state.
-     */
-    console.log('[Wizard Reset] Hard resetting all UI state...');
-    
-    // 1. Increment session token (invalidates all pending async image loads)
-    wizardSessionToken++;
-    const currentToken = wizardSessionToken;
-    console.log(`[Wizard Reset] New session token: ${currentToken}`);
-    
-    // 2. Clear global image references
-    if (wizardLogoImage) {
-        wizardLogoImage.src = '';
-        wizardLogoImage.onload = null;
-        wizardLogoImage = null;
-    }
-    if (wizardWatermarkImage) {
-        wizardWatermarkImage.src = '';
-        wizardWatermarkImage.onload = null;
-        wizardWatermarkImage = null;
-    }
-    
-    // 3. Clear wizardState completely
-    wizardState = {
-        step: 1,
-        displayName: '',
-        slug: '',
-        logoFile: null,
-        logoPreviewUrl: null,
-        logoShape: 'original',
-        logoScale: 25,
-        logoOpacity: 100,
-        logoRotation: 0,
-        logoX: 0.5,
-        logoY: 0.5,
-        activeElement: 'logo',
-        bgRemovalEnabled: false,
-        logoCleanup: 'none',
-        logoCleanupStrength: 30,
-        useSeparateWatermark: false,
-        watermarkFile: null,
-        watermarkPreviewUrl: null,
-        watermarkX: 0.5,  // FIXED: was 0.18 (caused position leakage)
-        watermarkY: 0.5,  // FIXED: was 0.18
-        watermarkScale: 25,
-        watermarkOpacity: 50,
-        ratioView: 'vertical',
-        previewMode: 'logo'
-    };
-    
-    // 4. Reset Step 1 UI elements
-    const wizardDisplayName = document.getElementById('wizardDisplayName');
-    const wizardBrandSlug = document.getElementById('wizardBrandSlug');
-    const wizardLogoInput = document.getElementById('wizardLogoInput');
-    const step1ContinueBtn = document.getElementById('step1ContinueBtn');
-    
-    if (wizardDisplayName) wizardDisplayName.value = '';
-    if (wizardBrandSlug) wizardBrandSlug.value = '';
-    if (wizardLogoInput) wizardLogoInput.value = '';
-    if (step1ContinueBtn) step1ContinueBtn.disabled = true;
-    
-    // 5. Reset Step 1 logo upload zone
-    const logoUploadZone = document.getElementById('wizardLogoUploadZone');
-    const logoPreview = document.getElementById('wizardLogoPreview');
-    const logoPreviewImg = document.getElementById('wizardLogoPreviewImg');
-    const logoPlaceholder = logoUploadZone?.querySelector('.upload-placeholder-large');
-    
-    if (logoUploadZone) {
-        logoUploadZone.classList.remove('has-file');
-        logoUploadZone.style.display = 'flex';
-    }
-    if (logoPreviewImg) logoPreviewImg.src = '';
-    if (logoPreview) logoPreview.style.display = 'none';
-    if (logoPlaceholder) logoPlaceholder.style.display = 'block';
-    
-    // 6. Reset watermark upload zone COMPLETELY
-    const watermarkUploadZone = document.getElementById('watermarkUploadZone');
-    const watermarkPreview = document.getElementById('watermarkPreview');
-    const watermarkPreviewImg = document.getElementById('watermarkPreviewImg');
-    const watermarkPlaceholder = document.getElementById('watermarkPlaceholder');
-    const watermarkFileInput = document.getElementById('watermarkFileInput');
-    const useSeparateWatermarkCheckbox = document.getElementById('useSeparateWatermark');
-    
-    if (watermarkUploadZone) {
-        watermarkUploadZone.classList.remove('has-file');
-        watermarkUploadZone.style.display = 'flex';
-    }
-    if (watermarkPreviewImg) watermarkPreviewImg.src = '';
-    if (watermarkPreview) watermarkPreview.style.display = 'none';
-    if (watermarkPlaceholder) watermarkPlaceholder.style.display = 'flex';
-    if (watermarkFileInput) watermarkFileInput.value = '';
-    if (useSeparateWatermarkCheckbox) useSeparateWatermarkCheckbox.checked = false;
-    
-    // 7. Reset watermark controls
-    const wmOpacity = document.getElementById('watermarkOpacity');
-    const wmContrast = document.getElementById('watermarkContrast');
-    const wmOpacityVal = document.getElementById('step3WmOpacityVal');
-    const wmSize = document.getElementById('watermarkSize');
-    const wmSizeVal = document.getElementById('step3WmSizeVal');
-    
-    if (wmOpacity) wmOpacity.value = 50;
-    if (wmContrast) wmContrast.value = 0;
-    if (wmOpacityVal) wmOpacityVal.textContent = '50%';
-    if (wmSize) wmSize.value = 50;
-    if (wmSizeVal) wmSizeVal.textContent = '50%';
-    
-    // 8. Reset shape buttons
-    document.querySelectorAll('.shape-option').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.shape === 'original');
-    });
-    
-    // 9. Reset preview mode buttons
-    document.querySelectorAll('.preview-mode-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.mode === 'logo');
-    });
-    
-    // 10. Clear canvas
-    if (wizardCtx && wizardCanvas) {
-        wizardCtx.clearRect(0, 0, wizardCanvas.width, wizardCanvas.height);
-    }
-    
-    // 11. Reset status/help text
-    const wizardStatus = document.getElementById('wizardStatus');
-    if (wizardStatus) wizardStatus.innerHTML = '';
-    
-    const previewModeHelp = document.getElementById('previewModeHelp');
-    if (previewModeHelp) previewModeHelp.textContent = 'Currently showing: Main brand image only';
-    
-    // 12. Reset drag/pinch state
-    wizardDragging = false;
-    wizardPinching = false;
-    wizardDragOffset = { x: 0, y: 0 };
-    composerDragging = false;
-    
-    // 13. Hide watermark editor if visible
-    setWatermarkEditorVisibility(false);
-    
-    console.log('[Wizard Reset] Complete. UI is deterministically empty.');
-    return currentToken;
-}
 let wizardState = {
     step: 1,
     displayName: '',
@@ -3545,7 +3069,6 @@ let wizardState = {
     watermarkY: 0.18,
     watermarkScale: 25,
     watermarkOpacity: 50,
-    ratioView: 'vertical',
     // Preview mode for composer
     previewMode: 'logo'  // 'logo' | 'watermark' | 'both'
 };
@@ -3577,17 +3100,122 @@ function openBrandWizard() {
         return;
     }
     
-    // CONTAINMENT PATCH: Hard reset ALL UI state before opening new brand
-    const sessionToken = resetWizardUi();
+    // Clear stale globals
+    wizardLogoImage = null;
+    wizardWatermarkImage = null;
+    wizardDragging = false;
+    wizardPinching = false;
+    wizardDragOffset = { x: 0, y: 0 };
     
-    // Show wizard modal
-    const modal = document.getElementById('brandWizardModal');
-    if (modal) modal.classList.add('active');
+    // Reset state to defaults
+    wizardState = {
+        step: 1,
+        displayName: '',
+        slug: '',
+        logoFile: null,
+        logoPreviewUrl: null,
+        logoShape: 'original',
+        logoScale: 25,
+        logoOpacity: 100,
+        logoRotation: 0,
+        logoX: 0.5,
+        logoY: 0.5,
+        activeElement: 'logo',
+        bgRemovalEnabled: false,
+        logoCleanup: 'none',
+        logoCleanupStrength: 30,
+        useSeparateWatermark: false,
+        watermarkFile: null,
+        watermarkPreviewUrl: null,
+        watermarkX: 0.18,
+        watermarkY: 0.18,
+        watermarkScale: 25,
+        watermarkOpacity: 50,
+        previewMode: 'logo'
+    };
     
-    // Show step 1
-    showWizardStep(1);
+    // Reset UI
+    const wizardDisplayName = document.getElementById('wizardDisplayName');
+    const wizardBrandSlug = document.getElementById('wizardBrandSlug');
+    const wizardLogoInput = document.getElementById('wizardLogoInput');
+    const step1ContinueBtn = document.getElementById('step1ContinueBtn');
     
-    console.log(`[Brand Wizard] Opened with fresh session token: ${sessionToken}`);
+    if (wizardDisplayName) wizardDisplayName.value = '';
+    if (wizardBrandSlug) wizardBrandSlug.value = '';
+    if (wizardLogoInput) wizardLogoInput.value = '';
+    if (step1ContinueBtn) step1ContinueBtn.disabled = true;
+    
+    // Reset Step 1 upload UI
+    const logoUploadZone = document.getElementById('wizardLogoUploadZone');
+    const logoPreview = document.getElementById('wizardLogoPreview');
+    const logoPlaceholder = logoUploadZone?.querySelector('.upload-placeholder-large');
+    
+    if (logoUploadZone) {
+        logoUploadZone.classList.remove('has-file');
+        logoUploadZone.style.display = 'flex';
+    }
+    if (logoPreview) logoPreview.style.display = 'none';
+    if (logoPlaceholder) logoPlaceholder.style.display = 'block';
+    
+    // Reset watermark controls
+    const wmOpacity = document.getElementById('watermarkOpacity');
+    const wmContrast = document.getElementById('watermarkContrast');
+    if (wmOpacity) wmOpacity.value = 50;
+    if (wmContrast) wmContrast.value = 0;
+    const wmOpacityVal = document.getElementById('step3WmOpacityVal');
+    if (wmOpacityVal) wmOpacityVal.textContent = '50%';
+    const wmSize = document.getElementById('watermarkSize');
+    const wmSizeVal = document.getElementById('step3WmSizeVal');
+    if (wmSize) wmSize.value = 50;
+    if (wmSizeVal) wmSizeVal.textContent = '50%';
+    
+    // Reset shape buttons
+    document.querySelectorAll('[data-wm-shape]').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector('[data-wm-shape="original"]')?.classList.add('active');
+    
+    const wizardStatus = document.getElementById('wizardStatus');
+    if (wizardStatus) wizardStatus.innerHTML = '';
+    
+    // Reset options
+    setWizardLogoShape('original');
+    setWizardLogoPosition('bottom-left');
+    const logoScale = document.getElementById('wizardLogoScale');
+    const logoScaleVal = document.getElementById('wizardLogoScaleVal');
+    const logoOpacity = document.getElementById('wizardLogoOpacity');
+    const logoOpacityVal = document.getElementById('wizardLogoOpacityVal');
+    if (logoScale) logoScale.value = 25;
+    if (logoScaleVal) logoScaleVal.textContent = '25%';
+    if (logoOpacity) logoOpacity.value = 100;
+    if (logoOpacityVal) logoOpacityVal.textContent = '100%';
+    
+    // Reset step visibility - with null checks
+    const step1 = document.getElementById('wizardStep1');
+    const step2 = document.getElementById('wizardStep2');
+    const step3 = document.getElementById('wizardStep3');
+    const step4 = document.getElementById('wizardStep4');
+    if (step1) step1.classList.add('active');
+    if (step2) step2.classList.remove('active');
+    if (step3) step3.classList.remove('active');
+    if (step4) step4.classList.remove('active');
+    
+    // Show wizard
+    const wizardEl = document.getElementById('brandWizard');
+    if (!wizardEl) {
+        console.error('[Brand Wizard] ERROR: brandWizard element not found!');
+        return;
+    }
+    wizardEl.classList.add('active');
+    console.log('[Brand Wizard] Wizard opened successfully');
+    
+    // Reset wizard content width
+    const wizardContent = document.querySelector('.wizard-content');
+    if (wizardContent) {
+        wizardContent.classList.remove('step-2-active');
+        wizardContent.classList.remove('step-3-active');
+        wizardContent.classList.remove('step-4-active');
+    }
 }
 
 function closeBrandWizard() {
@@ -3617,7 +3245,6 @@ function initWizardCanvas() {
 
 async function showWizardStep(step) {
     wizardState.step = step;
-    const wizardContent = document.querySelector('.wizard-content');
     
     // Update simple progress dots
     const dot1 = document.getElementById('stepDot1');
@@ -3642,11 +3269,9 @@ async function showWizardStep(step) {
     // Show current step
     if (step === 1) {
         document.getElementById('wizardStep1')?.classList.add('active');
-        if (wizardContent) wizardContent.classList.remove('step-2-active');
         updateStep1ContinueButton();
     } else if (step === 2) {
         document.getElementById('wizardStep2')?.classList.add('active');
-        if (wizardContent) wizardContent.classList.add('step-2-active');
         
         // Initialize composer
         await initComposer();
@@ -3664,56 +3289,6 @@ function updateStep1ContinueButton() {
     }
 }
 
-function normalizeComposerLogoState() {
-    if (!wizardLogoImage || !wizardLogoImage.complete || wizardLogoImage.width <= 0) return;
-
-    const canvas = document.getElementById('composerMainCanvas');
-    const canvasWidth = canvas?.width || 360;
-    const canvasHeight = canvas?.height || 640;
-    const defaultScale = 26;
-    const minimumVisibleScale = 20;
-    const defaultX = 0.5;
-    const defaultY = 0.52;
-
-    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-
-    let logoScale = Number.isFinite(Number(wizardState.logoScale)) ? Number(wizardState.logoScale) : defaultScale;
-    let logoX = Number.isFinite(Number(wizardState.logoX)) ? Number(wizardState.logoX) : 0.5;
-    let logoY = Number.isFinite(Number(wizardState.logoY)) ? Number(wizardState.logoY) : 0.5;
-
-    const wasTiny = logoScale < minimumVisibleScale;
-    if (wasTiny) {
-        logoScale = defaultScale;
-    }
-
-    const drawWidth = canvasWidth * (logoScale / 100);
-    const drawHeight = drawWidth * (wizardLogoImage.height / wizardLogoImage.width);
-    const minX = Math.min(0.5, drawWidth / (2 * canvasWidth) + 0.04);
-    const maxX = Math.max(0.5, 1 - drawWidth / (2 * canvasWidth) - 0.04);
-    const minY = Math.min(0.5, drawHeight / (2 * canvasHeight) + 0.04);
-    const maxY = Math.max(0.5, 1 - drawHeight / (2 * canvasHeight) - 0.04);
-
-    const clampedX = clamp(logoX, minX, maxX);
-    const clampedY = clamp(logoY, minY, maxY);
-    const isOuterColumn = logoX < 0.22 || logoX > 0.78;
-    const isOuterRow = logoY < 0.22 || logoY > 0.78;
-    const wasExtremeCorner = logoScale <= 22 && isOuterColumn && isOuterRow;
-    const wasWeakCornerComposition = logoScale <= 32 && isOuterColumn && isOuterRow;
-    const wasEdgeBiased = logoScale <= 28 && (logoY > 0.82 || logoY < 0.18 || logoX > 0.84 || logoX < 0.16);
-
-    if (wasExtremeCorner || wasWeakCornerComposition || wasEdgeBiased) {
-        logoX = defaultX;
-        logoY = defaultY;
-    } else {
-        logoX = clampedX;
-        logoY = clampedY;
-    }
-
-    wizardState.logoScale = Math.round(clamp(logoScale, minimumVisibleScale, 100));
-    wizardState.logoX = clamp(logoX, minX, maxX);
-    wizardState.logoY = clamp(logoY, minY, maxY);
-}
-
 // Step 2: Initialize Live Composer
 async function initComposer() {
     console.log('[Composer] Initializing...');
@@ -3724,7 +3299,6 @@ async function initComposer() {
         wizardLogoImage.crossOrigin = 'anonymous';
         wizardLogoImage.onload = () => {
             console.log('[Composer] Logo loaded');
-            normalizeComposerLogoState();
             drawComposerCanvas();
             initComposerDrag();
         };
@@ -3735,7 +3309,6 @@ async function initComposer() {
             wizardLogoImage.src = wizardState.logoPreviewUrl;
         }
     } else if (wizardLogoImage) {
-        normalizeComposerLogoState();
         drawComposerCanvas();
         initComposerDrag();
     }
@@ -3796,37 +3369,6 @@ function setActiveComposerElement(element) {
     drawComposerCanvas();
 }
 
-function setComposerRatioView(ratio) {
-    wizardState.ratioView = ratio || 'vertical';
-    syncComposerRatioUI();
-}
-
-function syncComposerRatioUI() {
-    const ratio = wizardState.ratioView || 'vertical';
-    const ratioChip = document.getElementById('composerRatioChip');
-    const ratioHelp = document.getElementById('composerRatioHelp');
-    const ratioHelpText = {
-        vertical: 'Edit the vertical master here. Square and landscape stay auto-derived from it.',
-        square: 'The center stays 9:16. This selection highlights the square auto-derived preview on the right.',
-        landscape: 'The center stays 9:16. This selection highlights the landscape auto-derived preview on the right.'
-    };
-
-    document.querySelectorAll('.composer-ratio-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.ratio === ratio);
-    });
-    document.querySelectorAll('.ratio-preview-card').forEach(card => {
-        card.classList.toggle('active', card.dataset.ratio === ratio);
-    });
-
-    const canvas = document.getElementById('composerCanvasContainer');
-    if (canvas) {
-        canvas.classList.add('ratio-focus-vertical');
-    }
-
-    if (ratioChip) ratioChip.textContent = '9:16 Master Editor';
-    if (ratioHelp) ratioHelp.textContent = ratioHelpText[ratio] || ratioHelpText.vertical;
-}
-
 function syncComposerControls() {
     const active = getActiveComposerElement();
     const isWatermark = active === 'watermark';
@@ -3869,7 +3411,6 @@ function syncComposerControls() {
     document.querySelectorAll('.composer-logo-only').forEach(el => {
         el.classList.toggle('is-dimmed', isWatermark);
     });
-    syncComposerRatioUI();
 }
 
 function openComposerWatermarkAccess() {
@@ -7162,27 +6703,23 @@ async function saveWizardBrand() {
             settingsPayload.display_name = wizardState.displayName;
         }
         
-        // CONTAINMENT PATCH: Watermark fields - NO fallback to logo
-        // If separate watermark is disabled, treat watermark state as EXPLICITLY ABSENT
+        // Watermark fields: use independent values when separate watermark enabled, else mirror logo
         const hasSeparateWatermark = wizardState.useSeparateWatermark &&
             (wizardState.watermarkFile || wizardState.watermarkPreviewUrl);
-        
         if (hasSeparateWatermark) {
-            // Separate watermark enabled - send watermark-specific values
             settingsPayload.wm_scale = wizardState.watermarkScale / 100;
             settingsPayload.wm_opacity = wizardState.watermarkOpacity / 100;
             settingsPayload.watermark_scale = wizardState.watermarkScale / 100;
             settingsPayload.watermark_opacity = wizardState.watermarkOpacity / 100;
-            settingsPayload.wm_x = wizardState.watermarkX;
-            settingsPayload.wm_y = wizardState.watermarkY;
-            console.log('[Save] Separate watermark enabled - sending wm fields');
         } else {
-            // NO separate watermark - treat as explicitly absent
-            // CONTAINMENT: Do NOT send wm_x, wm_y, wm_scale, wm_opacity
-            // CONTAINMENT: Do NOT copy logo fields into watermark fields
             settingsPayload.watermark_path = null;
-            console.log('[Save] No separate watermark - watermark state treated as absent');
+            settingsPayload.wm_scale = wizardState.logoScale / 100;
+            settingsPayload.wm_opacity = wizardState.logoOpacity / 100;
+            settingsPayload.watermark_scale = wizardState.logoScale / 100;
+            settingsPayload.watermark_opacity = wizardState.logoOpacity / 100;
         }
+        settingsPayload.wm_x = wizardState.watermarkX;
+        settingsPayload.wm_y = wizardState.watermarkY;
         
         const settingsRes = await fetch(`${apiBase}/api/brands/${brandId}`, {
             method: 'PUT',

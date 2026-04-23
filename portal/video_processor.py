@@ -184,18 +184,11 @@ class VideoProcessor:
     
     def resolve_watermark_path(self, brand_name: str, brand_config: Dict = None) -> Optional[str]:
         """
-        Resolve watermark path with CONTAINMENT PATCH for user-owned brands.
+        Resolve watermark path - from database uploaded watermark or master assets.
         
-        User-owned brands: ONLY use explicit watermark_path (no fallback)
-        System brands: allow legacy/master asset fallback (backward compat)
-        
-        Priority for user brands:
+        Priority:
         1. DB watermark_path (uploaded SaaS watermark)
-        2. NONE (explicitly no watermark if path is missing)
-        
-        Priority for system brands:
-        1. DB watermark_path
-        2. DB-stored path based on orientation (legacy)
+        2. DB-stored path based on orientation (legacy: watermark_vertical, watermark_square, watermark_landscape)
         3. Fallback to master assets filesystem resolution
         
         Args:
@@ -203,9 +196,6 @@ class VideoProcessor:
             brand_config: Optional brand config dict with DB-stored paths
         """
         from .config import STORAGE_ROOT
-        
-        # CONTAINMENT PATCH: Check if this is a user-owned brand
-        is_user_brand = brand_config and brand_config.get('user_id') and not brand_config.get('is_system')
         
         # 1. Try new uploaded watermark_path (SaaS model)
         if brand_config:
@@ -218,12 +208,7 @@ class VideoProcessor:
                     return full_path
                 print(f"[DEBUG] Uploaded watermark path not found: {full_path}")
         
-        # CONTAINMENT PATCH: User brands stop here - NO fallback
-        if is_user_brand:
-            print(f"[DEBUG] User-owned brand '{brand_name}' has no watermark_path - rendering NO watermark")
-            return None
-        
-        # 2. Try legacy DB-stored path based on orientation (system brands only)
+        # 2. Try legacy DB-stored path based on orientation
         orientation = self.detect_orientation()
         if brand_config:
             orientation_key = {
@@ -238,11 +223,11 @@ class VideoProcessor:
                 from .config import PROJECT_ROOT
                 full_path = os.path.join(PROJECT_ROOT, db_path)
                 if os.path.exists(full_path):
-                    print(f"[DEBUG] Using DB watermark path (legacy): {full_path}")
+                    print(f"[DEBUG] Using DB watermark path: {full_path}")
                     return full_path
                 print(f"[DEBUG] DB watermark path not found: {full_path}")
         
-        # 3. Fallback to master assets filesystem resolution (system brands only)
+        # 3. Fallback to master assets filesystem resolution
         watermark_dir = os.path.join(self.WATERMARKS_DIR, orientation)
         
         # Clean brand name (remove 'WTF' suffix if present)
@@ -258,9 +243,9 @@ class VideoProcessor:
         
         for pattern in patterns:
             path = os.path.join(watermark_dir, pattern)
-            print(f"[DEBUG] Trying watermark path (master asset): {path}")
+            print(f"[DEBUG] Trying watermark path: {path}")
             if os.path.exists(path):
-                print(f"[DEBUG] Found master asset watermark: {path}")
+                print(f"[DEBUG] Found watermark: {path}")
                 return path
         
         print(f"[WARNING] No watermark found for {brand_name} in {watermark_dir}")
@@ -352,15 +337,15 @@ class VideoProcessor:
         # Extract visual positioning fields with defaults
         logo_x_pct = brand_config.get('logo_x', 0.85)
         logo_y_pct = brand_config.get('logo_y', 0.85)
-        logo_scale_pct = brand_config.get('logo_scale', 0.25)
+        logo_scale_pct = brand_config.get('logo_scale', 0.15)
         logo_opacity = brand_config.get('logo_opacity', 1.0)
         logo_rotation = brand_config.get('logo_rotation', 0.0)  # degrees (0-360)
         
         wm_mode = brand_config.get('wm_mode', 'positioned')
         wm_x_pct = brand_config.get('wm_x', 0.5)
         wm_y_pct = brand_config.get('wm_y', 0.5)
-        wm_scale_pct = brand_config.get('wm_scale', 0.25)
-        wm_opacity = brand_config.get('wm_opacity', 0.20)
+        wm_scale_pct = brand_config.get('wm_scale', 1.0)
+        wm_opacity = brand_config.get('wm_opacity', 0.10)
         
         text_enabled = brand_config.get('text_enabled', False)
         text_content = brand_config.get('text_content', '')
@@ -393,22 +378,10 @@ class VideoProcessor:
             else:
                 # Positioned mode: scale and overlay at specific position
                 wm_target_w = int(wm_scale_pct * W * 0.5)  # Scale relative to width
-                
-                # Compute actual rendered height from watermark aspect ratio
-                # FFmpeg scale={wm_target_w}:-1 preserves aspect ratio
-                try:
-                    from PIL import Image as PILImage
-                    wm_img = PILImage.open(watermark_path)
-                    wm_orig_w, wm_orig_h = wm_img.size
-                    wm_img.close()
-                    wm_target_h = int(wm_target_w * wm_orig_h / wm_orig_w)
-                except Exception:
-                    wm_target_h = wm_target_w  # Fallback: assume square
-                
                 wm_x_px = int(wm_x_pct * W) - wm_target_w // 2
-                wm_y_px = int(wm_y_pct * H) - wm_target_h // 2
+                wm_y_px = int(wm_y_pct * H) - wm_target_w // 2
                 
-                print(f"[VISUAL_PRESET] Watermark positioned: width={wm_target_w}px, height={wm_target_h}px, pos=({wm_x_px},{wm_y_px}), opacity={wm_opacity:.2f}")
+                print(f"[VISUAL_PRESET] Watermark positioned: width={wm_target_w}px, pos=({wm_x_px},{wm_y_px}), opacity={wm_opacity:.2f}")
                 
                 filters.append(f"movie='{watermark_path}',scale={wm_target_w}:-1,format=rgba,colorchannelmixer=aa={wm_opacity}[watermark]")
                 filters.append(f"[{current_input}][watermark]overlay={wm_x_px}:{wm_y_px}[v1]")
@@ -420,17 +393,8 @@ class VideoProcessor:
         logo_path = self.resolve_logo_path(brand_name, brand_config)
         if logo_path:
             logo_target_w = int(logo_scale_pct * W)
-            # Compute actual height for correct Y centering (same pattern as watermark above)
-            try:
-                from PIL import Image as PILImage
-                logo_img = PILImage.open(logo_path)
-                logo_orig_w, logo_orig_h = logo_img.size
-                logo_img.close()
-                logo_target_h = int(logo_target_w * logo_orig_h / logo_orig_w)
-            except Exception:
-                logo_target_h = logo_target_w  # Fallback: assume square
             logo_x_px = int(logo_x_pct * W) - logo_target_w // 2
-            logo_y_px = int(logo_y_pct * H) - logo_target_h // 2
+            logo_y_px = int(logo_y_pct * H) - logo_target_w // 2
             
             print(f"[VISUAL_PRESET] Adding logo: {logo_path}")
             print(f"[VISUAL_PRESET] Logo: width={logo_target_w}px, pos=({logo_x_px},{logo_y_px}), opacity={logo_opacity:.2f}, rotation={logo_rotation}°")
@@ -464,17 +428,8 @@ class VideoProcessor:
             sec_rotation = float(brand_config.get('secondary_logo_rotation', 0)) % 360
             
             sec_target_w = int(sec_scale * W)
-            # Compute actual height for correct Y centering
-            try:
-                from PIL import Image as PILImage
-                sec_img = PILImage.open(sec_logo_path)
-                sec_orig_w, sec_orig_h = sec_img.size
-                sec_img.close()
-                sec_target_h = int(sec_target_w * sec_orig_h / sec_orig_w)
-            except Exception:
-                sec_target_h = sec_target_w  # Fallback: assume square
             sec_x_px = int(sec_x_pct * W) - sec_target_w // 2
-            sec_y_px = int(sec_y_pct * H) - sec_target_h // 2
+            sec_y_px = int(sec_y_pct * H) - sec_target_w // 2
             
             print(f"[VISUAL_PRESET] Adding secondary logo: {sec_logo_path}")
             print(f"[VISUAL_PRESET] SecLogo: width={sec_target_w}px, pos=({sec_x_px},{sec_y_px}), opacity={sec_opacity:.2f}, rotation={sec_rotation}°")
