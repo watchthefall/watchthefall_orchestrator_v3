@@ -1165,6 +1165,13 @@
                     <div id="inlineFetchStatus" style="text-align:center; margin-top:12px; font-size:13px; color:#888; display:none;"></div>
                     <!-- Batch results area -->
                     <div id="batchResultsArea" style="display:none; max-width:600px; margin:12px auto 0;"></div>
+                    <!-- Download All button (shown after batch fetch) -->
+                    <div id="downloadAllContainer" style="display:none; max-width:600px; margin:12px auto 0; text-align:center;">
+                        <button id="downloadAllBtn" onclick="downloadAllBatchVideos()" style="padding:12px 24px; font-size:14px; border-radius:8px; background:linear-gradient(135deg, #28a745, #20c997); color:#fff; border:none; cursor:pointer; font-weight:600; width:100%;">
+                            ⬇️ Download All Videos
+                        </button>
+                        <small style="color:#666; font-size:11px; display:block; margin-top:6px;">Downloads all successfully fetched videos</small>
+                    </div>
                 </div>
             </div>
             <!-- Tab 2: Library -->
@@ -4043,6 +4050,7 @@ function setLinkMode(mode) {
     const singleInput = document.getElementById('singleLinkInput');
     const batchInput = document.getElementById('batchLinkInput');
     const batchResults = document.getElementById('batchResultsArea');
+    const downloadAllContainer = document.getElementById('downloadAllContainer');
 
     if (singleBtn) singleBtn.classList.toggle('active', mode === 'single');
     if (batchBtn) batchBtn.classList.toggle('active', mode === 'batch');
@@ -4052,6 +4060,9 @@ function setLinkMode(mode) {
     const status = document.getElementById('inlineFetchStatus');
     if (status) status.style.display = 'none';
     if (batchResults) batchResults.style.display = 'none';
+    if (downloadAllContainer) downloadAllContainer.style.display = 'none';
+    // Clear tracked videos
+    batchSuccessfulVideos = [];
 }
 
 function batchFetchVideos() {
@@ -4116,6 +4127,11 @@ function batchFetchVideos() {
         const successes = results.filter(r => r.success);
         const failures = results.filter(r => !r.success);
 
+        // CONTAINMENT: Track successful videos for "Download All" button
+        batchSuccessfulVideos = successes.map(function(r) {
+            return { filename: r.filename, url: r.url };
+        });
+
         return Promise.all(successes.map(function(result) {
             return persistFetchedDownload(result, result.url).catch(function(err) {
                 console.warn('[Library Save] Failed to persist fetched download:', err);
@@ -4158,6 +4174,15 @@ function batchFetchVideos() {
             resultsArea.innerHTML = html;
             resultsArea.style.display = 'block';
 
+            // Show "Download All" button if multiple successes
+            const downloadAllContainer = document.getElementById('downloadAllContainer');
+            if (successes.length > 1) {
+                downloadAllContainer.style.display = 'block';
+                document.getElementById('downloadAllBtn').innerHTML = '⬇️ Download All Videos (' + successes.length + ')';
+            } else {
+                downloadAllContainer.style.display = 'none';
+            }
+
             // If only 1 success, auto-select it
             if (successes.length === 1) {
                 selectVideo(successes[0].filename, { source_url: successes[0].url });
@@ -4180,6 +4205,8 @@ function selectVideoFromBatch(filename, sourceUrl) {
 
 // ========== BATCH ITEM STATE BADGES ==========
 // Session-only state tracking for batch fetch results
+var batchSuccessfulVideos = []; // Track successful videos for "Download All"
+
 function markBatchItemDone(filename) {
     const badge = document.querySelector('#batchItem_' + filename + ' .batch-state-badge');
     if (badge) {
@@ -4196,6 +4223,57 @@ function markBatchItemBranding(filename) {
         badge.style.color = '#121214';
     }
 }
+
+// ========== DOWNLOAD ALL BATCH VIDEOS ==========
+function downloadAllBatchVideos() {
+    if (!batchSuccessfulVideos || batchSuccessfulVideos.length === 0) {
+        return;
+    }
+
+    const btn = document.getElementById('downloadAllBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Downloading... (0/' + batchSuccessfulVideos.length + ')';
+
+    let downloaded = 0;
+    const total = batchSuccessfulVideos.length;
+
+    // Download videos sequentially with small delay to avoid browser blocking
+    function downloadNext(index) {
+        if (index >= total) {
+            // All downloads triggered
+            btn.disabled = false;
+            btn.innerHTML = '✅ All Downloads Triggered!';
+            setTimeout(function() {
+                btn.innerHTML = originalText;
+            }, 3000);
+            return;
+        }
+
+        const video = batchSuccessfulVideos[index];
+        const dlUrl = '/api/videos/download/' + encodeURIComponent(video.filename);
+        
+        // Create temporary link and trigger download
+        const a = document.createElement('a');
+        a.href = dlUrl;
+        a.download = video.filename;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        downloaded++;
+        btn.innerHTML = '⏳ Downloading... (' + downloaded + '/' + total + ')';
+
+        // Small delay between downloads to prevent browser blocking
+        setTimeout(function() {
+            downloadNext(index + 1);
+        }, 500);
+    }
+
+    downloadNext(0);
+}
+// ========== END DOWNLOAD ALL BATCH VIDEOS ==========
 // ========== END BATCH ITEM STATE BADGES ==========
 
 // ========== END LINK MODE ==========
