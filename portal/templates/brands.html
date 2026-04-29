@@ -65,6 +65,10 @@
             background: rgba(255, 255, 255, 0.06);
             border-radius: 8px;
             padding: 8px;
+            display: flex; /* PATCH A: Center logo in frame */
+            align-items: center; /* PATCH A: Vertical centering */
+            justify-content: center; /* PATCH A: Horizontal centering */
+            box-sizing: border-box; /* PATCH A: Include padding in size */
         }
         
         .brand-name {
@@ -695,7 +699,7 @@
 <style>
 /* ===== MVP 2-STEP WIZARD STYLES ===== */
 
-/* Wizard Container */
+/* Wizard Container - PATCH A: Normalize flex hierarchy */
 .wizard-content {
     background: #1a1a2e;
     border-radius: 12px;
@@ -703,7 +707,7 @@
     width: 90%;
     max-height: 90vh;
     min-height: 500px;
-    overflow-y: auto;
+    overflow: hidden; /* PATCH A: Modal doesn't scroll, content does */
     display: flex;
     flex-direction: column;
 }
@@ -749,11 +753,13 @@
     background: rgba(255,255,255,0.2);
 }
 
-/* Step Visibility */
+/* Step Visibility - PATCH A: Remove overflow, let content scroll */
 .wizard-step {
     display: none;
     flex-direction: column;
     flex: 1;
+    min-height: 0; /* PATCH A: Allow flex shrinking */
+    overflow: hidden; /* PATCH A: Content scrolls, not step */
 }
 
 .wizard-step.active {
@@ -832,18 +838,20 @@
     padding: 8px;
 }
 
-/* ===== STEP 2: LIVE COMPOSER ===== */
+/* ===== STEP 2: LIVE COMPOSER - PATCH A: Fix content scrolling ===== */
 .composer-content {
     flex: 1;
     padding: 0 24px 24px;
-    min-height: 0;
+    min-height: 0; /* PATCH A: Critical for flex shrinking */
+    overflow-y: auto; /* PATCH A: This is the scroll container */
+    overflow-x: hidden;
 }
 
 .composer-layout {
     display: grid;
     grid-template-columns: 180px 1fr 160px;
     gap: 20px;
-    height: 100%;
+    min-height: 400px; /* PATCH A: Safe minimum instead of height: 100% */
 }
 
 /* Left Controls */
@@ -1183,11 +1191,12 @@
     box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
 
+/* Canvas Container - PATCH A: Fix clipping */
 #composerMainCanvas {
     display: block;
     cursor: grab;
     max-width: 100%;
-    max-height: 60vh;
+    max-height: 65vh; /* PATCH A: Increased from 60vh for better visibility */
     touch-action: none;
 }
 
@@ -1258,7 +1267,7 @@
     color: #666;
 }
 
-/* Wizard Actions */
+/* Wizard Actions - PATCH A: Consistent spacing */
 .wizard-actions {
     display: flex;
     justify-content: space-between;
@@ -1266,6 +1275,7 @@
     padding: 16px 24px;
     border-top: 1px solid rgba(255,255,255,0.1);
     gap: 12px;
+    flex-shrink: 0; /* PATCH A: Footer never shrinks */
 }
 
 .wizard-actions .btn-lg {
@@ -1631,12 +1641,13 @@
         overflow: hidden; /* Prevent modal itself from scrolling */
     }
 
+    /* PATCH A: Override conflicting legacy wizard-step overflow */
     .wizard-step {
         flex: 1;
         min-height: 0;
         display: flex;
         flex-direction: column;
-        overflow: hidden; /* Let inner content handle scrolling */
+        overflow: hidden; /* PATCH A: Content scrolls, not step */
     }
 
     .wizard-step.active {
@@ -1646,15 +1657,15 @@
     .wizard-step-content {
         flex: 1;
         min-height: 0;
-        overflow-y: auto; /* Enable scrolling for content */
+        overflow-y: auto; /* PATCH A: Enable scrolling for content */
         overflow-x: hidden;
-        padding: 0 16px 100px; /* Extra bottom padding for sticky footer (increased from 80px) */
+        padding: 0 16px 120px; /* PATCH A: Increased from 100px for footer clearance */
         -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
     }
     
-    /* Composer Step 2 specific fix */
+    /* Composer Step 2 specific fix - PATCH A: More padding for footer */
     .composer-content {
-        padding: 0 12px 100px;
+        padding: 0 12px 120px; /* PATCH A: Increased from 100px */
     }
     
     .composer-layout {
@@ -1722,7 +1733,7 @@
         min-width: 60px;
     }
 
-    /* Sticky Footer for Actions */
+    /* Sticky Footer for Actions - PATCH A: Prevent overlap */
     .wizard-actions {
         position: fixed;
         bottom: 0;
@@ -1736,6 +1747,7 @@
         display: flex;
         justify-content: space-between;
         gap: 12px;
+        box-shadow: 0 -4px 12px rgba(0,0,0,0.3); /* PATCH A: Visual separation */
     }
 }
 
@@ -2469,6 +2481,33 @@
         min-width: 140px;
     }
 }
+
+/* ========== PATCH A: FINAL OVERRIDES (Must be last to win) ========== */
+
+/* Override legacy .wizard-content duplicate rules */
+.wizard-content {
+    overflow: hidden !important; /* PATCH A: Ensure modal doesn't scroll */
+}
+
+/* Override legacy .wizard-step overflow-y: auto */
+.wizard-step {
+    overflow: hidden !important; /* PATCH A: Steps don't scroll, content does */
+}
+
+/* Ensure composer content scrolls properly on all viewports */
+.composer-content {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Brand card thumbnail consistency override */
+.brand-card img.brand-logo {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+}
+/* ========== END PATCH A OVERRIDES ========== */
 </style>
 
 <script src="{{ url_for('static', filename='js/brand_editor.js') }}"></script>
