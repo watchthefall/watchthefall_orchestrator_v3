@@ -1623,13 +1623,43 @@
     .wizard-content.step-4-active {
         max-width: 100vw;
         height: 100vh;
+        max-height: 100vh;
         border-radius: 0;
         margin: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden; /* Prevent modal itself from scrolling */
+    }
+
+    .wizard-step {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden; /* Let inner content handle scrolling */
+    }
+
+    .wizard-step.active {
+        display: flex;
     }
 
     .wizard-step-content {
-        padding: 0 16px 80px; /* Extra bottom padding for sticky footer */
-        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto; /* Enable scrolling for content */
+        overflow-x: hidden;
+        padding: 0 16px 100px; /* Extra bottom padding for sticky footer (increased from 80px) */
+        -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    }
+    
+    /* Composer Step 2 specific fix */
+    .composer-content {
+        padding: 0 12px 100px;
+    }
+    
+    .composer-layout {
+        height: auto; /* Remove fixed height on mobile */
+        min-height: 100%;
     }
     
     .editor-layout {
@@ -2884,10 +2914,15 @@ async function createBrand(e) {
 }
 
 function editBrand(brandId) {
+    const loadToken = ++wizardLoadToken;
+    resetWizardWatermarkUi();
+    
     // Fetch brand data and open the 2-step wizard in edit mode
     fetch(`${apiBase}/api/brands/${brandId}`)
         .then(res => res.json())
         .then(data => {
+            if (loadToken !== wizardLoadToken) return;
+            
             if (!data.success) {
                 throw new Error(data.error || 'Failed to load brand');
             }
@@ -3077,6 +3112,59 @@ let wizardCanvas = null;
 let wizardCtx = null;
 let wizardLogoImage = null;
 let wizardWatermarkImage = null;
+let wizardLoadToken = 0;
+
+function revokePreviewUrlIfBlob(url) {
+    if (typeof url === 'string' && url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+    }
+}
+
+function resetWizardWatermarkUi() {
+    revokePreviewUrlIfBlob(wizardState?.watermarkPreviewUrl);
+    wizardWatermarkImage = null;
+
+    if (wizardState) {
+        wizardState.useSeparateWatermark = false;
+        wizardState.watermarkFile = null;
+        wizardState.watermarkPreviewUrl = null;
+        wizardState.activeElement = 'logo';
+        wizardState.previewMode = 'logo';
+    }
+
+    const checkbox = document.getElementById('useSeparateWatermark');
+    const uploadSection = document.getElementById('watermarkUploadSection');
+    const uploadZone = document.getElementById('watermarkUploadZone');
+    const fileInput = document.getElementById('watermarkFileInput');
+    const preview = document.getElementById('watermarkPreview');
+    const previewImg = document.getElementById('watermarkPreviewImg');
+    const placeholder = document.getElementById('watermarkPlaceholder');
+    const status = document.getElementById('watermarkStatus');
+    const help = document.getElementById('previewModeHelp');
+    const layerBtn = document.getElementById('composerWatermarkLayerBtn');
+    const note = document.getElementById('composerWatermarkNote');
+
+    if (checkbox) checkbox.checked = false;
+    if (uploadSection) uploadSection.style.display = 'none';
+    if (uploadZone) uploadZone.classList.remove('has-file', 'active', 'selected');
+    if (fileInput) fileInput.value = '';
+    if (previewImg) previewImg.src = '';
+    if (preview) preview.style.display = 'none';
+    if (placeholder) placeholder.style.display = 'flex';
+    if (status) {
+        status.textContent = '';
+        status.style.display = 'none';
+    }
+    if (help) help.textContent = 'Currently showing: Main brand image only';
+    if (layerBtn) {
+        layerBtn.classList.remove('active');
+        layerBtn.disabled = true;
+    }
+    if (note) note.style.display = 'none';
+    if (typeof composerLayerBounds !== 'undefined') {
+        composerLayerBounds.watermark = null;
+    }
+}
 
 function setWatermarkEditorVisibility(isVisible) {
     const wmEditor = document.getElementById('watermarkEditorContainer');
@@ -3100,9 +3188,11 @@ function openBrandWizard() {
         return;
     }
     
+    wizardLoadToken += 1;
+    resetWizardWatermarkUi();
+    
     // Clear stale globals
     wizardLogoImage = null;
-    wizardWatermarkImage = null;
     wizardDragging = false;
     wizardPinching = false;
     wizardDragOffset = { x: 0, y: 0 };
@@ -3221,9 +3311,8 @@ function openBrandWizard() {
 function closeBrandWizard() {
     document.getElementById('brandWizard').classList.remove('active');
     // Clear logo preview URL to prevent memory leaks
-    if (wizardState.logoPreviewUrl) {
-        URL.revokeObjectURL(wizardState.logoPreviewUrl);
-    }
+    revokePreviewUrlIfBlob(wizardState.logoPreviewUrl);
+    revokePreviewUrlIfBlob(wizardState.watermarkPreviewUrl);
     
     // ========== WIZARD STABILIZATION (Commit A): Clear stale globals on close ==========
     // Ensure image globals are cleared when wizard closes
@@ -3292,12 +3381,14 @@ function updateStep1ContinueButton() {
 // Step 2: Initialize Live Composer
 async function initComposer() {
     console.log('[Composer] Initializing...');
+    const loadToken = wizardLoadToken;
     
     // Load logo image if needed
     if (!wizardLogoImage && (wizardState.logoFile || wizardState.logoPreviewUrl)) {
         wizardLogoImage = new Image();
         wizardLogoImage.crossOrigin = 'anonymous';
         wizardLogoImage.onload = () => {
+            if (loadToken !== wizardLoadToken) return;
             console.log('[Composer] Logo loaded');
             drawComposerCanvas();
             initComposerDrag();
@@ -3318,6 +3409,7 @@ async function initComposer() {
         wizardWatermarkImage = new Image();
         wizardWatermarkImage.crossOrigin = 'anonymous';
         wizardWatermarkImage.onload = () => {
+            if (loadToken !== wizardLoadToken) return;
             console.log('[Composer] Watermark loaded');
             syncComposerControls();
             drawComposerCanvas();
@@ -3536,6 +3628,7 @@ function toggleSeparateWatermark() {
 function handleWatermarkUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
+    const loadToken = wizardLoadToken;
     
     console.log('[Watermark] Selected:', file.name);
     wizardState.watermarkFile = file;
@@ -3544,6 +3637,7 @@ function handleWatermarkUpload(event) {
     // Load watermark image
     wizardWatermarkImage = new Image();
     wizardWatermarkImage.onload = () => {
+        if (loadToken !== wizardLoadToken) return;
         console.log('[Watermark] Image loaded');
         wizardState.activeElement = 'watermark';
         wizardState.previewMode = 'both';
@@ -3569,10 +3663,8 @@ function handleWatermarkUpload(event) {
 
 function clearWatermark() {
     wizardState.watermarkFile = null;
-    if (wizardState.watermarkPreviewUrl) {
-        URL.revokeObjectURL(wizardState.watermarkPreviewUrl);
-        wizardState.watermarkPreviewUrl = null;
-    }
+    revokePreviewUrlIfBlob(wizardState.watermarkPreviewUrl);
+    wizardState.watermarkPreviewUrl = null;
     wizardWatermarkImage = null;
     
     const placeholder = document.getElementById('watermarkPlaceholder');
