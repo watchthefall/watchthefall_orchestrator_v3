@@ -183,7 +183,7 @@
         {% else %}
         <!-- Workspace State (has_brand_kit) -->
         <div class="workspace-section">
-            <h1 style="display:flex; align-items:center; gap:10px;">Welcome back <span class="tier-badge tier-{{ tier.lower() }}" style="font-size:11px; padding:3px 10px; vertical-align:middle;">{{ tier }}</span></h1>
+            <h1 style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">Welcome back <span class="tier-badge tier-{{ tier.lower() }}" style="font-size:11px; padding:3px 10px; vertical-align:middle;">{{ tier }}</span>{% if tier == 'Elite' %}<span class="founder-accent"><img class="founder-mark founder-mark-inline" src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDABALDA4MChAODQ4SERATGCgaGBYWGDEjJR0oOjM9PDkzODdASFxOQERXRTc4UG1RV19iZ2hnPk1xeXBkeFxlZ2P/2wBDARESEhgVGC8aGi9jQjhCY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2P/wAARCAAoACgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDz+lCk9AT+FJWnYlolMipLheSYbkKfyqZOyGlcoi3lYZEbn6KaVraVRlo3A9SpFddDqN1Y2IaCOW6m3AFRkkk8knFXB4iu5rX/AEqz8g7sCOTneO+Qa5nXnulp6m3sltc4AgjrRVrUXikvJWgTZGXJVfQZorqTurmLVmVRVm3dSwbykBT5twz17VWGO9WYGjAxgnJ5z/8ArpS2HHc1ra+1GzlU2Vs0vygk+Wx5/Ci5vLi4mzONsxXLBT91u39Kkt55orQi2jUbuDktmobT5TJcSDKxcs2MLnsB6k9Pbk1yWV72N9e5lX6JHcsiZwOo9D6UVDKxd2YnJJyT70V1xWhzvcZRRRVCHxSvDIHjYqw5BBqW4vZ7kgzSs5HTJ6UUUrK9x3exXPNFFFMR/9k=" alt="" /> <span>Founding Member</span></span>{% endif %}</h1>
             
             {% if max_brands is defined and max_brands != -1 and brand_count is defined and brand_count >= max_brands %}
             <!-- Over-limit banner — direct modal trigger -->
@@ -235,7 +235,7 @@
                 </div>
             </div>
             {% set any_high = (pct_brands is defined and pct_brands >= 80) or pct_jobs >= 80 or pct_dl >= 80 %}
-            {% if any_high and tier != 'Studio' %}
+            {% if any_high and tier not in ('Platinum', 'Elite') %}
             <div style="text-align:right; margin-bottom:16px;">
                 <button class="btn-accent sm" onclick="openUpgradeModal('Running low on usage', 'Upgrade your plan to keep creating without interruption.')">Upgrade Plan</button>
             </div>
