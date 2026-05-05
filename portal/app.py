@@ -901,6 +901,13 @@ def brand_video():
             'trace': error_trace
         }), 500
 
+@app.route('/portal/create-experiment')
+@admin_required
+def create_experiment():
+    """Admin-only experimental Create/Composer prototype."""
+    experiments_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'experiments')
+    return send_from_directory(experiments_dir, 'brandr_create_job_builder_prototype.html')
+
 @app.route('/portal/brands')
 @login_required
 def brands_page():
