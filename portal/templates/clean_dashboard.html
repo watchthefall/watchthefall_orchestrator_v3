@@ -1217,10 +1217,10 @@
     }
     #brandReviewLane.review-active #previewContainer {
         order: 3;
-        width: clamp(220px, 42vw, 310px);
+        width: clamp(200px, 42vw, 300px);
         aspect-ratio: 9 / 16;
         max-width: 100%;
-        max-height: min(52vh, 560px);
+        /* No max-height — aspect-ratio derives height from width, preserving 9:16 */
         margin: 2px auto 0;
         align-self: start;
     }
@@ -1759,6 +1759,12 @@
         padding-bottom: 20px;
     }
 
+    /* Suppress Room 1 chrome during active review — h1 title and intake stepper */
+    body.review-cockpit-active h1,
+    body.review-cockpit-active #stepProgress {
+        display: none !important;
+    }
+
     /* Compact review session rail */
     #queueModeHeader .review-context-card {
         padding: 6px 10px 5px;
@@ -2233,8 +2239,8 @@
     
     </div><!-- End overrideControls -->
     
-    <!-- Confirmation Summary (above Start Branding button) -->
-    <div id="confirmationSummary" style="background: var(--accent-soft); border: 1px solid var(--accent-glow); border-radius: 8px; padding: 10px 12px; margin: 12px 0; font-size: 13px; line-height: 1.55;">
+    <!-- Confirmation Summary — hidden; editor lives in the review cockpit only -->
+    <div id="confirmationSummary" style="display:none; background: var(--accent-soft); border: 1px solid var(--accent-glow); border-radius: 8px; padding: 10px 12px; margin: 12px 0; font-size: 13px; line-height: 1.55;">
         <div style="color: var(--accent); font-weight: 600; margin-bottom: 6px;">⚡ Included in this 9:16 run:</div>
         <div id="summaryText" style="color: #ccc;"></div>
     </div>
@@ -2756,6 +2762,12 @@ function renderReviewCompletionState() {
             </div>
         </div>
     `;
+    // Draw the user's eye to the completion CTA without a jarring jump
+    setTimeout(function() {
+        result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const btn = document.getElementById('processAllBtnInline');
+        if (btn) btn.focus({ preventScroll: true });
+    }, 80);
 }
 
 function approveAndNext() {
@@ -3822,10 +3834,10 @@ function selectBrand(brandId, btnEl, isReady) {
         }
         
         document.getElementById('previewContainer').style.display = 'block';
-        document.getElementById('overrideControls').style.display = 'block';
+        // overrideControls is intentionally not shown here — it is only visible inside
+        // the review cockpit (enterQueueMode). Selection mode shows brand defaults via preview only.
     } else {
         document.getElementById('previewContainer').style.display = 'none';
-        document.getElementById('overrideControls').style.display = 'none';
     }
     
     updatePreviewTargetBar();
@@ -4073,6 +4085,12 @@ function enterQueueMode() {
     const previewTargetBar = document.getElementById('previewTargetBar');
     if (previewTargetBar) previewTargetBar.style.display = 'none';
     result.innerHTML = '';
+
+    // Collapse non-essential control sections — user can expand on demand
+    ['watermarkSection', 'logoSection'].forEach(function(id) {
+        const s = document.getElementById(id);
+        if (s && !s.classList.contains('collapsed')) s.classList.add('collapsed');
+    });
     
     // Force canvas redraw now that it's visible
     setTimeout(() => updateCanvasPreview(), 50);
