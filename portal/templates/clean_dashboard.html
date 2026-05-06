@@ -2290,6 +2290,99 @@ function getReviewableQueueItems() {
     return processingQueue;
 }
 
+function resetCreateReviewSession(reason) {
+    const previousFile = currentFile;
+    console.log('[BRANDR] Resetting create review session:', reason || 'unspecified');
+
+    isQueueMode = false;
+    processingQueue = [];
+    currentQueueIndex = 0;
+    activeItemIndex = -1;
+    selectedBrandIds = [];
+    activePreviewBrandId = null;
+    brandOverrides = {};
+
+    frameData = null;
+    watermarkImg = null;
+    logoImg = null;
+    secondaryLogoImg = null;
+    secLogoSelectedBrandId = null;
+
+    // Restore neutral per-run control state without touching saved brand defaults.
+    loadOverridesIntoSliders(getDefaultOverrides());
+
+    if (previousFile) {
+        const beforeCount = jobItems.length;
+        jobItems = jobItems.filter(item => item.filename !== previousFile);
+        if (beforeCount !== jobItems.length) {
+            persistJobItems();
+            console.log(`[JobItems] Cleared ${beforeCount - jobItems.length} stale items for ${previousFile}`);
+        }
+    } else {
+        persistJobItems();
+    }
+
+    document.querySelectorAll('.brand-btn.selected').forEach(btn => btn.classList.remove('selected'));
+    document.querySelectorAll('.brand-btn.active-preview').forEach(btn => btn.classList.remove('active-preview'));
+
+    const result = document.getElementById('processResult');
+    if (result) result.innerHTML = '';
+
+    const queueModeHeader = document.getElementById('queueModeHeader');
+    if (queueModeHeader) queueModeHeader.style.display = 'none';
+
+    const queueModeActions = document.getElementById('queueModeActions');
+    if (queueModeActions) queueModeActions.style.display = 'none';
+
+    const selectionModeHeader = document.getElementById('selectionModeHeader');
+    if (selectionModeHeader) selectionModeHeader.style.display = 'block';
+
+    const selectionModeActions = document.getElementById('selectionModeActions');
+    if (selectionModeActions) selectionModeActions.style.display = 'block';
+
+    const brandsBox = document.getElementById('brandsBox');
+    if (brandsBox) brandsBox.style.display = 'grid';
+
+    const videoSourceSection = document.getElementById('videoSourceSection');
+    if (videoSourceSection) videoSourceSection.style.display = 'block';
+
+    const overrideControls = document.getElementById('overrideControls');
+    if (overrideControls) overrideControls.style.display = 'none';
+
+    const previewTargetBar = document.getElementById('previewTargetBar');
+    if (previewTargetBar) previewTargetBar.style.display = 'none';
+
+    const resultStrip = document.getElementById('resultPreviewStrip');
+    if (resultStrip) resultStrip.style.display = 'none';
+
+    const rpsTrack = document.getElementById('rpsTrack');
+    if (rpsTrack) rpsTrack.innerHTML = '';
+
+    const brandPills = document.getElementById('brandPillsContainer');
+    if (brandPills) brandPills.innerHTML = '';
+
+    const reviewTitle = document.getElementById('reviewContextTitle');
+    if (reviewTitle) reviewTitle.textContent = 'Reviewing: --';
+
+    const reviewMeta = document.getElementById('reviewContextMeta');
+    if (reviewMeta) reviewMeta.textContent = 'Pick the brands you want, then review the live 9:16 version before processing.';
+
+    const reviewSummary = document.getElementById('reviewProgressSummary');
+    if (reviewSummary) reviewSummary.textContent = 'Version 1 of 1';
+
+    const queueSummary = document.getElementById('queueStatusSummary');
+    if (queueSummary) queueSummary.textContent = '';
+
+    const reviewStateBadge = document.getElementById('reviewStateBadge');
+    if (reviewStateBadge) {
+        reviewStateBadge.textContent = 'Default';
+        reviewStateBadge.className = 'review-state-badge default';
+    }
+
+    updateCreateIntentUI();
+    updateConfirmationSummary();
+}
+
 function syncQueueItemToJobItem(queueItem) {
     if (!currentFile || !queueItem || !queueItem.brand_id) return;
     const item = jobItems.find(job => job.filename === currentFile && job.brandId === queueItem.brand_id);
@@ -4778,6 +4871,9 @@ async function toggleLibraryBookmark(downloadId, btn) {
 
 function selectVideo(filename, meta) {
     meta = meta || {};
+    if (currentFile || processingQueue.length || selectedBrandIds.length || activePreviewBrandId || brandOverrides && Object.keys(brandOverrides).length) {
+        resetCreateReviewSession('select-video');
+    }
     currentFile = filename;
     createIntent = null;
     sessionStorage.setItem('lastDownloadFilename', filename);
@@ -4940,6 +5036,7 @@ async function handleUpload(file) {
 }
 
 function replaceVideo() {
+    resetCreateReviewSession('replace-video');
     currentFile = null;
     frameData = null;
     document.getElementById('previewSection').style.display = 'none';
@@ -4949,6 +5046,7 @@ function replaceVideo() {
 }
 
 function changeVideo() {
+    resetCreateReviewSession('change-video');
     // Clear session storage and current state
     sessionStorage.removeItem('lastDownloadFilename');
     currentFile = null;
@@ -5303,6 +5401,7 @@ function downloadAllBatchVideos() {
 
 function clearVideo() {
     // Same as changeVideo but stay on current page
+    resetCreateReviewSession('clear-video');
     sessionStorage.removeItem('lastDownloadFilename');
     currentFile = null;
     frameData = null;
