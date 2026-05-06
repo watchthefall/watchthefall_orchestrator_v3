@@ -2942,12 +2942,8 @@ function switchActivePreview(brandId) {
     loadBrandAssets(brandId);
     
     // Load overrides (user-adjusted this session) or saved defaults
-    if (brandOverrides[brandId]) {
-        loadOverridesIntoSliders(brandOverrides[brandId]);
-    } else {
-        loadBrandConfig(brandId);
-    }
-    
+    applyBrandToPreview(brandDataCache[brandId], brandOverrides[brandId]);
+
     updatePreviewTargetBar();
     updateConfirmationSummary();
 }
@@ -2979,7 +2975,7 @@ function resetBrandToDefaults() {
     }
     // ========== END JOB-ITEM MODEL ==========
     
-    loadBrandConfig(activePreviewBrandId);
+    applyBrandToPreview(brandDataCache[activePreviewBrandId]);
     updatePreviewTargetBar();
 }
 
@@ -3827,12 +3823,8 @@ function selectBrand(brandId, btnEl, isReady) {
     if (activePreviewBrandId) {
         loadBrandAssets(activePreviewBrandId);
         // Load user overrides if they exist, otherwise brand defaults
-        if (brandOverrides[activePreviewBrandId]) {
-            loadOverridesIntoSliders(brandOverrides[activePreviewBrandId]);
-        } else {
-            loadBrandConfig(activePreviewBrandId);
-        }
-        
+        applyBrandToPreview(brandDataCache[activePreviewBrandId], brandOverrides[activePreviewBrandId]);
+
         document.getElementById('previewContainer').style.display = 'block';
         // overrideControls is intentionally not shown here — it is only visible inside
         // the review cockpit (enterQueueMode). Selection mode shows brand defaults via preview only.
@@ -3843,6 +3835,109 @@ function selectBrand(brandId, btnEl, isReady) {
     updatePreviewTargetBar();
     updateConfirmationSummary();
 }
+
+// ── Unified render path ───────────────────────────────────────────────────────
+// mergeRenderParams: DB field names → slider domain + sparse session override merge
+function mergeRenderParams(brandConfig, sessionOverrides) {
+    const base = {
+        // Numerics: ?? so intentional 0 (e.g. fully-transparent watermark) is preserved
+        watermark_scale:      brandConfig.wm_scale        ?? 1.15,
+        watermark_opacity:    brandConfig.wm_opacity       ?? 0.40,
+        logo_scale:           brandConfig.logo_scale       ?? 0.25,
+        logo_x:               brandConfig.logo_x           ?? 0,
+        logo_y:               brandConfig.logo_y           ?? 0,
+        logo_rotation:        brandConfig.logo_rotation    ?? 0,
+        text_x:               brandConfig.text_x           ?? 0,
+        text_y:               brandConfig.text_y           ?? 0,
+        text_size:            brandConfig.text_size        ?? 48,
+        text_bg_opacity:      brandConfig.text_bg_opacity  ?? 0.6,
+        // Booleans: ?? so explicit false is not clobbered
+        text_enabled:         brandConfig.text_enabled     ?? false,
+        text_bg_enabled:      brandConfig.text_bg_enabled  ?? true,
+        // Strings: || so empty-string (corrupt/missing DB value) falls back to safe default
+        text_content:         brandConfig.text_content     || '',
+        text_color:           brandConfig.text_color       || '#FFFFFF',
+        // Secondary logo — always reset to off when loading from brand defaults
+        secondary_logo_enabled:   false,
+        secondary_logo_x:         0,
+        secondary_logo_y:         0,
+        secondary_logo_brand_id:  null,
+        secondary_logo_scale:     0.12,
+        secondary_logo_opacity:   0.9,
+        secondary_logo_rotation:  0
+    };
+    // Sparse merge: session overrides (already slider-domain) win field-by-field
+    return Object.assign({}, base, sessionOverrides || {});
+}
+
+// loadRenderParamsIntoSliders: unified DOM setter — takes slider-domain renderParams object
+function loadRenderParamsIntoSliders(renderParams) {
+    // Watermark — read back clamped DOM value for label to avoid slider min/max desync
+    document.getElementById('wmScale').value = Math.round(renderParams.watermark_scale * 100);
+    document.getElementById('wmScaleVal').textContent = document.getElementById('wmScale').value + '%';
+    document.getElementById('wmOpacity').value = Math.round(renderParams.watermark_opacity * 100);
+    document.getElementById('wmOpacityVal').textContent = document.getElementById('wmOpacity').value + '%';
+
+    // Logo scale
+    document.getElementById('logoScale').value = Math.round(renderParams.logo_scale * 100);
+    document.getElementById('logoScaleVal').textContent = document.getElementById('logoScale').value + '%';
+
+    // Logo position + rotation
+    logoCenterXPercent = renderParams.logo_x ?? 0;
+    logoCenterYPercent = renderParams.logo_y ?? 0;
+    logoRotationDegrees = renderParams.logo_rotation ?? 0;
+    document.getElementById('logoRotation').value = renderParams.logo_rotation ?? 0;
+    document.getElementById('logoRotationVal').textContent = (renderParams.logo_rotation ?? 0) + '°';
+
+    // Text layer
+    document.getElementById('textEnabled').checked = renderParams.text_enabled;
+    document.getElementById('textContent').value = renderParams.text_content;
+    document.getElementById('textSize').value = renderParams.text_size;
+    document.getElementById('textSizeVal').textContent = renderParams.text_size + 'px';
+    document.getElementById('textColor').value = renderParams.text_color;
+    document.getElementById('textColorVal').textContent = renderParams.text_color;
+    document.getElementById('textBgEnabled').checked = renderParams.text_bg_enabled;
+    document.getElementById('textBgOpacity').value = Math.round(renderParams.text_bg_opacity * 100);
+    document.getElementById('textBgOpacityVal').textContent = Math.round(renderParams.text_bg_opacity * 100) + '%';
+    textX = renderParams.text_x || 0;
+    textY = renderParams.text_y || 0;
+    document.getElementById('textControls').style.display = renderParams.text_enabled ? 'block' : 'none';
+
+    // Secondary logo (dual-logo composition)
+    var compEl = document.getElementById('compEnabled');
+    if (compEl) {
+        var secEnabled = !!renderParams.secondary_logo_enabled;
+        compEl.checked = secEnabled;
+        document.getElementById('compControls').style.display = secEnabled ? 'block' : 'none';
+        secLogoCenterXPercent = renderParams.secondary_logo_x || 0;
+        secLogoCenterYPercent = renderParams.secondary_logo_y || 0;
+        secLogoSelectedBrandId = renderParams.secondary_logo_brand_id || null;
+        var scaleVal   = Math.round((renderParams.secondary_logo_scale    || 0.12) * 100);
+        var opacityVal = Math.round((renderParams.secondary_logo_opacity  || 0.9)  * 100);
+        var rotVal     = renderParams.secondary_logo_rotation || 0;
+        document.getElementById('compScale').value = scaleVal;
+        document.getElementById('compScaleVal').textContent = scaleVal + '%';
+        document.getElementById('compOpacity').value = opacityVal;
+        document.getElementById('compOpacityVal').textContent = opacityVal + '%';
+        document.getElementById('compRotation').value = rotVal;
+        document.getElementById('compRotationVal').textContent = rotVal + '°';
+        if (secEnabled && secLogoSelectedBrandId) {
+            loadSecondaryLogoImage(secLogoSelectedBrandId);
+        } else {
+            secondaryLogoImg = null;
+        }
+        renderCompLogoGrid();
+    }
+}
+
+// applyBrandToPreview: single entry point for all brand→preview load paths
+function applyBrandToPreview(brandConfig, sessionOverrides) {
+    if (!brandConfig) return;
+    const renderParams = mergeRenderParams(brandConfig, sessionOverrides);
+    loadRenderParamsIntoSliders(renderParams);
+    updateCanvasPreview();
+}
+// ── End unified render path ───────────────────────────────────────────────────
 
 async function loadBrandConfig(brandId) {
     // Load saved config from database using brand_id
@@ -4251,30 +4346,12 @@ async function switchToBrand(idx) {
     // Update pills to show active state
     renderBrandPills();
     
-    // Load brand defaults from cache if not already loaded
+    // Initialise overrides for this job if not yet set — mergeRenderParams translates
+    // DB field names to slider domain and fills all defaults in one pass.
     if (!current.overrides) {
         const brandData = brandDataCache[current.brand_id];
-        if (brandData) {
-            current.overrides = {
-                watermark_scale: brandData.wm_scale || 1.15,
-                watermark_opacity: brandData.wm_opacity || 0.40,
-                logo_scale: brandData.logo_scale || 0.25,
-                logo_x: brandData.logo_x || 0,
-                logo_y: brandData.logo_y || 0,
-                logo_rotation: brandData.logo_rotation || 0,
-                text_enabled: !!brandData.text_enabled,
-                text_content: brandData.text_content || '',
-                text_x: brandData.text_x || 0,
-                text_y: brandData.text_y || 0,
-                text_size: brandData.text_size || 48,
-                text_color: brandData.text_color || '#FFFFFF',
-                text_bg_enabled: brandData.text_bg_enabled !== false,
-                text_bg_opacity: brandData.text_bg_opacity || 0.6
-            };
-        } else {
-            console.error(`[BRANDR] Brand #${current.brand_id} not found in cache`);
-            current.overrides = getDefaultOverrides();
-        }
+        current.overrides = brandData ? mergeRenderParams(brandData) : getDefaultOverrides();
+        if (!brandData) console.error(`[BRANDR] Brand #${current.brand_id} not found in cache`);
     }
 
     // Mark as editing
@@ -4282,9 +4359,9 @@ async function switchToBrand(idx) {
         current.status = 'editing';
     }
 
-    // Load overrides into sliders BEFORE loading brand assets so cached-image onload
-    // fires updateCanvasPreview with the correct slider values already in place.
-    loadOverridesIntoSliders(current.overrides);
+    // Apply brand + session overrides into sliders BEFORE loading assets so any cached-image
+    // onload fires updateCanvasPreview with the correct slider values already in place.
+    applyBrandToPreview(brandDataCache[current.brand_id], current.overrides);
 
     // Load brand assets for preview using brand_id
     await loadBrandAssets(current.brand_id);
