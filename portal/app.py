@@ -1964,61 +1964,60 @@ def fetch_videos_from_urls():
 @app.route('/api/videos/download/<filename>', methods=['GET'])
 @login_required
 def download_video(filename):
-    """Download processed video"""
+    """Download processed video (raw or branded output)"""
+    from .config import UPLOAD_DIR
+    from .database import get_connection
+
+    # Sanitize filename to prevent path traversal
+    filename = os.path.basename(filename)
+    print(f'[DOWNLOAD] Requested: {filename}')
+
+    # Search all known locations in priority order
+    search_paths = [
+        os.path.join(OUTPUT_DIR, filename),   # branded outputs first
+        os.path.join(RAW_DIR, filename),       # raw downloads
+        os.path.join(UPLOAD_DIR, filename),    # legacy uploads
+    ]
+    filepath = next((p for p in search_paths if os.path.exists(p)), None)
+
+    # Last resort: authoritative file_path from downloads DB record
+    if filepath is None:
+        try:
+            with get_connection() as conn:
+                c = conn.cursor()
+                c.execute(
+                    'SELECT file_path FROM downloads WHERE filename = ? ORDER BY created_at DESC LIMIT 1',
+                    (filename,)
+                )
+                row = c.fetchone()
+                if row and row['file_path'] and os.path.exists(row['file_path']):
+                    filepath = row['file_path']
+                    print(f'[DOWNLOAD] Found via DB file_path: {filepath}')
+        except Exception as db_err:
+            print(f'[DOWNLOAD] DB lookup failed for {filename}: {db_err}')
+
+    print(f'[DOWNLOAD] Resolved path: {filepath} | exists: {filepath is not None}')
+
+    if filepath is None:
+        print(f'[DOWNLOAD] Not found in any location — searched: {search_paths}')
+        return jsonify({'error': 'File not found', 'filename': filename}), 404
+
     try:
-        # Sanitize filename to prevent path traversal
-        filename = os.path.basename(filename)
-        
-        # First check RAW_DIR
-        filepath = os.path.join(RAW_DIR, filename)
-        
-        # If not in the new location, check the old OUTPUT_DIR
-        if not os.path.exists(filepath):
-            filepath = os.path.join(OUTPUT_DIR, filename)
-        
-        print(f"[DEBUG] Looking for file at: {filepath}")
-        
-        # Check if file exists
-        if not os.path.exists(filepath):
-            print(f"[DOWNLOAD ERROR] File not found: {filepath}")
-            # List contents of both directories for debugging
-            try:
-                if os.path.exists(RAW_DIR):
-                    raw_contents = os.listdir(RAW_DIR)
-                    print(f"[DOWNLOAD DEBUG] Contents of RAW_DIR ({RAW_DIR}): {raw_contents[:10]}...")  # First 10 files
-                else:
-                    print(f"[DOWNLOAD DEBUG] RAW_DIR does not exist: {RAW_DIR}")
-                
-                if os.path.exists(OUTPUT_DIR):
-                    output_contents = os.listdir(OUTPUT_DIR)
-                    print(f"[DOWNLOAD DEBUG] Contents of OUTPUT_DIR ({OUTPUT_DIR}): {output_contents[:10]}...")  # First 10 files
-                else:
-                    print(f"[DOWNLOAD DEBUG] OUTPUT_DIR does not exist: {OUTPUT_DIR}")
-            except Exception as e:
-                print(f"[DOWNLOAD DEBUG] Could not list contents of directories: {e}")
-            return jsonify({'error': 'File not found', 'path': filepath, 'filename': filename}), 404
-        
         file_size = os.path.getsize(filepath)
-        print(f"[DOWNLOAD] Serving file: {filename} ({file_size} bytes)")
-        
-        # Send file with proper headers for downloads folder
-        response = send_from_directory(os.path.dirname(filepath), filename, as_attachment=True)
-        
-        # Add Content-Disposition header to suggest Downloads folder
+        print(f'[DOWNLOAD] Serving {filename} ({file_size} bytes) from {filepath}')
+
+        directory = os.path.dirname(os.path.abspath(filepath))
+        response = send_from_directory(directory, filename, as_attachment=True)
         response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
-        
-        # Mobile-friendly headers
         response.headers['Content-Type'] = 'video/mp4'
         response.headers['Cache-Control'] = 'no-cache'
-        response.headers['X-Content-Type-Options'] = 'nosniff'
-        
-        print(f"[DOWNLOAD] Headers set for {filename}")
+        print(f'[DOWNLOAD] Response status: 200 for {filename}')
         return response
     except Exception as e:
-        print(f"[DOWNLOAD EXCEPTION] {filename}: {str(e)}")
         import traceback
+        print(f'[DOWNLOAD] Exception serving {filename}: {e}')
         traceback.print_exc()
-        return jsonify({'error': 'File not found', 'details': str(e), 'filename': filename, 'filepath': filepath}), 404
+        return jsonify({'error': 'Failed to serve file', 'details': str(e), 'filename': filename}), 500
 
 # Recent videos endpoint removed - using localStorage history only
 
@@ -3068,38 +3067,43 @@ def debug_build_filter(brand_name):
 def download_original_file(download_id):
     """Download original video file from downloads table"""
     from .database import get_download
+    from .config import UPLOAD_DIR
     import os
     from flask import send_from_directory
-    
+
     user_id = session['user_id']
-    
-    # Get download record for this user
+
     download_record = get_download(download_id, user_id)
     if not download_record:
+        print(f'[DOWNLOAD-ORIGINAL] #{download_id}: not found or unauthorized for user #{user_id}')
         return jsonify({'error': 'Download not found or unauthorized'}), 404
-    
-    file_path = download_record['file_path']
+
+    stored_path = download_record['file_path']
     filename = download_record['filename']
-    
-    # Verify file exists
-    if not os.path.exists(file_path):
-        # Check if file exists in alternative locations
-        # First check RAW_DIR
-        alt_path = os.path.join(RAW_DIR, filename)
-        
-        if os.path.exists(alt_path):
-            file_path = alt_path
-        else:
-            # Also check the old OUTPUT_DIR
-            alt_path = os.path.join(OUTPUT_DIR, filename)
-            if os.path.exists(alt_path):
-                file_path = alt_path
-            else:
-                return jsonify({'error': 'File has expired or been deleted'}), 404
-    
-    # Send file
-    directory = os.path.dirname(file_path)
-    return send_from_directory(directory, os.path.basename(file_path), as_attachment=True)
+    print(f'[DOWNLOAD-ORIGINAL] #{download_id}: filename={filename} stored_path={stored_path}')
+
+    # Resolve the actual file — stored path is authoritative; fall back to known dirs
+    search_paths = [
+        stored_path,
+        os.path.join(RAW_DIR, filename),
+        os.path.join(OUTPUT_DIR, filename),
+        os.path.join(UPLOAD_DIR, filename),
+    ]
+    file_path = next((p for p in search_paths if p and os.path.exists(p)), None)
+
+    print(f'[DOWNLOAD-ORIGINAL] #{download_id}: resolved={file_path} exists={file_path is not None}')
+
+    if file_path is None:
+        print(f'[DOWNLOAD-ORIGINAL] #{download_id}: file not found in any location — searched {search_paths}')
+        return jsonify({'error': 'File has expired or been deleted', 'filename': filename}), 404
+
+    directory = os.path.dirname(os.path.abspath(file_path))
+    basename = os.path.basename(file_path)
+    print(f'[DOWNLOAD-ORIGINAL] #{download_id}: serving {basename} from {directory}')
+    response = send_from_directory(directory, basename, as_attachment=True)
+    response.headers['Content-Type'] = 'video/mp4'
+    response.headers['Content-Disposition'] = f'attachment; filename="{basename}"'
+    return response
 
 
 @app.route('/api/videos/save-download', methods=['POST'])

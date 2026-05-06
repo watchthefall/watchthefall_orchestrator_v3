@@ -239,7 +239,7 @@
                                 ${isBookmarked ? 'Remove Bookmark' : 'Bookmark'}
                             </button>
                             ${isAvailable ? `<button class="btn btn-small" onclick="useInCreate('${escapeHtml(filename)}')">Use in Create</button>` : ''}
-                            ${download.file_path ? `<a href="/portal/download-file/${download.id}" class="btn btn-secondary btn-small" download>Download</a>` : ''}
+                            ${download.file_path ? `<a href="/api/videos/download-original/${download.id}" class="btn btn-secondary btn-small">Download</a>` : ''}
                         </div>
                     `;
                     

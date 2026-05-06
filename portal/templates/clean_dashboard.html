@@ -4605,14 +4605,10 @@ async function processCurrentBrand() {
         // Trigger download
         if (data.outputs && data.outputs[0]) {
             const downloadUrl = data.outputs[0].download_url;
-            const link = document.createElement('a');
-            link.href = downloadUrl;
-            link.download = '';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            console.log('[BRANDR] Download triggered:', downloadUrl);
+            window.open(downloadUrl, '_blank');
         }
-        
+
         // Show success if this is still the current brand
         if (processingQueue[currentQueueIndex] === current) {
             result.innerHTML = `<div class="status-msg success">\u2705 ${current.brand_name} done!</div>`;
@@ -4746,14 +4742,10 @@ async function processAllBrands() {
             // Trigger download
             if (data.outputs && data.outputs[0]) {
                 const downloadUrl = data.outputs[0].download_url;
-                const link = document.createElement('a');
-                link.href = downloadUrl;
-                link.download = '';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                console.log('[BRANDR] Download triggered:', downloadUrl);
+                window.open(downloadUrl, '_blank');
             }
-            
+
             return { brand: item.brand_name, success: true };
             
         } catch (err) {
