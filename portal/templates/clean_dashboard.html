@@ -4783,7 +4783,12 @@ async function processAllBrands() {
     const successful = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
 
-    renderCompletionPanel(result, successful, failed, 0);
+    try {
+        renderCompletionPanel(result, successful, failed, 0);
+    } catch (panelErr) {
+        console.error('[BRANDR] renderCompletionPanel error:', panelErr);
+        result.innerHTML = `<div class="status-msg success">🎉 Done! ${successful} branded. <button onclick="goToLibrary()" style="margin-left:8px;background:transparent;border:1px solid #555;color:#b6bfd3;padding:4px 10px;border-radius:5px;cursor:pointer;">Open Library</button></div>`;
+    }
     checkQueueComplete();
 }
 
@@ -4852,8 +4857,18 @@ function checkQueueComplete() {
         const done = checkSource.filter(q => q.status === 'done').length;
         const failed = checkSource.filter(q => q.status === 'failed').length;
         const skipped = checkSource.filter(q => q.status === 'skipped').length;
-        renderCompletionPanel(result, done, failed, skipped);
+        try {
+            renderCompletionPanel(result, done, failed, skipped);
+        } catch (panelErr) {
+            console.error('[BRANDR] renderCompletionPanel error:', panelErr);
+            result.innerHTML = `<div class="status-msg success">🎉 Done! ${done} branded. <button onclick="goToLibrary()" style="margin-left:8px;background:transparent;border:1px solid #555;color:#b6bfd3;padding:4px 10px;border-radius:5px;cursor:pointer;">Open Library</button></div>`;
+        }
     }
+}
+
+function _esc(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function renderCompletionPanel(el, done, failed, skipped) {
@@ -4868,8 +4883,8 @@ function renderCompletionPanel(el, done, failed, skipped) {
             : '';
         const rows = completedOutputs.map(o => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#1e1e22;border-radius:6px;margin-bottom:6px;">
-                <span style="color:#ccc;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${escapeHtml(o.brand_name)}</span>
-                <a href="${o.download_url}" target="_blank" style="flex-shrink:0;margin-left:12px;padding:5px 12px;font-size:12px;font-weight:600;background:var(--accent);color:#121214;border-radius:5px;text-decoration:none;">Download</a>
+                <span style="color:#ccc;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${_esc(o.brand_name)}</span>
+                <a href="${_esc(o.download_url)}" target="_blank" style="flex-shrink:0;margin-left:12px;padding:5px 12px;font-size:12px;font-weight:600;background:var(--accent);color:#121214;border-radius:5px;text-decoration:none;">Download</a>
             </div>`).join('');
         outputsHtml = `<div style="margin-top:12px;">${downloadAllBtn}${rows}</div>`;
     } else if (done > 0) {
