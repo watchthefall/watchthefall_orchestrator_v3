@@ -2346,6 +2346,7 @@ let processingQueue = [];
 let currentQueueIndex = 0;
 let isReviewCompletionState = false;
 let selectedOutputFormats = ['reels916'];
+let completedOutputs = []; // accumulates { brand_name, download_url } after each successful brand
 
 const OUTPUT_FORMAT_OPTIONS = {
     reels916: { label: 'TikTok / Reels (9:16)' },
@@ -4512,7 +4513,12 @@ async function processCurrentBrand() {
     
     // Save current slider state to this brand's overrides
     saveCurrentOverridesFromSliders();
-    
+
+    // Reset output list when starting a fresh processing session
+    if (processingQueue.filter(q => q.status === 'done').length === 0) {
+        completedOutputs = [];
+    }
+
     // Mark as processing
     current.status = 'processing';
     
@@ -4602,14 +4608,15 @@ async function processCurrentBrand() {
         
         renderBrandPills();
         
-        // Trigger download
+        // Trigger download and accumulate for completion panel
         if (data.outputs && data.outputs[0]) {
             const downloadUrl = data.outputs[0].download_url;
             console.log('[BRANDR] Download triggered:', downloadUrl);
             window.open(downloadUrl, '_blank');
+            completedOutputs.push({ brand_name: current.brand_name, download_url: downloadUrl });
         }
 
-        // Show success if this is still the current brand
+        // Show per-brand success tick while queue continues
         if (processingQueue[currentQueueIndex] === current) {
             result.innerHTML = `<div class="status-msg success">\u2705 ${current.brand_name} done!</div>`;
         }
@@ -4666,6 +4673,9 @@ async function processAllBrands() {
     // Save current overrides first
     saveCurrentOverridesFromSliders();
     
+    // Reset accumulated outputs for this run
+    completedOutputs = [];
+
     // Everything moves forward by default unless it was skipped.
     const pendingBrands = processingQueue.filter(q => q.status !== 'skipped' && q.status !== 'done' && q.status !== 'processing');
     const includedTotal = processingQueue.filter(q => q.status !== 'skipped').length;
@@ -4739,11 +4749,12 @@ async function processAllBrands() {
             syncStatusToJobItem(item.brand_id, 'completed');
             renderBrandPills();
             
-            // Trigger download
+            // Trigger download and accumulate for completion panel
             if (data.outputs && data.outputs[0]) {
                 const downloadUrl = data.outputs[0].download_url;
                 console.log('[BRANDR] Download triggered:', downloadUrl);
                 window.open(downloadUrl, '_blank');
+                completedOutputs.push({ brand_name: item.brand_name, download_url: downloadUrl });
             }
 
             return { brand: item.brand_name, success: true };
@@ -4761,14 +4772,8 @@ async function processAllBrands() {
     
     const successful = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
-    
-    const libraryLink = `<button onclick="goToLibrary()" style="width:auto;margin-top:8px;padding:9px 14px;font-size:13px;background:transparent;border:1px solid #343948;color:#b6bfd3;border-radius:8px;">Open Library</button>`;
-    if (failed === 0) {
-        result.innerHTML = `<div class="status-msg success">\u2705 Results ready. ${successful} versions processed.</div>${libraryLink}`;
-    } else {
-        result.innerHTML = `<div class="status-msg warning">Results ready with issues. ${successful} done, \u274C ${failed} failed</div>${libraryLink}`;
-    }
 
+    renderCompletionPanel(result, successful, failed, 0);
     checkQueueComplete();
 }
 
@@ -4837,9 +4842,41 @@ function checkQueueComplete() {
         const done = checkSource.filter(q => q.status === 'done').length;
         const failed = checkSource.filter(q => q.status === 'failed').length;
         const skipped = checkSource.filter(q => q.status === 'skipped').length;
-        
-        result.innerHTML = `<div class="status-msg success">\ud83c\udf89 Results ready. ${done} done, ${skipped} skipped, ${failed} failed</div><button onclick="goToLibrary()" style="width:auto;margin-top:8px;padding:9px 14px;font-size:13px;background:transparent;border:1px solid #343948;color:#b6bfd3;border-radius:8px;">Open Library</button>`;
+        renderCompletionPanel(result, done, failed, skipped);
     }
+}
+
+function renderCompletionPanel(el, done, failed, skipped) {
+    const headerHtml = failed === 0
+        ? `<div class="status-msg success">\ud83c\udf89 Branding complete! ${done} version${done !== 1 ? 's' : ''} ready.</div>`
+        : `<div class="status-msg warning">Branding done with issues. ${done} done, \u274c ${failed} failed${skipped ? ', ' + skipped + ' skipped' : ''}</div>`;
+
+    let outputsHtml = '';
+    if (completedOutputs.length > 0) {
+        const downloadAllBtn = completedOutputs.length > 1
+            ? `<button onclick="downloadAllCompletedOutputs()" style="width:100%;margin-bottom:10px;padding:10px 14px;font-size:14px;font-weight:600;background:var(--accent);color:#121214;border:none;border-radius:7px;cursor:pointer;">\u2b07 Download all branded videos (${completedOutputs.length})</button>`
+            : '';
+        const rows = completedOutputs.map(o => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#1e1e22;border-radius:6px;margin-bottom:6px;">
+                <span style="color:#ccc;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${escapeHtml(o.brand_name)}</span>
+                <a href="${o.download_url}" target="_blank" style="flex-shrink:0;margin-left:12px;padding:5px 12px;font-size:12px;font-weight:600;background:var(--accent);color:#121214;border-radius:5px;text-decoration:none;">Download</a>
+            </div>`).join('');
+        outputsHtml = `<div style="margin-top:12px;">${downloadAllBtn}${rows}</div>`;
+    } else if (done > 0) {
+        outputsHtml = `<div style="margin-top:8px;font-size:12px;color:#888;">Auto-download may have been blocked. Check your Downloads folder or the Library.</div>`;
+    }
+
+    const libraryBtn = `<button onclick="goToLibrary()" style="width:100%;margin-top:10px;padding:9px 14px;font-size:13px;background:transparent;border:1px solid #343948;color:#b6bfd3;border-radius:8px;cursor:pointer;">Open Library</button>`;
+    el.innerHTML = headerHtml + outputsHtml + libraryBtn;
+}
+
+function downloadAllCompletedOutputs() {
+    completedOutputs.forEach((o, i) => {
+        setTimeout(() => {
+            console.log('[BRANDR] Download all \u2014 opening:', o.download_url);
+            window.open(o.download_url, '_blank');
+        }, i * 400);
+    });
 }
 
 async function skipBrand() {
