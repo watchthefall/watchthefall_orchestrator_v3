@@ -369,11 +369,16 @@ class VideoProcessor:
                 scaled_h = int(H * wm_scale_pct)
                 offset_x = (scaled_w - W) // 2
                 offset_y = (scaled_h - H) // 2
-                
-                print(f"[VISUAL_PRESET] Watermark fullscreen: {scaled_w}x{scaled_h}, offset=(-{offset_x},-{offset_y}), opacity={wm_opacity:.2f}")
-                
+                # Negate offset: positive offset → crop (watermark bigger than frame)
+                # negative offset → center-pad (watermark smaller than frame)
+                # Either way, store as plain ints so f-string never produces "--N"
+                overlay_x = -offset_x
+                overlay_y = -offset_y
+
+                print(f"[VISUAL_PRESET] Watermark fullscreen: {scaled_w}x{scaled_h}, overlay=({overlay_x},{overlay_y}), opacity={wm_opacity:.2f}")
+
                 filters.append(f"movie='{watermark_path}',scale={scaled_w}:{scaled_h},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{wm_opacity}*alpha(X,Y)'[watermark]")
-                filters.append(f"[{current_input}][watermark]overlay=-{offset_x}:-{offset_y}[v1]")
+                filters.append(f"[{current_input}][watermark]overlay={overlay_x}:{overlay_y}[v1]")
                 current_input = 'v1'
             else:
                 # Positioned mode: scale and overlay at specific position
@@ -523,9 +528,11 @@ class VideoProcessor:
             # Center the overscaled watermark to maintain visual balance
             offset_x = (scaled_width - width) // 2
             offset_y = (scaled_height - height) // 2
+            overlay_x = -offset_x
+            overlay_y = -offset_y
             opacity = self.WATERMARK_OPACITY
             filters.append(f"movie='{watermark_path}',scale={scaled_width}:{scaled_height},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{opacity}*alpha(X,Y)'[watermark]")
-            filters.append(f"[{current_input}][watermark]overlay=-{offset_x}:-{offset_y}[v1]")
+            filters.append(f"[{current_input}][watermark]overlay={overlay_x}:{overlay_y}[v1]")
             current_input = 'v1'
             print(f"[DEBUG] Watermark overlay added (overscaled {scaled_width}x{scaled_height} @ {int(self.WATERMARK_SCALE*100)}%, {int(opacity*100)}% opacity)")
         else:

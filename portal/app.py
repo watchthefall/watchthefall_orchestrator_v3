@@ -1685,7 +1685,12 @@ def process_branded_videos():
                     print(f"[PROCESS BRANDS] FAILED BRAND {i}: {brand_name} - {str(e)}")
                     import traceback
                     traceback.print_exc()
-        
+                    return jsonify({
+                        'success': False,
+                        'error': f'{brand_name}: processing failed — check server logs',
+                        'details': str(e)
+                    }), 500
+
         print(f"[PROCESS BRANDS] ALL BRANDS COMPLETED: {len(output_paths)} successful")
         
         # 4. Generate download URLs

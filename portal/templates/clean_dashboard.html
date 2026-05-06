@@ -4582,15 +4582,20 @@ async function processCurrentBrand() {
                 secondary_logo_y: current.overrides.secondary_logo_y || 0
             })
         });
-        
-        const data = await res.json();
-        
+
+        let data;
+        try {
+            data = await res.json();
+        } catch {
+            throw new Error(`Server error ${res.status} — branding failed. Check server logs.`);
+        }
+
         if (!data.success) {
             if (data.error === 'DAILY_LIMIT_REACHED' || data.error === 'BRANDS_PER_JOB_LIMIT') {
                 openUpgradeModal('Limit reached', data.message || 'You have reached your plan limit.');
                 throw new Error(data.message || 'Plan limit reached');
             }
-            throw new Error(data.error || 'Processing failed');
+            throw new Error(data.error || data.details || 'Processing failed');
         }
         
         // Mark as done
@@ -4734,17 +4739,22 @@ async function processAllBrands() {
                     text_bg_opacity: item.overrides.text_bg_opacity
                 })
             });
-            
-            const data = await res.json();
-            
+
+            let data;
+            try {
+                data = await res.json();
+            } catch {
+                throw new Error(`Server error ${res.status} — branding failed. Check server logs.`);
+            }
+
             if (!data.success) {
                 if (data.error === 'DAILY_LIMIT_REACHED' || data.error === 'BRANDS_PER_JOB_LIMIT') {
                     openUpgradeModal('Limit reached', data.message || 'You have reached your plan limit.');
                     throw new Error(data.message || 'Plan limit reached');
                 }
-                throw new Error(data.error || 'Processing failed');
+                throw new Error(data.error || data.details || 'Processing failed');
             }
-            
+
             item.status = 'done';
             syncStatusToJobItem(item.brand_id, 'completed');
             renderBrandPills();
