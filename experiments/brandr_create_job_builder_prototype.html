@@ -1,0 +1,2164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brandr Experimental Job Builder</title>
+    <style>
+        :root {
+            --bg: #18191d;
+            --panel: #202024;
+            --panel-2: #262730;
+            --panel-3: #2c2f38;
+            --text: #eaeaea;
+            --muted: #9fa6b8;
+            --line: rgba(255, 255, 255, 0.08);
+            --accent: #7db2ff;
+            --accent-soft: rgba(125, 178, 255, 0.18);
+            --good: #79ddb4;
+            --warning: #d7b15b;
+            --danger: #ff8e96;
+            --shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+            --radius: 14px;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(180deg, #191b20 0%, #14161a 100%);
+            color: var(--text);
+        }
+
+        button, input, select, textarea {
+            font: inherit;
+        }
+
+        .topbar {
+            background: #202024;
+            border-bottom: 1px solid #333;
+            padding: 10px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .topbar-left,
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .brand-lockup {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+        }
+
+        .exp-badge {
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(215, 177, 91, 0.12);
+            border: 1px solid rgba(215, 177, 91, 0.28);
+            color: #f2deaa;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .back-link {
+            color: var(--text);
+            text-decoration: none;
+            border: 1px solid var(--line);
+            background: rgba(255,255,255,0.03);
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        .back-link:hover {
+            background: rgba(255,255,255,0.06);
+        }
+
+        .page {
+            max-width: 1560px;
+            margin: 0 auto;
+            padding: 18px;
+            display: grid;
+            gap: 16px;
+        }
+
+        .hero {
+            display: grid;
+            gap: 10px;
+        }
+
+        .hero h1 {
+            margin: 0;
+            font-size: 34px;
+            line-height: 1.05;
+        }
+
+        .hero p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 18px;
+            line-height: 1.55;
+            max-width: 980px;
+        }
+
+        .summary-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 16px 18px;
+            border-radius: var(--radius);
+            background: linear-gradient(180deg, #252832, #1f222b);
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow);
+            flex-wrap: wrap;
+        }
+
+        .intent-fork {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 16px 18px;
+            border-radius: var(--radius);
+            background: #202024;
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow);
+            flex-wrap: wrap;
+        }
+
+        .intent-copy {
+            display: grid;
+            gap: 4px;
+        }
+
+        .intent-copy strong {
+            font-size: 18px;
+        }
+
+        .intent-copy span {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .intent-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .summary-total {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .summary-note {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #262a34;
+            color: var(--text);
+            padding: 10px 14px;
+            cursor: pointer;
+        }
+
+        .btn.primary {
+            background: linear-gradient(135deg, #88b6ff, #73a4f1);
+            border-color: transparent;
+            color: #0f1217;
+            font-weight: 700;
+        }
+
+        .btn.secondary {
+            background: rgba(121, 221, 180, 0.12);
+            color: var(--good);
+        }
+
+        .btn.warning {
+            background: rgba(215, 177, 91, 0.12);
+            color: #f2deaa;
+        }
+
+        .btn.ghost {
+            background: transparent;
+        }
+
+        .btn.tiny {
+            padding: 8px 10px;
+            font-size: 12px;
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: 320px minmax(420px, 1fr) 380px;
+            gap: 16px;
+            align-items: start;
+        }
+
+        .panel {
+            background: #202024;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .lane-hidden {
+            display: none;
+        }
+
+        .panel-head {
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .panel-head h2,
+        .panel-head h3 {
+            margin: 0;
+            font-size: 15px;
+        }
+
+        .panel-head small {
+            display: block;
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .panel-body {
+            padding: 16px 18px;
+        }
+
+        .stack {
+            display: grid;
+            gap: 14px;
+        }
+
+        .queue-input textarea {
+            width: 100%;
+            min-height: 90px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: #14161b;
+            color: var(--text);
+            padding: 12px;
+            resize: vertical;
+        }
+
+        .video-list {
+            display: grid;
+            gap: 12px;
+            max-height: 720px;
+            overflow: auto;
+            padding-right: 2px;
+        }
+
+        .video-card {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: #232733;
+            padding: 14px;
+            display: grid;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        .video-card.active {
+            border-color: rgba(125, 178, 255, 0.5);
+            box-shadow: inset 0 0 0 1px rgba(125, 178, 255, 0.18);
+            background: linear-gradient(180deg, #252d3e, #222833);
+        }
+
+        .video-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: start;
+        }
+
+        .video-name {
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        .video-sub {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .video-meta-line {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 9px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: rgba(255,255,255,0.03);
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .pill.active {
+            color: #dce8ff;
+            border-color: rgba(125, 178, 255, 0.45);
+            background: rgba(125, 178, 255, 0.12);
+        }
+
+        .pill.good {
+            color: var(--good);
+            background: rgba(121, 221, 180, 0.08);
+        }
+
+        .pill.warning {
+            color: #f2deaa;
+            background: rgba(215, 177, 91, 0.08);
+        }
+
+        .pill.danger {
+            color: var(--danger);
+            background: rgba(255, 142, 150, 0.08);
+        }
+
+        .preview-panel {
+            display: grid;
+            gap: 14px;
+        }
+
+        .step-strip {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .step-card {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 12px;
+            background: #232731;
+        }
+
+        .step-number {
+            color: var(--accent);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
+
+        .step-title {
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .step-copy {
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .flow-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: #232731;
+            flex-wrap: wrap;
+        }
+
+        .flow-title {
+            display: grid;
+            gap: 4px;
+        }
+
+        .flow-title strong {
+            font-size: 18px;
+        }
+
+        .flow-title span {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .position-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 2px;
+        }
+
+        .flow-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .review-strip {
+            display: flex;
+            gap: 8px;
+            overflow: auto;
+            padding-bottom: 4px;
+        }
+
+        .review-chip {
+            min-width: 170px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #222733;
+            padding: 10px 12px;
+            cursor: pointer;
+            opacity: 0.88;
+        }
+
+        .review-chip.active {
+            border-color: rgba(125, 178, 255, 0.5);
+            background: rgba(125, 178, 255, 0.12);
+            box-shadow: inset 0 0 0 1px rgba(125, 178, 255, 0.18);
+            opacity: 1;
+        }
+
+        .review-chip.approved {
+            border-color: rgba(121, 221, 180, 0.28);
+            background: rgba(121, 221, 180, 0.08);
+        }
+
+        .review-chip.edited {
+            border-color: rgba(215, 177, 91, 0.24);
+            background: rgba(215, 177, 91, 0.07);
+            opacity: 1;
+        }
+
+        .review-chip.skipped {
+            opacity: 0.55;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .review-chip strong {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+
+        .review-chip small {
+            display: block;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+
+        .preview-shell {
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            background: radial-gradient(circle at top, rgba(125, 178, 255, 0.08), transparent 30%), #1b1d23;
+            padding: 18px;
+            display: grid;
+            gap: 14px;
+        }
+
+        .preview-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .preview-title {
+            display: grid;
+            gap: 4px;
+        }
+
+        .preview-title strong {
+            font-size: 24px;
+        }
+
+        .preview-title span {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .context-bar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .mode-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .mode-chip {
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #232833;
+            color: var(--text);
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .mode-chip.active {
+            border-color: rgba(125, 178, 255, 0.5);
+            background: rgba(125, 178, 255, 0.14);
+        }
+
+        .canvas-wrap {
+            min-height: 640px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 14px;
+            border-radius: 16px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+        }
+
+        canvas {
+            width: min(100%, 390px);
+            height: auto;
+            border-radius: 30px;
+            background: #3d4458;
+            box-shadow: 0 28px 60px rgba(0, 0, 0, 0.4);
+        }
+
+        .preview-help {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.55;
+        }
+
+        .fix-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .fix-chip {
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: #232733;
+            color: var(--text);
+            padding: 8px 12px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .fix-chip.active {
+            border-color: rgba(125, 178, 255, 0.5);
+            background: rgba(125, 178, 255, 0.12);
+        }
+
+        .focus-box {
+            border: 1px solid rgba(125, 178, 255, 0.24);
+            border-radius: 12px;
+            background: rgba(125, 178, 255, 0.06);
+            padding: 12px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .focus-box strong {
+            font-size: 13px;
+        }
+
+        .accordion {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #1d2028;
+        }
+
+        .accordion button {
+            width: 100%;
+            text-align: left;
+            background: transparent;
+            border: 0;
+            color: var(--text);
+            padding: 14px 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+        }
+
+        .accordion-body {
+            display: none;
+            border-top: 1px solid var(--line);
+            padding: 14px 16px 16px;
+        }
+
+        .accordion.open .accordion-body {
+            display: grid;
+            gap: 12px;
+        }
+
+        .sidebar-group {
+            display: grid;
+            gap: 12px;
+        }
+
+        .brand-card {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: #232733;
+            padding: 12px;
+            display: grid;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        .brand-card.active {
+            border-color: rgba(125, 178, 255, 0.5);
+            background: linear-gradient(180deg, #252d3e, #222833);
+        }
+
+        .brand-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .brand-thumb {
+            width: 54px;
+            height: 54px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(125, 178, 255, 0.14), rgba(255,255,255,0.03));
+            border: 1px solid var(--line);
+            display: grid;
+            place-items: center;
+            font-weight: 800;
+            color: #dce8ff;
+        }
+
+        .brand-info strong {
+            display: block;
+            font-size: 14px;
+        }
+
+        .brand-info span {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .size-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .size-chip {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #232733;
+            padding: 10px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            color: var(--text);
+        }
+
+        .size-chip.active {
+            border-color: rgba(125, 178, 255, 0.5);
+            background: rgba(125, 178, 255, 0.12);
+        }
+
+        .size-chip small {
+            color: var(--muted);
+        }
+
+        .field-grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        .field-grid.two {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .field label {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .field input,
+        .field select {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #12141a;
+            color: var(--text);
+            padding: 10px 12px;
+        }
+
+        .mini-note {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        .coming {
+            border: 1px dashed rgba(255,255,255,0.14);
+            border-radius: 12px;
+            padding: 12px;
+            background: rgba(255,255,255,0.02);
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.55;
+        }
+
+        .results-strip {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .result-pill {
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: rgba(121, 221, 180, 0.1);
+            border: 1px solid rgba(121, 221, 180, 0.22);
+            color: var(--good);
+            font-size: 12px;
+        }
+
+        .download-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .download-card {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: #232733;
+            padding: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .download-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .download-thumb {
+            width: 68px;
+            height: 68px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: linear-gradient(135deg, rgba(125, 178, 255, 0.12), rgba(255,255,255,0.03));
+            display: grid;
+            place-items: center;
+            color: #dbe7ff;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+
+        .download-info {
+            display: grid;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        .download-info strong {
+            font-size: 15px;
+        }
+
+        .download-info span {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .download-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+
+        .download-cta {
+            min-width: 190px;
+            display: grid;
+            gap: 8px;
+            justify-items: end;
+        }
+
+        @media (max-width: 1320px) {
+            .workspace {
+                grid-template-columns: 280px minmax(0, 1fr) 340px;
+            }
+        }
+
+        @media (max-width: 1120px) {
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+
+            .canvas-wrap {
+                min-height: 460px;
+            }
+
+            .step-strip {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 700px) {
+            .page {
+                padding: 14px;
+            }
+
+            .hero h1 {
+                font-size: 28px;
+            }
+
+            .hero p {
+                font-size: 16px;
+            }
+
+            .summary-total {
+                font-size: 18px;
+            }
+
+            .step-strip {
+                grid-template-columns: 1fr;
+            }
+
+            .field-grid.two {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <div class="topbar-left">
+            <div class="brand-lockup">Brandr</div>
+            <span class="exp-badge">Experimental Job Builder</span>
+        </div>
+        <div class="topbar-right">
+            <a class="back-link" href="/portal/brand">Back to Stable Create</a>
+        </div>
+    </div>
+
+    <div class="page">
+        <section class="hero">
+            <h1>Create once, review fast, brand in batches.</h1>
+            <p>
+                Add a few videos, choose the brands and sizes you want, then move through each version one by one.
+                If it looks good, approve it. If it needs a tweak, change it and keep moving.
+            </p>
+        </section>
+
+        <section class="summary-bar">
+            <div>
+                <div class="summary-total" id="summaryText">0 videos × 0 brands × 0 sizes = 0 outputs</div>
+                <div class="summary-note" id="summaryNote">Review turns your batch into a simple version-by-version queue.</div>
+            </div>
+            <div class="btn-row">
+                <button class="btn secondary" id="applyBrandsToAllBtn">Use these brands for all videos</button>
+                <button class="btn primary" id="startBrandingBtn">Start Branding</button>
+            </div>
+        </section>
+
+        <section class="intent-fork" id="intentFork">
+            <div class="intent-copy">
+                <strong id="intentTitle">0 videos ready. What do you want to do?</strong>
+                <span>Choose the fast lane for raw files, or continue into review.</span>
+            </div>
+            <div class="intent-actions">
+                <button class="btn" id="downloadLaneBtn">Download raw videos</button>
+                <button class="btn primary" id="reviewLaneBtn">Brand &amp; review</button>
+            </div>
+        </section>
+
+        <section class="panel lane-hidden" id="downloadLane">
+            <div class="panel-head">
+                <div>
+                    <h2>Download raw videos</h2>
+                    <small>Raw videos only. No branding applied.</small>
+                </div>
+                <div class="btn-row">
+                    <button class="btn primary" id="downloadAllBtn">Prototype download all</button>
+                    <button class="btn ghost" id="switchToReviewBtn">Go to Brand &amp; review</button>
+                </div>
+            </div>
+            <div class="panel-body stack">
+                <div class="mini-note">Raw videos only. No branding applied. You can switch to Brand &amp; review anytime without losing your current selection.</div>
+                <div class="download-list" id="downloadList"></div>
+            </div>
+        </section>
+
+        <div class="workspace" id="reviewLane">
+            <aside class="panel">
+                <div class="panel-head">
+                    <div>
+                        <h2>1. Add Media</h2>
+                        <small>Each video stays in the queue until you are happy with it.</small>
+                    </div>
+                </div>
+                <div class="panel-body stack">
+                    <div class="queue-input stack">
+                        <textarea id="intakeInput">https://instagram.com/reel/a
+https://youtube.com/shorts/b
+https://tiktok.com/@brand/c</textarea>
+                        <div class="btn-row">
+                            <button class="btn primary" id="seedBatchBtn">Add 3 Example Videos</button>
+                            <button class="btn" id="addMockBtn">Add One More</button>
+                        </div>
+                    </div>
+                    <div class="video-list" id="videoList"></div>
+                </div>
+            </aside>
+
+            <main class="preview-panel">
+                <div class="step-strip">
+                    <div class="step-card">
+                        <div class="step-number">Step 1</div>
+                        <div class="step-title">Add Media</div>
+                        <div class="step-copy">Build a queue instead of working one clip at a time.</div>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">Step 2</div>
+                        <div class="step-title">Choose Brands</div>
+                        <div class="step-copy">Pick one or more brands and reuse them across the batch.</div>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">Step 3</div>
+                        <div class="step-title">Review each version</div>
+                        <div class="step-copy">Review one version at a time and tweak it only if needed.</div>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">Step 4</div>
+                        <div class="step-title">Start Branding</div>
+                        <div class="step-copy">Everything moves forward unless you skip it.</div>
+                    </div>
+                </div>
+
+                <section class="flow-bar">
+                    <div class="flow-title">
+                        <strong>Review</strong>
+                        <span id="progressText">0 of 0 versions reviewed</span>
+                        <div class="position-row" id="positionRow"></div>
+                    </div>
+                    <div class="flow-actions">
+                        <button class="btn tiny ghost" id="prevVersionBtn">Previous</button>
+                        <button class="btn tiny primary" id="approveBtn">Approve &amp; Next</button>
+                        <button class="btn tiny warning" id="skipBtn">Skip</button>
+                    </div>
+                </section>
+
+                <div class="review-strip" id="reviewStrip"></div>
+
+                <section class="preview-shell">
+                    <div class="preview-top">
+                        <div class="preview-title">
+                            <strong id="activeTitle">Choose a version</strong>
+                            <span id="activeSubtitle">Pick a video on the left, then choose a brand and size on the right.</span>
+                        </div>
+                        <div class="mode-row" id="sizeModeRow"></div>
+                    </div>
+
+                    <div class="context-bar" id="contextBar"></div>
+
+                    <div class="canvas-wrap">
+                        <canvas id="previewCanvas" width="405" height="720"></canvas>
+                    </div>
+
+                    <div class="preview-help" id="previewHelp">
+                        Brand defaults apply first. If this version needs a small change, make it here and keep moving.
+                    </div>
+                </section>
+
+                <div class="accordion" id="resultsAccordion">
+                    <button type="button" id="resultsToggle">
+                        <span>Included in this run</span>
+                        <span id="resultsToggleLabel">Hide</span>
+                    </button>
+                    <div class="accordion-body">
+                        <div class="results-strip" id="resultsStrip"></div>
+                        <div class="mini-note">Skipped versions stay out. Ready, edited, and approved versions all stay in this run.</div>
+                    </div>
+                </div>
+            </main>
+
+            <aside class="panel">
+                <div class="panel-head">
+                    <div>
+                        <h2>Choose Brands</h2>
+                        <small>Fix what needs fixing, then keep moving. Your changes already count.</small>
+                    </div>
+                </div>
+                <div class="panel-body sidebar-group">
+                    <div class="stack">
+                        <h3 style="margin:0;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">Selected Brands</h3>
+                        <div id="brandList" class="stack"></div>
+                    </div>
+
+                    <div class="stack">
+                        <h3 style="margin:0;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">Sizes</h3>
+                        <div id="sizeList" class="size-list"></div>
+                    </div>
+
+                    <div class="stack">
+                        <h3 style="margin:0;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">Quick fixes</h3>
+                        <div class="fix-row" id="quickFixes">
+                            <button class="fix-chip" data-fix="logo_scale">Logo too big</button>
+                            <button class="fix-chip" data-fix="logo_position">Move logo</button>
+                            <button class="fix-chip" data-fix="watermark">Move watermark</button>
+                            <button class="fix-chip" data-fix="text">Add text</button>
+                        </div>
+                        <div class="focus-box" id="quickFixBox">
+                            <strong>Pick a quick fix</strong>
+                            <div class="mini-note">Start with the problem you see on this version. The matching controls will open below.</div>
+                        </div>
+                    </div>
+
+                    <div class="accordion" id="fineTuneAccordion">
+                        <button type="button" id="fineTuneToggle">
+                            <span>Fine tune</span>
+                            <span id="fineTuneToggleLabel">Show</span>
+                        </button>
+                        <div class="accordion-body">
+                        <div class="field-grid two">
+                            <div class="field">
+                                <label>Logo Size</label>
+                                <input id="logoScaleInput" type="number" min="10" max="60" step="1">
+                            </div>
+                            <div class="field">
+                                <label>Watermark Size</label>
+                                <input id="wmScaleInput" type="number" min="40" max="160" step="1">
+                            </div>
+                            <div class="field">
+                                <label>Watermark Opacity</label>
+                                <input id="wmOpacityInput" type="number" min="5" max="100" step="1">
+                            </div>
+                            <div class="field">
+                                <label>Text</label>
+                                <input id="textInput" type="text" maxlength="40">
+                            </div>
+                        </div>
+                        <div class="btn-row">
+                            <button class="btn ghost" id="resetOverridesBtn">Use Brand Default</button>
+                        </div>
+                        <div class="btn-row">
+                            <button class="btn tiny secondary" id="applySameBrandBtn">Apply to same brand</button>
+                            <button class="btn tiny secondary" id="applySameSizeBtn">Apply to same size</button>
+                        </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion" id="advancedAccordion">
+                        <button type="button" id="advancedToggle">
+                            <span>More control</span>
+                            <span id="advancedToggleLabel">Show</span>
+                        </button>
+                        <div class="accordion-body">
+                            <div class="field-grid two">
+                                <div class="field">
+                                    <label>Logo Left / Right</label>
+                                    <input id="logoXInput" type="number" min="0" max="100" step="1">
+                                </div>
+                                <div class="field">
+                                    <label>Logo Up / Down</label>
+                                    <input id="logoYInput" type="number" min="0" max="100" step="1">
+                                </div>
+                            </div>
+                            <div class="mini-note">
+                                Keep this tucked away for now. Most testers should be able to get what they need from the quick settings first.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="coming">
+                        Intro / outro packs can come later. For now, keep the focus on reviewing videos, brands, sizes, and quick adjustments.
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+        const brandCatalog = [
+            {
+                id: 1,
+                name: 'Atlas Labs',
+                short: 'ATLAS',
+                subtitle: 'Story 9:16 default',
+                defaults: {
+                    logo_scale: 25,
+                    logo_x: 85,
+                    logo_y: 85,
+                    watermark_scale: 115,
+                    watermark_opacity: 40,
+                    text: 'Follow for more'
+                }
+            },
+            {
+                id: 2,
+                name: 'WTF House',
+                short: 'WTF',
+                subtitle: 'Punchier promo default',
+                defaults: {
+                    logo_scale: 21,
+                    logo_x: 83,
+                    logo_y: 84,
+                    watermark_scale: 92,
+                    watermark_opacity: 26,
+                    text: ''
+                }
+            }
+        ];
+
+        const sizeCatalog = [
+            { key: 'story', label: 'Story 9:16', width: 405, height: 720, ready: true },
+            { key: 'square', label: 'Square 1:1', width: 520, height: 520, ready: false },
+            { key: 'landscape', label: 'YouTube 16:9', width: 640, height: 360, ready: false }
+        ];
+
+        const state = {
+            videos: [],
+            activeVideoId: null,
+            activeBrandId: 1,
+            activeSizeKey: 'story',
+            globalSelectedBrandIds: [1, 2],
+            globalSelectedSizes: ['story', 'square'],
+            versionStates: {},
+            activeVersionKey: null,
+            finishedRuns: [],
+            activeQuickFix: null,
+            activeLane: 'review'
+        };
+
+        function uid(prefix) {
+            return `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
+        }
+
+        function versionKey(videoId, brandId, sizeKey) {
+            return `${videoId}__${brandId}__${sizeKey}`;
+        }
+
+        function makeVideo(label, sourceType) {
+            return {
+                id: uid('video'),
+                filename: `${label.toLowerCase().replace(/\s+/g, '_')}.mp4`,
+                label,
+                sourceType,
+                duration: '00:10',
+                selectedBrandIds: [...state.globalSelectedBrandIds],
+                sizeKeys: [...state.globalSelectedSizes]
+            };
+        }
+
+        function seedVideos() {
+            state.videos = [
+                makeVideo('IG Reel - product hook', 'instagram'),
+                makeVideo('YouTube Short - founder story', 'youtube'),
+                makeVideo('TikTok - campaign cut', 'tiktok')
+            ];
+            state.activeVideoId = state.videos[0].id;
+            rebuildVersions();
+            renderAll();
+        }
+
+        function addOneVideo() {
+            const next = state.videos.length + 1;
+            state.videos.push(makeVideo(`Video ${next}`, 'upload'));
+            if (!state.activeVideoId) {
+                state.activeVideoId = state.videos[0].id;
+            }
+            rebuildVersions();
+            renderAll();
+        }
+
+        function getActiveVideo() {
+            return state.videos.find(video => video.id === state.activeVideoId) || null;
+        }
+
+        function getBrand(brandId) {
+            return brandCatalog.find(brand => brand.id === brandId) || brandCatalog[0];
+        }
+
+        function getSize(sizeKey) {
+            return sizeCatalog.find(size => size.key === sizeKey) || sizeCatalog[0];
+        }
+
+        function getAllVersions() {
+            const versions = [];
+            state.videos.forEach(video => {
+                video.selectedBrandIds.forEach(brandId => {
+                    video.sizeKeys.forEach(sizeKey => {
+                        versions.push({
+                            key: versionKey(video.id, brandId, sizeKey),
+                            videoId: video.id,
+                            videoLabel: video.label,
+                            filename: video.filename,
+                            brandId,
+                            brandName: getBrand(brandId).name,
+                            sizeKey,
+                            sizeLabel: getSize(sizeKey).label,
+                            sizeReady: getSize(sizeKey).ready,
+                            sourceType: video.sourceType
+                        });
+                    });
+                });
+            });
+            return versions;
+        }
+
+        function ensureSelections() {
+            if (!state.videos.length) {
+                state.activeVideoId = null;
+                state.activeVersionKey = null;
+                return;
+            }
+
+            if (!state.videos.some(video => video.id === state.activeVideoId)) {
+                state.activeVideoId = state.videos[0].id;
+            }
+
+            const activeVideo = getActiveVideo();
+            if (!activeVideo.selectedBrandIds.length) {
+                activeVideo.selectedBrandIds = [...state.globalSelectedBrandIds];
+            }
+            if (!activeVideo.sizeKeys.length) {
+                activeVideo.sizeKeys = [...state.globalSelectedSizes];
+            }
+            if (!activeVideo.selectedBrandIds.includes(state.activeBrandId)) {
+                state.activeBrandId = activeVideo.selectedBrandIds[0];
+            }
+            if (!activeVideo.sizeKeys.includes(state.activeSizeKey)) {
+                state.activeSizeKey = activeVideo.sizeKeys[0];
+            }
+
+            const versions = getAllVersions();
+            if (!versions.some(version => version.key === state.activeVersionKey)) {
+                const fallback = versions.find(version =>
+                    version.videoId === state.activeVideoId &&
+                    version.brandId === state.activeBrandId &&
+                    version.sizeKey === state.activeSizeKey
+                ) || versions[0];
+                state.activeVersionKey = fallback ? fallback.key : null;
+            }
+
+            if (state.activeVersionKey) {
+                const activeVersion = getVersionByKey(state.activeVersionKey);
+                if (activeVersion) {
+                    state.activeVideoId = activeVersion.videoId;
+                    state.activeBrandId = activeVersion.brandId;
+                    state.activeSizeKey = activeVersion.sizeKey;
+                }
+            }
+        }
+
+        function rebuildVersions() {
+            const validKeys = new Set(getAllVersions().map(version => version.key));
+            Object.keys(state.versionStates).forEach(key => {
+                if (!validKeys.has(key)) {
+                    delete state.versionStates[key];
+                }
+            });
+            validKeys.forEach(key => {
+                if (!state.versionStates[key]) {
+                    state.versionStates[key] = {
+                        status: 'ready',
+                        overrides: {},
+                        reviewed: false
+                    };
+                }
+            });
+            ensureSelections();
+        }
+
+        function getVersionByKey(key) {
+            return getAllVersions().find(version => version.key === key) || null;
+        }
+
+        function getActiveVersion() {
+            return getVersionByKey(state.activeVersionKey);
+        }
+
+        function getVersionState(key) {
+            if (!state.versionStates[key]) {
+                state.versionStates[key] = {
+                    status: 'ready',
+                    overrides: {},
+                    reviewed: false
+                };
+            }
+            return state.versionStates[key];
+        }
+
+        function getEffectiveSettingsForVersion(version) {
+            const brand = getBrand(version.brandId);
+            const local = getVersionState(version.key).overrides || {};
+            return { ...brand.defaults, ...local };
+        }
+
+        function setActiveVersion(key) {
+            const version = getVersionByKey(key);
+            if (!version) return;
+            state.activeVersionKey = key;
+            state.activeVideoId = version.videoId;
+            state.activeBrandId = version.brandId;
+            state.activeSizeKey = version.sizeKey;
+            renderAll();
+        }
+
+        function setNextVersion(offset) {
+            const versions = getAllVersions();
+            if (!versions.length) return;
+            const index = versions.findIndex(version => version.key === state.activeVersionKey);
+            const nextIndex = Math.min(versions.length - 1, Math.max(0, index + offset));
+            setActiveVersion(versions[nextIndex].key);
+        }
+
+        function toggleBrand(brandId) {
+            const video = getActiveVideo();
+            if (!video) return;
+            const exists = video.selectedBrandIds.includes(brandId);
+            if (exists && video.selectedBrandIds.length > 1) {
+                video.selectedBrandIds = video.selectedBrandIds.filter(id => id !== brandId);
+            } else if (!exists) {
+                video.selectedBrandIds.push(brandId);
+            }
+            rebuildVersions();
+            renderAll();
+        }
+
+        function setActiveBrand(brandId) {
+            const video = getActiveVideo();
+            if (!video || !video.selectedBrandIds.includes(brandId)) return;
+            state.activeBrandId = brandId;
+            const match = getAllVersions().find(version =>
+                version.videoId === video.id &&
+                version.brandId === brandId &&
+                version.sizeKey === state.activeSizeKey
+            );
+            if (match) {
+                state.activeVersionKey = match.key;
+            }
+            renderAll();
+        }
+
+        function toggleSize(sizeKey) {
+            const video = getActiveVideo();
+            if (!video) return;
+            const exists = video.sizeKeys.includes(sizeKey);
+            if (exists && video.sizeKeys.length > 1) {
+                video.sizeKeys = video.sizeKeys.filter(key => key !== sizeKey);
+            } else if (!exists) {
+                video.sizeKeys.push(sizeKey);
+            }
+            rebuildVersions();
+            renderAll();
+        }
+
+        function setActiveSize(sizeKey) {
+            const video = getActiveVideo();
+            if (!video || !video.sizeKeys.includes(sizeKey)) return;
+            state.activeSizeKey = sizeKey;
+            const match = getAllVersions().find(version =>
+                version.videoId === video.id &&
+                version.brandId === state.activeBrandId &&
+                version.sizeKey === sizeKey
+            );
+            if (match) {
+                state.activeVersionKey = match.key;
+            }
+            renderAll();
+        }
+
+        function applyBrandsToAll() {
+            state.videos.forEach(video => {
+                video.selectedBrandIds = [...state.globalSelectedBrandIds];
+            });
+            rebuildVersions();
+            renderAll();
+        }
+
+        function currentInputOverrides() {
+            return {
+                logo_scale: Number(document.getElementById('logoScaleInput').value) || 0,
+                logo_x: Number(document.getElementById('logoXInput').value) || 0,
+                logo_y: Number(document.getElementById('logoYInput').value) || 0,
+                watermark_scale: Number(document.getElementById('wmScaleInput').value) || 0,
+                watermark_opacity: Number(document.getElementById('wmOpacityInput').value) || 0,
+                text: document.getElementById('textInput').value || ''
+            };
+        }
+
+        function saveCurrentVersion(markReviewed = true) {
+            const version = getActiveVersion();
+            if (!version) return;
+            const versionState = getVersionState(version.key);
+            versionState.overrides = currentInputOverrides();
+            versionState.status = 'approved';
+            if (markReviewed) {
+                versionState.reviewed = true;
+            }
+            renderAll();
+        }
+
+        function autoSaveCurrentVersion() {
+            const version = getActiveVersion();
+            if (!version) return;
+            const versionState = getVersionState(version.key);
+            versionState.overrides = currentInputOverrides();
+
+            if (versionState.status === 'skipped') {
+                versionState.status = 'edited';
+                versionState.reviewed = false;
+            } else if (versionState.status !== 'approved') {
+                versionState.status = 'edited';
+            }
+
+            renderAll();
+        }
+
+        function resetCurrentVersion() {
+            const version = getActiveVersion();
+            if (!version) return;
+            const versionState = getVersionState(version.key);
+            versionState.overrides = {};
+            versionState.status = 'ready';
+            versionState.reviewed = false;
+            renderAll();
+        }
+
+        function approveAndNext() {
+            saveCurrentVersion(true);
+            moveToNextUnreviewedOrNext();
+        }
+
+        function skipCurrentVersion() {
+            const version = getActiveVersion();
+            if (!version) return;
+            const versionState = getVersionState(version.key);
+            versionState.status = 'skipped';
+            versionState.reviewed = true;
+            renderAll();
+            moveToNextUnreviewedOrNext();
+        }
+
+        function moveToNextUnreviewedOrNext() {
+            const versions = getAllVersions();
+            if (!versions.length) return;
+            const currentIndex = versions.findIndex(version => version.key === state.activeVersionKey);
+            const nextUnreviewed = versions.slice(currentIndex + 1).find(version => !getVersionState(version.key).reviewed);
+            if (nextUnreviewed) {
+                setActiveVersion(nextUnreviewed.key);
+                return;
+            }
+            if (currentIndex < versions.length - 1) {
+                setActiveVersion(versions[currentIndex + 1].key);
+            }
+        }
+
+        function applyToSameBrand() {
+            const activeVersion = getActiveVersion();
+            if (!activeVersion) return;
+            const sourceOverrides = { ...getVersionState(activeVersion.key).overrides };
+            getAllVersions().forEach(version => {
+                if (version.brandId === activeVersion.brandId) {
+                    const target = getVersionState(version.key);
+                    target.overrides = { ...sourceOverrides };
+                    if (target.status !== 'skipped') {
+                        target.status = 'approved';
+                    }
+                }
+            });
+            renderAll();
+        }
+
+        function applyToSameSize() {
+            const activeVersion = getActiveVersion();
+            if (!activeVersion) return;
+            const sourceOverrides = { ...getVersionState(activeVersion.key).overrides };
+            getAllVersions().forEach(version => {
+                if (version.sizeKey === activeVersion.sizeKey) {
+                    const target = getVersionState(version.key);
+                    target.overrides = { ...sourceOverrides };
+                    if (target.status !== 'skipped') {
+                        target.status = 'approved';
+                    }
+                }
+            });
+            renderAll();
+        }
+
+        function buildSummary() {
+            const videos = state.videos.length;
+            const brandSet = new Set();
+            const sizeSet = new Set();
+            let outputs = 0;
+            const brandCounts = [];
+            const sizeCounts = [];
+            state.videos.forEach(video => {
+                video.selectedBrandIds.forEach(id => brandSet.add(id));
+                video.sizeKeys.forEach(key => sizeSet.add(key));
+                outputs += video.selectedBrandIds.length * video.sizeKeys.length;
+                brandCounts.push(video.selectedBrandIds.length);
+                sizeCounts.push(video.sizeKeys.length);
+            });
+            const uniformBrands = brandCounts.length > 0 && brandCounts.every(count => count === brandCounts[0]);
+            const uniformSizes = sizeCounts.length > 0 && sizeCounts.every(count => count === sizeCounts[0]);
+            return {
+                videos,
+                brands: brandSet.size,
+                sizes: sizeSet.size,
+                outputs,
+                perVideoBrands: brandCounts[0] || 0,
+                perVideoSizes: sizeCounts[0] || 0,
+                showFormula: uniformBrands && uniformSizes
+            };
+        }
+
+        function switchLane(lane) {
+            state.activeLane = lane;
+            document.getElementById('downloadLane').classList.toggle('lane-hidden', lane !== 'download');
+            document.getElementById('reviewLane').classList.toggle('lane-hidden', lane !== 'review');
+            document.getElementById('downloadLaneBtn').classList.toggle('primary', lane === 'download');
+            document.getElementById('reviewLaneBtn').classList.toggle('primary', lane === 'review');
+        }
+
+        function renderSummary() {
+            const summary = buildSummary();
+            document.getElementById('summaryText').textContent = summary.showFormula
+                ? `${summary.videos} videos × ${summary.perVideoBrands} brands × ${summary.perVideoSizes} sizes = ${summary.outputs} outputs`
+                : `${summary.videos} videos • ${summary.outputs} versions to review`;
+
+            const reviewed = getAllVersions().filter(version => getVersionState(version.key).reviewed).length;
+            document.getElementById('summaryNote').textContent =
+                reviewed ? `${reviewed} versions already reviewed. You can keep moving one card at a time.` : 'Review keeps the batch simple: look, tweak if needed, and keep moving.';
+            document.getElementById('intentTitle').textContent = `${summary.videos} videos ready. What do you want to do?`;
+        }
+
+        function renderVideoList() {
+            const root = document.getElementById('videoList');
+            if (!state.videos.length) {
+                root.innerHTML = '<div class="mini-note">Add videos to start building a batch.</div>';
+                return;
+            }
+            root.innerHTML = state.videos.map(video => {
+                const isActive = video.id === state.activeVideoId;
+                const versions = getAllVersions().filter(version => version.videoId === video.id);
+                const reviewed = versions.filter(version => getVersionState(version.key).reviewed).length;
+                return `
+                    <div class="video-card ${isActive ? 'active' : ''}" data-video-id="${video.id}">
+                        <div class="video-top">
+                            <div>
+                                <div class="video-name">${video.label}</div>
+                            </div>
+                            <div class="pill ${isActive ? 'active' : ''}">${isActive ? 'Open' : 'Select'}</div>
+                        </div>
+                        <div class="video-meta-line">
+                            <span class="pill">${versions.length} versions</span>
+                            <span class="pill ${reviewed === versions.length && versions.length ? 'good' : ''}">${reviewed} / ${versions.length} reviewed</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            root.querySelectorAll('[data-video-id]').forEach(card => {
+                card.addEventListener('click', () => {
+                    const videoId = card.dataset.videoId;
+                    state.activeVideoId = videoId;
+                    const match = getAllVersions().find(version => version.videoId === videoId);
+                    if (match) state.activeVersionKey = match.key;
+                    ensureSelections();
+                    renderAll();
+                });
+            });
+        }
+
+        function renderBrandList() {
+            const video = getActiveVideo();
+            const root = document.getElementById('brandList');
+            if (!video) {
+                root.innerHTML = '<div class="mini-note">Add a video first.</div>';
+                return;
+            }
+
+            root.innerHTML = brandCatalog.map(brand => {
+                const selected = video.selectedBrandIds.includes(brand.id);
+                const active = selected && state.activeBrandId === brand.id;
+                const reviewed = getAllVersions().filter(version =>
+                    version.videoId === video.id && version.brandId === brand.id && getVersionState(version.key).reviewed
+                ).length;
+                return `
+                    <div class="brand-card ${active ? 'active' : ''}" data-brand-id="${brand.id}">
+                        <div class="brand-row">
+                            <div class="brand-thumb">${brand.short.slice(0, 2)}</div>
+                            <div class="brand-info">
+                                <strong>${brand.name}</strong>
+                                <span>${brand.subtitle}</span>
+                            </div>
+                        </div>
+                        <div class="pill-row">
+                            <span class="pill ${selected ? 'active' : ''}">${selected ? 'Selected' : 'Not selected'}</span>
+                            ${selected ? `<span class="pill">${reviewed} reviewed</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            root.querySelectorAll('[data-brand-id]').forEach(card => {
+                const brandId = Number(card.dataset.brandId);
+                card.addEventListener('click', () => {
+                    const activeVideo = getActiveVideo();
+                    if (!activeVideo.selectedBrandIds.includes(brandId)) {
+                        toggleBrand(brandId);
+                    }
+                    setActiveBrand(brandId);
+                });
+                card.addEventListener('contextmenu', event => {
+                    event.preventDefault();
+                    toggleBrand(brandId);
+                });
+            });
+        }
+
+        function renderSizeList() {
+            const video = getActiveVideo();
+            const root = document.getElementById('sizeList');
+            if (!video) {
+                root.innerHTML = '<div class="mini-note">Sizes appear once a video is selected.</div>';
+                return;
+            }
+
+            root.innerHTML = sizeCatalog.map(size => {
+                const selected = video.sizeKeys.includes(size.key);
+                const active = selected && state.activeSizeKey === size.key;
+                return `
+                    <div class="size-chip ${active ? 'active' : ''}" data-size-key="${size.key}">
+                        <div>
+                            <div>${size.label}</div>
+                            <small>${size.ready ? 'Ready now' : 'Coming later'}</small>
+                        </div>
+                        <span class="pill ${selected ? 'active' : ''}">${selected ? 'On' : 'Off'}</span>
+                    </div>
+                `;
+            }).join('');
+
+            root.querySelectorAll('[data-size-key]').forEach(card => {
+                const key = card.dataset.sizeKey;
+                card.addEventListener('click', () => {
+                    const activeVideo = getActiveVideo();
+                    if (!activeVideo.sizeKeys.includes(key)) {
+                        toggleSize(key);
+                    }
+                    setActiveSize(key);
+                });
+                card.addEventListener('contextmenu', event => {
+                    event.preventDefault();
+                    toggleSize(key);
+                });
+            });
+        }
+
+        function renderModeRow() {
+            const video = getActiveVideo();
+            const row = document.getElementById('sizeModeRow');
+            if (!video) {
+                row.innerHTML = '';
+                return;
+            }
+            row.innerHTML = video.sizeKeys.map(key => {
+                const size = getSize(key);
+                return `<button class="mode-chip ${state.activeSizeKey === key ? 'active' : ''}" data-mode-key="${key}">${size.label}</button>`;
+            }).join('');
+            row.querySelectorAll('[data-mode-key]').forEach(btn => {
+                btn.addEventListener('click', () => setActiveSize(btn.dataset.modeKey));
+            });
+        }
+
+        function renderContext() {
+            const version = getActiveVersion();
+            const title = document.getElementById('activeTitle');
+            const subtitle = document.getElementById('activeSubtitle');
+            const help = document.getElementById('previewHelp');
+            const bar = document.getElementById('contextBar');
+
+            if (!version) {
+                title.textContent = 'Choose a version';
+                subtitle.textContent = 'Pick a video on the left, then choose a brand and size on the right.';
+                help.textContent = 'Brand defaults apply first. If this version needs a small change, save it here and keep moving.';
+                bar.innerHTML = '';
+                return;
+            }
+
+            const versionState = getVersionState(version.key);
+            title.textContent = version.videoLabel;
+            subtitle.textContent = `${version.brandName} • ${version.sizeLabel}`;
+            help.textContent = versionState.status === 'skipped'
+                ? 'This version is skipped and will not be processed.'
+                : versionState.status === 'edited'
+                    ? 'Changes are already applied to this version and will be included. Approve it when it looks right.'
+                    : 'If this version needs a small change, make it here and keep moving.';
+
+            const statusClass = versionState.status === 'approved'
+                ? 'good'
+                : versionState.status === 'edited'
+                    ? 'warning'
+                : versionState.status === 'skipped'
+                    ? 'danger'
+                    : 'warning';
+
+            bar.innerHTML = `
+                <span class="pill active">${version.videoLabel}</span>
+                <span class="pill active">${version.brandName}</span>
+                <span class="pill active">${version.sizeLabel}</span>
+                <span class="pill ${statusClass}">${versionState.status}</span>
+            `;
+        }
+
+        function renderProgress() {
+            const versions = getAllVersions();
+            const reviewed = versions.filter(version => getVersionState(version.key).reviewed).length;
+            document.getElementById('progressText').textContent = `${reviewed} of ${versions.length} versions reviewed`;
+            const activeVersion = getActiveVersion();
+            const position = document.getElementById('positionRow');
+            if (!activeVersion) {
+                position.innerHTML = '';
+                return;
+            }
+            const videoIndex = state.videos.findIndex(video => video.id === activeVersion.videoId) + 1;
+            const versionIndex = versions.findIndex(version => version.key === activeVersion.key) + 1;
+            position.innerHTML = `
+                <span class="pill">Video ${videoIndex} of ${state.videos.length}</span>
+                <span class="pill">Version ${versionIndex} of ${versions.length}</span>
+                <span class="pill">${reviewed} reviewed</span>
+            `;
+        }
+
+        function renderReviewStrip() {
+            const root = document.getElementById('reviewStrip');
+            const versions = getAllVersions();
+            if (!versions.length) {
+                root.innerHTML = '<div class="mini-note">Versions show up here once you choose brands and sizes.</div>';
+                return;
+            }
+            root.innerHTML = versions.map(version => {
+                const versionState = getVersionState(version.key);
+                const active = version.key === state.activeVersionKey;
+                const statusClass = versionState.status === 'approved'
+                    ? 'good'
+                    : versionState.status === 'edited'
+                        ? 'warning'
+                    : versionState.status === 'skipped'
+                        ? 'danger'
+                        : 'warning';
+                const statusClassName = versionState.status === 'approved'
+                    ? 'approved'
+                    : versionState.status === 'edited'
+                        ? 'edited'
+                    : versionState.status === 'skipped'
+                        ? 'skipped'
+                        : '';
+                return `
+                    <div class="review-chip ${active ? 'active' : ''} ${statusClassName}" data-version-key="${version.key}">
+                        <strong>${version.brandName}</strong>
+                        <small>${version.videoLabel}</small>
+                        <small>${version.sizeLabel}</small>
+                        <div style="margin-top:8px;"><span class="pill ${statusClass}">${versionState.status}</span></div>
+                    </div>
+                `;
+            }).join('');
+
+            root.querySelectorAll('[data-version-key]').forEach(card => {
+                card.addEventListener('click', () => setActiveVersion(card.dataset.versionKey));
+            });
+        }
+
+        function renderInputs() {
+            const version = getActiveVersion();
+            if (!version) return;
+            const settings = getEffectiveSettingsForVersion(version);
+            document.getElementById('logoScaleInput').value = settings.logo_scale;
+            document.getElementById('wmScaleInput').value = settings.watermark_scale;
+            document.getElementById('wmOpacityInput').value = settings.watermark_opacity;
+            document.getElementById('textInput').value = settings.text || '';
+            document.getElementById('logoXInput').value = settings.logo_x;
+            document.getElementById('logoYInput').value = settings.logo_y;
+            document.getElementById('applySameBrandBtn').textContent = `Use this for all ${version.brandName} versions`;
+            document.getElementById('applySameSizeBtn').textContent = `Use this for all ${version.sizeLabel} versions`;
+        }
+
+        function focusQuickFix(fixKey) {
+            state.activeQuickFix = fixKey;
+            const box = document.getElementById('quickFixBox');
+            const fineTune = document.getElementById('fineTuneAccordion');
+            const fineTuneLabel = document.getElementById('fineTuneToggleLabel');
+            fineTune.classList.add('open');
+            fineTuneLabel.textContent = 'Hide';
+
+            document.querySelectorAll('[data-fix]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.fix === fixKey);
+            });
+
+            if (fixKey === 'logo_scale') {
+                box.innerHTML = `
+                    <strong>Logo too big</strong>
+                    <div class="mini-note">Start by lowering Logo Size. If you still need it cleaner, move it slightly in More control.</div>
+                `;
+                document.getElementById('logoScaleInput').focus();
+            } else if (fixKey === 'logo_position') {
+                box.innerHTML = `
+                    <strong>Move logo</strong>
+                    <div class="mini-note">Use Logo Left / Right and Logo Up / Down in More control to place it where it feels right.</div>
+                `;
+                const advanced = document.getElementById('advancedAccordion');
+                const advancedLabel = document.getElementById('advancedToggleLabel');
+                advanced.classList.add('open');
+                advancedLabel.textContent = 'Hide';
+                document.getElementById('logoXInput').focus();
+            } else if (fixKey === 'watermark') {
+                box.innerHTML = `
+                    <strong>Move watermark</strong>
+                    <div class="mini-note">Soften it here for now. More precise placement can come later.</div>
+                `;
+                document.getElementById('wmScaleInput').focus();
+            } else if (fixKey === 'text') {
+                box.innerHTML = `
+                    <strong>Add text</strong>
+                    <div class="mini-note">Drop in a short line for this version, then save and keep moving.</div>
+                `;
+                document.getElementById('textInput').focus();
+            } else {
+                box.innerHTML = `
+                    <strong>Pick a quick fix</strong>
+                    <div class="mini-note">Start with the problem you see on this version. The matching controls will open below.</div>
+                `;
+            }
+        }
+
+        function resizeCanvas(canvas, width, height) {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.aspectRatio = `${width} / ${height}`;
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            return ctx;
+        }
+
+        function roundRect(ctx, x, y, width, height, radius) {
+            const r = Math.min(radius, width / 2, height / 2);
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + width, y, x + width, y + height, r);
+            ctx.arcTo(x + width, y + height, x, y + height, r);
+            ctx.arcTo(x, y + height, x, y, r);
+            ctx.arcTo(x, y, x + width, y, r);
+            ctx.closePath();
+        }
+
+        function drawPreview() {
+            const canvas = document.getElementById('previewCanvas');
+            const version = getActiveVersion();
+            const size = getSize(state.activeSizeKey);
+            const ctx = resizeCanvas(canvas, size.width, size.height);
+
+            ctx.clearRect(0, 0, size.width, size.height);
+
+            if (!version) {
+                ctx.fillStyle = '#303748';
+                ctx.fillRect(0, 0, size.width, size.height);
+                ctx.fillStyle = '#dbe6fb';
+                ctx.font = '600 28px Segoe UI';
+                ctx.fillText('Choose a version', 30, 80);
+                ctx.font = '18px Segoe UI';
+                ctx.fillStyle = '#afbdd9';
+                ctx.fillText('Then review it here.', 30, 118);
+                return;
+            }
+
+            const settings = getEffectiveSettingsForVersion(version);
+            const brand = getBrand(version.brandId);
+
+            const grad = ctx.createLinearGradient(0, 0, 0, size.height);
+            grad.addColorStop(0, '#454e67');
+            grad.addColorStop(1, '#2d3345');
+            ctx.fillStyle = grad;
+            roundRect(ctx, 0, 0, size.width, size.height, 26);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(255,255,255,0.05)';
+            for (let i = 0; i < 12; i += 1) {
+                ctx.fillRect(0, (size.height / 12) * i, size.width, 1);
+            }
+
+            ctx.fillStyle = 'rgba(0,0,0,0.30)';
+            roundRect(ctx, size.width * 0.16, size.height * 0.12, size.width * 0.68, size.height * 0.08, 16);
+            ctx.fill();
+
+            ctx.fillStyle = '#f7fafc';
+            ctx.font = `${Math.max(18, size.width * 0.06)}px Segoe UI`;
+            ctx.textAlign = 'center';
+            ctx.fillText(settings.text || 'Follow for more', size.width / 2, size.height * 0.17);
+
+            const wmScale = Math.max(40, settings.watermark_scale) / 100;
+            const wmW = size.width * wmScale;
+            const wmH = size.height * wmScale;
+            const wmX = (size.width - wmW) / 2;
+            const wmY = (size.height - wmH) / 2;
+            ctx.globalAlpha = Math.max(0.08, settings.watermark_opacity / 100 * 0.45);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `${Math.max(120, size.width * 0.3)}px Segoe UI`;
+            ctx.fillText(brand.short.charAt(0), wmX + wmW / 2, wmY + wmH * 0.62);
+            ctx.globalAlpha = 1;
+
+            const logoScale = Math.max(10, settings.logo_scale) / 100;
+            const logoW = size.width * logoScale * 1.45;
+            const logoH = Math.max(54, logoW * 0.52);
+            const logoX = (Math.max(0, settings.logo_x) / 100) * size.width - logoW / 2;
+            const logoY = (Math.max(0, settings.logo_y) / 100) * size.height - logoH / 2;
+            ctx.fillStyle = '#111722';
+            roundRect(ctx, logoX, logoY, logoW, logoH, 16);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(125,178,255,0.28)';
+            ctx.stroke();
+            ctx.fillStyle = '#8cc1ff';
+            ctx.font = `${Math.max(18, logoH * 0.36)}px Segoe UI`;
+            ctx.fillText(brand.short, logoX + logoW / 2, logoY + logoH * 0.58);
+
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#dce5f7';
+            ctx.font = `${Math.max(14, size.width * 0.038)}px Segoe UI`;
+            ctx.fillText(getSize(state.activeSizeKey).label, 18, 34);
+        }
+
+        function renderReadyStrip() {
+            const root = document.getElementById('resultsStrip');
+            const included = getAllVersions().filter(version => {
+                const versionState = getVersionState(version.key);
+                return versionState.status !== 'skipped';
+            });
+            root.innerHTML = included.length
+                ? included.map(version => `<span class="result-pill">${version.videoLabel} • ${version.brandName} • ${version.sizeLabel}</span>`).join('')
+                : '<div class="mini-note">Nothing is included yet. Only skipped versions are left out.</div>';
+        }
+
+        function renderDownloadLane() {
+            const root = document.getElementById('downloadList');
+            if (!state.videos.length) {
+                root.innerHTML = '<div class="mini-note">Add videos first, then choose whether you want raw files or the review lane.</div>';
+                return;
+            }
+            root.innerHTML = state.videos.map(video => `
+                <div class="download-card">
+                    <div class="download-left">
+                        <div class="download-thumb">${video.label.charAt(0)}</div>
+                        <div class="download-info">
+                            <strong>${video.label}</strong>
+                            <span>Raw file only</span>
+                            <div class="download-meta">
+                                <span class="pill good">Ready</span>
+                                <span class="pill">Prototype download</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="download-cta">
+                        <button class="btn" data-download-one="${video.id}">Prototype download</button>
+                        <span class="mini-note">Download action placeholder</span>
+                    </div>
+                </div>
+            `).join('');
+
+            root.querySelectorAll('[data-download-one]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    btn.textContent = 'Queued in prototype';
+                    btn.disabled = true;
+                });
+            });
+        }
+
+        function buildVersionPayload(version) {
+            const settings = getEffectiveSettingsForVersion(version);
+            return {
+                source_path: version.filename,
+                brand_ids: [version.brandId],
+                settings,
+                sizeKey: version.sizeKey,
+                sizeReady: version.sizeReady
+            };
+        }
+
+        function wait(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function startBranding() {
+            state.finishedRuns = [];
+            const includedVersions = getAllVersions().filter(version => {
+                const versionState = getVersionState(version.key);
+                return versionState.status !== 'skipped';
+            });
+
+            for (const version of includedVersions) {
+                const payload = buildVersionPayload(version);
+                if (window.location.protocol.startsWith('http') && payload.sizeKey === 'story') {
+                    try {
+                        await fetch('/api/videos/process_brands', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                source_path: payload.source_path,
+                                brand_ids: payload.brand_ids,
+                                logo_scale: payload.settings.logo_scale,
+                                logo_x: payload.settings.logo_x,
+                                logo_y: payload.settings.logo_y,
+                                watermark_scale: payload.settings.watermark_scale,
+                                watermark_opacity: payload.settings.watermark_opacity,
+                                custom_text: payload.settings.text
+                            })
+                        });
+                    } catch (error) {
+                        console.warn('Prototype request failed, keeping simulated result.', error);
+                    }
+                }
+
+                await wait(120);
+                state.finishedRuns.push({
+                    video: version.videoLabel,
+                    brand: version.brandName,
+                    size: version.sizeLabel,
+                    live: payload.sizeReady
+                });
+            }
+
+            renderReadyStrip();
+        }
+
+        function bindAccordions() {
+            const advanced = document.getElementById('advancedAccordion');
+            const advancedLabel = document.getElementById('advancedToggleLabel');
+            document.getElementById('advancedToggle').addEventListener('click', () => {
+                advanced.classList.toggle('open');
+                advancedLabel.textContent = advanced.classList.contains('open') ? 'Hide' : 'Show';
+            });
+
+            const fineTune = document.getElementById('fineTuneAccordion');
+            const fineTuneLabel = document.getElementById('fineTuneToggleLabel');
+            document.getElementById('fineTuneToggle').addEventListener('click', () => {
+                fineTune.classList.toggle('open');
+                fineTuneLabel.textContent = fineTune.classList.contains('open') ? 'Hide' : 'Show';
+            });
+
+            const results = document.getElementById('resultsAccordion');
+            const resultsLabel = document.getElementById('resultsToggleLabel');
+            document.getElementById('resultsToggle').addEventListener('click', () => {
+                results.classList.toggle('open');
+                resultsLabel.textContent = results.classList.contains('open') ? 'Hide' : 'Show';
+            });
+            results.classList.add('open');
+        }
+
+        function bindButtons() {
+            document.getElementById('seedBatchBtn').addEventListener('click', seedVideos);
+            document.getElementById('addMockBtn').addEventListener('click', addOneVideo);
+            document.getElementById('applyBrandsToAllBtn').addEventListener('click', applyBrandsToAll);
+            document.getElementById('resetOverridesBtn').addEventListener('click', resetCurrentVersion);
+            document.getElementById('approveBtn').addEventListener('click', approveAndNext);
+            document.getElementById('skipBtn').addEventListener('click', skipCurrentVersion);
+            document.getElementById('prevVersionBtn').addEventListener('click', () => setNextVersion(-1));
+            document.getElementById('applySameBrandBtn').addEventListener('click', applyToSameBrand);
+            document.getElementById('applySameSizeBtn').addEventListener('click', applyToSameSize);
+            document.getElementById('startBrandingBtn').addEventListener('click', startBranding);
+            document.getElementById('downloadLaneBtn').addEventListener('click', () => switchLane('download'));
+            document.getElementById('reviewLaneBtn').addEventListener('click', () => switchLane('review'));
+            document.getElementById('switchToReviewBtn').addEventListener('click', () => switchLane('review'));
+            document.getElementById('downloadAllBtn').addEventListener('click', () => {
+                document.getElementById('downloadAllBtn').textContent = 'Prototype downloads queued';
+                document.getElementById('downloadAllBtn').disabled = true;
+            });
+            document.querySelectorAll('[data-fix]').forEach(btn => {
+                btn.addEventListener('click', () => focusQuickFix(btn.dataset.fix));
+            });
+            ['logoScaleInput', 'wmScaleInput', 'wmOpacityInput', 'textInput', 'logoXInput', 'logoYInput'].forEach(id => {
+                const input = document.getElementById(id);
+                input.addEventListener('input', autoSaveCurrentVersion);
+                input.addEventListener('change', autoSaveCurrentVersion);
+            });
+        }
+
+        function renderAll() {
+            ensureSelections();
+            renderSummary();
+            renderVideoList();
+            renderDownloadLane();
+            renderBrandList();
+            renderSizeList();
+            renderModeRow();
+            renderContext();
+            renderProgress();
+            renderReviewStrip();
+            renderInputs();
+            drawPreview();
+            renderReadyStrip();
+        }
+
+        bindAccordions();
+        bindButtons();
+        seedVideos();
+        focusQuickFix(null);
+        switchLane('review');
+    </script>
+</body>
+</html>

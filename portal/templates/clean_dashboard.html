@@ -35,8 +35,350 @@
         max-width: 500px;
         margin: 15px auto;
         background: #202024;
-        padding: 18px;
+        padding: 14px;
         border-radius: 12px;
+    }
+    .intent-fork {
+        background: #181a20;
+        border: 1px solid #2f3340;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+    .intent-kicker {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--accent);
+        font-weight: 700;
+        margin-bottom: 6px;
+    }
+    .intent-title {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 6px;
+        color: #fff;
+    }
+    .intent-copy,
+    .lane-copy,
+    .review-subcopy {
+        color: #9ca3af;
+        font-size: 13px;
+        line-height: 1.5;
+        margin: 0;
+    }
+    .output-format-panel {
+        background: rgba(18, 21, 29, 0.86);
+        border: 1px solid rgba(70, 76, 92, 0.7);
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 14px;
+    }
+    .output-format-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #f6f7fb;
+        margin: 0 0 4px;
+    }
+    .output-format-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+    }
+    .output-format-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 11px;
+        border-radius: 999px;
+        border: 1px solid #343948;
+        background: #202531;
+        color: #d7dce6;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.2;
+    }
+    .output-format-pill.active {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        color: var(--accent-text);
+        box-shadow: 0 0 0 1px rgba(57, 255, 20, 0.14);
+    }
+    .output-format-pill.optional {
+        color: #b8c0d3;
+    }
+    .output-format-pill-tag {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.08);
+        color: #f5f7fb;
+        font-size: 10px;
+        font-weight: 800;
+    }
+    .output-format-state {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.06);
+        color: #aeb6c8;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+    .output-format-state.live {
+        background: rgba(57,255,20,0.14);
+        color: var(--accent);
+    }
+    .output-format-state.planned {
+        background: rgba(255,255,255,0.06);
+        color: #97a0b4;
+    }
+    .output-format-pill.active .output-format-pill-tag {
+        background: rgba(57,255,20,0.18);
+        color: var(--accent);
+    }
+    .output-format-note {
+        margin-top: 10px;
+        font-size: 11px;
+        color: #8f98ab;
+        line-height: 1.45;
+    }
+    .intent-choice-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-top: 14px;
+    }
+    .intent-choice-btn {
+        background: #262a35;
+        color: #fff;
+        border: 1px solid #343948;
+        font-size: 15px;
+        padding: 14px 12px;
+    }
+    .intent-choice-btn.active {
+        background: var(--accent-soft);
+        color: var(--accent);
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent-soft);
+    }
+    .intent-hint {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #8b93a7;
+    }
+    .download-lane {
+        background: #181a20;
+        border: 1px solid #2f3340;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+    .download-lane-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 14px;
+    }
+    .download-video-card,
+    .review-context-card {
+        background: #151821;
+        border: 1px solid #2c3240;
+        border-radius: 12px;
+        padding: 11px 12px;
+    }
+    .download-video-row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+    }
+    .download-poster {
+        width: 64px;
+        height: 64px;
+        border-radius: 10px;
+        background: linear-gradient(160deg, #2f3547, #171b24);
+        border: 1px solid #343a48;
+        flex: 0 0 auto;
+    }
+    .download-video-meta {
+        min-width: 0;
+        flex: 1;
+    }
+    .download-video-name,
+    .review-context-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #fff;
+        margin: 0 0 4px;
+    }
+    .download-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #7ff0b2;
+        background: rgba(40, 167, 69, 0.12);
+        margin-bottom: 6px;
+    }
+    .download-lane-note {
+        font-size: 12px;
+        color: #8b93a7;
+        margin-top: 10px;
+    }
+    .review-shell {
+        display: block;
+    }
+    .review-context-card {
+        margin-bottom: 6px;
+        padding: 9px 10px;
+        backdrop-filter: blur(10px);
+    }
+    #queueModeHeader {
+        position: sticky;
+        top: 68px;
+        z-index: 18;
+        background: linear-gradient(180deg, rgba(18,18,20,0.96), rgba(18,18,20,0.86) 82%, rgba(18,18,20,0));
+        padding-bottom: 2px;
+    }
+    .review-context-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 3px;
+    }
+    .review-context-title-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+    .review-context-kicker {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--accent);
+        font-weight: 700;
+    }
+    .review-context-main {
+        min-width: 0;
+        flex: 1;
+    }
+    .review-context-meta,
+    .review-progress {
+        font-size: 11px;
+        color: #a9b1c3;
+    }
+    .review-progress {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .review-state-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 7px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 700;
+        white-space: nowrap;
+        background: rgba(255,255,255,0.06);
+        color: #98a2b8;
+    }
+    .review-state-badge.default {
+        background: rgba(255,255,255,0.06);
+        color: #98a2b8;
+    }
+    .review-state-badge.edited {
+        background: rgba(245,166,35,0.14);
+        color: #F5A623;
+    }
+    .review-state-badge.approved {
+        background: rgba(57,255,20,0.14);
+        color: var(--accent);
+    }
+    .review-state-badge.skipped {
+        background: rgba(255,255,255,0.08);
+        color: #81899b;
+    }
+    .review-pill-strip {
+        display: none;
+    }
+    .review-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 10px;
+        align-items: stretch;
+    }
+    .review-actions .review-primary {
+        grid-column: 1 / -1;
+        background: var(--accent);
+        color: #121214;
+        box-shadow: 0 10px 22px rgba(57,255,20,0.14);
+    }
+    .review-actions .review-secondary {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.10);
+        color: #cfd5e2;
+    }
+    .review-actions .review-quiet {
+        background: transparent;
+        border: 1px solid #343948;
+        color: #b6bfd3;
+    }
+    .review-footer-actions {
+        margin-top: 4px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+    .review-footer-actions .btn-secondary {
+        width: auto;
+        margin: 0;
+        background: #2a3040;
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.10);
+        padding: 10px 12px;
+    }
+    .review-footer-actions .btn-secondary:disabled,
+    .review-footer-actions .btn-secondary.review-global-pending {
+        background: rgba(255,255,255,0.04);
+        color: #7f889a;
+        border-color: rgba(255,255,255,0.08);
+        box-shadow: none;
+        cursor: not-allowed;
+        opacity: 1;
+    }
+    .review-footer-actions .review-linkish {
+        width: auto;
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        border: none;
+        color: #98a2b8;
+        font-size: 12px;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+    .compact-summary {
+        font-size: 11px;
+        color: #c7cfdd;
+        text-align: right;
+        white-space: nowrap;
     }
     h2 {
         margin: 0 0 12px;
@@ -251,15 +593,19 @@
     #previewSection {
         display: none;
     }
+    #previewSection.review-active #createIntentFork {
+        display: none !important;
+    }
     .preview-container {
         position: relative;
         width: 100%;
         max-width: 360px;
         margin: 0 auto;
         background: #000;
-        border: 2px dashed #333;
+        border: 1px solid #3a4358;
         border-radius: 8px;
         overflow: hidden;
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.3);
     }
     #previewCanvas {
         display: block;
@@ -280,16 +626,16 @@
     
     /* ========== SLIDERS ========== */
     .slider-group {
-        margin: 15px 0;
+        margin: 9px 0;
     }
     .slider-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 8px;
+        margin-bottom: 5px;
     }
     .slider-label {
-        font-size: 14px;
+        font-size: 13px;
         color: #aaa;
     }
     .slider-value {
@@ -297,6 +643,7 @@
         color: var(--accent);
         min-width: 50px;
         text-align: right;
+        font-size: 12px;
     }
     input[type="range"] {
         -webkit-appearance: none;
@@ -329,8 +676,8 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 10px 0;
-        border-bottom: 1px solid #222;
+        padding: 7px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
     }
     .toggle-switch {
         position: relative;
@@ -392,6 +739,53 @@
     .status-msg.info { background: #1a3a4a; color: #7dd3fc; }
     .status-msg.success { background: #1a4a2e; color: #86efac; }
     .status-msg.error { background: #4a1a1a; color: #fca5a5; }
+    .status-msg.warning { background: #4a3816; color: #fcd34d; }
+    .review-complete-card {
+        margin: 6px 0 0;
+        padding: 10px 12px 9px;
+        background: linear-gradient(180deg, rgba(57,255,20,0.08), rgba(57,255,20,0.03));
+        border: 1px solid rgba(57,255,20,0.18);
+        border-radius: 10px;
+    }
+    .review-complete-title {
+        color: #f3f7ef;
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 3px;
+    }
+    .review-complete-meta {
+        color: #a9b1c3;
+        font-size: 12px;
+        margin-bottom: 2px;
+    }
+    .review-complete-sub {
+        color: #dce6d3;
+        font-size: 11px;
+        margin-bottom: 6px;
+    }
+    .review-complete-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+    }
+    .processing-state-card {
+        margin: 10px 0 0;
+        padding: 12px 14px;
+        background: rgba(125, 211, 252, 0.08);
+        border: 1px solid rgba(125, 211, 252, 0.16);
+        border-radius: 10px;
+    }
+    .processing-state-title {
+        color: #d8efff;
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+    .processing-state-meta {
+        color: #9fc5da;
+        font-size: 12px;
+    }
     
     /* ========== COLLAPSIBLE ========== */
     .collapsible-header {
@@ -635,13 +1029,20 @@
     }
 
     /* Selected video display */
+    #selectedVideoInfo {
+        background: rgba(24, 26, 32, 0.72);
+        border: 1px solid rgba(47, 51, 64, 0.72);
+        border-radius: 10px;
+        padding: 8px 10px;
+        margin-bottom: 10px;
+    }
     .selected-video-display {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 8px;
     }
     .selected-video-display .source-icon {
-        font-size: 24px;
+        font-size: 20px;
         flex-shrink: 0;
     }
     .selected-video-meta {
@@ -649,8 +1050,14 @@
         min-width: 0;
     }
     .selected-filename {
+        margin-bottom: 2px;
+    }
+    .selected-source {
+        line-height: 1.35;
+    }
+    .selected-filename {
         display: block;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
         color: #fff;
         white-space: nowrap;
@@ -660,19 +1067,20 @@
     .selected-source {
         display: block;
         font-size: 11px;
-        color: #666;
+        color: #81889a;
         margin-top: 2px;
     }
     .selected-video-actions {
         display: flex;
         gap: 8px;
-        margin-top: 10px;
+        margin-top: 6px;
+        flex-wrap: wrap;
     }
     .selected-video-actions button {
         width: auto;
         display: inline-block;
-        padding: 8px 16px;
-        font-size: 13px;
+        padding: 6px 10px;
+        font-size: 12px;
         margin-top: 0;
     }
     #replaceVideoBtn {
@@ -764,31 +1172,238 @@
         color: #555;
         text-transform: uppercase;
         letter-spacing: 1px;
-        margin: 16px 0 8px;
-        padding-top: 14px;
+        margin: 10px 0 6px;
+        padding-top: 8px;
         border-top: 1px solid #2a2a2e;
     }
     .zone-label:first-child { border-top: none; padding-top: 0; }
 
     /* Enhanced preview container */
     #previewSection .preview-container {
-        max-width: 400px;
-        border: 1px solid #333;
+        max-width: 360px;
+        border: 1px solid #46516a;
         border-radius: 10px;
-        margin-top: 12px;
+        margin-top: 8px;
+        background: linear-gradient(180deg, #0d1016, #050608);
+    }
+    #brandReviewLane.review-active {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+        align-items: start;
+        max-width: 860px;
+        margin: 0 auto;
+    }
+    #brandReviewLane:not(.review-active) #resultPreviewStrip {
+        display: none !important;
+    }
+    #brandReviewLane.review-active #outputFormatsSection,
+    #brandReviewLane.review-active #selectionModeHeader,
+    #brandReviewLane.review-active #brandsBox,
+    #brandReviewLane.review-active #selectionModeActions,
+    #brandReviewLane.review-active #noBrandsState,
+    #brandReviewLane.review-active #confirmationSummary,
+    #brandReviewLane.review-active #previewTargetBar {
+        display: none !important;
+    }
+    #brandReviewLane.review-active #queueModeHeader {
+        order: 1;
+        margin-bottom: 2px !important;
+    }
+    #brandReviewLane.review-active #resultPreviewStrip {
+        order: 2;
+        margin-top: 0;
+        padding-top: 0;
+    }
+    #brandReviewLane.review-active #previewContainer {
+        order: 3;
+        width: clamp(200px, 42vw, 300px);
+        aspect-ratio: 9 / 16;
+        max-width: 100%;
+        /* No max-height — aspect-ratio derives height from width, preserving 9:16 */
+        margin: 2px auto 0;
+        align-self: start;
+    }
+    #brandReviewLane.review-active #overrideControls {
+        order: 4;
+        margin-top: 2px;
+        max-height: min(34vh, 300px);
+        overflow: auto;
+    }
+    /* #confirmationSummary suppressed during review-active via shared display:none block above */
+    #brandReviewLane.review-active #queueModeActions {
+        order: 6;
+        position: sticky;
+        bottom: 10px;
+        z-index: 20;
+        margin-top: 2px;
+        padding: 8px 10px;
+        border-radius: 12px;
+        border: 1px solid rgba(79, 89, 111, 0.38);
+        background: rgba(11, 13, 18, 0.92);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+    }
+    #brandReviewLane.review-active #processResult {
+        order: 7;
+        margin-top: 2px !important;
+    }
+    @media (min-width: 1100px) {
+        #previewSection {
+            max-width: 980px;
+        }
+        #previewSection .preview-container {
+            max-width: 320px;
+            margin: 0;
+        }
+        #brandReviewLane.review-active {
+            grid-template-columns: minmax(260px, 320px) minmax(340px, 420px);
+            grid-template-areas:
+                "header header"
+                "rail rail"
+                "preview tweaks"
+                "preview actions"
+                "result result";
+            justify-content: center;
+            column-gap: 18px;
+            row-gap: 8px;
+        }
+        #brandReviewLane.review-active #queueModeHeader {
+            grid-area: header;
+        }
+        #brandReviewLane.review-active #resultPreviewStrip {
+            grid-area: rail;
+        }
+        #brandReviewLane.review-active #previewContainer {
+            grid-area: preview;
+            position: sticky;
+            top: 128px;
+            align-self: start;
+            width: clamp(250px, 19vw, 320px);
+            aspect-ratio: 9 / 16;
+            height: auto;
+            max-height: none;
+        }
+        #brandReviewLane.review-active #overrideControls {
+            grid-area: tweaks;
+            max-height: min(52vh, 520px);
+            overflow: auto;
+        }
+        #brandReviewLane.review-active #queueModeActions {
+            grid-area: actions;
+            align-self: end;
+        }
+        #brandReviewLane.review-active #processResult {
+            grid-area: result;
+        }
+    }
+    #overrideControls {
+        background: rgba(10, 12, 17, 0.42);
+        border: 1px solid rgba(88, 103, 132, 0.18);
+        border-radius: 12px;
+        padding: 10px 12px;
+        margin-top: 10px;
+    }
+    #overrideControls input[type="text"] {
+        padding: 10px 12px;
+        margin: 6px 0;
+        font-size: 14px;
+        background: #181b24;
+        border: 1px solid #2b3140;
+    }
+    .control-section {
+        border-top: 1px solid rgba(255,255,255,0.06);
+        padding-top: 8px;
+        margin-top: 8px;
+    }
+    .control-section:first-of-type {
+        border-top: none;
+        padding-top: 0;
+        margin-top: 0;
+    }
+    .control-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+        background: transparent;
+        color: #eef2f8;
+        border: 1px solid transparent;
+        padding: 4px 0;
+        margin: 0;
+        font-size: 14px;
+        font-weight: 700;
+    }
+    .control-toggle:hover,
+    .control-toggle:active {
+        background: transparent;
+        color: #fff;
+    }
+    .control-toggle .control-toggle-copy {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        text-align: left;
+    }
+    .control-toggle .control-toggle-title {
+        color: #eef2f8;
+        font-size: 14px;
+    }
+    .control-toggle .control-toggle-sub {
+        color: #8892a6;
+        font-size: 11px;
+        font-weight: 500;
+    }
+    .control-toggle .control-toggle-icon {
+        font-size: 12px;
+        color: #9ca3af;
+        transition: transform 0.18s ease;
+    }
+    .control-section.collapsed .control-toggle .control-toggle-icon {
+        transform: rotate(-90deg);
+    }
+    .control-body {
+        overflow: hidden;
+        transition: opacity 0.18s ease, max-height 0.18s ease, margin-top 0.18s ease;
+        max-height: 900px;
+        opacity: 1;
+        margin-top: 6px;
+    }
+    .control-section.collapsed .control-body {
+        max-height: 0;
+        opacity: 0;
+        margin-top: 0;
+        pointer-events: none;
+    }
+    .control-note {
+        color: #788296;
+        font-size: 11px;
+        margin: 4px 0 0;
+    }
+    .review-actions {
+        gap: 8px;
+        margin-top: 10px;
+    }
+    .review-actions button,
+    .review-footer-actions button {
+        padding: 11px 12px;
+        font-size: 14px;
+        margin-top: 0;
     }
 
     /* Enhanced start button */
     #startBrandingBtn {
-        font-size: 17px;
-        padding: 16px;
+        font-size: 16px;
+        padding: 13px;
         letter-spacing: 0.5px;
     }
 
     /* ========== PREVIEW TARGET BAR ========== */
     #previewTargetBar {
-        margin: 14px 0 0;
-        padding: 10px 14px;
+        margin: 10px 0 0;
+        padding: 7px 10px;
         background: var(--accent-muted);
         border: 1px solid var(--accent-soft);
         border-radius: 8px;
@@ -800,29 +1415,34 @@
         gap: 10px;
     }
     .ptb-center {
-        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
         flex: 1;
         min-width: 0;
     }
     .ptb-label {
-        font-size: 10px;
-        color: #666;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        display: none;
     }
     .ptb-name {
         color: var(--accent);
-        font-size: 15px;
+        font-size: 13px;
         font-weight: 700;
-        display: block;
+        display: inline-block;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
+    .ptb-format {
+        font-size: 10px;
+        color: #8d95a7;
+        white-space: nowrap;
+    }
     .ptb-override-tag {
         font-size: 10px;
         color: #F5A623;
-        margin-top: 2px;
+        margin-top: 0;
     }
     .ptb-nav-btn {
         width: auto;
@@ -842,22 +1462,22 @@
     .ptb-footer {
         display: flex;
         align-items: center;
-        justify-content: center;
-        gap: 12px;
-        margin-top: 8px;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 5px;
     }
     .ptb-counter {
-        font-size: 11px;
-        color: #666;
+        font-size: 10px;
+        color: #7c8597;
     }
     .ptb-reset-btn {
         width: auto;
-        padding: 4px 10px;
+        padding: 3px 8px;
         margin: 0;
         background: transparent;
         border: 1px solid #444;
         color: #888;
-        font-size: 11px;
+        font-size: 10px;
         border-radius: 4px;
     }
     .ptb-reset-btn:hover {
@@ -868,23 +1488,24 @@
 
     /* ========== RESULT PREVIEW STRIP ========== */
     #resultPreviewStrip {
-        margin: 12px 0 0;
-        padding: 10px 0;
+        margin: 4px 0 0;
+        padding: 2px 0 0;
         display: none;
     }
     .rps-label {
-        font-size: 10px;
+        font-size: 9px;
         color: #666;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        margin-bottom: 8px;
-        text-align: center;
+        margin-bottom: 4px;
+        text-align: left;
     }
     .rps-track {
         display: flex;
-        gap: 10px;
+        align-items: center;
+        gap: 4px;
         overflow-x: auto;
-        padding: 4px 2px 8px;
+        padding: 1px 1px 4px;
         scrollbar-width: thin;
         scrollbar-color: var(--accent-muted) transparent;
     }
@@ -895,96 +1516,127 @@
         background: var(--accent-muted);
         border-radius: 2px;
     }
-    .rps-card {
+    .rps-node {
         flex: 0 0 auto;
-        width: 90px;
-        background: #1a1a1e;
-        border: 1.5px solid #2a2a2e;
-        border-radius: 8px;
-        padding: 8px 6px;
-        text-align: center;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        max-width: 124px;
+        width: auto;
+        background: #171b24;
+        border: 1px solid #2a3140;
+        border-radius: 999px;
+        padding: 3px 6px 3px 3px;
+        margin: 0;
         cursor: pointer;
         transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
         position: relative;
+        text-align: left;
+        font-size: inherit;
+        font-weight: inherit;
     }
-    .rps-card:hover {
-        border-color: #444;
-        background: #222;
+    .rps-node:hover {
+        border-color: #475068;
+        background: #1d2230;
     }
-    .rps-card.rps-active {
+    .rps-node.rps-active {
         border-color: var(--accent);
         background: var(--accent-muted);
         box-shadow: 0 0 8px var(--accent-glow);
     }
-    .rps-thumb {
-        width: 48px;
-        height: 48px;
-        margin: 0 auto 6px;
-        border-radius: 6px;
-        background: #121214;
+    .rps-node-visual {
+        width: 20px;
+        height: 20px;
+        border-radius: 999px;
+        background: #101318;
+        border: 1px solid rgba(255,255,255,0.08);
         overflow: hidden;
         display: flex;
         align-items: center;
         justify-content: center;
-        position: relative;
     }
-    .rps-thumb canvas {
+    .rps-node-visual img {
         width: 100%;
         height: 100%;
-        display: block;
+        object-fit: contain;
     }
-    .rps-thumb .rps-placeholder {
-        font-size: 20px;
-        color: #444;
+    .rps-node-visual .rps-placeholder {
+        font-size: 11px;
+        color: #7b8499;
+        font-weight: 700;
+    }
+    .rps-node-copy {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
     }
     .rps-name {
-        font-size: 10px;
+        font-size: 9px;
         font-weight: 600;
-        color: #ccc;
+        color: #d9deea;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        line-height: 1.3;
+        line-height: 1.15;
     }
-    .rps-card.rps-active .rps-name {
+    .rps-node.rps-active .rps-name {
         color: var(--accent-text);
     }
     .rps-status {
-        font-size: 8px;
-        margin-top: 3px;
-        padding: 1px 5px;
-        border-radius: 3px;
-        display: inline-block;
+        font-size: 7px;
+        padding: 1px 4px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        background: rgba(255,255,255,0.05);
     }
     .rps-status-default {
         background: rgba(255,255,255,0.05);
-        color: #666;
+        color: #9098ab;
     }
     .rps-status-edited {
         background: rgba(245, 166, 35, 0.15);
         color: #F5A623;
     }
+    .rps-status-approved {
+        background: rgba(57,255,20,0.15);
+        color: var(--accent);
+    }
+    .rps-status-skipped {
+        background: rgba(255,255,255,0.05);
+        color: #7f8798;
+    }
+    .rps-node.rps-skipped {
+        opacity: 0.7;
+    }
     .rps-arrow {
         flex: 0 0 auto;
         display: flex;
         align-items: center;
-        color: #444;
-        font-size: 16px;
-        padding: 0 2px;
+        color: #4a5161;
+        font-size: 10px;
+        padding: 0;
     }
     .rps-source {
         flex: 0 0 auto;
-        width: 56px;
-        text-align: center;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+        max-width: 82px;
+        padding-right: 2px;
     }
     .rps-source-thumb {
-        width: 44px;
-        height: 44px;
-        margin: 0 auto 4px;
+        width: 18px;
+        height: 18px;
         border-radius: 6px;
         background: #121214;
-        border: 1px solid #333;
+        border: 1px solid #394150;
         overflow: hidden;
+        flex: 0 0 auto;
     }
     .rps-source-thumb img {
         width: 100%;
@@ -992,8 +1644,9 @@
         object-fit: cover;
     }
     .rps-source-label {
-        font-size: 9px;
-        color: #555;
+        font-size: 8px;
+        color: #9aa3b7;
+        white-space: nowrap;
     }
 
     /* ========== DUAL-LOGO COMPOSITION MODE ========== */
@@ -1090,8 +1743,8 @@
     }
     .rps-comp-badge {
         position: absolute;
-        top: 3px;
-        right: 3px;
+        top: -4px;
+        right: -2px;
         font-size: 7px;
         background: var(--accent-soft);
         color: var(--accent-text);
@@ -1099,6 +1752,47 @@
         border-radius: 3px;
         font-weight: 700;
         line-height: 1.3;
+    }
+
+    /* ========== REVIEW COCKPIT MODE ========== */
+    body.review-cockpit-active {
+        padding-bottom: 20px;
+    }
+
+    /* Suppress Room 1 chrome during active review — h1 title and intake stepper */
+    body.review-cockpit-active h1,
+    body.review-cockpit-active #stepProgress {
+        display: none !important;
+    }
+
+    /* Compact review session rail */
+    #queueModeHeader .review-context-card {
+        padding: 6px 10px 5px;
+    }
+    #queueModeHeader .review-context-top {
+        margin-bottom: 1px;
+    }
+    #queueModeHeader .review-context-title {
+        font-size: 13px;
+    }
+    #queueModeHeader .compact-summary {
+        font-size: 10px;
+    }
+    #queueModeHeader .review-context-meta {
+        font-size: 10px;
+    }
+    #queueModeHeader .review-state-badge {
+        font-size: 9px;
+        padding: 1px 6px;
+    }
+
+    /* Tighten preview → action gap */
+    .review-actions {
+        margin-top: 6px;
+        gap: 6px;
+    }
+    .review-footer-actions {
+        margin-top: 2px;
     }
 </style>
 </head>
@@ -1124,7 +1818,7 @@
     <div class="step-line" id="stepLine2"></div>
     <div class="step-item" id="step3">
         <span class="step-dot">3</span>
-        <span>Shipr</span>
+        <span>Results</span>
     </div>
 </div>
 
@@ -1221,10 +1915,9 @@
             </div>
         </div>
         <div class="selected-video-actions">
-            <button id="downloadRawBtn" onclick="downloadRawVideo()" style="font-size:13px; padding:6px 14px; background:#28a745; color:#fff; border:none; border-radius:6px; cursor:pointer;">Download Raw MP4</button>
-            <button id="changeVideoBtn" onclick="changeVideo()" class="btn-primary" style="font-size:13px; padding:6px 12px; margin-left:8px;">Change Video</button>
-            <button id="libraryBtn" onclick="goToLibrary()" class="btn-secondary" style="font-size:13px; padding:6px 12px; margin-left:8px;">Library</button>
-            <button id="clearVideoBtn" onclick="clearVideo()" class="btn-text" style="font-size:13px; padding:6px 12px; margin-left:8px; color:#888;">Clear</button>
+            <button id="changeVideoBtn" onclick="changeVideo()" class="btn-primary" style="font-size:12px; padding:6px 10px;">Change Video</button>
+            <button id="libraryBtn" onclick="goToLibrary()" class="btn-secondary" style="font-size:12px; padding:6px 10px;">Library</button>
+            <button id="clearVideoBtn" onclick="clearVideo()" class="btn-text" style="font-size:12px; padding:6px 10px; color:#888;">Clear</button>
         </div>
     </div>
 
@@ -1235,6 +1928,43 @@
 
 <!-- ========== SECTION 2: PREVIEW & CONFIGURE ========== -->
 <div class="section" id="previewSection" style="display:none;">
+    <div id="createIntentFork" style="display:none;">
+        <div class="intent-fork">
+            <div class="intent-kicker">Create</div>
+            <div class="intent-title" id="intentForkTitle">1 video ready. What do you want to do?</div>
+            <p class="intent-copy">Choose the fast path for raw files, or continue into branding and review.</p>
+            <div class="intent-choice-grid">
+                <button id="downloadIntentBtn" class="intent-choice-btn" onclick="setCreateIntent('download')">Download videos only</button>
+                <button id="reviewIntentBtn" class="intent-choice-btn" onclick="setCreateIntent('review')">Brand &amp; review</button>
+            </div>
+            <div class="intent-hint" id="intentHintText">You can switch lanes anytime without losing your current video.</div>
+        </div>
+    </div>
+
+    <div id="downloadLane" style="display:none;">
+        <div class="download-lane">
+            <div class="intent-kicker">Download</div>
+            <div class="intent-title">Grab the raw files fast</div>
+            <p class="lane-copy">Raw videos only. No branding applied. You can switch to Brand &amp; review anytime.</p>
+            <div class="download-video-card" style="margin-top:14px;">
+                <div class="download-video-row">
+                    <div class="download-poster"></div>
+                    <div class="download-video-meta">
+                        <div class="download-status">Ready</div>
+                        <div class="download-video-name" id="downloadLaneVideoName">No video selected</div>
+                        <div class="download-lane-note" id="downloadLaneVideoMeta">Select a video to download the raw MP4.</div>
+                    </div>
+                </div>
+                <div class="download-lane-actions">
+                    <button id="downloadLaneRawBtn" onclick="downloadRawVideo()">Download raw MP4</button>
+                    <button id="downloadLaneAllBtn" onclick="downloadAllBatchVideos()" class="btn-secondary" style="display:none;">Download all fetched videos</button>
+                </div>
+            </div>
+            <div class="download-lane-note" id="downloadLaneBatchNote">If you fetched multiple links, Download all uses the real batch download flow already in Create.</div>
+        </div>
+    </div>
+
+    <div id="brandReviewLane" style="display:none;">
     <!-- No Brands State -->
     <div id="noBrandsState" style="display:none; text-align:center; padding:30px 20px;">
         <p style="color:#666; font-size:16px; margin-bottom:20px;">You have no brands yet</p>
@@ -1244,9 +1974,37 @@
     </div>
     
     <!-- ===== BRAND SELECTION (shown in selection mode) ===== -->
+    <div id="outputFormatsSection" class="output-format-panel">
+        <div class="output-format-title">Output formats</div>
+        <p class="review-subcopy">Choose where this content should be prepared next. 9:16 is live now; other targets are planned.</p>
+        <div class="output-format-grid" id="outputFormatGrid">
+            <button type="button" class="output-format-pill active" data-format-key="reels916" onclick="toggleOutputFormat('reels916')">
+                <span class="output-format-pill-tag">9:16</span>
+                <span>TikTok / Reels</span>
+                <span class="output-format-state live">Live</span>
+            </button>
+            <button type="button" class="output-format-pill" data-format-key="feed11" onclick="toggleOutputFormat('feed11')">
+                <span class="output-format-pill-tag">1:1</span>
+                <span>Instagram Feed</span>
+                <span class="output-format-state planned">Planned</span>
+            </button>
+            <button type="button" class="output-format-pill" data-format-key="wide169" onclick="toggleOutputFormat('wide169')">
+                <span class="output-format-pill-tag">16:9</span>
+                <span>YouTube / X</span>
+                <span class="output-format-state planned">Planned</span>
+            </button>
+            <button type="button" class="output-format-pill optional" data-format-key="autoPack" onclick="toggleOutputFormat('autoPack')">
+                <span class="output-format-pill-tag">Auto</span>
+                <span>Auto platform pack</span>
+                <span class="output-format-state planned">Coming soon</span>
+            </button>
+        </div>
+        <div class="output-format-note" id="outputFormatSummary">9:16 is live now. Other formats are planned for future output support.</div>
+    </div>
+
     <div id="selectionModeHeader">
-        <h3 style="margin-top:0;">Select Brands <span style="color:#666;font-size:13px;font-weight:400;">(up to {{ max_brands_per_job }} per job)</span></h3>
-        <p style="color:#555; font-size:12px; margin:0 0 10px;">Tap to select, then preview and adjust below</p>
+        <h3 style="margin-top:0;">Choose brands <span style="color:#666;font-size:13px;font-weight:400;">(up to {{ max_brands_per_job }} per job)</span></h3>
+        <p class="review-subcopy" id="brandSelectionHelp" style="margin:0 0 10px;">Pick the brands you want, then review the live 9:16 version before processing. Planned formats stay visible here for what comes next.</p>
     </div>
     <div class="brand-grid" id="brandsBox"
          data-max-brands="{{ max_brands_per_job }}"
@@ -1258,22 +2016,22 @@
         <div class="ptb-row">
             <button id="prevPreviewBtn" class="ptb-nav-btn" onclick="cyclePreview(-1)">&#9664;</button>
             <div class="ptb-center">
-                <div class="ptb-label">Previewing</div>
                 <strong id="activePreviewName" class="ptb-name">--</strong>
-                <div id="overrideIndicator" class="ptb-override-tag" style="display:none;">session overrides active</div>
+                <span class="ptb-format">Story 9:16</span>
+                <div id="overrideIndicator" class="ptb-override-tag" style="display:none;">edited this session</div>
             </div>
             <button id="nextPreviewBtn" class="ptb-nav-btn" onclick="cyclePreview(1)">&#9654;</button>
         </div>
         <div class="ptb-footer">
             <span id="previewCounter" class="ptb-counter">1 of 1</span>
-            <button onclick="resetBrandToDefaults()" class="ptb-reset-btn">Reset to Defaults</button>
+            <button onclick="resetBrandToDefaults()" class="ptb-reset-btn">Reset this brand</button>
         </div>
     </div>
     
     {% if tier_features and tier_features.result_preview_strip_enabled %}
     <!-- ===== RESULT PREVIEW STRIP ===== -->
     <div id="resultPreviewStrip">
-        <div class="rps-label">Outputs</div>
+        <div class="rps-label">Review path</div>
         <div class="rps-track" id="rpsTrack">
             <!-- Dynamically populated by renderResultPreviewStrip() -->
         </div>
@@ -1287,180 +2045,226 @@
     </div>
     
     <!-- Queue Mode Header (hidden by default) -->
-    <div id="queueModeHeader" style="display:none; margin-bottom:15px;">
-        <div style="text-align:center; margin-bottom:10px;">
-            <span style="font-size:14px; color:#888;">Brand Queue</span>
+    <div id="queueModeHeader" style="display:none; margin-bottom:6px;">
+        <div class="review-context-card">
+            <div class="review-context-top">
+                <div class="review-context-main">
+                    <div class="review-context-title-row">
+                        <div class="review-context-title" id="reviewActiveTitle">Story 9:16</div>
+                        <span id="reviewStateBadge" class="review-state-badge default">Default</span>
+                    </div>
+                    <div class="review-context-meta" id="reviewContextMeta">Select a version to review.</div>
+                </div>
+                <div class="compact-summary" id="reviewProgressSummary">Version 1 of 1</div>
+            </div>
+            <div class="review-progress" id="queueStatusSummary"></div>
+            <div id="brandPillsContainer" class="review-pill-strip"></div>
         </div>
-        <!-- Clickable Brand Pills -->
-        <div id="brandPillsContainer" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:15px;"></div>
-        <!-- Status Summary -->
-        <div id="queueStatusSummary" style="text-align:center; font-size:12px; color:#666; margin-bottom:10px;"></div>
     </div>
     
     <!-- Override Controls (hidden in Selection Mode) -->
     <div id="overrideControls" style="display:none;">
     
-    <div class="zone-label">Adjustments</div>
+    <div class="zone-label">Quick tweaks</div>
     
-    <!-- Watermark Controls -->
-    <h3>🔍 Watermark</h3>
-    <div class="slider-group">
-        <div class="slider-header">
-            <span class="slider-label">Scale</span>
-            <span class="slider-value" id="wmScaleVal">115%</span>
+    <div class="control-section" id="watermarkSection">
+        <button type="button" class="control-toggle" onclick="toggleControlSection('watermarkSection')">
+            <span class="control-toggle-copy">
+                <span class="control-toggle-title">Watermark</span>
+                <span class="control-toggle-sub">Tighten the mark before you move on.</span>
+            </span>
+            <span class="control-toggle-icon">&#9662;</span>
+        </button>
+        <div class="control-body">
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span class="slider-label">Scale</span>
+                    <span class="slider-value" id="wmScaleVal">115%</span>
+                </div>
+                <input type="range" id="wmScale" min="10" max="130" value="100" oninput="document.getElementById('wmScaleVal').textContent = this.value + '%'; updateCanvasPreview();">
+            </div>
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span class="slider-label">Opacity</span>
+                    <span class="slider-value" id="wmOpacityVal">40%</span>
+                </div>
+                <input type="range" id="wmOpacity" min="10" max="80" value="40" oninput="document.getElementById('wmOpacityVal').textContent = this.value + '%'; updateCanvasPreview();">
+            </div>
+            <div class="toggle-row">
+                <span class="slider-label">Show bounds</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="showBounds">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
         </div>
-        <input type="range" id="wmScale" min="100" max="200" value="115" oninput="document.getElementById('wmScaleVal').textContent = this.value + '%'; updateCanvasPreview();">
     </div>
-    <div class="slider-group">
-        <div class="slider-header">
-            <span class="slider-label">Opacity</span>
-            <span class="slider-value" id="wmOpacityVal">40%</span>
+
+    <div class="control-section" id="logoSection">
+        <button type="button" class="control-toggle" onclick="toggleControlSection('logoSection')">
+            <span class="control-toggle-copy">
+                <span class="control-toggle-title">Logo</span>
+                <span class="control-toggle-sub">Resize, rotate, or drag it into place.</span>
+            </span>
+            <span class="control-toggle-icon">&#9662;</span>
+        </button>
+        <div class="control-body">
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span class="slider-label">Size</span>
+                    <span class="slider-value" id="logoScaleVal">25%</span>
+                </div>
+                <input type="range" id="logoScale" min="8" max="25" value="25" oninput="document.getElementById('logoScaleVal').textContent = this.value + '%'; updateCanvasPreview();">
+            </div>
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span class="slider-label">Rotation</span>
+                    <span class="slider-value" id="logoRotationVal">0°</span>
+                </div>
+                <input type="range" id="logoRotation" min="0" max="360" value="0" oninput="document.getElementById('logoRotationVal').textContent = this.value + '°'; logoRotationDegrees = parseInt(this.value); updateCanvasPreview();">
+            </div>
+            <p class="control-note">Drag the logo on the preview if it needs a quick nudge.</p>
         </div>
-        <input type="range" id="wmOpacity" min="10" max="80" value="40" oninput="document.getElementById('wmOpacityVal').textContent = this.value + '%'; updateCanvasPreview();">
     </div>
-    <div class="toggle-row">
-        <span class="slider-label">Show Bounds</span>
-        <label class="toggle-switch">
-            <input type="checkbox" id="showBounds">
-            <span class="toggle-slider"></span>
-        </label>
-    </div>
-    
-    <!-- Logo Controls -->
-    <h3>🏷️ Logo</h3>
-    <div class="slider-group">
-        <div class="slider-header">
-            <span class="slider-label">Size</span>
-            <span class="slider-value" id="logoScaleVal">25%</span>
-        </div>
-        <input type="range" id="logoScale" min="8" max="25" value="25" oninput="document.getElementById('logoScaleVal').textContent = this.value + '%'; updateCanvasPreview();">
-    </div>
-    <div class="slider-group">
-        <div class="slider-header">
-            <span class="slider-label">Rotation</span>
-            <span class="slider-value" id="logoRotationVal">0°</span>
-        </div>
-        <input type="range" id="logoRotation" min="0" max="360" value="0" oninput="document.getElementById('logoRotationVal').textContent = this.value + '°'; logoRotationDegrees = parseInt(this.value); updateCanvasPreview();">
-    </div>
-    <p style="color:#666; font-size:12px; margin:5px 0;">💡 Drag logo on preview to reposition</p>
     
     {% if tier_features and tier_features.dual_logo_composition_enabled %}
-    <!-- Dual-Logo Composition Mode (Platinum+ only) -->
-    <div class="comp-section" id="compSection">
-        <h3>Composition Mode <span class="comp-tier-badge">{{ tier }}</span></h3>
-        <p style="color:#666; font-size:11px; margin:0 0 8px;">Add a secondary logo to this brand's output.</p>
-        <div class="toggle-row">
-            <span class="slider-label">Enable Secondary Logo</span>
-            <label class="toggle-switch">
-                <input type="checkbox" id="compEnabled" onchange="onCompToggle()">
-                <span class="toggle-slider"></span>
-            </label>
-        </div>
-        <div id="compControls" style="display:none;">
-            <p style="color:#666; font-size:11px; margin:8px 0 4px;">Pick from your other brand logos:</p>
-            <div class="comp-logo-grid" id="compLogoGrid">
-                <!-- Populated by renderCompLogoGrid() -->
-            </div>
-            <div class="comp-controls">
-                <div class="slider-group">
-                    <div class="slider-header">
-                        <span class="slider-label">Size</span>
-                        <span class="slider-value" id="compScaleVal">12%</span>
-                    </div>
-                    <input type="range" id="compScale" min="5" max="30" value="12" oninput="document.getElementById('compScaleVal').textContent = this.value + '%'; updateCanvasPreview();">
+    <div class="control-section collapsed" id="compositionSection">
+        <button type="button" class="control-toggle" onclick="toggleControlSection('compositionSection')">
+            <span class="control-toggle-copy">
+                <span class="control-toggle-title">Composition mode</span>
+                <span class="control-toggle-sub">Optional secondary logo for this version.</span>
+            </span>
+            <span class="control-toggle-icon">&#9662;</span>
+        </button>
+        <div class="control-body">
+            <div class="comp-section" id="compSection">
+                <div class="toggle-row">
+                    <span class="slider-label">Enable secondary logo</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="compEnabled" onchange="onCompToggle()">
+                        <span class="toggle-slider"></span>
+                    </label>
                 </div>
-                <div class="slider-group">
-                    <div class="slider-header">
-                        <span class="slider-label">Opacity</span>
-                        <span class="slider-value" id="compOpacityVal">90%</span>
+                <div id="compControls" style="display:none;">
+                    <p class="control-note" style="margin:8px 0 4px;">Pick from your other brand logos.</p>
+                    <div class="comp-logo-grid" id="compLogoGrid">
+                        <!-- Populated by renderCompLogoGrid() -->
                     </div>
-                    <input type="range" id="compOpacity" min="10" max="100" value="90" oninput="document.getElementById('compOpacityVal').textContent = this.value + '%'; updateCanvasPreview();">
-                </div>
-                <div class="slider-group">
-                    <div class="slider-header">
-                        <span class="slider-label">Rotation</span>
-                        <span class="slider-value" id="compRotationVal">0°</span>
+                    <div class="comp-controls">
+                        <div class="slider-group">
+                            <div class="slider-header">
+                                <span class="slider-label">Size</span>
+                                <span class="slider-value" id="compScaleVal">12%</span>
+                            </div>
+                            <input type="range" id="compScale" min="5" max="30" value="12" oninput="document.getElementById('compScaleVal').textContent = this.value + '%'; updateCanvasPreview();">
+                        </div>
+                        <div class="slider-group">
+                            <div class="slider-header">
+                                <span class="slider-label">Opacity</span>
+                                <span class="slider-value" id="compOpacityVal">90%</span>
+                            </div>
+                            <input type="range" id="compOpacity" min="10" max="100" value="90" oninput="document.getElementById('compOpacityVal').textContent = this.value + '%'; updateCanvasPreview();">
+                        </div>
+                        <div class="slider-group">
+                            <div class="slider-header">
+                                <span class="slider-label">Rotation</span>
+                                <span class="slider-value" id="compRotationVal">0°</span>
+                            </div>
+                            <input type="range" id="compRotation" min="0" max="360" value="0" oninput="document.getElementById('compRotationVal').textContent = this.value + '°'; updateCanvasPreview();">
+                        </div>
+                        <p class="control-note">Drag the secondary logo on the preview if it needs to move.</p>
+                        <button class="comp-clear-btn" onclick="resetSecondaryLogo()">Reset secondary logo</button>
                     </div>
-                    <input type="range" id="compRotation" min="0" max="360" value="0" oninput="document.getElementById('compRotationVal').textContent = this.value + '°'; updateCanvasPreview();">
                 </div>
-                <p style="color:#666; font-size:11px; margin:4px 0;">Position: top-right by default. Drag on canvas to move.</p>
-                <button class="comp-clear-btn" onclick="resetSecondaryLogo()">Reset Secondary Logo</button>
             </div>
         </div>
     </div>
     {% endif %}
     
-    <!-- Text Layer Controls -->
-    <h3>✍️ Text Layer</h3>
-    <div class="toggle-row">
-        <span class="slider-label">Enable Text</span>
-        <label class="toggle-switch">
-            <input type="checkbox" id="textEnabled" onchange="updateCanvasPreview()">
-            <span class="toggle-slider"></span>
-        </label>
-    </div>
-    <div id="textControls" style="display:none;">
-        <div class="slider-group">
-            <div class="slider-header">
-                <span class="slider-label">Text Content</span>
+    <div class="control-section collapsed" id="textLayerSection">
+        <button type="button" class="control-toggle" onclick="toggleControlSection('textLayerSection')">
+            <span class="control-toggle-copy">
+                <span class="control-toggle-title">Text layer</span>
+                <span class="control-toggle-sub">Add a quick message only if this version needs it.</span>
+            </span>
+            <span class="control-toggle-icon">&#9662;</span>
+        </button>
+        <div class="control-body">
+            <div class="toggle-row">
+                <span class="slider-label">Enable text</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="textEnabled" onchange="updateCanvasPreview()">
+                    <span class="toggle-slider"></span>
+                </label>
             </div>
-            <input type="text" id="textContent" placeholder="e.g., Follow for more..." oninput="updateCanvasPreview()">
-        </div>
-        <div class="slider-group">
-            <div class="slider-header">
-                <span class="slider-label">Font Size</span>
-                <span class="slider-value" id="textSizeVal">48px</span>
+            <div id="textControls" style="display:none;">
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Text</span>
+                    </div>
+                    <input type="text" id="textContent" placeholder="e.g., Follow for more..." oninput="updateCanvasPreview()">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Font size</span>
+                        <span class="slider-value" id="textSizeVal">48px</span>
+                    </div>
+                    <input type="range" id="textSize" min="24" max="96" value="48" oninput="document.getElementById('textSizeVal').textContent = this.value + 'px'; updateCanvasPreview();">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Text color</span>
+                        <span class="slider-value" id="textColorVal">#FFFFFF</span>
+                    </div>
+                    <input type="color" id="textColor" value="#FFFFFF" onchange="document.getElementById('textColorVal').textContent = this.value; updateCanvasPreview();" style="width:100%; height:40px; border:none; border-radius:8px; cursor:pointer;">
+                </div>
+                <div class="toggle-row">
+                    <span class="slider-label">Background box</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="textBgEnabled" checked onchange="updateCanvasPreview()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">BG opacity</span>
+                        <span class="slider-value" id="textBgOpacityVal">60%</span>
+                    </div>
+                    <input type="range" id="textBgOpacity" min="20" max="100" value="60" oninput="document.getElementById('textBgOpacityVal').textContent = this.value + '%'; updateCanvasPreview();">
+                </div>
+                <p class="control-note">Drag the text on the preview if it needs a better spot.</p>
             </div>
-            <input type="range" id="textSize" min="24" max="96" value="48" oninput="document.getElementById('textSizeVal').textContent = this.value + 'px'; updateCanvasPreview();">
         </div>
-        <div class="slider-group">
-            <div class="slider-header">
-                <span class="slider-label">Text Color</span>
-                <span class="slider-value" id="textColorVal">#FFFFFF</span>
-            </div>
-            <input type="color" id="textColor" value="#FFFFFF" onchange="document.getElementById('textColorVal').textContent = this.value; updateCanvasPreview();" style="width:100%; height:40px; border:none; border-radius:8px; cursor:pointer;">
-        </div>
-        <div class="toggle-row">
-            <span class="slider-label">Background Box</span>
-            <label class="toggle-switch">
-                <input type="checkbox" id="textBgEnabled" checked onchange="updateCanvasPreview()">
-                <span class="toggle-slider"></span>
-            </label>
-        </div>
-        <div class="slider-group">
-            <div class="slider-header">
-                <span class="slider-label">BG Opacity</span>
-                <span class="slider-value" id="textBgOpacityVal">60%</span>
-            </div>
-            <input type="range" id="textBgOpacity" min="20" max="100" value="60" oninput="document.getElementById('textBgOpacityVal').textContent = this.value + '%'; updateCanvasPreview();">
-        </div>
-        <p style="font-size:11px; color:#888; margin-top:8px;">💡 Drag text on canvas to reposition</p>
     </div>
     
     </div><!-- End overrideControls -->
     
-    <!-- Confirmation Summary (above Start Branding button) -->
-    <div id="confirmationSummary" style="background: var(--accent-soft); border: 1px solid var(--accent-glow); border-radius: 8px; padding: 12px; margin: 15px 0; font-size: 13px; line-height: 1.6;">
-        <div style="color: var(--accent); font-weight: 600; margin-bottom: 6px;">⚡ Ready to Process:</div>
+    <!-- Confirmation Summary — hidden; editor lives in the review cockpit only -->
+    <div id="confirmationSummary" style="display:none; background: var(--accent-soft); border: 1px solid var(--accent-glow); border-radius: 8px; padding: 10px 12px; margin: 12px 0; font-size: 13px; line-height: 1.55;">
+        <div style="color: var(--accent); font-weight: 600; margin-bottom: 6px;">⚡ Included in this 9:16 run:</div>
         <div id="summaryText" style="color: #ccc;"></div>
     </div>
     
     <!-- Selection Mode Button -->
     <div id="selectionModeActions">
-        <button onclick="enterQueueMode()" id="startBrandingBtn" style="background:var(--accent); margin-top:15px;">🚀 Start Branding</button>
+        <button onclick="enterQueueMode()" id="startBrandingBtn" style="background:var(--accent); margin-top:15px;">Start review</button>
     </div>
     
     <!-- Queue Mode Actions (hidden by default) -->
     <div id="queueModeActions" style="display:none;">
-        <button onclick="processCurrentBrand()" id="processCurrentBtn" style="background:#28a745;">⚡ Process This Brand</button>
-        <button onclick="processAllBrands()" id="processAllBtn" style="background:var(--accent); margin-top:10px;">🚀 Process All Remaining</button>
-        <div style="display:flex; gap:10px; margin-top:10px;">
-            <button onclick="skipBrand()" style="flex:1; background:#666;">Skip</button>
-            <button onclick="exitQueueMode()" style="flex:1; background:#c00;">Exit Queue</button>
+        <div class="review-actions">
+            <button onclick="reviewPrevious()" class="review-quiet">Previous</button>
+            <button onclick="skipBrand()" class="review-secondary">Skip</button>
+            <button onclick="approveAndNext()" id="approveNextBtn" class="review-primary">Approve &amp; Next</button>
+        </div>
+        <div class="review-footer-actions">
+            <button onclick="processAllBrands()" id="processAllBtn" class="btn-secondary">Start branding</button>
+            <button onclick="exitQueueMode()" class="review-linkish">Back to brands</button>
         </div>
     </div>
     
-    <div id="processResult" style="margin-top:10px;"></div>
+    <div id="processResult" style="margin-top:6px;"></div>
+    </div>
 </div>
 
 <!-- ========== SECTION 3: DEBUG (Collapsed, Admin Only) ========== -->
@@ -1505,6 +2309,7 @@ function updateStepProgress(activeStep) {
 
 // ========== STATE ==========
 let currentFile = null;
+let createIntent = null;
 let selectedBrandIds = [];  // Use brand IDs (not names) for selection
 let activePreviewBrandId = null;  // Track which brand's preview is currently shown
 let brandDataCache = {};    // Cache full brand objects by ID
@@ -1539,6 +2344,15 @@ let secLogoSelectedBrandId = null;  // Which brand's logo is used as secondary
 let isQueueMode = false;
 let processingQueue = [];
 let currentQueueIndex = 0;
+let isReviewCompletionState = false;
+let selectedOutputFormats = ['reels916'];
+
+const OUTPUT_FORMAT_OPTIONS = {
+    reels916: { label: 'TikTok / Reels (9:16)' },
+    feed11: { label: 'Instagram Feed (1:1)' },
+    wide169: { label: 'YouTube / X (16:9)' },
+    autoPack: { label: 'Auto platform pack' }
+};
 
 // ========== PER-BRAND OVERRIDE STATE (selection mode) ==========
 let brandOverrides = {};  // { brandId: { watermark_scale, watermark_opacity, logo_x, ... } }
@@ -1601,10 +2415,430 @@ function recoverJobItems() {
     }
 }
 
+function getCurrentFileJobItems() {
+    if (!currentFile) return [];
+    return jobItems.filter(item => item.filename === currentFile);
+}
+
+function getCanonicalSelectedBrandIds() {
+    const seen = new Set();
+    return selectedBrandIds.filter(brandId => {
+        if (!Number.isInteger(brandId)) return false;
+        if (!brandDataCache[brandId]) return false;
+        if (seen.has(brandId)) return false;
+        seen.add(brandId);
+        return true;
+    });
+}
+
+function getReviewableQueueItems() {
+    if (isQueueMode && processingQueue.length > 0) {
+        return processingQueue.filter(item => item && Number.isInteger(item.brand_id) && !!brandDataCache[item.brand_id]);
+    }
+    return processingQueue;
+}
+
+function resetCreateReviewSession(reason) {
+    const previousFile = currentFile;
+    console.log('[BRANDR] Resetting create review session:', reason || 'unspecified');
+
+    isQueueMode = false;
+    processingQueue = [];
+    currentQueueIndex = 0;
+    activeItemIndex = -1;
+    selectedBrandIds = [];
+    activePreviewBrandId = null;
+    brandOverrides = {};
+
+    frameData = null;
+    watermarkImg = null;
+    logoImg = null;
+    secondaryLogoImg = null;
+    secLogoSelectedBrandId = null;
+
+    // Restore neutral per-run control state without touching saved brand defaults.
+    loadOverridesIntoSliders(getDefaultOverrides());
+
+    if (previousFile) {
+        const beforeCount = jobItems.length;
+        jobItems = jobItems.filter(item => item.filename !== previousFile);
+        if (beforeCount !== jobItems.length) {
+            persistJobItems();
+            console.log(`[JobItems] Cleared ${beforeCount - jobItems.length} stale items for ${previousFile}`);
+        }
+    } else {
+        persistJobItems();
+    }
+
+    document.querySelectorAll('.brand-btn.selected').forEach(btn => btn.classList.remove('selected'));
+    document.querySelectorAll('.brand-btn.active-preview').forEach(btn => btn.classList.remove('active-preview'));
+
+    const result = document.getElementById('processResult');
+    if (result) result.innerHTML = '';
+
+    const queueModeHeader = document.getElementById('queueModeHeader');
+    if (queueModeHeader) queueModeHeader.style.display = 'none';
+
+    const queueModeActions = document.getElementById('queueModeActions');
+    if (queueModeActions) queueModeActions.style.display = 'none';
+
+    const selectionModeHeader = document.getElementById('selectionModeHeader');
+    if (selectionModeHeader) selectionModeHeader.style.display = 'block';
+
+    const selectionModeActions = document.getElementById('selectionModeActions');
+    if (selectionModeActions) selectionModeActions.style.display = 'block';
+
+    const brandsBox = document.getElementById('brandsBox');
+    if (brandsBox) brandsBox.style.display = 'grid';
+
+    const videoSourceSection = document.getElementById('videoSourceSection');
+    if (videoSourceSection) videoSourceSection.style.display = 'block';
+
+    const overrideControls = document.getElementById('overrideControls');
+    if (overrideControls) overrideControls.style.display = 'none';
+
+    const previewTargetBar = document.getElementById('previewTargetBar');
+    if (previewTargetBar) previewTargetBar.style.display = 'none';
+
+    const resultStrip = document.getElementById('resultPreviewStrip');
+    if (resultStrip) resultStrip.style.display = 'none';
+
+    const rpsTrack = document.getElementById('rpsTrack');
+    if (rpsTrack) rpsTrack.innerHTML = '';
+
+    const brandPills = document.getElementById('brandPillsContainer');
+    if (brandPills) brandPills.innerHTML = '';
+
+    const reviewTitle = document.getElementById('reviewContextTitle');
+    if (reviewTitle) reviewTitle.textContent = 'Reviewing: --';
+
+    const reviewMeta = document.getElementById('reviewContextMeta');
+    if (reviewMeta) reviewMeta.textContent = 'Pick the brands you want, then review the live 9:16 version before processing.';
+
+    const reviewSummary = document.getElementById('reviewProgressSummary');
+    if (reviewSummary) reviewSummary.textContent = 'Version 1 of 1';
+
+    const queueSummary = document.getElementById('queueStatusSummary');
+    if (queueSummary) queueSummary.textContent = '';
+
+    const reviewStateBadge = document.getElementById('reviewStateBadge');
+    if (reviewStateBadge) {
+        reviewStateBadge.textContent = 'Default';
+        reviewStateBadge.className = 'review-state-badge default';
+    }
+
+    updateCreateIntentUI();
+    updateConfirmationSummary();
+}
+
+function syncQueueItemToJobItem(queueItem) {
+    if (!currentFile || !queueItem || !queueItem.brand_id) return;
+    const item = jobItems.find(job => job.filename === currentFile && job.brandId === queueItem.brand_id);
+    if (!item) return;
+    if (queueItem.reviewDecision !== undefined) item.reviewDecision = queueItem.reviewDecision;
+    if (queueItem.status) {
+        item.status = queueItem.status === 'done' ? 'completed' : queueItem.status === 'failed' ? 'error' : queueItem.status;
+    }
+    persistJobItems();
+}
+
+function syncReviewViewportState() {
+    const previewSection = document.getElementById('previewSection');
+    const reviewLane = document.getElementById('brandReviewLane');
+    const resultStrip = document.getElementById('resultPreviewStrip');
+    const track = document.getElementById('rpsTrack');
+    const reviewActive = !!(isQueueMode && createIntent === 'review');
+
+    if (previewSection) {
+        previewSection.classList.toggle('review-active', reviewActive);
+    }
+    if (reviewLane) {
+        reviewLane.classList.toggle('review-active', reviewActive);
+    }
+    if (!reviewActive && resultStrip) {
+        resultStrip.style.display = 'none';
+        if (track) track.innerHTML = '';
+    }
+    document.body.classList.toggle('review-cockpit-active', reviewActive);
+}
+
+function updateIntentForkTitle() {
+    const title = document.getElementById('intentForkTitle');
+    if (!title) return;
+    const batchCount = batchSuccessfulVideos && batchSuccessfulVideos.length ? batchSuccessfulVideos.length : 0;
+    if (batchCount > 1) {
+        title.textContent = `${batchCount} videos ready. What do you want to do?`;
+    } else if (currentFile) {
+        title.textContent = '1 video ready. What do you want to do?';
+    } else {
+        title.textContent = 'Choose what to do with your videos.';
+    }
+}
+
+function updateDownloadLane() {
+    const rawBtn = document.getElementById('downloadLaneRawBtn');
+    const allBtn = document.getElementById('downloadLaneAllBtn');
+    const nameEl = document.getElementById('downloadLaneVideoName');
+    const metaEl = document.getElementById('downloadLaneVideoMeta');
+    const batchNote = document.getElementById('downloadLaneBatchNote');
+    if (!rawBtn || !allBtn || !nameEl || !metaEl || !batchNote) return;
+
+    rawBtn.disabled = !currentFile;
+    nameEl.textContent = currentFile || 'No video selected';
+    metaEl.textContent = currentFile
+        ? ((document.getElementById('selectedSource').textContent || 'Raw MP4 ready to download.'))
+        : 'Select a video to download the raw MP4.';
+
+    const batchCount = batchSuccessfulVideos && batchSuccessfulVideos.length ? batchSuccessfulVideos.length : 0;
+    if (batchCount > 1) {
+        allBtn.style.display = 'block';
+        allBtn.textContent = `Download all ${batchCount} fetched videos`;
+        batchNote.textContent = `${batchCount} fetched videos are ready. Download all uses the existing batch download flow.`;
+    } else {
+        allBtn.style.display = 'none';
+        batchNote.textContent = 'If you fetched multiple links, Download all uses the real batch download flow already in Create.';
+    }
+}
+
+function updateCreateIntentUI() {
+    const fork = document.getElementById('createIntentFork');
+    const downloadLane = document.getElementById('downloadLane');
+    const reviewLane = document.getElementById('brandReviewLane');
+    const downloadBtn = document.getElementById('downloadIntentBtn');
+    const reviewBtn = document.getElementById('reviewIntentBtn');
+    const resultStrip = document.getElementById('resultPreviewStrip');
+    if (!fork || !downloadLane || !reviewLane || !downloadBtn || !reviewBtn) return;
+
+    const hasMedia = !!currentFile || (batchSuccessfulVideos && batchSuccessfulVideos.length > 0);
+    fork.style.display = hasMedia ? 'block' : 'none';
+    updateIntentForkTitle();
+    updateDownloadLane();
+
+    downloadBtn.classList.toggle('active', createIntent === 'download');
+    reviewBtn.classList.toggle('active', createIntent === 'review');
+
+    downloadLane.style.display = createIntent === 'download' ? 'block' : 'none';
+    reviewLane.style.display = createIntent === 'review' ? 'block' : 'none';
+    if (resultStrip) {
+        const hasReviewItems = getReviewableQueueItems().length > 0;
+        if (createIntent === 'review' && isQueueMode && hasReviewItems) {
+            resultStrip.style.display = 'block';
+        } else {
+            resultStrip.style.display = 'none';
+            const track = document.getElementById('rpsTrack');
+            if (track) track.innerHTML = '';
+        }
+    }
+    syncReviewViewportState();
+}
+
+function setCreateIntent(intent) {
+    createIntent = intent;
+    updateCreateIntentUI();
+}
+
+function updateOutputFormatUI() {
+    const pills = document.querySelectorAll('#outputFormatGrid .output-format-pill');
+    const summary = document.getElementById('outputFormatSummary');
+    const brandHelp = document.getElementById('brandSelectionHelp');
+    if (!pills.length) return;
+
+    pills.forEach(pill => {
+        const key = pill.dataset.formatKey;
+        pill.classList.toggle('active', selectedOutputFormats.includes(key));
+    });
+
+    if (summary) {
+        summary.textContent = '9:16 is live now. Other formats are planned for future output support.';
+    }
+
+    if (brandHelp) {
+        brandHelp.textContent = 'Pick the brands you want, then review the live 9:16 version before processing. Planned formats stay visible here for what comes next.';
+    }
+}
+
+function toggleOutputFormat(formatKey) {
+    if (!OUTPUT_FORMAT_OPTIONS[formatKey]) return;
+
+    if (selectedOutputFormats.includes(formatKey)) {
+        if (selectedOutputFormats.length === 1) return;
+        selectedOutputFormats = selectedOutputFormats.filter(key => key !== formatKey);
+    } else {
+        selectedOutputFormats = [...selectedOutputFormats, formatKey];
+    }
+
+    updateOutputFormatUI();
+}
+
+function toggleControlSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (!section) return;
+    section.classList.toggle('collapsed');
+}
+
+function updateReviewHeader() {
+    const title = document.getElementById('reviewActiveTitle');
+    const meta = document.getElementById('reviewContextMeta');
+    const summary = document.getElementById('reviewProgressSummary');
+    const queueSummary = document.getElementById('queueStatusSummary');
+    const stateBadge = document.getElementById('reviewStateBadge');
+    if (!title || !meta || !summary || !queueSummary || !stateBadge) return;
+
+    const items = getReviewableQueueItems();
+    const total = items.length;
+    const current = processingQueue[currentQueueIndex];
+    const reviewed = processingQueue.filter(item => item.reviewDecision === 'approved' || item.status === 'skipped').length;
+    const skipped = processingQueue.filter(item => item.status === 'skipped').length;
+    const remaining = Math.max(total - (currentQueueIndex + 1), 0);
+
+    if (!current || total === 0) {
+        title.textContent = 'Reviewing: Story 9:16';
+        meta.textContent = '0 remaining';
+        summary.textContent = 'Version 0 of 0';
+        queueSummary.textContent = '';
+        stateBadge.textContent = 'Default';
+        stateBadge.className = 'review-state-badge default';
+        updateReviewActionState();
+        return;
+    }
+
+    const activeBrandName = brandDataCache[current.brand_id] ? brandDataCache[current.brand_id].display_name : current.brand_name;
+    title.textContent = `Reviewing: ${activeBrandName} · Story 9:16`;
+    meta.textContent = remaining > 0 ? `${remaining} remaining` : 'Last version';
+    summary.textContent = `Version ${currentQueueIndex + 1} of ${total}`;
+    queueSummary.textContent = skipped > 0 ? `${reviewed} reviewed • ${skipped} skipped` : `${reviewed} reviewed`;
+
+    let badgeClass = 'default';
+    let badgeLabel = 'Default';
+    if (current.status === 'skipped') {
+        badgeClass = 'skipped';
+        badgeLabel = 'Skipped';
+    } else if (current.reviewDecision === 'approved' || current.status === 'done') {
+        badgeClass = 'approved';
+        badgeLabel = 'Approved';
+    } else if (current.status === 'editing') {
+        badgeClass = 'edited';
+        badgeLabel = 'Edited';
+    }
+    stateBadge.textContent = badgeLabel;
+    stateBadge.className = `review-state-badge ${badgeClass}`;
+    updateReviewActionState();
+}
+
+function updateReviewActionState() {
+    const processBtn = document.getElementById('processAllBtn');
+    if (!processBtn) return;
+    const total = processingQueue.length;
+    const reviewed = processingQueue.filter(item => item.reviewDecision === 'approved' || item.status === 'skipped').length;
+    const allReviewed = total > 0 && reviewed >= total;
+
+    processBtn.disabled = !allReviewed;
+    processBtn.classList.toggle('review-global-pending', !allReviewed);
+    processBtn.style.display = allReviewed ? 'none' : 'inline-flex';
+    processBtn.title = allReviewed ? 'Generate outputs for the reviewed versions.' : 'Finish the review flow before starting branding.';
+}
+
+function reviewPrevious() {
+    if (!isQueueMode || currentQueueIndex <= 0) return;
+    switchToBrand(currentQueueIndex - 1);
+}
+
+function renderReviewCompletionState() {
+    const result = document.getElementById('processResult');
+    if (!result) return;
+    updateReviewActionState();
+    const total = processingQueue.length;
+    const approved = processingQueue.filter(item => item.reviewDecision === 'approved' || item.status === 'done').length;
+    const skipped = processingQueue.filter(item => item.status === 'skipped').length;
+    const ready = Math.max(total - skipped, 0);
+    result.innerHTML = `
+        <div class="review-complete-card">
+            <div class="review-complete-title">Review complete</div>
+            <div class="review-complete-meta">${approved} approved • ${skipped} skipped • ${ready} ready</div>
+            <div class="review-complete-sub">Ready to generate outputs.</div>
+            <div class="review-complete-actions">
+                <button onclick="processAllBrands()" id="processAllBtnInline" style="flex:1; min-width:0;">Start branding</button>
+                <button onclick="goToLibrary()" style="flex:0 0 auto; width:auto; margin-top:0; padding:11px 14px; font-size:13px; background:transparent; border:1px solid #343948; color:#b6bfd3; border-radius:8px;">Open Library</button>
+            </div>
+        </div>
+    `;
+    // Draw the user's eye to the completion CTA without a jarring jump
+    setTimeout(function() {
+        result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const btn = document.getElementById('processAllBtnInline');
+        if (btn) btn.focus({ preventScroll: true });
+    }, 80);
+}
+
+function approveAndNext() {
+    if (!isQueueMode) return;
+    const current = processingQueue[currentQueueIndex];
+    if (!current) return;
+    saveCurrentOverridesFromSliders();
+    current.reviewDecision = 'approved';
+    if (current.status === 'editing') current.status = 'pending';
+    syncQueueItemToJobItem(current);
+    renderBrandPills();
+    updateReviewHeader();
+
+    if (currentQueueIndex < processingQueue.length - 1) {
+        switchToBrand(currentQueueIndex + 1);
+    } else {
+        renderReviewCompletionState();
+    }
+}
+
+function autoSaveActiveReviewState() {
+    if (!isQueueMode) return;
+    const current = processingQueue[currentQueueIndex];
+    if (!current) return;
+
+    const overrides = captureCurrentSliders();
+    current.overrides = { ...overrides };
+    if (activePreviewBrandId) {
+        brandOverrides[activePreviewBrandId] = { ...overrides };
+    }
+
+    if (current.status !== 'processing' && current.status !== 'done' && current.status !== 'skipped') {
+        current.status = 'editing';
+    }
+
+    syncQueueItemToJobItem(current);
+    updateReviewHeader();
+}
+
+function setupReviewAutoSave() {
+    const controlIds = [
+        'wmScale',
+        'wmOpacity',
+        'showBounds',
+        'logoScale',
+        'logoRotation',
+        'textEnabled',
+        'textContent',
+        'textSize',
+        'textColor',
+        'textBgEnabled',
+        'textBgOpacity',
+        'compEnabled',
+        'compScale',
+        'compOpacity',
+        'compRotation'
+    ];
+
+    controlIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        ['input', 'change'].forEach(evt => {
+            el.addEventListener(evt, autoSaveActiveReviewState);
+        });
+    });
+}
+
 // Capture current slider/drag state as an overrides object
 function captureCurrentSliders() {
     var result = {
-        watermark_scale: parseInt(document.getElementById('wmScale').value) / 100,
+        watermark_scale: watermarkUiToRenderScale(parseInt(document.getElementById('wmScale').value)),
         watermark_opacity: parseInt(document.getElementById('wmOpacity').value) / 100,
         logo_x: logoCenterXPercent,
         logo_y: logoCenterYPercent,
@@ -1708,12 +2942,8 @@ function switchActivePreview(brandId) {
     loadBrandAssets(brandId);
     
     // Load overrides (user-adjusted this session) or saved defaults
-    if (brandOverrides[brandId]) {
-        loadOverridesIntoSliders(brandOverrides[brandId]);
-    } else {
-        loadBrandConfig(brandId);
-    }
-    
+    applyBrandToPreview(brandDataCache[brandId], brandOverrides[brandId]);
+
     updatePreviewTargetBar();
     updateConfirmationSummary();
 }
@@ -1745,7 +2975,7 @@ function resetBrandToDefaults() {
     }
     // ========== END JOB-ITEM MODEL ==========
     
-    loadBrandConfig(activePreviewBrandId);
+    applyBrandToPreview(brandDataCache[activePreviewBrandId]);
     updatePreviewTargetBar();
 }
 
@@ -1825,26 +3055,37 @@ function renderResultPreviewStrip() {
     const track = document.getElementById('rpsTrack');
     if (!track) return;
 
+    if (!isQueueMode || createIntent !== 'review') {
+        strip.style.display = 'none';
+        track.innerHTML = '';
+        return;
+    }
+
     // ========== JOB-ITEM MODEL (Commit 4: prefer jobItems for render list) ==========
-    // Determine render source: prefer jobItems for current file, fallback to selectedBrandIds
-    let renderBrandIds = selectedBrandIds;
-    if (currentFile && jobItems.length > 0) {
+    // Determine render source: queue items while reviewing, otherwise current selected brands
+    let renderBrandIds = getCanonicalSelectedBrandIds();
+    if (isQueueMode && processingQueue.length > 0) {
+        renderBrandIds = getReviewableQueueItems().map(item => item.brand_id);
+    } else if (currentFile && jobItems.length > 0) {
         const fileItems = jobItems.filter(item => item.filename === currentFile);
         if (fileItems.length > 0) {
-            renderBrandIds = fileItems.map(item => item.brandId);
+            renderBrandIds = fileItems
+                .map(item => item.brandId)
+                .filter(brandId => Number.isInteger(brandId) && !!brandDataCache[brandId]);
         }
     }
     // ========== END JOB-ITEM MODEL ==========
 
-    // Hide strip when no brands selected
+    // Hide strip when no active review items exist
     if (renderBrandIds.length === 0) {
         strip.style.display = 'none';
+        track.innerHTML = '';
         return;
     }
 
     strip.style.display = 'block';
 
-    // Build cards
+    // Build compact rail
     let html = '';
 
     // Source video indicator
@@ -1863,7 +3104,7 @@ function renderResultPreviewStrip() {
     renderBrandIds.forEach(function(brandId) {
         const brand = brandDataCache[brandId];
         const name = brand ? brand.display_name : 'Brand #' + brandId;
-        const shortName = name.length > 10 ? name.substring(0, 9) + '\u2026' : name;
+        const shortName = name.length > 12 ? name.substring(0, 11) + '\u2026' : name;
         const isActive = brandId === activePreviewBrandId;
         
         // ========== JOB-ITEM MODEL (Commit 4: check both models for overrides) ==========
@@ -1875,9 +3116,23 @@ function renderResultPreviewStrip() {
         const jobItemSecondaryEnabled = jobItem && jobItem.overrides && jobItem.overrides.secondary_logo_enabled;
         // ========== END JOB-ITEM MODEL ==========
         
+        let statusClass = 'rps-status-default';
+        let statusLabel = 'Default';
+        let nodeStateClass = '';
+
+        if (jobItem && jobItem.status === 'skipped') {
+            statusClass = 'rps-status-skipped';
+            statusLabel = 'Skipped';
+            nodeStateClass = ' rps-skipped';
+        } else if (jobItem && (jobItem.reviewDecision === 'approved' || jobItem.status === 'completed' || jobItem.status === 'done')) {
+            statusClass = 'rps-status-approved';
+            statusLabel = 'Approved';
+        } else if (hasOverrides || (jobItem && jobItem.status === 'editing')) {
+            statusClass = 'rps-status-edited';
+            statusLabel = 'Edited';
+        }
+
         const activeClass = isActive ? ' rps-active' : '';
-        const statusClass = hasOverrides ? 'rps-status-edited' : 'rps-status-default';
-        const statusLabel = hasOverrides ? 'Edited' : 'Default';
 
         // Thumbnail: try brand logo, fall back to placeholder
         let thumbContent = '<span class="rps-placeholder">&#9635;</span>';
@@ -1885,21 +3140,28 @@ function renderResultPreviewStrip() {
             thumbContent = '<img src="/api/preview/brand-asset/' + brandId + '/logo" style="width:100%;height:100%;object-fit:contain;" onerror="this.outerHTML=\'<span class=rps-placeholder>&#9635;</span>\'">';
         }
 
-        html += '<div class="rps-card' + activeClass + '" onclick="rpsSelectBrand(' + brandId + ')" title="' + name + '">';
-        html += '<div class="rps-thumb">' + thumbContent + '</div>';
-        html += '<div class="rps-name">' + shortName + '</div>';
-        html += '<span class="rps-status ' + statusClass + '">' + statusLabel + '</span>';
+        html += '<button type="button" class="rps-node' + activeClass + nodeStateClass + '" onclick="rpsSelectBrand(' + brandId + ')" title="' + name + '">';
+        html += '<div class="rps-node-visual">' + thumbContent;
         // Composition badge: show when dual-logo is enabled for this brand
         if (brandOverrides[brandId] && brandOverrides[brandId].secondary_logo_enabled || jobItemSecondaryEnabled) {
             html += '<span class="rps-comp-badge">2\u00d7</span>';
         }
         html += '</div>';
+        html += '<div class="rps-node-copy">';
+        html += '<div class="rps-name">' + shortName + '</div>';
+        html += '<span class="rps-status ' + statusClass + '">' + statusLabel + '</span>';
+        html += '</div>';
+        html += '</button>';
+
+        if (renderBrandIds.indexOf(brandId) !== renderBrandIds.length - 1) {
+            html += '<div class="rps-arrow">&rarr;</div>';
+        }
     });
 
     track.innerHTML = html;
 }
 
-// Click handler for Result Preview Strip cards
+// Click handler for review rail nodes
 function rpsSelectBrand(brandId) {
     if (!selectedBrandIds.includes(brandId)) return;
     if (brandId === activePreviewBrandId) return;
@@ -2018,7 +3280,7 @@ function updateCanvasPreview() {
 }
 
 function drawOverlays() {
-    const wmScale = parseInt(document.getElementById('wmScale').value) / 100;
+    const wmScale = watermarkUiToRenderScale(parseInt(document.getElementById('wmScale').value));
     const wmOpacity = parseInt(document.getElementById('wmOpacity').value) / 100;
     const logoScalePct = parseInt(document.getElementById('logoScale').value) / 100;
     
@@ -2300,6 +3562,9 @@ function drag(e) {
 }
 
 function endDrag() {
+    if (logoDragging || textDragging || secondaryLogoDragging) {
+        autoSaveActiveReviewState();
+    }
     logoDragging = false;
     textDragging = false;
     secondaryLogoDragging = false;
@@ -2321,6 +3586,8 @@ document.getElementById('logoScale').addEventListener('input', (e) => {
     updateCanvasPreview();
 });
 document.getElementById('showBounds').addEventListener('change', updateCanvasPreview);
+setupReviewAutoSave();
+updateOutputFormatUI();
 
 // ========== LOAD BRANDS (USER-OWNED ONLY) ==========
 async function loadBrands() {
@@ -2521,6 +3788,7 @@ function selectBrand(brandId, btnEl, isReady) {
                     brandId: brandId,           // Single brand per item (target model)
                     overrides: {},              // Will capture on preview switch
                     status: 'ready',            // ready, processing, completed, error
+                    reviewDecision: null,
                     frameData: frameData,       // Current frame data
                     videoWidth: videoWidth,
                     videoHeight: videoHeight,
@@ -2555,22 +3823,134 @@ function selectBrand(brandId, btnEl, isReady) {
     if (activePreviewBrandId) {
         loadBrandAssets(activePreviewBrandId);
         // Load user overrides if they exist, otherwise brand defaults
-        if (brandOverrides[activePreviewBrandId]) {
-            loadOverridesIntoSliders(brandOverrides[activePreviewBrandId]);
-        } else {
-            loadBrandConfig(activePreviewBrandId);
-        }
-        
+        applyBrandToPreview(brandDataCache[activePreviewBrandId], brandOverrides[activePreviewBrandId]);
+
         document.getElementById('previewContainer').style.display = 'block';
-        document.getElementById('overrideControls').style.display = 'block';
+        // overrideControls is intentionally not shown here — it is only visible inside
+        // the review cockpit (enterQueueMode). Selection mode shows brand defaults via preview only.
     } else {
         document.getElementById('previewContainer').style.display = 'none';
-        document.getElementById('overrideControls').style.display = 'none';
     }
     
     updatePreviewTargetBar();
     updateConfirmationSummary();
 }
+
+// ── Watermark scale conversion ────────────────────────────────────────────────
+// DB and renderers store render scale (1.0 = fills entire frame).
+// UI slider shows a percentage where 100% = WM_UI_REF_SCALE (standard WTF full-frame value).
+const WM_UI_REF_SCALE = 1.15;
+
+function watermarkUiToRenderScale(uiPct) {
+    return (uiPct / 100) * WM_UI_REF_SCALE;
+}
+
+function renderScaleToWatermarkUi(renderScale) {
+    return Math.round((renderScale / WM_UI_REF_SCALE) * 100);
+}
+
+// ── Unified render path ───────────────────────────────────────────────────────
+// mergeRenderParams: DB field names → slider domain + sparse session override merge
+function mergeRenderParams(brandConfig, sessionOverrides) {
+    const base = {
+        // Numerics: ?? so intentional 0 (e.g. fully-transparent watermark) is preserved
+        watermark_scale:      brandConfig.wm_scale        ?? 1.15,
+        watermark_opacity:    brandConfig.wm_opacity       ?? 0.40,
+        logo_scale:           brandConfig.logo_scale       ?? 0.25,
+        logo_x:               brandConfig.logo_x           ?? 0,
+        logo_y:               brandConfig.logo_y           ?? 0,
+        logo_rotation:        brandConfig.logo_rotation    ?? 0,
+        text_x:               brandConfig.text_x           ?? 0,
+        text_y:               brandConfig.text_y           ?? 0,
+        text_size:            brandConfig.text_size        ?? 48,
+        text_bg_opacity:      brandConfig.text_bg_opacity  ?? 0.6,
+        // Booleans: ?? so explicit false is not clobbered
+        text_enabled:         brandConfig.text_enabled     ?? false,
+        text_bg_enabled:      brandConfig.text_bg_enabled  ?? true,
+        // Strings: || so empty-string (corrupt/missing DB value) falls back to safe default
+        text_content:         brandConfig.text_content     || '',
+        text_color:           brandConfig.text_color       || '#FFFFFF',
+        // Secondary logo — always reset to off when loading from brand defaults
+        secondary_logo_enabled:   false,
+        secondary_logo_x:         0,
+        secondary_logo_y:         0,
+        secondary_logo_brand_id:  null,
+        secondary_logo_scale:     0.12,
+        secondary_logo_opacity:   0.9,
+        secondary_logo_rotation:  0
+    };
+    // Sparse merge: session overrides (already slider-domain) win field-by-field
+    return Object.assign({}, base, sessionOverrides || {});
+}
+
+// loadRenderParamsIntoSliders: unified DOM setter — takes slider-domain renderParams object
+function loadRenderParamsIntoSliders(renderParams) {
+    // Watermark — read back clamped DOM value for label to avoid slider min/max desync
+    document.getElementById('wmScale').value = renderScaleToWatermarkUi(renderParams.watermark_scale);
+    document.getElementById('wmScaleVal').textContent = document.getElementById('wmScale').value + '%';
+    document.getElementById('wmOpacity').value = Math.round(renderParams.watermark_opacity * 100);
+    document.getElementById('wmOpacityVal').textContent = document.getElementById('wmOpacity').value + '%';
+
+    // Logo scale
+    document.getElementById('logoScale').value = Math.round(renderParams.logo_scale * 100);
+    document.getElementById('logoScaleVal').textContent = document.getElementById('logoScale').value + '%';
+
+    // Logo position + rotation
+    logoCenterXPercent = renderParams.logo_x ?? 0;
+    logoCenterYPercent = renderParams.logo_y ?? 0;
+    logoRotationDegrees = renderParams.logo_rotation ?? 0;
+    document.getElementById('logoRotation').value = renderParams.logo_rotation ?? 0;
+    document.getElementById('logoRotationVal').textContent = (renderParams.logo_rotation ?? 0) + '°';
+
+    // Text layer
+    document.getElementById('textEnabled').checked = renderParams.text_enabled;
+    document.getElementById('textContent').value = renderParams.text_content;
+    document.getElementById('textSize').value = renderParams.text_size;
+    document.getElementById('textSizeVal').textContent = renderParams.text_size + 'px';
+    document.getElementById('textColor').value = renderParams.text_color;
+    document.getElementById('textColorVal').textContent = renderParams.text_color;
+    document.getElementById('textBgEnabled').checked = renderParams.text_bg_enabled;
+    document.getElementById('textBgOpacity').value = Math.round(renderParams.text_bg_opacity * 100);
+    document.getElementById('textBgOpacityVal').textContent = Math.round(renderParams.text_bg_opacity * 100) + '%';
+    textX = renderParams.text_x || 0;
+    textY = renderParams.text_y || 0;
+    document.getElementById('textControls').style.display = renderParams.text_enabled ? 'block' : 'none';
+
+    // Secondary logo (dual-logo composition)
+    var compEl = document.getElementById('compEnabled');
+    if (compEl) {
+        var secEnabled = !!renderParams.secondary_logo_enabled;
+        compEl.checked = secEnabled;
+        document.getElementById('compControls').style.display = secEnabled ? 'block' : 'none';
+        secLogoCenterXPercent = renderParams.secondary_logo_x || 0;
+        secLogoCenterYPercent = renderParams.secondary_logo_y || 0;
+        secLogoSelectedBrandId = renderParams.secondary_logo_brand_id || null;
+        var scaleVal   = Math.round((renderParams.secondary_logo_scale    || 0.12) * 100);
+        var opacityVal = Math.round((renderParams.secondary_logo_opacity  || 0.9)  * 100);
+        var rotVal     = renderParams.secondary_logo_rotation || 0;
+        document.getElementById('compScale').value = scaleVal;
+        document.getElementById('compScaleVal').textContent = scaleVal + '%';
+        document.getElementById('compOpacity').value = opacityVal;
+        document.getElementById('compOpacityVal').textContent = opacityVal + '%';
+        document.getElementById('compRotation').value = rotVal;
+        document.getElementById('compRotationVal').textContent = rotVal + '°';
+        if (secEnabled && secLogoSelectedBrandId) {
+            loadSecondaryLogoImage(secLogoSelectedBrandId);
+        } else {
+            secondaryLogoImg = null;
+        }
+        renderCompLogoGrid();
+    }
+}
+
+// applyBrandToPreview: single entry point for all brand→preview load paths
+function applyBrandToPreview(brandConfig, sessionOverrides) {
+    if (!brandConfig) return;
+    const renderParams = mergeRenderParams(brandConfig, sessionOverrides);
+    loadRenderParamsIntoSliders(renderParams);
+    updateCanvasPreview();
+}
+// ── End unified render path ───────────────────────────────────────────────────
 
 async function loadBrandConfig(brandId) {
     // Load saved config from database using brand_id
@@ -2584,8 +3964,8 @@ async function loadBrandConfig(brandId) {
         const cfg = brandData;  // Config is already loaded from /api/brands/list
         
         // Apply watermark settings (use wm_* canonical keys)
-        document.getElementById('wmScale').value = Math.round(cfg.wm_scale * 100);
-        document.getElementById('wmScaleVal').textContent = Math.round(cfg.wm_scale * 100) + '%';
+        document.getElementById('wmScale').value = renderScaleToWatermarkUi(cfg.wm_scale);
+        document.getElementById('wmScaleVal').textContent = renderScaleToWatermarkUi(cfg.wm_scale) + '%';
         document.getElementById('wmOpacity').value = Math.round(cfg.wm_opacity * 100);
         document.getElementById('wmOpacityVal').textContent = Math.round(cfg.wm_opacity * 100) + '%';
         
@@ -2687,6 +4067,8 @@ async function loadBrandAssets(brandId) {
 // ========== QUEUE MODE FUNCTIONS ==========
 
 function enterQueueMode() {
+    createIntent = 'review';
+    updateCreateIntentUI();
     console.log('[BRANDR] === START BRANDING BUTTON CLICKED ===' );
     console.log('[BRANDR] Current state - currentFile:', currentFile, 'selectedBrandIds:', selectedBrandIds, 'brandDataCache keys:', Object.keys(brandDataCache));
     
@@ -2709,7 +4091,9 @@ function enterQueueMode() {
         return;
     }
     
-    if (selectedBrandIds.length === 0) {
+    const canonicalBrandIds = getCanonicalSelectedBrandIds();
+
+    if (canonicalBrandIds.length === 0) {
         result.innerHTML = '<div class="status-msg error">Select at least one brand</div>';
         console.error('[BRANDR] enterQueueMode blocked: No brands selected');
         return;
@@ -2724,17 +4108,17 @@ function enterQueueMode() {
     // Ensure jobItems exists for current file + selected brands
     // If jobItems is empty or doesn't match, rebuild from selectedBrandIds
     const fileItems = jobItems.filter(item => item.filename === currentFile);
-    const hasAllBrands = selectedBrandIds.every(brandId => 
+    const hasAllBrands = canonicalBrandIds.every(brandId => 
         fileItems.some(item => item.brandId === brandId)
     );
     
-    if (fileItems.length !== selectedBrandIds.length || !hasAllBrands) {
+    if (fileItems.length !== canonicalBrandIds.length || !hasAllBrands) {
         // Rebuild jobItems to match selection
         console.log('[JobItems] Rebuilding jobItems for queue mode');
         // Remove old items for this file
         jobItems = jobItems.filter(item => item.filename !== currentFile);
         // Create new items for each selected brand
-        selectedBrandIds.forEach(brandId => {
+        canonicalBrandIds.forEach(brandId => {
             const brandData = brandDataCache[brandId];
             jobItems.push({
                 id: generateItemId(),
@@ -2743,6 +4127,7 @@ function enterQueueMode() {
                 brandId: brandId,
                 overrides: brandOverrides[brandId] || getBrandDefaults(brandId),
                 status: 'pending',
+                reviewDecision: null,
                 frameData: frameData,
                 videoWidth: videoWidth,
                 videoHeight: videoHeight,
@@ -2754,11 +4139,21 @@ function enterQueueMode() {
     
     // Sync processingQueue from jobItems (for backward compatibility during migration)
     const currentFileItems = jobItems.filter(item => item.filename === currentFile);
+    currentFileItems.forEach(item => {
+        if (item.status !== 'skipped') {
+            item.status = 'pending';
+            item.reviewDecision = null;
+        } else {
+            item.reviewDecision = 'skipped';
+        }
+    });
+    persistJobItems();
     processingQueue = currentFileItems.map(item => ({
         brand_id: item.brandId,
         brand_name: brandDataCache[item.brandId] ? brandDataCache[item.brandId].display_name : `Brand #${item.brandId}`,
         overrides: item.overrides || getBrandDefaults(item.brandId),
-        status: item.status || 'pending'
+        status: item.status || 'pending',
+        reviewDecision: item.reviewDecision || null
     }));
     
     console.log('[BRANDR] Queue initialized from jobItems:', processingQueue.length, 'items');
@@ -2768,6 +4163,7 @@ function enterQueueMode() {
     currentQueueIndex = 0;
     activeItemIndex = 0;  // Sync with jobItems
     isQueueMode = true;
+    syncReviewViewportState();
     
     // Clear sessionStorage now that branding has started
     sessionStorage.removeItem('lastDownloadFilename');
@@ -2797,6 +4193,12 @@ function enterQueueMode() {
     const previewTargetBar = document.getElementById('previewTargetBar');
     if (previewTargetBar) previewTargetBar.style.display = 'none';
     result.innerHTML = '';
+
+    // Collapse non-essential control sections — user can expand on demand
+    ['watermarkSection', 'logoSection'].forEach(function(id) {
+        const s = document.getElementById(id);
+        if (s && !s.classList.contains('collapsed')) s.classList.add('collapsed');
+    });
     
     // Force canvas redraw now that it's visible
     setTimeout(() => updateCanvasPreview(), 50);
@@ -2806,6 +4208,7 @@ function enterQueueMode() {
     
     // Load first brand
     switchToBrand(0);
+    updateReviewHeader();
 }
 
 function renderBrandPills() {
@@ -2823,7 +4226,8 @@ function renderBrandPills() {
             // Map jobItems to pill format
             renderSource = fileItems.map(item => ({
                 brand_name: brandDataCache[item.brandId] ? brandDataCache[item.brandId].display_name : `Brand #${item.brandId}`,
-                status: item.status === 'completed' ? 'done' : item.status === 'error' ? 'failed' : item.status || 'pending'
+                status: item.status === 'completed' ? 'done' : item.status === 'error' ? 'failed' : item.status || 'pending',
+                reviewDecision: item.reviewDecision || null
             }));
             activeIndex = activeItemIndex;
         }
@@ -2840,7 +4244,10 @@ function renderBrandPills() {
         let statusIcon = '';
         let bgColor = '#333';
         
-        if (item.status === 'done') {
+        if (item.reviewDecision === 'approved') {
+            statusIcon = '\u2713 ';
+            bgColor = '#28a745';
+        } else if (item.status === 'done') {
             statusIcon = '\u2713 ';
             bgColor = '#28a745';
         } else if (item.status === 'processing') {
@@ -2878,6 +4285,7 @@ function renderBrandPills() {
     });
     
     updateQueueStatusSummary();
+    updateReviewHeader();
 }
 
 function updateQueueStatusSummary() {
@@ -2898,18 +4306,12 @@ function updateQueueStatusSummary() {
     }
     // ========== END JOB-ITEM MODEL ==========
     
-    const done = statusSource.filter(q => q.status === 'done').length;
-    const processing = statusSource.filter(q => q.status === 'processing').length;
-    const pending = statusSource.filter(q => q.status === 'pending' || q.status === 'editing').length;
-    const failed = statusSource.filter(q => q.status === 'failed').length;
-    
-    let parts = [];
-    if (done > 0) parts.push(`${done} done`);
-    if (processing > 0) parts.push(`${processing} processing`);
-    if (pending > 0) parts.push(`${pending} pending`);
-    if (failed > 0) parts.push(`${failed} failed`);
-    
-    summary.textContent = parts.join(' \u2022 ');
+    const total = statusSource.length;
+    const reviewed = processingQueue.filter(q => q.reviewDecision === 'approved' || q.status === 'skipped').length;
+    const skipped = statusSource.filter(q => q.status === 'skipped').length;
+    summary.textContent = skipped > 0
+        ? `${reviewed} of ${total} reviewed • ${skipped} skipped`
+        : `${reviewed} of ${total} reviewed`;
 }
 
 async function switchToBrand(idx) {
@@ -2925,7 +4327,8 @@ async function switchToBrand(idx) {
                 brand_id: item.brandId,
                 brand_name: brandDataCache[item.brandId] ? brandDataCache[item.brandId].display_name : `Brand #${item.brandId}`,
                 overrides: item.overrides,
-                status: item.status === 'completed' ? 'done' : item.status === 'error' ? 'failed' : item.status || 'pending'
+                status: item.status === 'completed' ? 'done' : item.status === 'error' ? 'failed' : item.status || 'pending',
+                reviewDecision: item.reviewDecision || null
             }));
             useJobItems = true;
         }
@@ -2956,46 +4359,35 @@ async function switchToBrand(idx) {
     // Update pills to show active state
     renderBrandPills();
     
+    // Initialise overrides for this job if not yet set — mergeRenderParams translates
+    // DB field names to slider domain and fills all defaults in one pass.
+    if (!current.overrides) {
+        const brandData = brandDataCache[current.brand_id];
+        current.overrides = brandData ? mergeRenderParams(brandData) : getDefaultOverrides();
+        if (!brandData) console.error(`[BRANDR] Brand #${current.brand_id} not found in cache`);
+    }
+
+    // Mark as editing
+    if (current.status !== 'done' && current.status !== 'processing' && current.status !== 'skipped') {
+        current.status = 'editing';
+    }
+
+    // Apply brand + session overrides into sliders BEFORE loading assets so any cached-image
+    // onload fires updateCanvasPreview with the correct slider values already in place.
+    applyBrandToPreview(brandDataCache[current.brand_id], current.overrides);
+
     // Load brand assets for preview using brand_id
     await loadBrandAssets(current.brand_id);
     
-    // Load brand defaults from cache if not already loaded
-    if (!current.overrides) {
-        const brandData = brandDataCache[current.brand_id];
-        if (brandData) {
-            current.overrides = {
-                watermark_scale: brandData.wm_scale || 0.25,
-                watermark_opacity: brandData.wm_opacity || 0.20,
-                logo_scale: brandData.logo_scale || 0.25,
-                text_enabled: !!brandData.text_enabled,
-                text_content: brandData.text_content || '',
-                text_x: brandData.text_x || 0,
-                text_y: brandData.text_y || 0,
-                text_size: brandData.text_size || 48,
-                text_color: brandData.text_color || '#FFFFFF',
-                text_bg_enabled: brandData.text_bg_enabled !== false,
-                text_bg_opacity: brandData.text_bg_opacity || 0.6
-            };
-        } else {
-            console.error(`[BRANDR] Brand #${current.brand_id} not found in cache`);
-            current.overrides = getDefaultOverrides();
-        }
-    }
-    
-    // Mark as editing
-    current.status = 'editing';
-    
-    // Load overrides into sliders
-    loadOverridesIntoSliders(current.overrides);
-    
-    // Clear any previous result message
-    document.getElementById('processResult').innerHTML = `<div class="status-msg info">Editing: ${current.brand_name}</div>`;
+    // Clear any previous transient review message
+    document.getElementById('processResult').innerHTML = '';
+    updateReviewHeader();
 }
 
 function getDefaultOverrides() {
     return {
-        watermark_scale: 0.25,
-        watermark_opacity: 0.20,
+        watermark_scale: 1.15,
+        watermark_opacity: 0.40,
         logo_scale: 0.25,
         logo_x: 0.85,
         logo_y: 0.85,
@@ -3012,15 +4404,15 @@ function getDefaultOverrides() {
 }
 
 function loadOverridesIntoSliders(overrides) {
-    // Watermark
-    document.getElementById('wmScale').value = Math.round(overrides.watermark_scale * 100);
-    document.getElementById('wmScaleVal').textContent = Math.round(overrides.watermark_scale * 100) + '%';
+    // Watermark — read back clamped DOM value for label to avoid slider min/max desync
+    document.getElementById('wmScale').value = renderScaleToWatermarkUi(overrides.watermark_scale);
+    document.getElementById('wmScaleVal').textContent = document.getElementById('wmScale').value + '%';
     document.getElementById('wmOpacity').value = Math.round(overrides.watermark_opacity * 100);
-    document.getElementById('wmOpacityVal').textContent = Math.round(overrides.watermark_opacity * 100) + '%';
-    
+    document.getElementById('wmOpacityVal').textContent = document.getElementById('wmOpacity').value + '%';
+
     // Logo
     document.getElementById('logoScale').value = Math.round(overrides.logo_scale * 100);
-    document.getElementById('logoScaleVal').textContent = Math.round(overrides.logo_scale * 100) + '%';
+    document.getElementById('logoScaleVal').textContent = document.getElementById('logoScale').value + '%';
     
     // Text layer
     document.getElementById('textEnabled').checked = overrides.text_enabled;
@@ -3268,15 +4660,21 @@ async function processAllBrands() {
     // Save current overrides first
     saveCurrentOverridesFromSliders();
     
-    // Find all pending/editing brands
-    const pendingBrands = processingQueue.filter(q => q.status === 'pending' || q.status === 'editing' || q.status === 'failed');
+    // Everything moves forward by default unless it was skipped.
+    const pendingBrands = processingQueue.filter(q => q.status !== 'skipped' && q.status !== 'done' && q.status !== 'processing');
+    const includedTotal = processingQueue.filter(q => q.status !== 'skipped').length;
     
     if (pendingBrands.length === 0) {
-        result.innerHTML = '<div class="status-msg info">No pending brands to process</div>';
+        result.innerHTML = '<div class="status-msg info">Everything here is already running, finished, or skipped.</div>';
         return;
     }
     
-    result.innerHTML = `<div class="status-msg info">\ud83d\ude80 Processing ${pendingBrands.length} brands...</div>`;
+    result.innerHTML = `
+        <div class="processing-state-card">
+            <div class="processing-state-title">Generating branded outputs...</div>
+            <div class="processing-state-meta">${pendingBrands.length} of ${includedTotal} versions queued</div>
+        </div>
+    `;
     
     // ========== JOB-ITEM MODEL (Commit 5: sync status to jobItems) ==========
     // Helper to sync status to jobItems
@@ -3362,12 +4760,13 @@ async function processAllBrands() {
     const successful = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
     
+    const libraryLink = `<button onclick="goToLibrary()" style="width:auto;margin-top:8px;padding:9px 14px;font-size:13px;background:transparent;border:1px solid #343948;color:#b6bfd3;border-radius:8px;">Open Library</button>`;
     if (failed === 0) {
-        result.innerHTML = `<div class="status-msg success">\u2705 All ${successful} brands processed!</div>`;
+        result.innerHTML = `<div class="status-msg success">\u2705 Results ready. ${successful} versions processed.</div>${libraryLink}`;
     } else {
-        result.innerHTML = `<div class="status-msg warning">\u2705 ${successful} done, \u274C ${failed} failed</div>`;
+        result.innerHTML = `<div class="status-msg warning">Results ready with issues. ${successful} done, \u274C ${failed} failed</div>${libraryLink}`;
     }
-    
+
     checkQueueComplete();
 }
 
@@ -3437,32 +4836,35 @@ function checkQueueComplete() {
         const failed = checkSource.filter(q => q.status === 'failed').length;
         const skipped = checkSource.filter(q => q.status === 'skipped').length;
         
-        result.innerHTML = `<div class="status-msg success">\ud83c\udf89 Queue complete! ${done} done, ${skipped} skipped, ${failed} failed</div>`;
+        result.innerHTML = `<div class="status-msg success">\ud83c\udf89 Results ready. ${done} done, ${skipped} skipped, ${failed} failed</div><button onclick="goToLibrary()" style="width:auto;margin-top:8px;padding:9px 14px;font-size:13px;background:transparent;border:1px solid #343948;color:#b6bfd3;border-radius:8px;">Open Library</button>`;
     }
 }
 
-function skipBrand() {
+async function skipBrand() {
     const current = processingQueue[currentQueueIndex];
+    const result = document.getElementById('processResult');
+    const skippedBrandName = current.brand_name;
     current.status = 'skipped';
+    current.reviewDecision = 'skipped';
     
     // ========== JOB-ITEM MODEL (Commit 5: sync status to jobItems) ==========
     if (currentFile && current.brand_id) {
-        const jobItem = jobItems.find(item => item.filename === currentFile && item.brandId === current.brand_id);
-        if (jobItem) {
-            jobItem.status = 'skipped';
-            persistJobItems();
-        }
+        syncQueueItemToJobItem(current);
     }
     // ========== END JOB-ITEM MODEL ==========
     
     renderBrandPills();
+    updateReviewHeader();
     
     // Find next pending brand
     const nextIdx = findNextPendingBrand();
     if (nextIdx !== -1) {
-        switchToBrand(nextIdx);
+        await switchToBrand(nextIdx);
+        if (result) {
+            result.innerHTML = `<div class="status-msg info">Skipped ${skippedBrandName}. Moving to the next version.</div>`;
+        }
     } else {
-        checkQueueComplete();
+        renderReviewCompletionState();
     }
 }
 
@@ -3482,6 +4884,7 @@ function cancelQueue() {
 
 function exitQueueMode() {
     isQueueMode = false;
+    syncReviewViewportState();
     
     // Show selection mode, hide queue mode
     document.getElementById('selectionModeHeader').style.display = 'block';
@@ -3502,7 +4905,7 @@ function exitQueueMode() {
     const failed = processingQueue.filter(q => q.status === 'failed').length;
     
     if (processingQueue.length > 0) {
-        result.innerHTML = `<div class="status-msg success">\u2705 Completed: ${done} done, ${skipped} skipped, ${failed} failed</div>`;
+        result.innerHTML = `<div class="status-msg success">\u2705 Results summary: ${done} done, ${skipped} skipped, ${failed} failed</div>`;
     } else {
         result.innerHTML = '';
     }
@@ -3654,6 +5057,8 @@ function switchTab(tabName) {
 function showIntakeLayer() {
     document.getElementById('intakeLayer').style.display = 'block';
     document.getElementById('selectedVideoInfo').style.display = 'none';
+    createIntent = null;
+    updateOutputFormatUI();
     // Default to Get Media tab
     switchTab('download');
 }
@@ -3758,7 +5163,11 @@ async function toggleLibraryBookmark(downloadId, btn) {
 
 function selectVideo(filename, meta) {
     meta = meta || {};
+    if (currentFile || processingQueue.length || selectedBrandIds.length || activePreviewBrandId || brandOverrides && Object.keys(brandOverrides).length) {
+        resetCreateReviewSession('select-video');
+    }
     currentFile = filename;
+    createIntent = null;
     sessionStorage.setItem('lastDownloadFilename', filename);
 
     // ========== JOB-ITEM MODEL (Commit 2: dual-write) ==========
@@ -3812,6 +5221,7 @@ function selectVideo(filename, meta) {
     // Show preview section and extract first frame
     document.getElementById('previewSection').style.display = 'block';
     extractFrame(filename);
+    updateCreateIntentUI();
     updateConfirmationSummary();
     updateStepProgress(2);
 }
@@ -3918,6 +5328,7 @@ async function handleUpload(file) {
 }
 
 function replaceVideo() {
+    resetCreateReviewSession('replace-video');
     currentFile = null;
     frameData = null;
     document.getElementById('previewSection').style.display = 'none';
@@ -3927,10 +5338,12 @@ function replaceVideo() {
 }
 
 function changeVideo() {
+    resetCreateReviewSession('change-video');
     // Clear session storage and current state
     sessionStorage.removeItem('lastDownloadFilename');
     currentFile = null;
     frameData = null;
+    createIntent = null;
     
     // Hide preview section
     document.getElementById('previewSection').style.display = 'none';
@@ -4280,9 +5693,11 @@ function downloadAllBatchVideos() {
 
 function clearVideo() {
     // Same as changeVideo but stay on current page
+    resetCreateReviewSession('clear-video');
     sessionStorage.removeItem('lastDownloadFilename');
     currentFile = null;
     frameData = null;
+    createIntent = null;
     document.getElementById('previewSection').style.display = 'none';
     showIntakeLayer();
     updateConfirmationSummary();
@@ -4317,35 +5732,38 @@ function updateConfirmationSummary() {
         parts.push(`<strong>Video:</strong> <span style="color:#ff9800;">No video selected</span>`);
     }
     
-    // ========== JOB-ITEM MODEL (Commit 4: prefer jobItems for counts) ==========
-    // Batch output summary - prefer jobItems for current file, fallback to old model
-    let countSource = selectedBrandIds;
-    let overrideCheckFn = (id) => brandOverrides[id];
-    
-    if (currentFile && jobItems.length > 0) {
-        const fileItems = jobItems.filter(item => item.filename === currentFile);
-        if (fileItems.length > 0) {
-            countSource = fileItems;
-            overrideCheckFn = (item) => Object.keys(item.overrides || {}).length > 0;
-        }
+    // ========== JOB-ITEM MODEL (Commit 4: prefer canonical current selection/queue counts) ==========
+    const inSelectionMode = document.getElementById('selectionModeActions').style.display !== 'none';
+    let itemCount = 0;
+    let overrideCount = 0;
+
+    if (isQueueMode && processingQueue.length > 0) {
+        const queueItems = getReviewableQueueItems();
+        itemCount = queueItems.length;
+        overrideCount = queueItems.filter(item => Object.keys(item.overrides || {}).length > 0).length;
+    } else {
+        const canonicalBrandIds = getCanonicalSelectedBrandIds();
+        itemCount = canonicalBrandIds.length;
+        overrideCount = canonicalBrandIds.filter(id => !!brandOverrides[id]).length;
     }
-    
-    if (countSource.length > 0) {
-        const itemCount = countSource.length;
-        const overrideCount = countSource.filter(overrideCheckFn).length;
+
+    if (itemCount > 0) {
         parts.push(`<strong>${itemCount} brand${itemCount > 1 ? 's' : ''}</strong> &rarr; <strong>${itemCount} output${itemCount > 1 ? 's' : ''}</strong>`);
         if (overrideCount > 0) {
             parts.push(`<span style="color:#F5A623; font-size:11px;">${overrideCount} with overrides</span>`);
         }
     } else {
-        parts.push(`<span style="color:#ff9800;">No brands selected</span>`);
+        parts.push(`<span style="color:#ff9800;">Choose at least one brand to start review</span>`);
     }
     // ========== END JOB-ITEM MODEL ==========
     
-    summaryEl.innerHTML = parts.join(' <span style="color:#444;">&middot;</span> ');
+    const summaryCore = parts.join(' <span style="color:#444;">&middot;</span> ');
+    const summaryHint = itemCount > 0
+        ? '<div style="margin-top:6px; font-size:11px; color:#9ca3af;">Start review to check each brand one by one. Everything moves forward unless you skip it.</div>'
+        : '';
+    summaryEl.innerHTML = summaryCore + summaryHint;
     
     // Show/hide confirmation box based on whether we're in selection mode
-    const inSelectionMode = document.getElementById('selectionModeActions').style.display !== 'none';
     confirmBox.style.display = inSelectionMode ? 'block' : 'none';
 }
 
