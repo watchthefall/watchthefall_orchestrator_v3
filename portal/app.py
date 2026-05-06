@@ -2041,13 +2041,39 @@ def extract_frame():
         
         # Sanitize filename to prevent path traversal
         filename = os.path.basename(filename)
-        
-        # Find the video file - check RAW_DIR first, then OUTPUT_DIR
-        video_path = os.path.join(RAW_DIR, filename)
-        if not os.path.exists(video_path):
-            video_path = os.path.join(OUTPUT_DIR, filename)
-        if not os.path.exists(video_path):
+
+        # Find the video file — search all known locations in priority order
+        from .config import UPLOAD_DIR
+        from .database import get_connection
+        search_paths = [
+            os.path.join(RAW_DIR, filename),
+            os.path.join(OUTPUT_DIR, filename),
+            os.path.join(UPLOAD_DIR, filename),
+        ]
+        video_path = next((p for p in search_paths if os.path.exists(p)), None)
+
+        # Last resort: authoritative file_path from the downloads DB record
+        if video_path is None:
+            try:
+                with get_connection() as conn:
+                    c = conn.cursor()
+                    c.execute(
+                        'SELECT file_path FROM downloads WHERE filename = ? ORDER BY created_at DESC LIMIT 1',
+                        (filename,)
+                    )
+                    row = c.fetchone()
+                    if row and row['file_path'] and os.path.exists(row['file_path']):
+                        video_path = row['file_path']
+                        print(f'[EXTRACT-FRAME] Found via DB file_path: {video_path}')
+            except Exception as db_err:
+                print(f'[EXTRACT-FRAME] DB lookup failed for {filename}: {db_err}')
+
+        if video_path is None:
+            print(f'[EXTRACT-FRAME] File not found in any location: {filename}')
+            print(f'[EXTRACT-FRAME] Searched: {search_paths}')
             return jsonify({'success': False, 'error': f'File not found: {filename}'}), 404
+
+        print(f'[EXTRACT-FRAME] Using path: {video_path}')
         
         # Get video dimensions with ffprobe
         probe_cmd = [

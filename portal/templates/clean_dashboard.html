@@ -3284,20 +3284,20 @@ function drawOverlays() {
     const wmOpacity = parseInt(document.getElementById('wmOpacity').value) / 100;
     const logoScalePct = parseInt(document.getElementById('logoScale').value) / 100;
     
-    // Draw watermark
-    if (watermarkImg && watermarkImg.complete) {
+    // Draw watermark — naturalWidth > 0 guards against drawing a 404'd broken image
+    if (watermarkImg && watermarkImg.complete && watermarkImg.naturalWidth > 0) {
         const scaledW = canvas.width * wmScale;
         const scaledH = canvas.height * wmScale;
         const offsetX = (scaledW - canvas.width) / 2;
         const offsetY = (scaledH - canvas.height) / 2;
-        
+
         ctx.globalAlpha = wmOpacity;
         ctx.drawImage(watermarkImg, -offsetX, -offsetY, scaledW, scaledH);
         ctx.globalAlpha = 1.0;
     }
-    
-    // Draw logo (anchored to CENTER coordinates)
-    if (logoImg && logoImg.complete) {
+
+    // Draw logo (anchored to CENTER coordinates) — same naturalWidth guard
+    if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
         const logoW = canvas.width * logoScalePct;
         const logoH = (logoImg.height / logoImg.width) * logoW;
         
@@ -4034,7 +4034,18 @@ async function loadBrandAssets(brandId) {
         console.error(`[BRANDR] Brand #${brandId} not found in cache`);
         return;
     }
-    
+
+    const wmUrl  = `${apiBase}/api/preview/brand-asset/${brandId}/watermark`;
+    const logoUrl = `${apiBase}/api/preview/brand-asset/${brandId}/logo`;
+    const activeItem = getActiveItem();
+    console.log('[BRANDR] loadBrandAssets —', {
+        currentFile,
+        frameData: frameData ? `SET (${frameData.length} chars)` : 'NULL',
+        resolvedVideoUrl: `${apiBase}/api/preview/extract-frame (POST)`,
+        jobItemsActiveItem: activeItem ? { id: activeItem.id, filename: activeItem.filename, brandId: activeItem.brandId, hasFrameData: !!activeItem.frameData } : null,
+        brandAssetUrls: { watermark: wmUrl, logo: logoUrl }
+    });
+
     // Load watermark
     watermarkImg = new Image();
     watermarkImg.crossOrigin = 'anonymous';
@@ -4043,21 +4054,20 @@ async function loadBrandAssets(brandId) {
         console.warn(`[BRANDR] Watermark load failed for brand #${brandId}`);
         updateCanvasPreview();
     };
-    watermarkImg.src = `${apiBase}/api/preview/brand-asset/${brandId}/watermark`;
-    
+    watermarkImg.src = wmUrl;
+
     // Load logo (if exists)
     if (brandData.logo_path) {
         logoImg = new Image();
         logoImg.crossOrigin = 'anonymous';
         logoImg.onload = () => {
-            // Logo position already set by loadBrandConfig(), don't reset
             updateCanvasPreview();
         };
         logoImg.onerror = () => {
             console.warn(`[BRANDR] Logo load failed for brand #${brandId}`);
             updateCanvasPreview();
         };
-        logoImg.src = `${apiBase}/api/preview/brand-asset/${brandId}/logo`;
+        logoImg.src = logoUrl;
     } else {
         logoImg = null;  // No logo for this brand
         updateCanvasPreview();
@@ -4948,29 +4958,29 @@ function exitQueueMode() {
 // fetchVideo() removed - use Downloader tool instead
 
 async function extractFrame(filename) {
+    console.log('[BRANDR] extractFrame start — file:', filename);
     try {
         const res = await fetch(`${apiBase}/api/preview/extract-frame`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ filename })
         });
-        
+
         const data = await res.json();
-        
+
         if (data.success) {
             frameData = data.frame_data;
             videoWidth = data.width;
             videoHeight = data.height;
-            
+            console.log('[BRANDR] extractFrame success — file:', filename, 'dims:', videoWidth, 'x', videoHeight);
+
             // Adjust canvas aspect ratio
             canvas.height = canvas.width * (videoHeight / videoWidth);
-            
+
             updateCanvasPreview();
-            renderResultPreviewStrip();  // Update strip with new source thumbnail
-            
+            renderResultPreviewStrip();
+
             // ========== JOB-ITEM MODEL (Commit 2: dual-write) ==========
-            // Safely write frame data into the active job item
-            // Guard: only write if active item matches the filename we just processed
             const activeItem = getActiveItem();
             if (activeItem && activeItem.filename === filename) {
                 activeItem.frameData = data.frame_data;
@@ -4984,9 +4994,14 @@ async function extractFrame(filename) {
                 });
             }
             // ========== END JOB-ITEM MODEL ==========
+        } else {
+            console.warn('[BRANDR] extractFrame failed — file:', filename, 'error:', data.error || 'unknown');
+            // Refresh canvas anyway so brand overlays render over the placeholder gradient
+            updateCanvasPreview();
         }
     } catch (err) {
-        console.error('Frame extraction failed:', err);
+        console.error('[BRANDR] extractFrame network error — file:', filename, err);
+        updateCanvasPreview();
     }
 }
 
