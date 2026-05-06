@@ -3,6 +3,19 @@
  * Drag-and-drop overlay editor for logo, watermark, and text positioning
  */
 
+// Watermark UI ↔ render-scale conversion.
+// DB and canvas renderers store render scale (1.0 = fills entire frame).
+// UI sliders show a percentage where 100% = WM_UI_REF_SCALE (the standard WTF full-frame value).
+const WM_UI_REF_SCALE = 1.15;
+
+function watermarkUiToRenderScale(uiPct) {
+    return (uiPct / 100) * WM_UI_REF_SCALE;
+}
+
+function renderScaleToWatermarkUi(renderScale) {
+    return Math.round((renderScale / WM_UI_REF_SCALE) * 100);
+}
+
 class BrandEditor {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);

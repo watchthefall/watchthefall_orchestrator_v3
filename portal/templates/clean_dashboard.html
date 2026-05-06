@@ -2081,7 +2081,7 @@
                     <span class="slider-label">Scale</span>
                     <span class="slider-value" id="wmScaleVal">115%</span>
                 </div>
-                <input type="range" id="wmScale" min="100" max="200" value="115" oninput="document.getElementById('wmScaleVal').textContent = this.value + '%'; updateCanvasPreview();">
+                <input type="range" id="wmScale" min="10" max="130" value="100" oninput="document.getElementById('wmScaleVal').textContent = this.value + '%'; updateCanvasPreview();">
             </div>
             <div class="slider-group">
                 <div class="slider-header">
@@ -2838,7 +2838,7 @@ function setupReviewAutoSave() {
 // Capture current slider/drag state as an overrides object
 function captureCurrentSliders() {
     var result = {
-        watermark_scale: parseInt(document.getElementById('wmScale').value) / 100,
+        watermark_scale: watermarkUiToRenderScale(parseInt(document.getElementById('wmScale').value)),
         watermark_opacity: parseInt(document.getElementById('wmOpacity').value) / 100,
         logo_x: logoCenterXPercent,
         logo_y: logoCenterYPercent,
@@ -3280,7 +3280,7 @@ function updateCanvasPreview() {
 }
 
 function drawOverlays() {
-    const wmScale = parseInt(document.getElementById('wmScale').value) / 100;
+    const wmScale = watermarkUiToRenderScale(parseInt(document.getElementById('wmScale').value));
     const wmOpacity = parseInt(document.getElementById('wmOpacity').value) / 100;
     const logoScalePct = parseInt(document.getElementById('logoScale').value) / 100;
     
@@ -3836,6 +3836,19 @@ function selectBrand(brandId, btnEl, isReady) {
     updateConfirmationSummary();
 }
 
+// ── Watermark scale conversion ────────────────────────────────────────────────
+// DB and renderers store render scale (1.0 = fills entire frame).
+// UI slider shows a percentage where 100% = WM_UI_REF_SCALE (standard WTF full-frame value).
+const WM_UI_REF_SCALE = 1.15;
+
+function watermarkUiToRenderScale(uiPct) {
+    return (uiPct / 100) * WM_UI_REF_SCALE;
+}
+
+function renderScaleToWatermarkUi(renderScale) {
+    return Math.round((renderScale / WM_UI_REF_SCALE) * 100);
+}
+
 // ── Unified render path ───────────────────────────────────────────────────────
 // mergeRenderParams: DB field names → slider domain + sparse session override merge
 function mergeRenderParams(brandConfig, sessionOverrides) {
@@ -3873,7 +3886,7 @@ function mergeRenderParams(brandConfig, sessionOverrides) {
 // loadRenderParamsIntoSliders: unified DOM setter — takes slider-domain renderParams object
 function loadRenderParamsIntoSliders(renderParams) {
     // Watermark — read back clamped DOM value for label to avoid slider min/max desync
-    document.getElementById('wmScale').value = Math.round(renderParams.watermark_scale * 100);
+    document.getElementById('wmScale').value = renderScaleToWatermarkUi(renderParams.watermark_scale);
     document.getElementById('wmScaleVal').textContent = document.getElementById('wmScale').value + '%';
     document.getElementById('wmOpacity').value = Math.round(renderParams.watermark_opacity * 100);
     document.getElementById('wmOpacityVal').textContent = document.getElementById('wmOpacity').value + '%';
@@ -3951,8 +3964,8 @@ async function loadBrandConfig(brandId) {
         const cfg = brandData;  // Config is already loaded from /api/brands/list
         
         // Apply watermark settings (use wm_* canonical keys)
-        document.getElementById('wmScale').value = Math.round(cfg.wm_scale * 100);
-        document.getElementById('wmScaleVal').textContent = Math.round(cfg.wm_scale * 100) + '%';
+        document.getElementById('wmScale').value = renderScaleToWatermarkUi(cfg.wm_scale);
+        document.getElementById('wmScaleVal').textContent = renderScaleToWatermarkUi(cfg.wm_scale) + '%';
         document.getElementById('wmOpacity').value = Math.round(cfg.wm_opacity * 100);
         document.getElementById('wmOpacityVal').textContent = Math.round(cfg.wm_opacity * 100) + '%';
         
@@ -4392,7 +4405,7 @@ function getDefaultOverrides() {
 
 function loadOverridesIntoSliders(overrides) {
     // Watermark — read back clamped DOM value for label to avoid slider min/max desync
-    document.getElementById('wmScale').value = Math.round(overrides.watermark_scale * 100);
+    document.getElementById('wmScale').value = renderScaleToWatermarkUi(overrides.watermark_scale);
     document.getElementById('wmScaleVal').textContent = document.getElementById('wmScale').value + '%';
     document.getElementById('wmOpacity').value = Math.round(overrides.watermark_opacity * 100);
     document.getElementById('wmOpacityVal').textContent = document.getElementById('wmOpacity').value + '%';

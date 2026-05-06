@@ -444,7 +444,7 @@
                         </div>
                         <div class="slider-row">
                             <label>Scale <span class="slider-value" id="wmScaleVal">100%</span></label>
-                            <input type="range" id="wmScale" min="10" max="200" value="100" oninput="updateWmScale(this.value)">
+                            <input type="range" id="wmScale" min="10" max="130" value="100" oninput="updateWmScale(this.value)">
                         </div>
                         <div class="slider-row">
                             <label>Opacity <span class="slider-value" id="wmOpacityVal">10%</span></label>
@@ -2732,7 +2732,7 @@ function setWatermarkMode(mode) {
 function updateWmScale(value) {
     document.getElementById('wmScaleVal').textContent = value + '%';
     if (editor) {
-        editor.updateState({ wmScale: parseFloat(value) / 100 });
+        editor.updateState({ wmScale: watermarkUiToRenderScale(parseFloat(value)) });
     }
 }
 
@@ -3019,7 +3019,7 @@ function editBrand(brandId) {
                 watermarkPreviewUrl: hasSeparateWatermark ? `${apiBase}/api/preview/brand-asset/${brandId}/watermark?t=${Date.now()}` : null,
                 watermarkX: brand.wm_x != null ? brand.wm_x : 0.18,
                 watermarkY: brand.wm_y != null ? brand.wm_y : 0.18,
-                watermarkScale: Math.round((brand.wm_scale || 0.25) * 100),
+                watermarkScale: renderScaleToWatermarkUi(brand.wm_scale != null ? brand.wm_scale : 0.25),
                 watermarkOpacity: Math.round((brand.wm_opacity || 0.50) * 100),
                 previewMode: hasSeparateWatermark ? 'both' : 'logo'
             };
@@ -5435,9 +5435,9 @@ function drawWizardWatermarkPreview() {
         
         // Get current mode and settings
         const mode = wizardState.watermarkMode || 'fullscreen';
-        const scale = wizardState.watermarkScale / 100;
+        const scale = watermarkUiToRenderScale(wizardState.watermarkScale);
         const opacity = wizardState.watermarkOpacity / 100;
-        
+
         if (mode === 'fullscreen') {
             // Fullscreen mode: centered overlay sized relative to canvas width (matches backend)
             const wmWidth = canvas.width * scale;
@@ -6880,20 +6880,20 @@ async function saveWizardBrand() {
             
             const wmForm = new FormData();
             wmForm.append('file', wizardState.watermarkFile);
-            wmForm.append('watermark_scale', wizardState.watermarkScale / 100);
+            wmForm.append('watermark_scale', watermarkUiToRenderScale(wizardState.watermarkScale));
             wmForm.append('watermark_opacity', wizardState.watermarkOpacity / 100);
-            
+
             const wmRes = await fetch(`${apiBase}/api/brands/${brandId}/upload_watermark`, {
                 method: 'POST',
                 body: wmForm
             });
-            
+
             const wmData = await wmRes.json();
             if (!wmData.success) {
                 console.warn('Watermark upload warning:', wmData.error);
             }
         }
-        
+
         // Save visual settings (position, etc.)
         status.innerHTML = '<div class="status-msg info">Saving settings...</div>';
         
@@ -6916,9 +6916,9 @@ async function saveWizardBrand() {
         const hasSeparateWatermark = wizardState.useSeparateWatermark &&
             (wizardState.watermarkFile || wizardState.watermarkPreviewUrl);
         if (hasSeparateWatermark) {
-            settingsPayload.wm_scale = wizardState.watermarkScale / 100;
+            settingsPayload.wm_scale = watermarkUiToRenderScale(wizardState.watermarkScale);
             settingsPayload.wm_opacity = wizardState.watermarkOpacity / 100;
-            settingsPayload.watermark_scale = wizardState.watermarkScale / 100;
+            settingsPayload.watermark_scale = watermarkUiToRenderScale(wizardState.watermarkScale);
             settingsPayload.watermark_opacity = wizardState.watermarkOpacity / 100;
             settingsPayload.wm_x = wizardState.watermarkX;
             settingsPayload.wm_y = wizardState.watermarkY;
@@ -7045,7 +7045,7 @@ async function saveWizardBrandWithWatermark() {
             
             const wmForm = new FormData();
             wmForm.append('file', watermarkFileToUpload);
-            wmForm.append('watermark_scale', wizardState.watermarkScale / 100);
+            wmForm.append('watermark_scale', watermarkUiToRenderScale(wizardState.watermarkScale));
             wmForm.append('watermark_opacity', wizardState.watermarkOpacity / 100);
             wmForm.append('watermark_mode', wizardState.watermarkMode);
             
@@ -7082,7 +7082,7 @@ async function saveWizardBrandWithWatermark() {
         // Add watermark settings if watermark was uploaded
         if (wizardState.watermarkFile) {
             settingsPayload.wm_mode = wizardState.watermarkMode || 'fullscreen';
-            settingsPayload.wm_scale = wizardState.watermarkScale / 100;
+            settingsPayload.wm_scale = watermarkUiToRenderScale(wizardState.watermarkScale);
             settingsPayload.wm_opacity = wizardState.watermarkOpacity / 100;
             
             // Compute wm_x/wm_y as the CENTER of the watermark in normalized coords.
