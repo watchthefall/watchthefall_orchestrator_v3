@@ -249,7 +249,7 @@
         top: 68px;
         z-index: 18;
         background: linear-gradient(180deg, rgba(18,18,20,0.96), rgba(18,18,20,0.86) 82%, rgba(18,18,20,0));
-        padding-bottom: 4px;
+        padding-bottom: 2px;
     }
     .review-context-top {
         display: flex;
@@ -339,7 +339,7 @@
         color: #b6bfd3;
     }
     .review-footer-actions {
-        margin-top: 8px;
+        margin-top: 4px;
         display: flex;
         flex-wrap: wrap;
         align-items: center;
@@ -593,6 +593,9 @@
     #previewSection {
         display: none;
     }
+    #previewSection.review-active #createIntentFork {
+        display: none !important;
+    }
     .preview-container {
         position: relative;
         width: 100%;
@@ -738,27 +741,27 @@
     .status-msg.error { background: #4a1a1a; color: #fca5a5; }
     .status-msg.warning { background: #4a3816; color: #fcd34d; }
     .review-complete-card {
-        margin: 10px 0 0;
-        padding: 14px 14px 12px;
+        margin: 6px 0 0;
+        padding: 10px 12px 9px;
         background: linear-gradient(180deg, rgba(57,255,20,0.08), rgba(57,255,20,0.03));
         border: 1px solid rgba(57,255,20,0.18);
         border-radius: 10px;
     }
     .review-complete-title {
         color: #f3f7ef;
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 700;
-        margin-bottom: 6px;
+        margin-bottom: 3px;
     }
     .review-complete-meta {
         color: #a9b1c3;
         font-size: 12px;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
     }
     .review-complete-sub {
         color: #dce6d3;
-        font-size: 12px;
-        margin-bottom: 10px;
+        font-size: 11px;
+        margin-bottom: 6px;
     }
     .review-complete-actions {
         display: flex;
@@ -1177,18 +1180,121 @@
 
     /* Enhanced preview container */
     #previewSection .preview-container {
-        max-width: 420px;
+        max-width: 360px;
         border: 1px solid #46516a;
         border-radius: 10px;
         margin-top: 8px;
         background: linear-gradient(180deg, #0d1016, #050608);
     }
+    #brandReviewLane.review-active {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+        align-items: start;
+        max-width: 860px;
+        margin: 0 auto;
+    }
+    #brandReviewLane:not(.review-active) #resultPreviewStrip {
+        display: none !important;
+    }
+    #brandReviewLane.review-active #outputFormatsSection,
+    #brandReviewLane.review-active #selectionModeHeader,
+    #brandReviewLane.review-active #brandsBox,
+    #brandReviewLane.review-active #selectionModeActions,
+    #brandReviewLane.review-active #noBrandsState,
+    #brandReviewLane.review-active #confirmationSummary,
+    #brandReviewLane.review-active #previewTargetBar {
+        display: none !important;
+    }
+    #brandReviewLane.review-active #queueModeHeader {
+        order: 1;
+        margin-bottom: 2px !important;
+    }
+    #brandReviewLane.review-active #resultPreviewStrip {
+        order: 2;
+        margin-top: 0;
+        padding-top: 0;
+    }
+    #brandReviewLane.review-active #previewContainer {
+        order: 3;
+        width: clamp(220px, 42vw, 310px);
+        aspect-ratio: 9 / 16;
+        max-width: 100%;
+        max-height: min(52vh, 560px);
+        margin: 2px auto 0;
+        align-self: start;
+    }
+    #brandReviewLane.review-active #overrideControls {
+        order: 4;
+        margin-top: 2px;
+        max-height: min(34vh, 300px);
+        overflow: auto;
+    }
+    /* #confirmationSummary suppressed during review-active via shared display:none block above */
+    #brandReviewLane.review-active #queueModeActions {
+        order: 6;
+        position: sticky;
+        bottom: 10px;
+        z-index: 20;
+        margin-top: 2px;
+        padding: 8px 10px;
+        border-radius: 12px;
+        border: 1px solid rgba(79, 89, 111, 0.38);
+        background: rgba(11, 13, 18, 0.92);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+    }
+    #brandReviewLane.review-active #processResult {
+        order: 7;
+        margin-top: 2px !important;
+    }
     @media (min-width: 1100px) {
         #previewSection {
-            max-width: 540px;
+            max-width: 980px;
         }
         #previewSection .preview-container {
-            max-width: 440px;
+            max-width: 320px;
+            margin: 0;
+        }
+        #brandReviewLane.review-active {
+            grid-template-columns: minmax(260px, 320px) minmax(340px, 420px);
+            grid-template-areas:
+                "header header"
+                "rail rail"
+                "preview tweaks"
+                "preview actions"
+                "result result";
+            justify-content: center;
+            column-gap: 18px;
+            row-gap: 8px;
+        }
+        #brandReviewLane.review-active #queueModeHeader {
+            grid-area: header;
+        }
+        #brandReviewLane.review-active #resultPreviewStrip {
+            grid-area: rail;
+        }
+        #brandReviewLane.review-active #previewContainer {
+            grid-area: preview;
+            position: sticky;
+            top: 128px;
+            align-self: start;
+            width: clamp(250px, 19vw, 320px);
+            aspect-ratio: 9 / 16;
+            height: auto;
+            max-height: none;
+        }
+        #brandReviewLane.review-active #overrideControls {
+            grid-area: tweaks;
+            max-height: min(52vh, 520px);
+            overflow: auto;
+        }
+        #brandReviewLane.review-active #queueModeActions {
+            grid-area: actions;
+            align-self: end;
+        }
+        #brandReviewLane.review-active #processResult {
+            grid-area: result;
         }
     }
     #overrideControls {
@@ -1382,8 +1488,8 @@
 
     /* ========== RESULT PREVIEW STRIP ========== */
     #resultPreviewStrip {
-        margin: 6px 0 0;
-        padding: 3px 0 1px;
+        margin: 4px 0 0;
+        padding: 2px 0 0;
         display: none;
     }
     .rps-label {
@@ -1416,12 +1522,12 @@
         align-items: center;
         gap: 6px;
         min-width: 0;
-        max-width: 136px;
+        max-width: 124px;
         width: auto;
         background: #171b24;
         border: 1px solid #2a3140;
         border-radius: 999px;
-        padding: 4px 7px 4px 4px;
+        padding: 3px 6px 3px 3px;
         margin: 0;
         cursor: pointer;
         transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
@@ -1440,8 +1546,8 @@
         box-shadow: 0 0 8px var(--accent-glow);
     }
     .rps-node-visual {
-        width: 22px;
-        height: 22px;
+        width: 20px;
+        height: 20px;
         border-radius: 999px;
         background: #101318;
         border: 1px solid rgba(255,255,255,0.08);
@@ -1467,7 +1573,7 @@
         gap: 2px;
     }
     .rps-name {
-        font-size: 10px;
+        font-size: 9px;
         font-weight: 600;
         color: #d9deea;
         white-space: nowrap;
@@ -1479,8 +1585,8 @@
         color: var(--accent-text);
     }
     .rps-status {
-        font-size: 8px;
-        padding: 1px 5px;
+        font-size: 7px;
+        padding: 1px 4px;
         border-radius: 999px;
         display: inline-flex;
         align-items: center;
@@ -1511,21 +1617,21 @@
         display: flex;
         align-items: center;
         color: #4a5161;
-        font-size: 11px;
+        font-size: 10px;
         padding: 0;
     }
     .rps-source {
         flex: 0 0 auto;
         display: inline-flex;
         align-items: center;
-        gap: 5px;
+        gap: 4px;
         min-width: 0;
-        max-width: 92px;
+        max-width: 82px;
         padding-right: 2px;
     }
     .rps-source-thumb {
-        width: 22px;
-        height: 22px;
+        width: 18px;
+        height: 18px;
         border-radius: 6px;
         background: #121214;
         border: 1px solid #394150;
@@ -1538,7 +1644,7 @@
         object-fit: cover;
     }
     .rps-source-label {
-        font-size: 9px;
+        font-size: 8px;
         color: #9aa3b7;
         white-space: nowrap;
     }
@@ -1646,6 +1752,41 @@
         border-radius: 3px;
         font-weight: 700;
         line-height: 1.3;
+    }
+
+    /* ========== REVIEW COCKPIT MODE ========== */
+    body.review-cockpit-active {
+        padding-bottom: 20px;
+    }
+
+    /* Compact review session rail */
+    #queueModeHeader .review-context-card {
+        padding: 6px 10px 5px;
+    }
+    #queueModeHeader .review-context-top {
+        margin-bottom: 1px;
+    }
+    #queueModeHeader .review-context-title {
+        font-size: 13px;
+    }
+    #queueModeHeader .compact-summary {
+        font-size: 10px;
+    }
+    #queueModeHeader .review-context-meta {
+        font-size: 10px;
+    }
+    #queueModeHeader .review-state-badge {
+        font-size: 9px;
+        padding: 1px 6px;
+    }
+
+    /* Tighten preview → action gap */
+    .review-actions {
+        margin-top: 6px;
+        gap: 6px;
+    }
+    .review-footer-actions {
+        margin-top: 2px;
     }
 </style>
 </head>
@@ -1898,7 +2039,7 @@
     </div>
     
     <!-- Queue Mode Header (hidden by default) -->
-    <div id="queueModeHeader" style="display:none; margin-bottom:12px;">
+    <div id="queueModeHeader" style="display:none; margin-bottom:6px;">
         <div class="review-context-card">
             <div class="review-context-top">
                 <div class="review-context-main">
@@ -2116,7 +2257,7 @@
         </div>
     </div>
     
-    <div id="processResult" style="margin-top:10px;"></div>
+    <div id="processResult" style="margin-top:6px;"></div>
     </div>
 </div>
 
@@ -2197,6 +2338,7 @@ let secLogoSelectedBrandId = null;  // Which brand's logo is used as secondary
 let isQueueMode = false;
 let processingQueue = [];
 let currentQueueIndex = 0;
+let isReviewCompletionState = false;
 let selectedOutputFormats = ['reels916'];
 
 const OUTPUT_FORMAT_OPTIONS = {
@@ -2394,6 +2536,26 @@ function syncQueueItemToJobItem(queueItem) {
     persistJobItems();
 }
 
+function syncReviewViewportState() {
+    const previewSection = document.getElementById('previewSection');
+    const reviewLane = document.getElementById('brandReviewLane');
+    const resultStrip = document.getElementById('resultPreviewStrip');
+    const track = document.getElementById('rpsTrack');
+    const reviewActive = !!(isQueueMode && createIntent === 'review');
+
+    if (previewSection) {
+        previewSection.classList.toggle('review-active', reviewActive);
+    }
+    if (reviewLane) {
+        reviewLane.classList.toggle('review-active', reviewActive);
+    }
+    if (!reviewActive && resultStrip) {
+        resultStrip.style.display = 'none';
+        if (track) track.innerHTML = '';
+    }
+    document.body.classList.toggle('review-cockpit-active', reviewActive);
+}
+
 function updateIntentForkTitle() {
     const title = document.getElementById('intentForkTitle');
     if (!title) return;
@@ -2452,9 +2614,16 @@ function updateCreateIntentUI() {
     downloadLane.style.display = createIntent === 'download' ? 'block' : 'none';
     reviewLane.style.display = createIntent === 'review' ? 'block' : 'none';
     if (resultStrip) {
-        const hasBrands = getCanonicalSelectedBrandIds().length > 0 || getCurrentFileJobItems().length > 0;
-        resultStrip.style.display = createIntent === 'review' && hasBrands ? 'block' : 'none';
+        const hasReviewItems = getReviewableQueueItems().length > 0;
+        if (createIntent === 'review' && isQueueMode && hasReviewItems) {
+            resultStrip.style.display = 'block';
+        } else {
+            resultStrip.style.display = 'none';
+            const track = document.getElementById('rpsTrack');
+            if (track) track.innerHTML = '';
+        }
     }
+    syncReviewViewportState();
 }
 
 function setCreateIntent(intent) {
@@ -2582,7 +2751,8 @@ function renderReviewCompletionState() {
             <div class="review-complete-meta">${approved} approved • ${skipped} skipped • ${ready} ready</div>
             <div class="review-complete-sub">Ready to generate outputs.</div>
             <div class="review-complete-actions">
-                <button onclick="processAllBrands()" id="processAllBtnInline">Start branding</button>
+                <button onclick="processAllBrands()" id="processAllBtnInline" style="flex:1; min-width:0;">Start branding</button>
+                <button onclick="goToLibrary()" style="flex:0 0 auto; width:auto; margin-top:0; padding:11px 14px; font-size:13px; background:transparent; border:1px solid #343948; color:#b6bfd3; border-radius:8px;">Open Library</button>
             </div>
         </div>
     `;
@@ -2877,6 +3047,12 @@ function renderResultPreviewStrip() {
     const track = document.getElementById('rpsTrack');
     if (!track) return;
 
+    if (!isQueueMode || createIntent !== 'review') {
+        strip.style.display = 'none';
+        track.innerHTML = '';
+        return;
+    }
+
     // ========== JOB-ITEM MODEL (Commit 4: prefer jobItems for render list) ==========
     // Determine render source: queue items while reviewing, otherwise current selected brands
     let renderBrandIds = getCanonicalSelectedBrandIds();
@@ -2892,9 +3068,10 @@ function renderResultPreviewStrip() {
     }
     // ========== END JOB-ITEM MODEL ==========
 
-    // Hide strip when no brands selected
+    // Hide strip when no active review items exist
     if (renderBrandIds.length === 0) {
         strip.style.display = 'none';
+        track.innerHTML = '';
         return;
     }
 
@@ -3866,6 +4043,7 @@ function enterQueueMode() {
     currentQueueIndex = 0;
     activeItemIndex = 0;  // Sync with jobItems
     isQueueMode = true;
+    syncReviewViewportState();
     
     // Clear sessionStorage now that branding has started
     sessionStorage.removeItem('lastDownloadFilename');
@@ -4055,17 +4233,17 @@ async function switchToBrand(idx) {
     // Update pills to show active state
     renderBrandPills();
     
-    // Load brand assets for preview using brand_id
-    await loadBrandAssets(current.brand_id);
-    
     // Load brand defaults from cache if not already loaded
     if (!current.overrides) {
         const brandData = brandDataCache[current.brand_id];
         if (brandData) {
             current.overrides = {
-                watermark_scale: brandData.wm_scale || 0.25,
-                watermark_opacity: brandData.wm_opacity || 0.20,
+                watermark_scale: brandData.wm_scale || 1.15,
+                watermark_opacity: brandData.wm_opacity || 0.40,
                 logo_scale: brandData.logo_scale || 0.25,
+                logo_x: brandData.logo_x || 0,
+                logo_y: brandData.logo_y || 0,
+                logo_rotation: brandData.logo_rotation || 0,
                 text_enabled: !!brandData.text_enabled,
                 text_content: brandData.text_content || '',
                 text_x: brandData.text_x || 0,
@@ -4080,14 +4258,18 @@ async function switchToBrand(idx) {
             current.overrides = getDefaultOverrides();
         }
     }
-    
+
     // Mark as editing
     if (current.status !== 'done' && current.status !== 'processing' && current.status !== 'skipped') {
         current.status = 'editing';
     }
-    
-    // Load overrides into sliders
+
+    // Load overrides into sliders BEFORE loading brand assets so cached-image onload
+    // fires updateCanvasPreview with the correct slider values already in place.
     loadOverridesIntoSliders(current.overrides);
+
+    // Load brand assets for preview using brand_id
+    await loadBrandAssets(current.brand_id);
     
     // Clear any previous transient review message
     document.getElementById('processResult').innerHTML = '';
@@ -4096,8 +4278,8 @@ async function switchToBrand(idx) {
 
 function getDefaultOverrides() {
     return {
-        watermark_scale: 0.25,
-        watermark_opacity: 0.20,
+        watermark_scale: 1.15,
+        watermark_opacity: 0.40,
         logo_scale: 0.25,
         logo_x: 0.85,
         logo_y: 0.85,
@@ -4114,15 +4296,15 @@ function getDefaultOverrides() {
 }
 
 function loadOverridesIntoSliders(overrides) {
-    // Watermark
+    // Watermark — read back clamped DOM value for label to avoid slider min/max desync
     document.getElementById('wmScale').value = Math.round(overrides.watermark_scale * 100);
-    document.getElementById('wmScaleVal').textContent = Math.round(overrides.watermark_scale * 100) + '%';
+    document.getElementById('wmScaleVal').textContent = document.getElementById('wmScale').value + '%';
     document.getElementById('wmOpacity').value = Math.round(overrides.watermark_opacity * 100);
-    document.getElementById('wmOpacityVal').textContent = Math.round(overrides.watermark_opacity * 100) + '%';
-    
+    document.getElementById('wmOpacityVal').textContent = document.getElementById('wmOpacity').value + '%';
+
     // Logo
     document.getElementById('logoScale').value = Math.round(overrides.logo_scale * 100);
-    document.getElementById('logoScaleVal').textContent = Math.round(overrides.logo_scale * 100) + '%';
+    document.getElementById('logoScaleVal').textContent = document.getElementById('logoScale').value + '%';
     
     // Text layer
     document.getElementById('textEnabled').checked = overrides.text_enabled;
@@ -4470,12 +4652,13 @@ async function processAllBrands() {
     const successful = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
     
+    const libraryLink = `<button onclick="goToLibrary()" style="width:auto;margin-top:8px;padding:9px 14px;font-size:13px;background:transparent;border:1px solid #343948;color:#b6bfd3;border-radius:8px;">Open Library</button>`;
     if (failed === 0) {
-        result.innerHTML = `<div class="status-msg success">\u2705 Results ready. ${successful} versions processed.</div>`;
+        result.innerHTML = `<div class="status-msg success">\u2705 Results ready. ${successful} versions processed.</div>${libraryLink}`;
     } else {
-        result.innerHTML = `<div class="status-msg warning">Results ready with issues. ${successful} done, \u274C ${failed} failed</div>`;
+        result.innerHTML = `<div class="status-msg warning">Results ready with issues. ${successful} done, \u274C ${failed} failed</div>${libraryLink}`;
     }
-    
+
     checkQueueComplete();
 }
 
@@ -4545,7 +4728,7 @@ function checkQueueComplete() {
         const failed = checkSource.filter(q => q.status === 'failed').length;
         const skipped = checkSource.filter(q => q.status === 'skipped').length;
         
-        result.innerHTML = `<div class="status-msg success">\ud83c\udf89 Results ready. ${done} done, ${skipped} skipped, ${failed} failed</div>`;
+        result.innerHTML = `<div class="status-msg success">\ud83c\udf89 Results ready. ${done} done, ${skipped} skipped, ${failed} failed</div><button onclick="goToLibrary()" style="width:auto;margin-top:8px;padding:9px 14px;font-size:13px;background:transparent;border:1px solid #343948;color:#b6bfd3;border-radius:8px;">Open Library</button>`;
     }
 }
 
@@ -4593,6 +4776,7 @@ function cancelQueue() {
 
 function exitQueueMode() {
     isQueueMode = false;
+    syncReviewViewportState();
     
     // Show selection mode, hide queue mode
     document.getElementById('selectionModeHeader').style.display = 'block';
@@ -5505,4 +5689,3 @@ document.addEventListener('visibilitychange', function() {
 
 </body>
 </html>
-

@@ -838,6 +838,21 @@
     padding: 8px;
 }
 
+#wizardLogoPreview.shape-circle img {
+    width: 150px;
+    height: 150px;
+    object-fit: contain;
+    border-radius: 50%;
+    clip-path: circle(50% at 50% 50%);
+}
+
+#wizardLogoPreview.shape-square img {
+    width: 150px;
+    height: 150px;
+    object-fit: contain;
+    border-radius: 16px;
+}
+
 /* ===== STEP 2: LIVE COMPOSER - PATCH A: Fix content scrolling ===== */
 .composer-content {
     flex: 1;
@@ -2577,7 +2592,7 @@ function renderBrands(brands, canCreate) {
         const card = document.createElement('div');
         card.className = 'brand-card';
         
-        const logo = brand.logo_path ? `${apiBase}/api/preview/brand-asset/${brand.id}/logo` : '';
+        const logo = brand.logo_path ? `${apiBase}/api/preview/brand-asset/${brand.id}/logo?t=${Date.now()}` : '';
         
         // Readiness badges
         const isReady = brand.is_ready || false;
@@ -2988,7 +3003,7 @@ function editBrand(brandId) {
                 slug: brand.name || '',
                 // In edit mode, logoFile stays null (asset already on server)
                 logoFile: null,
-                logoPreviewUrl: brand.logo_path ? `${apiBase}/api/preview/brand-asset/${brandId}/logo` : null,
+                logoPreviewUrl: brand.logo_path ? `${apiBase}/api/preview/brand-asset/${brandId}/logo?t=${Date.now()}` : null,
                 logoShape: brand.logo_shape || 'original',
                 logoScale: Math.round((brand.logo_scale || 0.25) * 100),
                 logoOpacity: Math.round((brand.logo_opacity || 1.0) * 100),
@@ -3001,7 +3016,7 @@ function editBrand(brandId) {
                 logoCleanupStrength: 30,
                 useSeparateWatermark: hasSeparateWatermark,
                 watermarkFile: null,
-                watermarkPreviewUrl: hasSeparateWatermark ? `${apiBase}/api/preview/brand-asset/${brandId}/watermark` : null,
+                watermarkPreviewUrl: hasSeparateWatermark ? `${apiBase}/api/preview/brand-asset/${brandId}/watermark?t=${Date.now()}` : null,
                 watermarkX: brand.wm_x != null ? brand.wm_x : 0.18,
                 watermarkY: brand.wm_y != null ? brand.wm_y : 0.18,
                 watermarkScale: Math.round((brand.wm_scale || 0.25) * 100),
@@ -3026,6 +3041,7 @@ function editBrand(brandId) {
                 if (logoPreview) logoPreview.style.display = 'flex';
                 if (logoPlaceholder) logoPlaceholder.style.display = 'none';
                 if (logoUploadZone) logoUploadZone.classList.add('has-file');
+                applyStep1LogoPreviewShape();
             }
             
             // Show watermark preview if exists
@@ -3284,6 +3300,7 @@ function openBrandWizard() {
         logoUploadZone.style.display = 'flex';
     }
     if (logoPreview) logoPreview.style.display = 'none';
+    if (logoPreview) logoPreview.classList.remove('shape-circle', 'shape-square');
     if (logoPlaceholder) logoPlaceholder.style.display = 'block';
     
     // Reset watermark controls
@@ -3432,6 +3449,16 @@ async function initComposer() {
             drawComposerCanvas();
             initComposerDrag();
         };
+        wizardLogoImage.onerror = () => {
+            if (loadToken !== wizardLoadToken) return;
+            console.warn('[Composer] Failed to load logo image', {
+                editMode: wizardState.editMode === true,
+                brandId: wizardState.editBrandId || null,
+                src: wizardState.logoPreviewUrl || null
+            });
+            wizardLogoImage = null;
+            drawComposerCanvas();
+        };
         if (wizardState.logoFile) {
             wizardLogoImage.src = wizardState.logoPreviewUrl || URL.createObjectURL(wizardState.logoFile);
         } else {
@@ -3450,6 +3477,18 @@ async function initComposer() {
         wizardWatermarkImage.onload = () => {
             if (loadToken !== wizardLoadToken) return;
             console.log('[Composer] Watermark loaded');
+            syncComposerControls();
+            drawComposerCanvas();
+        };
+        wizardWatermarkImage.onerror = () => {
+            if (loadToken !== wizardLoadToken) return;
+            console.warn('[Composer] Failed to load watermark image', {
+                editMode: wizardState.editMode === true,
+                brandId: wizardState.editBrandId || null,
+                src: wizardState.watermarkPreviewUrl || null
+            });
+            wizardWatermarkImage = null;
+            wizardState.activeElement = 'logo';
             syncComposerControls();
             drawComposerCanvas();
         };
@@ -3528,7 +3567,7 @@ function syncComposerControls() {
     if (sizeLabel) sizeLabel.textContent = isWatermark ? 'Watermark Size' : 'Logo Size';
     if (opacityLabel) opacityLabel.textContent = isWatermark ? 'Watermark Opacity' : 'Logo Opacity';
     if (help) help.textContent = isWatermark
-        ? 'Watermark selected. Drag it on canvas and use the main sliders for size and opacity. Larger scaling is available here.'
+        ? 'Watermark selected. Drag it on canvas and use the main sliders for size and opacity. 200% = full frame width.'
         : 'Logo selected. Drag it on canvas and use the main sliders for size and opacity.';
     if (chip) chip.textContent = isWatermark ? 'Editing Watermark' : 'Editing Logo';
     if (logoBtn) logoBtn.classList.toggle('active', !isWatermark);
@@ -3621,6 +3660,7 @@ function setComposerShape(shape) {
     document.querySelectorAll('.shape-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.shape === shape);
     });
+    applyStep1LogoPreviewShape();
     drawComposerCanvas();
 }
 
@@ -3788,7 +3828,19 @@ function applyShapeClip(ctx, shape, x, y, w, h, assetType) {
 
 function drawComposerCanvas() {
     const canvas = document.getElementById('composerMainCanvas');
-    if (!canvas || !wizardLogoImage) return;
+    if (!canvas || !wizardLogoImage) {
+        console.warn('[Composer][draw] Early return: missing canvas or logo image', {
+            hasCanvas: !!canvas,
+            hasLogoImage: !!wizardLogoImage,
+            logoComplete: !!wizardLogoImage?.complete,
+            editMode: wizardState.editMode === true,
+            brandId: wizardState.editBrandId || null,
+            logoPreviewUrl: wizardState.logoPreviewUrl || null,
+            watermarkPreviewUrl: wizardState.watermarkPreviewUrl || null,
+            previewMode: wizardState.previewMode || 'logo'
+        });
+        return;
+    }
     
     const ctx = canvas.getContext('2d');
     const W = canvas.width;
@@ -3821,7 +3873,19 @@ function drawComposerCanvas() {
     ctx.lineTo(W, H / 2);
     ctx.stroke();
     
-    if (!wizardLogoImage.complete) return;
+    if (!wizardLogoImage.complete) {
+        console.warn('[Composer][draw] Early return: logo image not complete', {
+            hasCanvas: !!canvas,
+            hasLogoImage: !!wizardLogoImage,
+            logoComplete: !!wizardLogoImage.complete,
+            editMode: wizardState.editMode === true,
+            brandId: wizardState.editBrandId || null,
+            logoPreviewUrl: wizardState.logoPreviewUrl || null,
+            watermarkPreviewUrl: wizardState.watermarkPreviewUrl || null,
+            previewMode: wizardState.previewMode || 'logo'
+        });
+        return;
+    }
     
     // Calculate dimensions
     const scale = wizardState.logoScale / 100;
@@ -4190,11 +4254,25 @@ function setWizardLogoCleanup(mode) {
     }
 }
 
+function applyStep1LogoPreviewShape() {
+    const logoPreview = document.getElementById('wizardLogoPreview');
+    if (!logoPreview) return;
+
+    logoPreview.classList.remove('shape-circle', 'shape-square');
+
+    if (wizardState.logoShape === 'circle') {
+        logoPreview.classList.add('shape-circle');
+    } else if (wizardState.logoShape === 'square') {
+        logoPreview.classList.add('shape-square');
+    }
+}
+
 function setWizardLogoShape(shape) {
     wizardState.logoShape = shape;
     document.querySelectorAll('[data-shape]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.shape === shape);
     });
+    applyStep1LogoPreviewShape();
     // ========== STEP 2 EDITOR V1: Use new editor canvas ==========
     drawEditorCanvas();
     // ========== END EDITOR V1 ==========
@@ -6780,7 +6858,7 @@ async function saveWizardBrand() {
             
             const logoForm = new FormData();
             logoForm.append('file', wizardState.logoFile);
-            logoForm.append('remove_bg', wizardState.bgRemovalEnabled ? 'auto' : 'none');
+            logoForm.append('remove_bg', wizardState.bgRemovalEnabled ? 'dark' : 'none');
             logoForm.append('logo_scale', wizardState.logoScale / 100);
             logoForm.append('logo_opacity', wizardState.logoOpacity / 100);
             logoForm.append('logo_shape', wizardState.logoShape);
@@ -6842,15 +6920,11 @@ async function saveWizardBrand() {
             settingsPayload.wm_opacity = wizardState.watermarkOpacity / 100;
             settingsPayload.watermark_scale = wizardState.watermarkScale / 100;
             settingsPayload.watermark_opacity = wizardState.watermarkOpacity / 100;
+            settingsPayload.wm_x = wizardState.watermarkX;
+            settingsPayload.wm_y = wizardState.watermarkY;
         } else {
             settingsPayload.watermark_path = null;
-            settingsPayload.wm_scale = wizardState.logoScale / 100;
-            settingsPayload.wm_opacity = wizardState.logoOpacity / 100;
-            settingsPayload.watermark_scale = wizardState.logoScale / 100;
-            settingsPayload.watermark_opacity = wizardState.logoOpacity / 100;
         }
-        settingsPayload.wm_x = wizardState.watermarkX;
-        settingsPayload.wm_y = wizardState.watermarkY;
         
         const settingsRes = await fetch(`${apiBase}/api/brands/${brandId}`, {
             method: 'PUT',
@@ -7122,6 +7196,7 @@ wizardLogoInput?.addEventListener('change', function(e) {
     if (logoPreview) logoPreview.style.display = 'flex';
     if (logoPlaceholder) logoPlaceholder.style.display = 'none';
     if (logoUploadZone) logoUploadZone.classList.add('has-file');
+    applyStep1LogoPreviewShape();
     
     updateStep1ContinueButton();
 });
@@ -7143,6 +7218,7 @@ function clearWizardLogo() {
     if (logoPlaceholder) logoPlaceholder.style.display = 'block';
     if (logoUploadZone) logoUploadZone.classList.remove('has-file');
     if (wizardLogoInput) wizardLogoInput.value = '';
+    if (logoPreview) logoPreview.classList.remove('shape-circle', 'shape-square');
     
     updateStep1ContinueButton();
 }
