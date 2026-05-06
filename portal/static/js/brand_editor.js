@@ -282,16 +282,14 @@ class BrandEditor {
         this.ctx.globalAlpha = this.state.wmOpacity;
         
         if (this.state.wmMode === 'fullscreen') {
-            // Centered, scaled to fit
-            const scale = Math.min(
-                (this.CANVAS_WIDTH / img.width) * this.state.wmScale,
-                (this.CANVAS_HEIGHT / img.height) * this.state.wmScale
-            );
-            const w = img.width * scale;
-            const h = img.height * scale;
-            const x = (this.CANVAS_WIDTH - w) / 2;
-            const y = (this.CANVAS_HEIGHT - h) / 2;
-            this.ctx.drawImage(img, x, y, w, h);
+            // Canonical fill-frame: stretch to canvas dimensions × wmScale, center with bleed.
+            // Matches Review Cockpit drawOverlays() and FFmpeg fullscreen compositor exactly.
+            // wmScale=1.0 fills frame, wmScale=1.15 adds 15% bleed to compensate for PNG padding.
+            const scaledW = this.CANVAS_WIDTH * this.state.wmScale;
+            const scaledH = this.CANVAS_HEIGHT * this.state.wmScale;
+            const offsetX = (scaledW - this.CANVAS_WIDTH) / 2;
+            const offsetY = (scaledH - this.CANVAS_HEIGHT) / 2;
+            this.ctx.drawImage(img, -offsetX, -offsetY, scaledW, scaledH);
         } else {
             // Positioned mode - draggable
             const size = this.state.wmScale * this.CANVAS_WIDTH * 0.5;

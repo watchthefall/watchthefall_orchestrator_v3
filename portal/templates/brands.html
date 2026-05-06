@@ -5434,7 +5434,7 @@ function drawWizardWatermarkPreview() {
         }
         
         // Get current mode and settings
-        const mode = wizardState.watermarkMode || 'positioned';
+        const mode = wizardState.watermarkMode || 'fullscreen';
         const scale = wizardState.watermarkScale / 100;
         const opacity = wizardState.watermarkOpacity / 100;
         
@@ -6904,9 +6904,9 @@ async function saveWizardBrand() {
             logo_shape: wizardState.logoShape,
             logo_x: wizardState.logoX,
             logo_y: wizardState.logoY,
-            wm_mode: 'positioned'
+            wm_mode: 'fullscreen'
         };
-        
+
         // In edit mode, include display_name so name changes persist
         if (isEdit) {
             settingsPayload.display_name = wizardState.displayName;
@@ -7081,7 +7081,7 @@ async function saveWizardBrandWithWatermark() {
         
         // Add watermark settings if watermark was uploaded
         if (wizardState.watermarkFile) {
-            settingsPayload.wm_mode = wizardState.watermarkMode || 'positioned';
+            settingsPayload.wm_mode = wizardState.watermarkMode || 'fullscreen';
             settingsPayload.wm_scale = wizardState.watermarkScale / 100;
             settingsPayload.wm_opacity = wizardState.watermarkOpacity / 100;
             
