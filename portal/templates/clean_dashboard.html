@@ -240,53 +240,98 @@
         display: block;
     }
     .review-context-card {
-        margin-bottom: 10px;
+        margin-bottom: 6px;
+        padding: 9px 10px;
+        backdrop-filter: blur(10px);
+    }
+    #queueModeHeader {
+        position: sticky;
+        top: 68px;
+        z-index: 18;
+        background: linear-gradient(180deg, rgba(18,18,20,0.96), rgba(18,18,20,0.86) 82%, rgba(18,18,20,0));
+        padding-bottom: 4px;
     }
     .review-context-top {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 7px;
+        gap: 10px;
+        margin-bottom: 3px;
+    }
+    .review-context-title-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
     }
     .review-context-kicker {
-        font-size: 11px;
+        font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         color: var(--accent);
         font-weight: 700;
     }
+    .review-context-main {
+        min-width: 0;
+        flex: 1;
+    }
     .review-context-meta,
     .review-progress {
-        font-size: 12px;
+        font-size: 11px;
         color: #a9b1c3;
     }
     .review-progress {
         display: flex;
-        gap: 8px;
+        gap: 6px;
         flex-wrap: wrap;
     }
+    .review-state-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 7px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 700;
+        white-space: nowrap;
+        background: rgba(255,255,255,0.06);
+        color: #98a2b8;
+    }
+    .review-state-badge.default {
+        background: rgba(255,255,255,0.06);
+        color: #98a2b8;
+    }
+    .review-state-badge.edited {
+        background: rgba(245,166,35,0.14);
+        color: #F5A623;
+    }
+    .review-state-badge.approved {
+        background: rgba(57,255,20,0.14);
+        color: var(--accent);
+    }
+    .review-state-badge.skipped {
+        background: rgba(255,255,255,0.08);
+        color: #81899b;
+    }
     .review-pill-strip {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        justify-content: center;
-        margin-top: 12px;
+        display: none;
     }
     .review-actions {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        margin-top: 14px;
+        gap: 8px;
+        margin-top: 10px;
+        align-items: stretch;
     }
     .review-actions .review-primary {
         grid-column: 1 / -1;
         background: var(--accent);
         color: #121214;
+        box-shadow: 0 10px 22px rgba(57,255,20,0.14);
     }
     .review-actions .review-secondary {
-        background: #2a3040;
-        color: #fff;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.10);
+        color: #cfd5e2;
     }
     .review-actions .review-quiet {
         background: transparent;
@@ -294,18 +339,46 @@
         color: #b6bfd3;
     }
     .review-footer-actions {
-        margin-top: 10px;
-        display: grid;
-        gap: 10px;
+        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
     }
     .review-footer-actions .btn-secondary {
+        width: auto;
+        margin: 0;
         background: #2a3040;
         color: #fff;
+        border: 1px solid rgba(255,255,255,0.10);
+        padding: 10px 12px;
+    }
+    .review-footer-actions .btn-secondary:disabled,
+    .review-footer-actions .btn-secondary.review-global-pending {
+        background: rgba(255,255,255,0.04);
+        color: #7f889a;
+        border-color: rgba(255,255,255,0.08);
+        box-shadow: none;
+        cursor: not-allowed;
+        opacity: 1;
+    }
+    .review-footer-actions .review-linkish {
+        width: auto;
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        border: none;
+        color: #98a2b8;
+        font-size: 12px;
+        text-decoration: underline;
+        text-underline-offset: 2px;
     }
     .compact-summary {
-        font-size: 12px;
-        color: #a9b1c3;
-        text-align: center;
+        font-size: 11px;
+        color: #c7cfdd;
+        text-align: right;
+        white-space: nowrap;
     }
     h2 {
         margin: 0 0 12px;
@@ -663,6 +736,53 @@
     .status-msg.info { background: #1a3a4a; color: #7dd3fc; }
     .status-msg.success { background: #1a4a2e; color: #86efac; }
     .status-msg.error { background: #4a1a1a; color: #fca5a5; }
+    .status-msg.warning { background: #4a3816; color: #fcd34d; }
+    .review-complete-card {
+        margin: 10px 0 0;
+        padding: 14px 14px 12px;
+        background: linear-gradient(180deg, rgba(57,255,20,0.08), rgba(57,255,20,0.03));
+        border: 1px solid rgba(57,255,20,0.18);
+        border-radius: 10px;
+    }
+    .review-complete-title {
+        color: #f3f7ef;
+        font-size: 15px;
+        font-weight: 700;
+        margin-bottom: 6px;
+    }
+    .review-complete-meta {
+        color: #a9b1c3;
+        font-size: 12px;
+        margin-bottom: 4px;
+    }
+    .review-complete-sub {
+        color: #dce6d3;
+        font-size: 12px;
+        margin-bottom: 10px;
+    }
+    .review-complete-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+    }
+    .processing-state-card {
+        margin: 10px 0 0;
+        padding: 12px 14px;
+        background: rgba(125, 211, 252, 0.08);
+        border: 1px solid rgba(125, 211, 252, 0.16);
+        border-radius: 10px;
+    }
+    .processing-state-title {
+        color: #d8efff;
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+    .processing-state-meta {
+        color: #9fc5da;
+        font-size: 12px;
+    }
     
     /* ========== COLLAPSIBLE ========== */
     .collapsible-header {
@@ -1176,8 +1296,8 @@
 
     /* ========== PREVIEW TARGET BAR ========== */
     #previewTargetBar {
-        margin: 14px 0 0;
-        padding: 10px 14px;
+        margin: 10px 0 0;
+        padding: 7px 10px;
         background: var(--accent-muted);
         border: 1px solid var(--accent-soft);
         border-radius: 8px;
@@ -1189,29 +1309,34 @@
         gap: 10px;
     }
     .ptb-center {
-        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
         flex: 1;
         min-width: 0;
     }
     .ptb-label {
-        font-size: 10px;
-        color: #666;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        display: none;
     }
     .ptb-name {
         color: var(--accent);
-        font-size: 15px;
+        font-size: 13px;
         font-weight: 700;
-        display: block;
+        display: inline-block;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
+    .ptb-format {
+        font-size: 10px;
+        color: #8d95a7;
+        white-space: nowrap;
+    }
     .ptb-override-tag {
         font-size: 10px;
         color: #F5A623;
-        margin-top: 2px;
+        margin-top: 0;
     }
     .ptb-nav-btn {
         width: auto;
@@ -1231,22 +1356,22 @@
     .ptb-footer {
         display: flex;
         align-items: center;
-        justify-content: center;
-        gap: 12px;
-        margin-top: 8px;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 5px;
     }
     .ptb-counter {
-        font-size: 11px;
-        color: #666;
+        font-size: 10px;
+        color: #7c8597;
     }
     .ptb-reset-btn {
         width: auto;
-        padding: 4px 10px;
+        padding: 3px 8px;
         margin: 0;
         background: transparent;
         border: 1px solid #444;
         color: #888;
-        font-size: 11px;
+        font-size: 10px;
         border-radius: 4px;
     }
     .ptb-reset-btn:hover {
@@ -1257,24 +1382,24 @@
 
     /* ========== RESULT PREVIEW STRIP ========== */
     #resultPreviewStrip {
-        margin: 10px 0 0;
-        padding: 6px 0 2px;
+        margin: 6px 0 0;
+        padding: 3px 0 1px;
         display: none;
     }
     .rps-label {
-        font-size: 10px;
+        font-size: 9px;
         color: #666;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
         text-align: left;
     }
     .rps-track {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 4px;
         overflow-x: auto;
-        padding: 2px 2px 6px;
+        padding: 1px 1px 4px;
         scrollbar-width: thin;
         scrollbar-color: var(--accent-muted) transparent;
     }
@@ -1289,14 +1414,14 @@
         flex: 0 0 auto;
         display: inline-flex;
         align-items: center;
-        gap: 7px;
+        gap: 6px;
         min-width: 0;
-        max-width: 148px;
+        max-width: 136px;
         width: auto;
         background: #171b24;
         border: 1px solid #2a3140;
         border-radius: 999px;
-        padding: 6px 9px 6px 6px;
+        padding: 4px 7px 4px 4px;
         margin: 0;
         cursor: pointer;
         transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
@@ -1315,8 +1440,8 @@
         box-shadow: 0 0 8px var(--accent-glow);
     }
     .rps-node-visual {
-        width: 26px;
-        height: 26px;
+        width: 22px;
+        height: 22px;
         border-radius: 999px;
         background: #101318;
         border: 1px solid rgba(255,255,255,0.08);
@@ -1342,7 +1467,7 @@
         gap: 2px;
     }
     .rps-name {
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 600;
         color: #d9deea;
         white-space: nowrap;
@@ -1354,8 +1479,8 @@
         color: var(--accent-text);
     }
     .rps-status {
-        font-size: 9px;
-        padding: 1px 6px;
+        font-size: 8px;
+        padding: 1px 5px;
         border-radius: 999px;
         display: inline-flex;
         align-items: center;
@@ -1386,22 +1511,22 @@
         display: flex;
         align-items: center;
         color: #4a5161;
-        font-size: 13px;
+        font-size: 11px;
         padding: 0;
     }
     .rps-source {
         flex: 0 0 auto;
         display: inline-flex;
         align-items: center;
-        gap: 7px;
+        gap: 5px;
         min-width: 0;
-        max-width: 120px;
+        max-width: 92px;
         padding-right: 2px;
     }
     .rps-source-thumb {
-        width: 28px;
-        height: 28px;
-        border-radius: 8px;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
         background: #121214;
         border: 1px solid #394150;
         overflow: hidden;
@@ -1413,7 +1538,7 @@
         object-fit: cover;
     }
     .rps-source-label {
-        font-size: 10px;
+        font-size: 9px;
         color: #9aa3b7;
         white-space: nowrap;
     }
@@ -1546,7 +1671,7 @@
     <div class="step-line" id="stepLine2"></div>
     <div class="step-item" id="step3">
         <span class="step-dot">3</span>
-        <span>Shipr</span>
+        <span>Results</span>
     </div>
 </div>
 
@@ -1744,8 +1869,8 @@
         <div class="ptb-row">
             <button id="prevPreviewBtn" class="ptb-nav-btn" onclick="cyclePreview(-1)">&#9664;</button>
             <div class="ptb-center">
-                <div class="ptb-label">Previewing</div>
                 <strong id="activePreviewName" class="ptb-name">--</strong>
+                <span class="ptb-format">Story 9:16</span>
                 <div id="overrideIndicator" class="ptb-override-tag" style="display:none;">edited this session</div>
             </div>
             <button id="nextPreviewBtn" class="ptb-nav-btn" onclick="cyclePreview(1)">&#9654;</button>
@@ -1776,13 +1901,15 @@
     <div id="queueModeHeader" style="display:none; margin-bottom:12px;">
         <div class="review-context-card">
             <div class="review-context-top">
-                <div>
-                    <div class="review-context-kicker">Review</div>
-                    <div class="review-context-title" id="reviewActiveTitle">Story 9:16</div>
+                <div class="review-context-main">
+                    <div class="review-context-title-row">
+                        <div class="review-context-title" id="reviewActiveTitle">Story 9:16</div>
+                        <span id="reviewStateBadge" class="review-state-badge default">Default</span>
+                    </div>
+                    <div class="review-context-meta" id="reviewContextMeta">Select a version to review.</div>
                 </div>
                 <div class="compact-summary" id="reviewProgressSummary">Version 1 of 1</div>
             </div>
-            <div class="review-context-meta" id="reviewContextMeta">Select a version to review.</div>
             <div class="review-progress" id="queueStatusSummary"></div>
             <div id="brandPillsContainer" class="review-pill-strip"></div>
         </div>
@@ -1985,7 +2112,7 @@
         </div>
         <div class="review-footer-actions">
             <button onclick="processAllBrands()" id="processAllBtn" class="btn-secondary">Start branding</button>
-            <button onclick="exitQueueMode()" class="review-quiet">Back to brands</button>
+            <button onclick="exitQueueMode()" class="review-linkish">Back to brands</button>
         </div>
     </div>
     
@@ -2145,10 +2272,20 @@ function getCurrentFileJobItems() {
     return jobItems.filter(item => item.filename === currentFile);
 }
 
+function getCanonicalSelectedBrandIds() {
+    const seen = new Set();
+    return selectedBrandIds.filter(brandId => {
+        if (!Number.isInteger(brandId)) return false;
+        if (!brandDataCache[brandId]) return false;
+        if (seen.has(brandId)) return false;
+        seen.add(brandId);
+        return true;
+    });
+}
+
 function getReviewableQueueItems() {
-    const fileItems = getCurrentFileJobItems();
-    if (fileItems.length > 0 && isQueueMode) {
-        return fileItems;
+    if (isQueueMode && processingQueue.length > 0) {
+        return processingQueue.filter(item => item && Number.isInteger(item.brand_id) && !!brandDataCache[item.brand_id]);
     }
     return processingQueue;
 }
@@ -2222,7 +2359,7 @@ function updateCreateIntentUI() {
     downloadLane.style.display = createIntent === 'download' ? 'block' : 'none';
     reviewLane.style.display = createIntent === 'review' ? 'block' : 'none';
     if (resultStrip) {
-        const hasBrands = selectedBrandIds.length > 0 || getCurrentFileJobItems().length > 0;
+        const hasBrands = getCanonicalSelectedBrandIds().length > 0 || getCurrentFileJobItems().length > 0;
         resultStrip.style.display = createIntent === 'review' && hasBrands ? 'block' : 'none';
     }
 }
@@ -2276,30 +2413,86 @@ function updateReviewHeader() {
     const meta = document.getElementById('reviewContextMeta');
     const summary = document.getElementById('reviewProgressSummary');
     const queueSummary = document.getElementById('queueStatusSummary');
-    if (!title || !meta || !summary || !queueSummary) return;
+    const stateBadge = document.getElementById('reviewStateBadge');
+    if (!title || !meta || !summary || !queueSummary || !stateBadge) return;
 
     const items = getReviewableQueueItems();
     const total = items.length;
     const current = processingQueue[currentQueueIndex];
     const reviewed = processingQueue.filter(item => item.reviewDecision === 'approved' || item.status === 'skipped').length;
+    const skipped = processingQueue.filter(item => item.status === 'skipped').length;
+    const remaining = Math.max(total - (currentQueueIndex + 1), 0);
 
     if (!current || total === 0) {
-        title.textContent = 'Story 9:16';
-        meta.textContent = 'Select a version to review.';
+        title.textContent = 'Reviewing: Story 9:16';
+        meta.textContent = '0 remaining';
         summary.textContent = 'Version 0 of 0';
         queueSummary.textContent = '';
+        stateBadge.textContent = 'Default';
+        stateBadge.className = 'review-state-badge default';
+        updateReviewActionState();
         return;
     }
 
-    title.textContent = (brandDataCache[current.brand_id] ? brandDataCache[current.brand_id].display_name : current.brand_name) + ' · Story 9:16';
-    meta.textContent = `${currentFile} · ${brandDataCache[current.brand_id] ? brandDataCache[current.brand_id].display_name : current.brand_name} · Story 9:16`;
+    const activeBrandName = brandDataCache[current.brand_id] ? brandDataCache[current.brand_id].display_name : current.brand_name;
+    title.textContent = `Reviewing: ${activeBrandName} · Story 9:16`;
+    meta.textContent = remaining > 0 ? `${remaining} remaining` : 'Last version';
     summary.textContent = `Version ${currentQueueIndex + 1} of ${total}`;
-    queueSummary.textContent = `Video 1 of 1 • ${reviewed} of ${total} reviewed`;
+    queueSummary.textContent = skipped > 0 ? `${reviewed} reviewed • ${skipped} skipped` : `${reviewed} reviewed`;
+
+    let badgeClass = 'default';
+    let badgeLabel = 'Default';
+    if (current.status === 'skipped') {
+        badgeClass = 'skipped';
+        badgeLabel = 'Skipped';
+    } else if (current.reviewDecision === 'approved' || current.status === 'done') {
+        badgeClass = 'approved';
+        badgeLabel = 'Approved';
+    } else if (current.status === 'editing') {
+        badgeClass = 'edited';
+        badgeLabel = 'Edited';
+    }
+    stateBadge.textContent = badgeLabel;
+    stateBadge.className = `review-state-badge ${badgeClass}`;
+    updateReviewActionState();
+}
+
+function updateReviewActionState() {
+    const processBtn = document.getElementById('processAllBtn');
+    if (!processBtn) return;
+    const total = processingQueue.length;
+    const reviewed = processingQueue.filter(item => item.reviewDecision === 'approved' || item.status === 'skipped').length;
+    const allReviewed = total > 0 && reviewed >= total;
+
+    processBtn.disabled = !allReviewed;
+    processBtn.classList.toggle('review-global-pending', !allReviewed);
+    processBtn.style.display = allReviewed ? 'none' : 'inline-flex';
+    processBtn.title = allReviewed ? 'Generate outputs for the reviewed versions.' : 'Finish the review flow before starting branding.';
 }
 
 function reviewPrevious() {
     if (!isQueueMode || currentQueueIndex <= 0) return;
     switchToBrand(currentQueueIndex - 1);
+}
+
+function renderReviewCompletionState() {
+    const result = document.getElementById('processResult');
+    if (!result) return;
+    updateReviewActionState();
+    const total = processingQueue.length;
+    const approved = processingQueue.filter(item => item.reviewDecision === 'approved' || item.status === 'done').length;
+    const skipped = processingQueue.filter(item => item.status === 'skipped').length;
+    const ready = Math.max(total - skipped, 0);
+    result.innerHTML = `
+        <div class="review-complete-card">
+            <div class="review-complete-title">Review complete</div>
+            <div class="review-complete-meta">${approved} approved • ${skipped} skipped • ${ready} ready</div>
+            <div class="review-complete-sub">Ready to generate outputs.</div>
+            <div class="review-complete-actions">
+                <button onclick="processAllBrands()" id="processAllBtnInline">Start branding</button>
+            </div>
+        </div>
+    `;
 }
 
 function approveAndNext() {
@@ -2316,7 +2509,7 @@ function approveAndNext() {
     if (currentQueueIndex < processingQueue.length - 1) {
         switchToBrand(currentQueueIndex + 1);
     } else {
-        document.getElementById('processResult').innerHTML = '<div class="status-msg success">Review complete. Everything moves forward unless you skipped it.</div>';
+        renderReviewCompletionState();
     }
 }
 
@@ -2592,12 +2785,16 @@ function renderResultPreviewStrip() {
     if (!track) return;
 
     // ========== JOB-ITEM MODEL (Commit 4: prefer jobItems for render list) ==========
-    // Determine render source: prefer jobItems for current file, fallback to selectedBrandIds
-    let renderBrandIds = selectedBrandIds;
-    if (currentFile && jobItems.length > 0) {
+    // Determine render source: queue items while reviewing, otherwise current selected brands
+    let renderBrandIds = getCanonicalSelectedBrandIds();
+    if (isQueueMode && processingQueue.length > 0) {
+        renderBrandIds = getReviewableQueueItems().map(item => item.brand_id);
+    } else if (currentFile && jobItems.length > 0) {
         const fileItems = jobItems.filter(item => item.filename === currentFile);
         if (fileItems.length > 0) {
-            renderBrandIds = fileItems.map(item => item.brandId);
+            renderBrandIds = fileItems
+                .map(item => item.brandId)
+                .filter(brandId => Number.isInteger(brandId) && !!brandDataCache[brandId]);
         }
     }
     // ========== END JOB-ITEM MODEL ==========
@@ -3504,7 +3701,9 @@ function enterQueueMode() {
         return;
     }
     
-    if (selectedBrandIds.length === 0) {
+    const canonicalBrandIds = getCanonicalSelectedBrandIds();
+
+    if (canonicalBrandIds.length === 0) {
         result.innerHTML = '<div class="status-msg error">Select at least one brand</div>';
         console.error('[BRANDR] enterQueueMode blocked: No brands selected');
         return;
@@ -3519,17 +3718,17 @@ function enterQueueMode() {
     // Ensure jobItems exists for current file + selected brands
     // If jobItems is empty or doesn't match, rebuild from selectedBrandIds
     const fileItems = jobItems.filter(item => item.filename === currentFile);
-    const hasAllBrands = selectedBrandIds.every(brandId => 
+    const hasAllBrands = canonicalBrandIds.every(brandId => 
         fileItems.some(item => item.brandId === brandId)
     );
     
-    if (fileItems.length !== selectedBrandIds.length || !hasAllBrands) {
+    if (fileItems.length !== canonicalBrandIds.length || !hasAllBrands) {
         // Rebuild jobItems to match selection
         console.log('[JobItems] Rebuilding jobItems for queue mode');
         // Remove old items for this file
         jobItems = jobItems.filter(item => item.filename !== currentFile);
         // Create new items for each selected brand
-        selectedBrandIds.forEach(brandId => {
+        canonicalBrandIds.forEach(brandId => {
             const brandData = brandDataCache[brandId];
             jobItems.push({
                 id: generateItemId(),
@@ -3713,7 +3912,9 @@ function updateQueueStatusSummary() {
     const total = statusSource.length;
     const reviewed = processingQueue.filter(q => q.reviewDecision === 'approved' || q.status === 'skipped').length;
     const skipped = statusSource.filter(q => q.status === 'skipped').length;
-    summary.textContent = `Story 9:16 \u2022 ${reviewed} of ${total} reviewed${skipped > 0 ? ` \u2022 ${skipped} skipped` : ''}`;
+    summary.textContent = skipped > 0
+        ? `${reviewed} of ${total} reviewed • ${skipped} skipped`
+        : `${reviewed} of ${total} reviewed`;
 }
 
 async function switchToBrand(idx) {
@@ -3795,8 +3996,8 @@ async function switchToBrand(idx) {
     // Load overrides into sliders
     loadOverridesIntoSliders(current.overrides);
     
-    // Clear any previous result message
-    document.getElementById('processResult').innerHTML = `<div class="status-msg info">Reviewing ${current.brand_name} for Story 9:16.</div>`;
+    // Clear any previous transient review message
+    document.getElementById('processResult').innerHTML = '';
     updateReviewHeader();
 }
 
@@ -4078,13 +4279,19 @@ async function processAllBrands() {
     
     // Everything moves forward by default unless it was skipped.
     const pendingBrands = processingQueue.filter(q => q.status !== 'skipped' && q.status !== 'done' && q.status !== 'processing');
+    const includedTotal = processingQueue.filter(q => q.status !== 'skipped').length;
     
     if (pendingBrands.length === 0) {
         result.innerHTML = '<div class="status-msg info">Everything here is already running, finished, or skipped.</div>';
         return;
     }
     
-    result.innerHTML = `<div class="status-msg info">\ud83d\ude80 Processing ${pendingBrands.length} brands. Everything moves forward unless you skip it.</div>`;
+    result.innerHTML = `
+        <div class="processing-state-card">
+            <div class="processing-state-title">Generating branded outputs...</div>
+            <div class="processing-state-meta">${pendingBrands.length} of ${includedTotal} versions queued</div>
+        </div>
+    `;
     
     // ========== JOB-ITEM MODEL (Commit 5: sync status to jobItems) ==========
     // Helper to sync status to jobItems
@@ -4171,9 +4378,9 @@ async function processAllBrands() {
     const failed = results.filter(r => !r.success).length;
     
     if (failed === 0) {
-        result.innerHTML = `<div class="status-msg success">\u2705 All ${successful} brands processed!</div>`;
+        result.innerHTML = `<div class="status-msg success">\u2705 Results ready. ${successful} versions processed.</div>`;
     } else {
-        result.innerHTML = `<div class="status-msg warning">\u2705 ${successful} done, \u274C ${failed} failed</div>`;
+        result.innerHTML = `<div class="status-msg warning">Results ready with issues. ${successful} done, \u274C ${failed} failed</div>`;
     }
     
     checkQueueComplete();
@@ -4245,12 +4452,14 @@ function checkQueueComplete() {
         const failed = checkSource.filter(q => q.status === 'failed').length;
         const skipped = checkSource.filter(q => q.status === 'skipped').length;
         
-        result.innerHTML = `<div class="status-msg success">\ud83c\udf89 Queue complete! ${done} done, ${skipped} skipped, ${failed} failed</div>`;
+        result.innerHTML = `<div class="status-msg success">\ud83c\udf89 Results ready. ${done} done, ${skipped} skipped, ${failed} failed</div>`;
     }
 }
 
-function skipBrand() {
+async function skipBrand() {
     const current = processingQueue[currentQueueIndex];
+    const result = document.getElementById('processResult');
+    const skippedBrandName = current.brand_name;
     current.status = 'skipped';
     current.reviewDecision = 'skipped';
     
@@ -4266,9 +4475,12 @@ function skipBrand() {
     // Find next pending brand
     const nextIdx = findNextPendingBrand();
     if (nextIdx !== -1) {
-        switchToBrand(nextIdx);
+        await switchToBrand(nextIdx);
+        if (result) {
+            result.innerHTML = `<div class="status-msg info">Skipped ${skippedBrandName}. Moving to the next version.</div>`;
+        }
     } else {
-        checkQueueComplete();
+        renderReviewCompletionState();
     }
 }
 
@@ -4308,7 +4520,7 @@ function exitQueueMode() {
     const failed = processingQueue.filter(q => q.status === 'failed').length;
     
     if (processingQueue.length > 0) {
-        result.innerHTML = `<div class="status-msg success">\u2705 Completed: ${done} done, ${skipped} skipped, ${failed} failed</div>`;
+        result.innerHTML = `<div class="status-msg success">\u2705 Results summary: ${done} done, ${skipped} skipped, ${failed} failed</div>`;
     } else {
         result.innerHTML = '';
     }
@@ -5129,22 +5341,22 @@ function updateConfirmationSummary() {
         parts.push(`<strong>Video:</strong> <span style="color:#ff9800;">No video selected</span>`);
     }
     
-    // ========== JOB-ITEM MODEL (Commit 4: prefer jobItems for counts) ==========
-    // Batch output summary - prefer jobItems for current file, fallback to old model
-    let countSource = selectedBrandIds;
-    let overrideCheckFn = (id) => brandOverrides[id];
-    
-    if (currentFile && jobItems.length > 0) {
-        const fileItems = jobItems.filter(item => item.filename === currentFile);
-        if (fileItems.length > 0) {
-            countSource = fileItems;
-            overrideCheckFn = (item) => Object.keys(item.overrides || {}).length > 0;
-        }
+    // ========== JOB-ITEM MODEL (Commit 4: prefer canonical current selection/queue counts) ==========
+    const inSelectionMode = document.getElementById('selectionModeActions').style.display !== 'none';
+    let itemCount = 0;
+    let overrideCount = 0;
+
+    if (isQueueMode && processingQueue.length > 0) {
+        const queueItems = getReviewableQueueItems();
+        itemCount = queueItems.length;
+        overrideCount = queueItems.filter(item => Object.keys(item.overrides || {}).length > 0).length;
+    } else {
+        const canonicalBrandIds = getCanonicalSelectedBrandIds();
+        itemCount = canonicalBrandIds.length;
+        overrideCount = canonicalBrandIds.filter(id => !!brandOverrides[id]).length;
     }
-    
-    if (countSource.length > 0) {
-        const itemCount = countSource.length;
-        const overrideCount = countSource.filter(overrideCheckFn).length;
+
+    if (itemCount > 0) {
         parts.push(`<strong>${itemCount} brand${itemCount > 1 ? 's' : ''}</strong> &rarr; <strong>${itemCount} output${itemCount > 1 ? 's' : ''}</strong>`);
         if (overrideCount > 0) {
             parts.push(`<span style="color:#F5A623; font-size:11px;">${overrideCount} with overrides</span>`);
@@ -5155,13 +5367,12 @@ function updateConfirmationSummary() {
     // ========== END JOB-ITEM MODEL ==========
     
     const summaryCore = parts.join(' <span style="color:#444;">&middot;</span> ');
-    const summaryHint = countSource.length > 0
+    const summaryHint = itemCount > 0
         ? '<div style="margin-top:6px; font-size:11px; color:#9ca3af;">Start review to check each brand one by one. Everything moves forward unless you skip it.</div>'
         : '';
     summaryEl.innerHTML = summaryCore + summaryHint;
     
     // Show/hide confirmation box based on whether we're in selection mode
-    const inSelectionMode = document.getElementById('selectionModeActions').style.display !== 'none';
     confirmBox.style.display = inSelectionMode ? 'block' : 'none';
 }
 
