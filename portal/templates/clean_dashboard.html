@@ -3329,6 +3329,11 @@ function drawOverlays() {
     
     // Draw watermark — naturalWidth > 0 guards against drawing a 404'd broken image
     if (watermarkImg && watermarkImg.complete && watermarkImg.naturalWidth > 0) {
+        console.log(
+            `[drawOverlays] watermark: mode=${currentWmMode} x=${currentWmX.toFixed(3)} ` +
+            `y=${currentWmY.toFixed(3)} scale=${document.getElementById('wmScale').value}% ` +
+            `→ branch=${currentWmMode === 'positioned' ? 'POSITIONED' : 'FULLSCREEN'}`
+        );
         ctx.globalAlpha = wmOpacity;
         if (currentWmMode === 'positioned') {
             // Positioned: match editor formula — width = canvas.width × (uiPct/100) × 0.5
@@ -3905,13 +3910,40 @@ function renderScaleToWatermarkUi(renderScale) {
 // ── Unified render path ───────────────────────────────────────────────────────
 // mergeRenderParams: DB field names → slider domain + sparse session override merge
 function mergeRenderParams(brandConfig, sessionOverrides) {
+    // Resolve wm_mode with off-center fallback.
+    // Brands saved before wm_mode was correctly persisted have wm_mode = 'fullscreen'
+    // in DB even when the user configured them as positioned. If wm_x/wm_y are
+    // meaningfully off-center (>0.02 from 0.5) that is a reliable signal the brand
+    // was positioned — prefer 'positioned' over the stale DB value.
+    const _rawWmMode = brandConfig.wm_mode;
+    const _wmX = brandConfig.wm_x ?? 0.5;
+    const _wmY = brandConfig.wm_y ?? 0.5;
+    const _offCenter = Math.abs(_wmX - 0.5) > 0.02 || Math.abs(_wmY - 0.5) > 0.02;
+    const _resolvedWmMode = (_rawWmMode === 'positioned')
+        ? 'positioned'
+        : (_offCenter ? 'positioned' : (_rawWmMode || 'fullscreen'));
+    if (_rawWmMode !== 'positioned' && _resolvedWmMode === 'positioned') {
+        console.warn(
+            `[mergeRenderParams] brand="${brandConfig.display_name || brandConfig.name}" ` +
+            `id=${brandConfig.id} — wm_mode='${_rawWmMode}' overridden to 'positioned' ` +
+            `(wm_x=${_wmX.toFixed(3)}, wm_y=${_wmY.toFixed(3)} off-center). ` +
+            `Re-save brand to persist wm_mode='positioned' and silence this warning.`
+        );
+    } else {
+        console.log(
+            `[mergeRenderParams] brand="${brandConfig.display_name || brandConfig.name}" ` +
+            `id=${brandConfig.id} — wm_mode='${_resolvedWmMode}' ` +
+            `wm_x=${_wmX.toFixed(3)} wm_y=${_wmY.toFixed(3)} wm_scale=${brandConfig.wm_scale ?? 1.15}`
+        );
+    }
+
     const base = {
         // Numerics: ?? so intentional 0 (e.g. fully-transparent watermark) is preserved
         watermark_scale:      brandConfig.wm_scale        ?? 1.15,
         watermark_opacity:    brandConfig.wm_opacity       ?? 0.40,
-        wm_mode:              brandConfig.wm_mode          || 'fullscreen',
-        wm_x:                 brandConfig.wm_x             ?? 0.5,
-        wm_y:                 brandConfig.wm_y             ?? 0.5,
+        wm_mode:              _resolvedWmMode,
+        wm_x:                 _wmX,
+        wm_y:                 _wmY,
         logo_scale:           brandConfig.logo_scale       ?? 0.25,
         logo_x:               brandConfig.logo_x           ?? 0.85,
         logo_y:               brandConfig.logo_y           ?? 0.85,
