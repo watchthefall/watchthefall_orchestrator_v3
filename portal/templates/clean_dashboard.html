@@ -2340,6 +2340,11 @@ let secLogoCenterYPercent = 0;
 let secLogoDragStart = { x: 0, y: 0 };
 let secLogoSelectedBrandId = null;  // Which brand's logo is used as secondary
 
+// Watermark positioned-mode state
+let currentWmMode = 'fullscreen';  // 'fullscreen' | 'positioned'
+let currentWmX = 0.5;
+let currentWmY = 0.5;
+
 // ========== QUEUE MODE STATE ==========
 let isQueueMode = false;
 let processingQueue = [];
@@ -3324,13 +3329,23 @@ function drawOverlays() {
     
     // Draw watermark — naturalWidth > 0 guards against drawing a 404'd broken image
     if (watermarkImg && watermarkImg.complete && watermarkImg.naturalWidth > 0) {
-        const scaledW = canvas.width * wmScale;
-        const scaledH = canvas.height * wmScale;
-        const offsetX = (scaledW - canvas.width) / 2;
-        const offsetY = (scaledH - canvas.height) / 2;
-
         ctx.globalAlpha = wmOpacity;
-        ctx.drawImage(watermarkImg, -offsetX, -offsetY, scaledW, scaledH);
+        if (currentWmMode === 'positioned') {
+            // Positioned: match editor formula — width = canvas.width × (uiPct/100) × 0.5
+            const uiPct = parseInt(document.getElementById('wmScale').value) / 100;
+            const wmW = canvas.width * uiPct * 0.5;
+            const wmH = wmW * (watermarkImg.height / watermarkImg.width);
+            const cx = currentWmX * canvas.width;
+            const cy = currentWmY * canvas.height;
+            ctx.drawImage(watermarkImg, cx - wmW / 2, cy - wmH / 2, wmW, wmH);
+        } else {
+            // Fullscreen: scale relative to frame using render scale
+            const scaledW = canvas.width * wmScale;
+            const scaledH = canvas.height * wmScale;
+            const offsetX = (scaledW - canvas.width) / 2;
+            const offsetY = (scaledH - canvas.height) / 2;
+            ctx.drawImage(watermarkImg, -offsetX, -offsetY, scaledW, scaledH);
+        }
         ctx.globalAlpha = 1.0;
     }
 
@@ -3894,6 +3909,9 @@ function mergeRenderParams(brandConfig, sessionOverrides) {
         // Numerics: ?? so intentional 0 (e.g. fully-transparent watermark) is preserved
         watermark_scale:      brandConfig.wm_scale        ?? 1.15,
         watermark_opacity:    brandConfig.wm_opacity       ?? 0.40,
+        wm_mode:              brandConfig.wm_mode          || 'fullscreen',
+        wm_x:                 brandConfig.wm_x             ?? 0.5,
+        wm_y:                 brandConfig.wm_y             ?? 0.5,
         logo_scale:           brandConfig.logo_scale       ?? 0.25,
         logo_x:               brandConfig.logo_x           ?? 0.85,
         logo_y:               brandConfig.logo_y           ?? 0.85,
@@ -3928,6 +3946,9 @@ function loadRenderParamsIntoSliders(renderParams) {
     document.getElementById('wmScaleVal').textContent = document.getElementById('wmScale').value + '%';
     document.getElementById('wmOpacity').value = Math.round(renderParams.watermark_opacity * 100);
     document.getElementById('wmOpacityVal').textContent = document.getElementById('wmOpacity').value + '%';
+    currentWmMode = renderParams.wm_mode || 'fullscreen';
+    currentWmX = renderParams.wm_x ?? 0.5;
+    currentWmY = renderParams.wm_y ?? 0.5;
 
     // Logo scale
     document.getElementById('logoScale').value = Math.round(renderParams.logo_scale * 100);

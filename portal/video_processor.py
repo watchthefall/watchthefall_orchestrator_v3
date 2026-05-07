@@ -381,15 +381,21 @@ class VideoProcessor:
                 filters.append(f"[{current_input}][watermark]overlay={overlay_x}:{overlay_y}[v1]")
                 current_input = 'v1'
             else:
-                # Positioned mode: scale and overlay at specific position
-                wm_target_w = int(wm_scale_pct * W * 0.5)  # Scale relative to width
-                wm_x_px = int(wm_x_pct * W) - wm_target_w // 2
-                wm_y_px = int(wm_y_pct * H) - wm_target_w // 2
-                
-                print(f"[VISUAL_PRESET] Watermark positioned: width={wm_target_w}px, pos=({wm_x_px},{wm_y_px}), opacity={wm_opacity:.2f}")
-                
+                # Positioned mode: wm_scale_pct is render-domain (UI%/100 × 1.15).
+                # Divide by WM_UI_REF_SCALE to recover raw UI%/100 so the rendered
+                # size matches the Brand Editor preview formula exactly.
+                WM_UI_REF_SCALE = 1.15
+                ui_scale = wm_scale_pct / WM_UI_REF_SCALE
+                wm_target_w = int(ui_scale * W * 0.5)
+                wm_cx_px = int(wm_x_pct * W)
+                wm_cy_px = int(wm_y_pct * H)
+                wm_x_expr = f"{wm_cx_px}-w/2"
+                wm_y_expr = f"{wm_cy_px}-h/2"
+
+                print(f"[VISUAL_PRESET] Watermark positioned: width={wm_target_w}px, center=({wm_cx_px},{wm_cy_px}), opacity={wm_opacity:.2f}")
+
                 filters.append(f"movie='{watermark_path}',scale={wm_target_w}:-1,format=rgba,colorchannelmixer=aa={wm_opacity}[watermark]")
-                filters.append(f"[{current_input}][watermark]overlay={wm_x_px}:{wm_y_px}[v1]")
+                filters.append(f"[{current_input}][watermark]overlay={wm_x_expr}:{wm_y_expr}[v1]")
                 current_input = 'v1'
         else:
             print(f"[VISUAL_PRESET] No watermark found, skipping")

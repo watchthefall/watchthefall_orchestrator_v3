@@ -3021,6 +3021,7 @@ function editBrand(brandId) {
                 watermarkY: brand.wm_y != null ? brand.wm_y : 0.18,
                 watermarkScale: renderScaleToWatermarkUi(brand.wm_scale != null ? brand.wm_scale : 0.25),
                 watermarkOpacity: Math.round((brand.wm_opacity || 0.50) * 100),
+                watermarkMode: brand.wm_mode || 'fullscreen',
                 previewMode: hasSeparateWatermark ? 'both' : 'logo'
             };
             
