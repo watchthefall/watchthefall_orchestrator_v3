@@ -2810,6 +2810,7 @@ function autoSaveActiveReviewState() {
 
     const overrides = captureCurrentSliders();
     current.overrides = { ...overrides };
+    current.userEdited = true;
     if (activePreviewBrandId) {
         brandOverrides[activePreviewBrandId] = { ...overrides };
     }
@@ -3872,8 +3873,8 @@ function mergeRenderParams(brandConfig, sessionOverrides) {
         watermark_scale:      brandConfig.wm_scale        ?? 1.15,
         watermark_opacity:    brandConfig.wm_opacity       ?? 0.40,
         logo_scale:           brandConfig.logo_scale       ?? 0.25,
-        logo_x:               brandConfig.logo_x           ?? 0,
-        logo_y:               brandConfig.logo_y           ?? 0,
+        logo_x:               brandConfig.logo_x           ?? 0.85,
+        logo_y:               brandConfig.logo_y           ?? 0.85,
         logo_rotation:        brandConfig.logo_rotation    ?? 0,
         text_x:               brandConfig.text_x           ?? 0,
         text_y:               brandConfig.text_y           ?? 0,
@@ -4389,6 +4390,7 @@ async function switchToBrand(idx) {
     if (!current.overrides) {
         const brandData = brandDataCache[current.brand_id];
         current.overrides = brandData ? mergeRenderParams(brandData) : getDefaultOverrides();
+        current.userEdited = false;
         if (!brandData) console.error(`[BRANDR] Brand #${current.brand_id} not found in cache`);
     }
 
@@ -4561,39 +4563,41 @@ async function processCurrentBrand() {
     try {
         console.log('[BRANDR] Sending to backend:', {
             brand_id: current.brand_id,
-            watermark_scale: current.overrides.watermark_scale,
-            watermark_opacity: current.overrides.watermark_opacity,
-            logo_scale: current.overrides.logo_scale
+            userEdited: current.userEdited,
+            watermark_scale: current.userEdited ? current.overrides.watermark_scale : '(DB)',
+            watermark_opacity: current.userEdited ? current.overrides.watermark_opacity : '(DB)',
+            logo_scale: current.userEdited ? current.overrides.logo_scale : '(DB)'
         });
-        
+
         const res = await fetch(`${apiBase}/api/videos/process_brands`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 source_path: currentFile,
-                brand_ids: [current.brand_id],  // Send brand_id (NOT name)
-                // Deprecated backward compat (will be removed)
+                brand_ids: [current.brand_id],
                 brands: [current.brand_name],
-                // UI overrides
-                watermark_scale: current.overrides.watermark_scale,
-                watermark_opacity: current.overrides.watermark_opacity,
-                logo_scale: current.overrides.logo_scale,
-                text_enabled: current.overrides.text_enabled,
-                text_content: current.overrides.text_content,
-                text_x: current.overrides.text_x,
-                text_y: current.overrides.text_y,
-                text_size: current.overrides.text_size,
-                text_color: current.overrides.text_color,
-                text_bg_enabled: current.overrides.text_bg_enabled,
-                text_bg_opacity: current.overrides.text_bg_opacity,
-                // Dual-logo composition mode (Platinum+)
-                secondary_logo_enabled: current.overrides.secondary_logo_enabled || false,
-                secondary_logo_brand_id: current.overrides.secondary_logo_brand_id || null,
-                secondary_logo_scale: current.overrides.secondary_logo_scale || 0.12,
-                secondary_logo_opacity: current.overrides.secondary_logo_opacity || 0.9,
-                secondary_logo_rotation: current.overrides.secondary_logo_rotation || 0,
-                secondary_logo_x: current.overrides.secondary_logo_x || 0,
-                secondary_logo_y: current.overrides.secondary_logo_y || 0
+                ...(current.userEdited ? {
+                    watermark_scale: current.overrides.watermark_scale,
+                    watermark_opacity: current.overrides.watermark_opacity,
+                    logo_scale: current.overrides.logo_scale,
+                    logo_x: current.overrides.logo_x,
+                    logo_y: current.overrides.logo_y,
+                    text_enabled: current.overrides.text_enabled,
+                    text_content: current.overrides.text_content,
+                    text_x: current.overrides.text_x,
+                    text_y: current.overrides.text_y,
+                    text_size: current.overrides.text_size,
+                    text_color: current.overrides.text_color,
+                    text_bg_enabled: current.overrides.text_bg_enabled,
+                    text_bg_opacity: current.overrides.text_bg_opacity,
+                    secondary_logo_enabled: current.overrides.secondary_logo_enabled || false,
+                    secondary_logo_brand_id: current.overrides.secondary_logo_brand_id || null,
+                    secondary_logo_scale: current.overrides.secondary_logo_scale || 0.12,
+                    secondary_logo_opacity: current.overrides.secondary_logo_opacity || 0.9,
+                    secondary_logo_rotation: current.overrides.secondary_logo_rotation || 0,
+                    secondary_logo_x: current.overrides.secondary_logo_x || 0,
+                    secondary_logo_y: current.overrides.secondary_logo_y || 0
+                } : {})
             })
         });
 
@@ -4748,17 +4752,21 @@ async function processAllBrands() {
                     source_path: currentFile,
                     brand_ids: [item.brand_id],
                     brands: [item.brand_name],
-                    watermark_scale: item.overrides.watermark_scale,
-                    watermark_opacity: item.overrides.watermark_opacity,
-                    logo_scale: item.overrides.logo_scale,
-                    text_enabled: item.overrides.text_enabled,
-                    text_content: item.overrides.text_content,
-                    text_x: item.overrides.text_x,
-                    text_y: item.overrides.text_y,
-                    text_size: item.overrides.text_size,
-                    text_color: item.overrides.text_color,
-                    text_bg_enabled: item.overrides.text_bg_enabled,
-                    text_bg_opacity: item.overrides.text_bg_opacity
+                    ...(item.userEdited ? {
+                        watermark_scale: item.overrides.watermark_scale,
+                        watermark_opacity: item.overrides.watermark_opacity,
+                        logo_scale: item.overrides.logo_scale,
+                        logo_x: item.overrides.logo_x,
+                        logo_y: item.overrides.logo_y,
+                        text_enabled: item.overrides.text_enabled,
+                        text_content: item.overrides.text_content,
+                        text_x: item.overrides.text_x,
+                        text_y: item.overrides.text_y,
+                        text_size: item.overrides.text_size,
+                        text_color: item.overrides.text_color,
+                        text_bg_enabled: item.overrides.text_bg_enabled,
+                        text_bg_opacity: item.overrides.text_bg_opacity
+                    } : {})
                 })
             });
 

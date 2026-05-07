@@ -1647,6 +1647,14 @@ def process_branded_videos():
                 merged_config['logo_scale'] = data['logo_scale']
                 override_applied = True
                 print(f"[PROCESS BRANDS] Override: logo_scale = {data['logo_scale']} (DB default: {db_brand.get('logo_scale')})")
+            if 'logo_x' in data:
+                merged_config['logo_x'] = float(data['logo_x'])
+                override_applied = True
+                print(f"[PROCESS BRANDS] Override: logo_x = {data['logo_x']} (DB default: {db_brand.get('logo_x')})")
+            if 'logo_y' in data:
+                merged_config['logo_y'] = float(data['logo_y'])
+                override_applied = True
+                print(f"[PROCESS BRANDS] Override: logo_y = {data['logo_y']} (DB default: {db_brand.get('logo_y')})")
             if 'logo_padding' in data:
                 merged_config['logo_padding'] = data['logo_padding']
                 override_applied = True

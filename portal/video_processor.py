@@ -398,26 +398,30 @@ class VideoProcessor:
         logo_path = self.resolve_logo_path(brand_name, brand_config)
         if logo_path:
             logo_target_w = int(logo_scale_pct * W)
-            logo_x_px = int(logo_x_pct * W) - logo_target_w // 2
-            logo_y_px = int(logo_y_pct * H) - logo_target_w // 2
-            
+            logo_cx_px = int(logo_x_pct * W)
+            logo_cy_px = int(logo_y_pct * H)
+            # Use FFmpeg overlay expressions so 'h' resolves to the actual scaled logo height,
+            # correctly centering non-square logos (previously used logo_target_w for Y offset).
+            logo_x_expr = f"{logo_cx_px}-w/2"
+            logo_y_expr = f"{logo_cy_px}-h/2"
+
             print(f"[VISUAL_PRESET] Adding logo: {logo_path}")
-            print(f"[VISUAL_PRESET] Logo: width={logo_target_w}px, pos=({logo_x_px},{logo_y_px}), opacity={logo_opacity:.2f}, rotation={logo_rotation}°")
-            
+            print(f"[VISUAL_PRESET] Logo: width={logo_target_w}px, center=({logo_cx_px},{logo_cy_px}), opacity={logo_opacity:.2f}, rotation={logo_rotation}°")
+
             # Build logo filter with optional rotation
             if logo_rotation != 0.0:
                 # Convert degrees to radians for FFmpeg rotate filter
                 rotation_rad = (logo_rotation * 3.14159265359) / 180.0
                 print(f"[VISUAL_PRESET] Applying rotation: {logo_rotation}° = {rotation_rad:.4f} radians")
-                
+
                 # Apply scale -> rotate -> opacity in sequence
                 filters.append(f"movie='{logo_path}',scale={logo_target_w}:-1,format=rgba,rotate={rotation_rad}:ow=hypot(iw,ih):oh=ow:fillcolor=0x00000000[logo_rotated]")
                 filters.append(f"[logo_rotated]colorchannelmixer=aa={logo_opacity}[logo]")
             else:
                 # No rotation - simple path
                 filters.append(f"movie='{logo_path}',scale={logo_target_w}:-1,format=rgba,colorchannelmixer=aa={logo_opacity}[logo]")
-            
-            filters.append(f"[{current_input}][logo]overlay={logo_x_px}:{logo_y_px}[v2]")
+
+            filters.append(f"[{current_input}][logo]overlay={logo_x_expr}:{logo_y_expr}[v2]")
             current_input = 'v2'
         else:
             print(f"[VISUAL_PRESET] No logo found, skipping")
@@ -433,11 +437,13 @@ class VideoProcessor:
             sec_rotation = float(brand_config.get('secondary_logo_rotation', 0)) % 360
             
             sec_target_w = int(sec_scale * W)
-            sec_x_px = int(sec_x_pct * W) - sec_target_w // 2
-            sec_y_px = int(sec_y_pct * H) - sec_target_w // 2
-            
+            sec_cx_px = int(sec_x_pct * W)
+            sec_cy_px = int(sec_y_pct * H)
+            sec_x_expr = f"{sec_cx_px}-w/2"
+            sec_y_expr = f"{sec_cy_px}-h/2"
+
             print(f"[VISUAL_PRESET] Adding secondary logo: {sec_logo_path}")
-            print(f"[VISUAL_PRESET] SecLogo: width={sec_target_w}px, pos=({sec_x_px},{sec_y_px}), opacity={sec_opacity:.2f}, rotation={sec_rotation}°")
+            print(f"[VISUAL_PRESET] SecLogo: width={sec_target_w}px, center=({sec_cx_px},{sec_cy_px}), opacity={sec_opacity:.2f}, rotation={sec_rotation}°")
             
             # Determine next overlay label
             if current_input.startswith('v') and current_input[1:].isdigit():
@@ -453,7 +459,7 @@ class VideoProcessor:
             else:
                 filters.append(f"movie='{sec_logo_path}',scale={sec_target_w}:-1,format=rgba,colorchannelmixer=aa={sec_opacity}[sec_logo]")
             
-            filters.append(f"[{current_input}][sec_logo]overlay={sec_x_px}:{sec_y_px}[{next_v}]")
+            filters.append(f"[{current_input}][sec_logo]overlay={sec_x_expr}:{sec_y_expr}[{next_v}]")
             current_input = next_v
             print(f"[VISUAL_PRESET] Secondary logo overlay added -> [{next_v}]")
         elif sec_logo_enabled:
