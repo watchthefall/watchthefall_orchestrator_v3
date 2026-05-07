@@ -38,21 +38,35 @@ def normalize_logo(input_path, output_path, max_dimension=1024, remove_bg=None, 
             img.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
         
         # Apply background removal if requested
-        if remove_bg in ['dark', 'light']:
+        bg_removal_applied = remove_bg in ['dark', 'light']
+        if bg_removal_applied:
             img = remove_background(img, mode=remove_bg, strength=bg_strength)
-        
-        # Auto-trim transparent/dead space around visible content
-        bbox = img.getbbox()
-        if bbox is not None:
-            # Add safe padding margin (10px)
+
+            # After BG removal: validate output is not fully/mostly transparent
+            data = np.array(img)
+            total_pixels = data.shape[0] * data.shape[1]
+            visible_pixels = int(np.sum(data[:, :, 3] > 10))  # alpha > 10 = not transparent
+            visible_ratio = visible_pixels / total_pixels if total_pixels > 0 else 0
+            bbox_after = img.getbbox()
+            if bbox_after is None or visible_ratio < 0.01:
+                return {
+                    'success': False,
+                    'error': (
+                        f'Background removal produced a near-transparent result '
+                        f'(visible_ratio={visible_ratio:.3f}, bbox={bbox_after}). '
+                        f'Use the original without BG removal.'
+                    )
+                }
+
+            # Auto-trim transparent edges ONLY after BG removal (preserves intentional padding)
             padding = 10
-            left = max(0, bbox[0] - padding)
-            top = max(0, bbox[1] - padding)
-            right = min(img.width, bbox[2] + padding)
-            bottom = min(img.height, bbox[3] + padding)
+            left = max(0, bbox_after[0] - padding)
+            top = max(0, bbox_after[1] - padding)
+            right = min(img.width, bbox_after[2] + padding)
+            bottom = min(img.height, bbox_after[3] + padding)
             img = img.crop((left, top, right, bottom))
-        # If bbox is None, image is fully transparent; save as-is
-        
+        # else: no auto-trim — preserve the logo exactly as uploaded (alpha intact)
+
         # Save as clean PNG
         img.save(output_path, 'PNG', optimize=True)
         

@@ -3356,6 +3356,7 @@ function drawOverlays() {
 
     // Draw logo (anchored to CENTER coordinates) — same naturalWidth guard
     if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+        console.log(`[drawOverlays] logo: scalePct=${logoScalePct.toFixed(3)} centerX=${logoCenterXPercent.toFixed(3)} centerY=${logoCenterYPercent.toFixed(3)} naturalSize=${logoImg.naturalWidth}×${logoImg.naturalHeight} canvasSize=${canvas.width}×${canvas.height}`);
         const logoW = canvas.width * logoScalePct;
         const logoH = (logoImg.height / logoImg.width) * logoW;
         
@@ -4148,19 +4149,26 @@ async function loadBrandAssets(brandId) {
     watermarkImg.src = wmUrl;
 
     // Load logo (if exists)
+    console.log(`[BRANDR] loadBrandAssets logo — brand #${brandId} "${brandData.display_name || brandData.name}" logo_path=${brandData.logo_path || 'NONE'} url=${brandData.logo_path ? logoUrl : 'SKIP'}`);
     if (brandData.logo_path) {
         logoImg = new Image();
         logoImg.crossOrigin = 'anonymous';
         logoImg.onload = () => {
+            console.log(`[BRANDR] Logo loaded OK — brand #${brandId} naturalSize=${logoImg.naturalWidth}×${logoImg.naturalHeight} url=${logoUrl}`);
+            if (logoImg.naturalWidth === 0 || logoImg.naturalHeight === 0) {
+                console.error(`[BRANDR] Logo loaded but has zero dimensions — likely transparent/corrupt PNG — brand #${brandId}`);
+            }
             updateCanvasPreview();
         };
         logoImg.onerror = () => {
-            console.warn(`[BRANDR] Logo load failed for brand #${brandId}`);
+            console.error(`[BRANDR] Logo load FAILED (HTTP error or missing file) — brand #${brandId} url=${logoUrl}`);
+            logoImg = null;
             updateCanvasPreview();
         };
         logoImg.src = logoUrl;
     } else {
         logoImg = null;  // No logo for this brand
+        console.log(`[BRANDR] No logo_path for brand #${brandId} — skipping logo load`);
         updateCanvasPreview();
     }
 }

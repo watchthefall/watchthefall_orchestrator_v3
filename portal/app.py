@@ -2740,33 +2740,47 @@ def upload_brand_logo(brand_id):
         bg_strength = int(request.form.get('bg_strength', 50))  # 0-150
         
         norm_result = normalize_logo(
-            original_path, 
+            original_path,
             normalized_path,
             max_dimension=1024,
             remove_bg=remove_bg,
             bg_strength=bg_strength
         )
-        
+
+        fallback_used = False
         if not norm_result['success']:
-            return jsonify({
-                'success': False, 
-                'error': f'Failed to normalize image: {norm_result.get("error")}'
-            }), 500
-        
+            # BG removal produced a bad/transparent result — fall back to safe mode (resize+convert only)
+            print(f"[BRANDS] normalize_logo failed for brand {brand_id} (remove_bg={remove_bg}): {norm_result.get('error')}")
+            print(f"[BRANDS] Falling back to safe normalization (no BG removal) for brand {brand_id}")
+            norm_result = normalize_logo(
+                original_path,
+                normalized_path,
+                max_dimension=1024,
+                remove_bg=None,
+                bg_strength=0
+            )
+            fallback_used = True
+            if not norm_result['success']:
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to normalize image even in safe mode: {norm_result.get("error")}'
+                }), 500
+
         # Store relative path of NORMALIZED version (this is what VideoProcessor will use)
         relative_path = os.path.relpath(normalized_path, STORAGE_ROOT)
-        
+
         # Update database
         update_brand(brand_id, logo_path=relative_path)
-        
-        print(f"[BRANDS] Uploaded & normalized logo for brand {brand_id}: {relative_path}")
+
+        print(f"[BRANDS] Uploaded & normalized logo for brand {brand_id}: {relative_path} (fallback={fallback_used})")
         print(f"[BRANDS] Original: {norm_result.get('original_format')} {norm_result.get('original_size')}")
         print(f"[BRANDS] Normalized: PNG {norm_result.get('normalized_size')}")
-        
+
         return jsonify({
             'success': True,
             'logo_path': relative_path,
-            'message': 'Logo uploaded and normalized successfully',
+            'message': 'Logo uploaded and normalized successfully' + (' (BG removal skipped — result was transparent, using original)' if fallback_used else ''),
+            'fallback_used': fallback_used,
             'metadata': norm_result
         })
     except Exception as e:
