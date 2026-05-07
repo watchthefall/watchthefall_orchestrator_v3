@@ -5462,9 +5462,10 @@ function drawWizardWatermarkPreview() {
             ctx.restore();
             
         } else {
-            // Positioned mode: small corner watermark sized relative to canvas width (matches backend * 0.5)
+            // Positioned mode: width = W × (UI%/100) × 0.5 — raw slider %, no 1.15× multiplier.
+            // scale already has 1.15× baked in (render domain); use raw slider value instead.
             const margin = 20;
-            const wmWidth = canvas.width * scale * 0.5;
+            const wmWidth = canvas.width * (wizardState.watermarkScale / 100) * 0.5;
             const wmHeight = (wmImg.height / wmImg.width) * wmWidth;
             
             // Safe default: bottom-right corner
@@ -7080,12 +7081,18 @@ async function saveWizardBrandWithWatermark() {
             logo_y: logoY
         };
         
-        // Add watermark settings if watermark was uploaded
-        if (wizardState.watermarkFile) {
+        // Always persist wm_mode/scale/opacity when a watermark exists (new file or existing URL).
+        // Guarding only on watermarkFile means re-saving without re-uploading silently
+        // leaves stale wm_mode = 'fullscreen' in DB, causing massive backend output.
+        const hasWmForSave = wizardState.watermarkFile || wizardState.watermarkPreviewUrl;
+        if (hasWmForSave) {
             settingsPayload.wm_mode = wizardState.watermarkMode || 'fullscreen';
             settingsPayload.wm_scale = watermarkUiToRenderScale(wizardState.watermarkScale);
             settingsPayload.wm_opacity = wizardState.watermarkOpacity / 100;
-            
+        }
+
+        // Compute wm_x/wm_y only when a new file was uploaded (placement may have changed)
+        if (wizardState.watermarkFile) {
             // Compute wm_x/wm_y as the CENTER of the watermark in normalized coords.
             // Must match how the backend interprets these values:
             //   backend: wm_x_px = wm_x * W - wm_target_w/2  (center-anchored)
