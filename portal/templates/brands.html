@@ -6905,14 +6905,14 @@ async function saveWizardBrand() {
             logo_shape: wizardState.logoShape,
             logo_x: wizardState.logoX,
             logo_y: wizardState.logoY,
-            wm_mode: 'fullscreen'
+            wm_mode: wizardState.watermarkMode || 'fullscreen'
         };
 
         // In edit mode, include display_name so name changes persist
         if (isEdit) {
             settingsPayload.display_name = wizardState.displayName;
         }
-        
+
         // Watermark fields: use independent values when separate watermark enabled, else mirror logo
         const hasSeparateWatermark = wizardState.useSeparateWatermark &&
             (wizardState.watermarkFile || wizardState.watermarkPreviewUrl);
