@@ -4698,7 +4698,6 @@ async function processAllBrands() {
     `;
     
     // ========== JOB-ITEM MODEL (Commit 5: sync status to jobItems) ==========
-    // Helper to sync status to jobItems
     const syncStatusToJobItem = (brandId, status) => {
         if (currentFile && brandId) {
             const jobItem = jobItems.find(item => item.filename === currentFile && item.brandId === brandId);
@@ -4709,23 +4708,27 @@ async function processAllBrands() {
         }
     };
     // ========== END JOB-ITEM MODEL ==========
-    
-    // Process all in parallel (non-blocking)
-    const promises = pendingBrands.map(async (item) => {
+
+    const progressEl = result.querySelector('.processing-state-meta');
+    let successCount = 0;
+    let failCount = 0;
+
+    // Process brands one at a time — parallel requests race on normalize_video
+    // and increment_branding_jobs, causing silent failures and missing outputs.
+    for (const item of pendingBrands) {
         item.status = 'processing';
         syncStatusToJobItem(item.brand_id, 'processing');
         renderBrandPills();
-        
+        if (progressEl) progressEl.textContent = `${successCount + failCount} of ${pendingBrands.length} done — processing ${item.brand_name}…`;
+
         try {
             const res = await fetch(`${apiBase}/api/videos/process_brands`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     source_path: currentFile,
-                    brand_ids: [item.brand_id],  // Send brand_id (NOT name)
-                    // Deprecated backward compat (will be removed)
+                    brand_ids: [item.brand_id],
                     brands: [item.brand_name],
-                    // UI overrides
                     watermark_scale: item.overrides.watermark_scale,
                     watermark_opacity: item.overrides.watermark_opacity,
                     logo_scale: item.overrides.logo_scale,
@@ -4758,8 +4761,8 @@ async function processAllBrands() {
             item.status = 'done';
             syncStatusToJobItem(item.brand_id, 'completed');
             renderBrandPills();
-            
-            // Trigger download and accumulate for completion panel
+            successCount++;
+
             if (data.outputs && data.outputs[0]) {
                 const downloadUrl = data.outputs[0].download_url;
                 console.log('[BRANDR] Download triggered:', downloadUrl);
@@ -4767,27 +4770,20 @@ async function processAllBrands() {
                 completedOutputs.push({ brand_name: item.brand_name, download_url: downloadUrl });
             }
 
-            return { brand: item.brand_name, success: true };
-            
         } catch (err) {
             item.status = 'failed';
             syncStatusToJobItem(item.brand_id, 'error');
             renderBrandPills();
-            return { brand: item.brand_name, success: false, error: err.message };
+            failCount++;
+            console.error('[BRANDR] Brand failed:', item.brand_name, err.message);
         }
-    });
-    
-    // Wait for all to complete
-    const results = await Promise.all(promises);
-    
-    const successful = results.filter(r => r.success).length;
-    const failed = results.filter(r => !r.success).length;
+    }
 
     try {
-        renderCompletionPanel(result, successful, failed, 0);
+        renderCompletionPanel(result, successCount, failCount, 0);
     } catch (panelErr) {
         console.error('[BRANDR] renderCompletionPanel error:', panelErr);
-        result.innerHTML = `<div class="status-msg success">🎉 Done! ${successful} branded. <button onclick="goToLibrary()" style="margin-left:8px;background:transparent;border:1px solid #555;color:#b6bfd3;padding:4px 10px;border-radius:5px;cursor:pointer;">Open Library</button></div>`;
+        result.innerHTML = `<div class="status-msg success">🎉 Done! ${successCount} branded. <button onclick="goToLibrary()" style="margin-left:8px;background:transparent;border:1px solid #555;color:#b6bfd3;padding:4px 10px;border-radius:5px;cursor:pointer;">Open Library</button></div>`;
     }
     checkQueueComplete();
 }
