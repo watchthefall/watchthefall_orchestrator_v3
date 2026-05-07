@@ -2747,6 +2747,23 @@ function reviewPrevious() {
 function renderReviewCompletionState() {
     const result = document.getElementById('processResult');
     if (!result) return;
+
+    // Collapse review chrome that no longer applies — canvas and sliders are not
+    // needed once all brands are approved, and the floating review-active layout
+    // positions #processResult at order:7 which can leave it off-screen.
+    const overrideControls = document.getElementById('overrideControls');
+    if (overrideControls) overrideControls.style.display = 'none';
+    const previewContainer = document.getElementById('previewContainer');
+    if (previewContainer) previewContainer.style.display = 'none';
+    const reviewLane = document.getElementById('brandReviewLane');
+    if (reviewLane) reviewLane.classList.remove('review-active');
+    const previewSection = document.getElementById('previewSection');
+    if (previewSection) previewSection.classList.remove('review-active');
+    document.body.classList.remove('review-cockpit-active');
+    // Hide Approve/Skip/Previous — only the Start-branding CTA is relevant now
+    const reviewActionsRow = document.querySelector('#queueModeActions .review-actions');
+    if (reviewActionsRow) reviewActionsRow.style.display = 'none';
+
     updateReviewActionState();
     const total = processingQueue.length;
     const approved = processingQueue.filter(item => item.reviewDecision === 'approved' || item.status === 'done').length;
@@ -2772,6 +2789,11 @@ function renderReviewCompletionState() {
 }
 
 function enterProcessingState() {
+    // Prevent syncReviewViewportState() from re-adding review-active during the
+    // processing loop — renderBrandPills → updateReviewHeader fires each iteration
+    // and would recompute reviewActive=true while isQueueMode+'review' are still set.
+    createIntent = 'processing';
+
     // Hide all review-phase chrome so it can't block the completion panel
     ['queueModeActions', 'overrideControls', 'previewContainer', 'queueModeHeader'].forEach(id => {
         const el = document.getElementById(id);
