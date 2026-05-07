@@ -4875,7 +4875,7 @@ function renderCompletionPanel(el, done, failed, skipped) {
     let outputsHtml = '';
     if (completedOutputs.length > 0) {
         const downloadAllBtn = completedOutputs.length > 1
-            ? `<button onclick="downloadAllCompletedOutputs()" style="width:100%;margin-bottom:10px;padding:10px 14px;font-size:14px;font-weight:600;background:var(--accent);color:#121214;border:none;border-radius:7px;cursor:pointer;">\u2b07 Download all branded videos (${completedOutputs.length})</button>`
+            ? `<button id="downloadAllZipBtn" onclick="downloadAllCompletedOutputs()" style="width:100%;margin-bottom:10px;padding:10px 14px;font-size:14px;font-weight:600;background:var(--accent);color:#121214;border:none;border-radius:7px;cursor:pointer;">\u2b07 Download all branded videos (${completedOutputs.length})</button>`
             : '';
         const rows = completedOutputs.map(o => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#1e1e22;border-radius:6px;margin-bottom:6px;">
@@ -4891,13 +4891,65 @@ function renderCompletionPanel(el, done, failed, skipped) {
     el.innerHTML = headerHtml + outputsHtml + libraryBtn;
 }
 
-function downloadAllCompletedOutputs() {
-    completedOutputs.forEach((o, i) => {
-        setTimeout(() => {
-            console.log('[BRANDR] Download all \u2014 opening:', o.download_url);
-            window.open(o.download_url, '_blank');
-        }, i * 400);
-    });
+async function downloadAllCompletedOutputs() {
+    const filenames = completedOutputs.map(o => o.download_url.split('/').pop());
+    console.log('[BRANDR] Download zip requested:', filenames);
+
+    const btn = document.getElementById('downloadAllZipBtn');
+    const origText = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Preparing ZIP\u2026'; }
+
+    try {
+        const res = await fetch(`${apiBase}/api/videos/download-zip`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files: filenames, source: currentFile })
+        });
+
+        if (!res.ok) {
+            let msg = `Server error ${res.status}`;
+            try { const err = await res.json(); msg = err.error || msg; } catch {}
+            if (btn) { btn.disabled = false; btn.textContent = origText; }
+            const resultEl = document.getElementById('processResult');
+            if (resultEl) {
+                const errDiv = document.createElement('div');
+                errDiv.className = 'status-msg error';
+                errDiv.style.marginTop = '8px';
+                errDiv.textContent = `ZIP download failed: ${msg}`;
+                resultEl.appendChild(errDiv);
+            }
+            return;
+        }
+
+        // Extract filename from Content-Disposition, fall back to generic name
+        const disposition = res.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="?([^";]+)"?/);
+        const zipName = match ? match[1] : 'brandr_outputs.zip';
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = zipName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        console.log('[BRANDR] Download zip started:', zipName);
+    } catch (err) {
+        console.error('[BRANDR] Download zip error:', err);
+        const resultEl = document.getElementById('processResult');
+        if (resultEl) {
+            const errDiv = document.createElement('div');
+            errDiv.className = 'status-msg error';
+            errDiv.style.marginTop = '8px';
+            errDiv.textContent = `ZIP download failed: ${err.message}`;
+            resultEl.appendChild(errDiv);
+        }
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = origText; }
+    }
 }
 
 async function skipBrand() {

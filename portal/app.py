@@ -1,11 +1,13 @@
 """
 Brandr - Flask Application
 """
-from flask import Flask, request, jsonify, render_template, send_from_directory, redirect, url_for, session, flash
+from flask import Flask, request, jsonify, render_template, send_from_directory, send_file, redirect, url_for, session, flash
 import os
+import io
 import json
 import uuid
 import time
+import zipfile
 from werkzeug.utils import secure_filename
 import subprocess
 import tempfile
@@ -2023,6 +2025,75 @@ def download_video(filename):
         print(f'[DOWNLOAD] Exception serving {filename}: {e}')
         traceback.print_exc()
         return jsonify({'error': 'Failed to serve file', 'details': str(e), 'filename': filename}), 500
+
+@app.route('/api/videos/download-zip', methods=['POST'])
+@login_required
+def download_zip():
+    """Bundle multiple branded output files into a single ZIP and return it."""
+    from datetime import datetime
+
+    data = request.get_json(force=True) or {}
+    raw_files = data.get('files', [])
+    source = data.get('source', '')
+
+    print(f'[DOWNLOAD-ZIP] Requested files: {raw_files}')
+
+    if not raw_files:
+        return jsonify({'error': 'No files requested'}), 400
+
+    # Sanitize: basename only, .mp4 only, no traversal
+    sanitized, rejected = [], []
+    for name in raw_files:
+        base = os.path.basename(str(name))
+        if not base or not base.endswith('.mp4'):
+            rejected.append(name)
+            continue
+        sanitized.append(base)
+
+    if rejected:
+        print(f'[DOWNLOAD-ZIP] Rejected (invalid names): {rejected}')
+        return jsonify({'error': 'Invalid filenames', 'rejected': rejected}), 400
+
+    # Resolve files — branded outputs live in OUTPUT_DIR only
+    found, missing = [], []
+    for base in sanitized:
+        path = os.path.join(OUTPUT_DIR, base)
+        if os.path.exists(path):
+            found.append((base, path))
+            print(f'[DOWNLOAD-ZIP] Added: {path}')
+        else:
+            missing.append(base)
+            print(f'[DOWNLOAD-ZIP] Missing: {path}')
+
+    if missing:
+        return jsonify({'error': 'Some output files not found', 'missing': missing}), 404
+
+    if not found:
+        return jsonify({'error': 'No valid output files found'}), 404
+
+    # Build ZIP in memory
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for base, path in found:
+            zf.write(path, arcname=base)
+    zip_buffer.seek(0)
+
+    # Derive a sensible zip name
+    if source:
+        source_stem = os.path.splitext(os.path.basename(source))[0]
+        zip_name = f'{source_stem}_branded_outputs.zip'
+    else:
+        ts = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        zip_name = f'brandr_outputs_{ts}.zip'
+
+    print(f'[DOWNLOAD-ZIP] Sending zip: {zip_name} ({zip_buffer.getbuffer().nbytes} bytes, {len(found)} files)')
+
+    return send_file(
+        zip_buffer,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=zip_name,
+    )
 
 # Recent videos endpoint removed - using localStorage history only
 
