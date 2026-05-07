@@ -2771,6 +2771,20 @@ function renderReviewCompletionState() {
     }, 80);
 }
 
+function enterProcessingState() {
+    // Hide all review-phase chrome so it can't block the completion panel
+    ['queueModeActions', 'overrideControls', 'previewContainer', 'queueModeHeader'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+    // Remove the review-active CSS layout that floats the preview over the results
+    const reviewLane = document.getElementById('brandReviewLane');
+    if (reviewLane) reviewLane.classList.remove('review-active');
+    const previewSection = document.getElementById('previewSection');
+    if (previewSection) previewSection.classList.remove('review-active');
+    document.body.classList.remove('review-cockpit-active');
+}
+
 function approveAndNext() {
     if (!isQueueMode) return;
     const current = processingQueue[currentQueueIndex];
@@ -4689,14 +4703,17 @@ async function processAllBrands() {
         result.innerHTML = '<div class="status-msg info">Everything here is already running, finished, or skipped.</div>';
         return;
     }
-    
+
+    // Lock review chrome — hides preview, sliders, action buttons, removes review-active layout
+    enterProcessingState();
+
     result.innerHTML = `
         <div class="processing-state-card">
-            <div class="processing-state-title">Generating branded outputs...</div>
-            <div class="processing-state-meta">${pendingBrands.length} of ${includedTotal} versions queued</div>
+            <div class="processing-state-title">Processing branded outputs…</div>
+            <div class="processing-state-meta">Starting…</div>
         </div>
     `;
-    
+
     // ========== JOB-ITEM MODEL (Commit 5: sync status to jobItems) ==========
     const syncStatusToJobItem = (brandId, status) => {
         if (currentFile && brandId) {
@@ -4712,14 +4729,16 @@ async function processAllBrands() {
     const progressEl = result.querySelector('.processing-state-meta');
     let successCount = 0;
     let failCount = 0;
+    let brandIndex = 0;
 
     // Process brands one at a time — parallel requests race on normalize_video
     // and increment_branding_jobs, causing silent failures and missing outputs.
     for (const item of pendingBrands) {
+        brandIndex++;
         item.status = 'processing';
         syncStatusToJobItem(item.brand_id, 'processing');
         renderBrandPills();
-        if (progressEl) progressEl.textContent = `${successCount + failCount} of ${pendingBrands.length} done — processing ${item.brand_name}…`;
+        if (progressEl) progressEl.textContent = `Processing ${brandIndex} of ${pendingBrands.length}: ${item.brand_name}…`;
 
         try {
             const res = await fetch(`${apiBase}/api/videos/process_brands`, {
