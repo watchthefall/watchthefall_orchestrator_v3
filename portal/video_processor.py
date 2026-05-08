@@ -431,8 +431,16 @@ class VideoProcessor:
             logo_x_expr = f"{logo_cx_px}-w/2"
             logo_y_expr = f"{logo_cy_px}-h/2"
 
+            logo_shape = brand_config.get('logo_shape', 'original')
             print(f"[VISUAL_PRESET] Adding logo: {logo_path}")
             print(f"[VISUAL_PRESET] Logo: width={logo_target_w}px, center=({logo_cx_px},{logo_cy_px}), opacity={logo_opacity:.2f}, rotation={logo_rotation}°")
+            print(f"[SHAPE] render brand='{brand_name}' logo_shape='{logo_shape}'")
+
+            # Geq filter for circle crop — masks pixels outside the inscribed circle
+            geq_circle = (
+                "geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)'"
+                ":a='if(lte((X-W/2)*(X-W/2)+(Y-H/2)*(Y-H/2),(min(W\\,H)/2)*(min(W\\,H)/2)),alpha(X\\,Y),0)'"
+            )
 
             # Build logo filter with optional rotation
             if logo_rotation != 0.0:
@@ -440,12 +448,14 @@ class VideoProcessor:
                 rotation_rad = (logo_rotation * 3.14159265359) / 180.0
                 print(f"[VISUAL_PRESET] Applying rotation: {logo_rotation}° = {rotation_rad:.4f} radians")
 
-                # Apply scale -> rotate -> opacity in sequence
-                filters.append(f"movie='{logo_path}',scale={logo_target_w}:-1,format=rgba,rotate={rotation_rad}:ow=hypot(iw,ih):oh=ow:fillcolor=0x00000000[logo_rotated]")
+                # Apply scale -> rotate -> shape -> opacity in sequence
+                shape_filter = f",{geq_circle}" if logo_shape == 'circle' else ''
+                filters.append(f"movie='{logo_path}',scale={logo_target_w}:-1,format=rgba,rotate={rotation_rad}:ow=hypot(iw,ih):oh=ow:fillcolor=0x00000000{shape_filter}[logo_rotated]")
                 filters.append(f"[logo_rotated]colorchannelmixer=aa={logo_opacity}[logo]")
             else:
-                # No rotation - simple path
-                filters.append(f"movie='{logo_path}',scale={logo_target_w}:-1,format=rgba,colorchannelmixer=aa={logo_opacity}[logo]")
+                # No rotation - simple path; apply shape before opacity
+                shape_filter = f",{geq_circle}" if logo_shape == 'circle' else ''
+                filters.append(f"movie='{logo_path}',scale={logo_target_w}:-1,format=rgba{shape_filter},colorchannelmixer=aa={logo_opacity}[logo]")
 
             filters.append(f"[{current_input}][logo]overlay={logo_x_expr}:{logo_y_expr}[v2]")
             current_input = 'v2'

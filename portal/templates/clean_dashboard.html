@@ -3384,7 +3384,29 @@ function drawOverlays() {
         ctx.translate(centerX, centerY);
         ctx.rotate(rotationRad);
         ctx.translate(-centerX, -centerY);
-        
+
+        // Apply logo shape clip (circle / square / original)
+        const logoShape = (brandDataCache[activePreviewBrandId] && brandDataCache[activePreviewBrandId].logo_shape) || 'original';
+        if (logoShape === 'circle') {
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, Math.min(logoW, logoH) / 2, 0, Math.PI * 2);
+            ctx.clip();
+        } else if (logoShape === 'square') {
+            const cr = Math.min(logoW, logoH) * 0.1;
+            ctx.beginPath();
+            ctx.moveTo(drawX + cr, drawY);
+            ctx.lineTo(drawX + logoW - cr, drawY);
+            ctx.quadraticCurveTo(drawX + logoW, drawY, drawX + logoW, drawY + cr);
+            ctx.lineTo(drawX + logoW, drawY + logoH - cr);
+            ctx.quadraticCurveTo(drawX + logoW, drawY + logoH, drawX + logoW - cr, drawY + logoH);
+            ctx.lineTo(drawX + cr, drawY + logoH);
+            ctx.quadraticCurveTo(drawX, drawY + logoH, drawX, drawY + logoH - cr);
+            ctx.lineTo(drawX, drawY + cr);
+            ctx.quadraticCurveTo(drawX, drawY, drawX + cr, drawY);
+            ctx.clip();
+        }
+        console.log(`[SHAPE] cockpit brand id=${activePreviewBrandId} logo_shape=${logoShape}`);
+
         ctx.drawImage(logoImg, drawX, drawY, logoW, logoH);
         ctx.restore();
         
