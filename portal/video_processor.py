@@ -361,65 +361,51 @@ class VideoProcessor:
         logo_opacity = brand_config.get('logo_opacity', 1.0)
         logo_rotation = brand_config.get('logo_rotation', 0.0)  # degrees (0-360)
         
-        wm_mode = brand_config.get('wm_mode', 'fullscreen')  # fullscreen = canonical for WTF watermarks
+        wm_mode_raw = brand_config.get('wm_mode', 'positioned')
+        # Normalize stale 'fullscreen' values — positioned is the only supported mode
+        if wm_mode_raw != 'positioned':
+            print(f"[WM MODE] Normalized wm_mode from '{wm_mode_raw}' to 'positioned' for brand='{brand_name}'")
+        wm_mode = 'positioned'
         wm_x_pct = brand_config.get('wm_x', 0.5)
         wm_y_pct = brand_config.get('wm_y', 0.5)
         wm_scale_pct = brand_config.get('wm_scale', 1.0)
         wm_opacity = brand_config.get('wm_opacity', 0.10)
-        
+
         text_enabled = brand_config.get('text_enabled', False)
         text_content = brand_config.get('text_content', '')
         text_x_pct = brand_config.get('text_x_percent', 0.5)
         text_y_pct = brand_config.get('text_y_percent', 0.2)
         text_size = brand_config.get('text_size', 48)
         text_color = brand_config.get('text_color', '#FFFFFF')
-        
+
         print(f"[VISUAL_PRESET] Logo: x={logo_x_pct:.2f}, y={logo_y_pct:.2f}, scale={logo_scale_pct:.2f}, opacity={logo_opacity:.2f}, rotation={logo_rotation}°")
         print(f"[VISUAL_PRESET] Watermark: mode={wm_mode}, x={wm_x_pct:.2f}, y={wm_y_pct:.2f}, scale={wm_scale_pct:.2f}, opacity={wm_opacity:.2f}")
         print(f"[WM RENDER] brand='{brand_name}' wm_mode={wm_mode} wm_x={wm_x_pct:.4f} wm_y={wm_y_pct:.4f} wm_scale={wm_scale_pct:.4f} wm_opacity={wm_opacity:.4f}")
         print(f"[VISUAL_PRESET] Text: enabled={text_enabled}, content='{text_content[:30]}', x={text_x_pct:.2f}, y={text_y_pct:.2f}")
-        
+
         # 1. WATERMARK OVERLAY
         watermark_path = self.resolve_watermark_path(brand_name, brand_config)
         if watermark_path:
             print(f"[VISUAL_PRESET] Adding watermark: {watermark_path}")
-            
-            if wm_mode == 'fullscreen':
-                # Fullscreen mode: scale to W:H, overlay at 0:0
-                scaled_w = int(W * wm_scale_pct)
-                scaled_h = int(H * wm_scale_pct)
-                offset_x = (scaled_w - W) // 2
-                offset_y = (scaled_h - H) // 2
-                # Negate offset: positive offset → crop (watermark bigger than frame)
-                # negative offset → center-pad (watermark smaller than frame)
-                # Either way, store as plain ints so f-string never produces "--N"
-                overlay_x = -offset_x
-                overlay_y = -offset_y
 
-                print(f"[VISUAL_PRESET] Watermark fullscreen: {scaled_w}x{scaled_h}, overlay=({overlay_x},{overlay_y}), opacity={wm_opacity:.2f}")
-                print(f"[WM RENDER] computed size={scaled_w}x{scaled_h} overlay={overlay_x},{overlay_y}")
+            # Always positioned — fullscreen removed as user-facing option.
+            # wm_scale_pct is render-domain (UI%/100 × 1.15).
+            # Divide by WM_UI_REF_SCALE to recover raw UI%/100 so the rendered
+            # size matches the Brand Editor preview formula exactly.
+            WM_UI_REF_SCALE = 1.15
+            ui_scale = wm_scale_pct / WM_UI_REF_SCALE
+            wm_target_w = int(ui_scale * W * 0.5)
+            wm_cx_px = int(wm_x_pct * W)
+            wm_cy_px = int(wm_y_pct * H)
+            wm_x_expr = f"{wm_cx_px}-w/2"
+            wm_y_expr = f"{wm_cy_px}-h/2"
 
-                filters.append(f"movie='{watermark_path}',scale={scaled_w}:{scaled_h},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{wm_opacity}*alpha(X,Y)'[watermark]")
-                filters.append(f"[{current_input}][watermark]overlay={overlay_x}:{overlay_y}[v1]")
-                current_input = 'v1'
-            else:
-                # Positioned mode: wm_scale_pct is render-domain (UI%/100 × 1.15).
-                # Divide by WM_UI_REF_SCALE to recover raw UI%/100 so the rendered
-                # size matches the Brand Editor preview formula exactly.
-                WM_UI_REF_SCALE = 1.15
-                ui_scale = wm_scale_pct / WM_UI_REF_SCALE
-                wm_target_w = int(ui_scale * W * 0.5)
-                wm_cx_px = int(wm_x_pct * W)
-                wm_cy_px = int(wm_y_pct * H)
-                wm_x_expr = f"{wm_cx_px}-w/2"
-                wm_y_expr = f"{wm_cy_px}-h/2"
+            print(f"[VISUAL_PRESET] Watermark positioned: width={wm_target_w}px, center=({wm_cx_px},{wm_cy_px}), opacity={wm_opacity:.2f}")
+            print(f"[WM RENDER] computed size={wm_target_w}x(auto) overlay={wm_x_expr},{wm_y_expr}")
 
-                print(f"[VISUAL_PRESET] Watermark positioned: width={wm_target_w}px, center=({wm_cx_px},{wm_cy_px}), opacity={wm_opacity:.2f}")
-                print(f"[WM RENDER] computed size={wm_target_w}x(auto) overlay={wm_x_expr},{wm_y_expr}")
-
-                filters.append(f"movie='{watermark_path}',scale={wm_target_w}:-1,format=rgba,colorchannelmixer=aa={wm_opacity}[watermark]")
-                filters.append(f"[{current_input}][watermark]overlay={wm_x_expr}:{wm_y_expr}[v1]")
-                current_input = 'v1'
+            filters.append(f"movie='{watermark_path}',scale={wm_target_w}:-1,format=rgba,colorchannelmixer=aa={wm_opacity}[watermark]")
+            filters.append(f"[{current_input}][watermark]overlay={wm_x_expr}:{wm_y_expr}[v1]")
+            current_input = 'v1'
         else:
             print(f"[VISUAL_PRESET] No watermark found, skipping")
         

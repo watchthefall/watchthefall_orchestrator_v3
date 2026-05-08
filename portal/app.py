@@ -1618,9 +1618,12 @@ def process_branded_videos():
             merged_config = db_brand.copy()  # Make a copy to avoid modifying DB record
             
             # CANONICAL NORMALIZATION: Ensure wm_* fields are populated
-            # Prefer canonical wm_* fields, fallback to legacy watermark_* for backward compat
+            # Prefer canonical wm_* fields, fallback to legacy watermark_* for backward compat.
+            # wm_mode is always 'positioned' — normalize any stale 'fullscreen' values.
             if merged_config.get('wm_mode') is None:
-                merged_config['wm_mode'] = merged_config.get('watermark_mode', 'fullscreen')
+                merged_config['wm_mode'] = merged_config.get('watermark_mode', 'positioned')
+            if merged_config.get('wm_mode') != 'positioned':
+                merged_config['wm_mode'] = 'positioned'
             if merged_config.get('wm_scale') is None:
                 legacy_scale = merged_config.get('watermark_scale')
                 if legacy_scale is not None:
@@ -2353,8 +2356,8 @@ def list_brands():
             'watermark_landscape': brand.get('watermark_landscape'),
             
             # Watermark Config (wm_* keys are canonical)
-            # Default fullscreen: WTF watermarks are full-frame overlays, not positioned badges
-            'wm_mode': brand.get('wm_mode', 'fullscreen'),
+            # Always positioned — normalize any stale 'fullscreen' DB values
+            'wm_mode': 'positioned',
             'wm_scale': brand['wm_scale'] if brand.get('wm_scale') is not None else (brand['watermark_scale'] if brand.get('watermark_scale') is not None else 0.25),
             'wm_opacity': brand['wm_opacity'] if brand.get('wm_opacity') is not None else (brand['watermark_opacity'] if brand.get('watermark_opacity') is not None else 0.20),
             'wm_x': brand.get('wm_x', 0.5),
@@ -2582,7 +2585,7 @@ def create_brand_api():
             logo_y=data.get('logo_y', 0.85),
             logo_opacity=data.get('logo_opacity', 1.0),
             logo_rotation=data.get('logo_rotation', 0.0),
-            wm_mode=data.get('wm_mode', 'fullscreen'),
+            wm_mode='positioned',  # always — normalize stale 'fullscreen' from client
             wm_x=data.get('wm_x', 0.5),
             wm_y=data.get('wm_y', 0.5),
             wm_scale=data.get('wm_scale', 0.25),

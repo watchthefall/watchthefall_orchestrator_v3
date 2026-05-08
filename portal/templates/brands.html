@@ -642,14 +642,15 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Watermark Mode (positioned vs fullscreen) -->
-                                <div class="control-group" id="wmModeGroup">
+                                <!-- Watermark Mode toggle removed: all watermarks use positioned mode.
+                                     Hidden div kept so JS refs (syncWmModeButtons) don't null-ref. -->
+                                <div class="control-group" id="wmModeGroup" style="display:none;" aria-hidden="true">
                                     <label>Watermark Mode</label>
                                     <div class="preview-mode-options">
-                                        <button type="button" class="wm-mode-btn" id="wmModePositionedBtn" onclick="setComposerWatermarkMode('positioned')">Positioned</button>
-                                        <button type="button" class="wm-mode-btn active" id="wmModeFullscreenBtn" onclick="setComposerWatermarkMode('fullscreen')">Fullscreen</button>
+                                        <button type="button" class="wm-mode-btn active" id="wmModePositionedBtn" onclick="setComposerWatermarkMode('positioned')">Positioned</button>
+                                        <button type="button" class="wm-mode-btn" id="wmModeFullscreenBtn" onclick="setComposerWatermarkMode('fullscreen')">Fullscreen</button>
                                     </div>
-                                    <p class="help-text" id="wmModeHelp">Fullscreen: covers the entire frame. Positioned: drag it anywhere on canvas.</p>
+                                    <p class="help-text" id="wmModeHelp">All watermarks use positioned mode.</p>
                                 </div>
 
                                 <!-- Watermark Preview Mode -->
@@ -3051,7 +3052,7 @@ function editBrand(brandId) {
                 watermarkY: brand.wm_y != null ? brand.wm_y : 0.18,
                 watermarkScale: renderScaleToWatermarkUi(brand.wm_scale != null ? brand.wm_scale : 0.25),
                 watermarkOpacity: Math.round((brand.wm_opacity || 0.50) * 100),
-                watermarkMode: brand.wm_mode || 'fullscreen',
+                watermarkMode: 'positioned',  // normalize stale fullscreen to positioned
                 previewMode: hasSeparateWatermark ? 'both' : 'logo'
             };
             
@@ -3190,7 +3191,7 @@ let wizardState = {
     watermarkY: 0.18,
     watermarkScale: 25,
     watermarkOpacity: 50,
-    watermarkMode: 'fullscreen',  // 'fullscreen' | 'positioned' — persisted as wm_mode
+    watermarkMode: 'positioned',  // always positioned — fullscreen removed as user-facing option
     // Preview mode for composer
     previewMode: 'logo'  // 'logo' | 'watermark' | 'both'
 };
@@ -3217,7 +3218,7 @@ function resetWizardWatermarkUi() {
         wizardState.watermarkPreviewUrl = null;
         wizardState.activeElement = 'logo';
         wizardState.previewMode = 'logo';
-        wizardState.watermarkMode = 'fullscreen';  // reset mode toggle when watermark is removed
+        wizardState.watermarkMode = 'positioned';  // always positioned
     }
 
     // Reset mode buttons to default
@@ -3836,7 +3837,7 @@ function setComposerWatermarkMode(mode) {
 
 // Sync wm-mode-btn active state from wizardState (called by syncComposerControls and initComposer)
 function syncWmModeButtons() {
-    const mode = wizardState.watermarkMode || 'fullscreen';
+    const mode = wizardState.watermarkMode || 'positioned';
     const posBtn = document.getElementById('wmModePositionedBtn');
     const fsBtn  = document.getElementById('wmModeFullscreenBtn');
     if (posBtn) posBtn.classList.toggle('active', mode === 'positioned');
@@ -4004,38 +4005,21 @@ function drawComposerCanvas() {
     }
     
     if ((previewMode === 'watermark' || previewMode === 'both') && hasWatermark && wizardWatermarkImage.complete) {
-        const wmMode = wizardState.watermarkMode || 'fullscreen';
+        // Always positioned — fullscreen removed as user-facing option
         const wmAlpha = (wizardState.watermarkOpacity != null ? wizardState.watermarkOpacity : 50) / 100;
         const wmAspectRatio = wizardWatermarkImage.height / wizardWatermarkImage.width;
-
+        const wmScale = (wizardState.watermarkScale || 25) / 100;
+        const wmDrawWidth = W * wmScale * 0.5;
+        const wmDrawHeight = wmDrawWidth * wmAspectRatio;
+        const wmX = (W * (wizardState.watermarkX || 0.5)) - (wmDrawWidth / 2);
+        const wmY = (H * (wizardState.watermarkY || 0.5)) - (wmDrawHeight / 2);
+        composerLayerBounds.watermark = { x: wmX, y: wmY, w: wmDrawWidth, h: wmDrawHeight };
         ctx.save();
         ctx.globalAlpha = wmAlpha;
-
-        if (wmMode === 'fullscreen') {
-            // Fullscreen: match FFmpeg and cockpit exactly.
-            // render_scale = (uiPct/100) * WM_UI_REF_SCALE (1.15), then scale × frame, centred with bleed.
-            const WM_UI_REF_SCALE = 1.15;
-            const renderScale = ((wizardState.watermarkScale || 100) / 100) * WM_UI_REF_SCALE;
-            const scaledW = W * renderScale;
-            const scaledH = H * renderScale;
-            const offsetX = (scaledW - W) / 2;
-            const offsetY = (scaledH - H) / 2;
-            console.log(`[WM PREVIEW] brand=${wizardState.editBrandId||'new'} wm_mode=fullscreen wm_scale=${wizardState.watermarkScale||100}% → render_scale=${renderScale.toFixed(3)} scaled=${Math.round(scaledW)}×${Math.round(scaledH)}`);
-            ctx.drawImage(wizardWatermarkImage, -offsetX, -offsetY, scaledW, scaledH);
-        } else {
-            // Positioned: match backend positioned formula — width = canvas × (uiPct/100) × 0.5
-            const wmScale = (wizardState.watermarkScale || 25) / 100;
-            const wmDrawWidth = W * wmScale * 0.5;
-            const wmDrawHeight = wmDrawWidth * wmAspectRatio;
-            const wmX = (W * (wizardState.watermarkX || 0.5)) - (wmDrawWidth / 2);
-            const wmY = (H * (wizardState.watermarkY || 0.5)) - (wmDrawHeight / 2);
-            composerLayerBounds.watermark = { x: wmX, y: wmY, w: wmDrawWidth, h: wmDrawHeight };
-            const wmShape = wizardState.watermarkShape || 'original';
-            applyShapeClip(ctx, wmShape, wmX, wmY, wmDrawWidth, wmDrawHeight, 'watermark');
-            console.log(`[WM PREVIEW] brand=${wizardState.editBrandId||'new'} wm_mode=positioned wm_x=${(wizardState.watermarkX||0.5).toFixed(3)} wm_y=${(wizardState.watermarkY||0.5).toFixed(3)} wm_scale=${wizardState.watermarkScale||25}% → drawW=${Math.round(wmDrawWidth)}`);
-            ctx.drawImage(wizardWatermarkImage, wmX, wmY, wmDrawWidth, wmDrawHeight);
-        }
-
+        const wmShape = wizardState.watermarkShape || 'original';
+        applyShapeClip(ctx, wmShape, wmX, wmY, wmDrawWidth, wmDrawHeight, 'watermark');
+        console.log(`[WM PREVIEW] brand=${wizardState.editBrandId||'new'} mode=positioned wm_x=${(wizardState.watermarkX||0.5).toFixed(3)} wm_y=${(wizardState.watermarkY||0.5).toFixed(3)} scale=${wizardState.watermarkScale||25}% → drawW=${Math.round(wmDrawWidth)}`);
+        ctx.drawImage(wizardWatermarkImage, wmX, wmY, wmDrawWidth, wmDrawHeight);
         ctx.restore();
     }
     
@@ -4106,28 +4090,18 @@ function drawPreviewCanvas(canvasId, aspectW, aspectH) {
     
     // Draw watermark when mode is watermark/both and watermark exists — respect wm_mode
     if ((previewMode === 'watermark' || previewMode === 'both') && hasWatermark && wizardWatermarkImage.complete) {
-        const wmMode2 = wizardState.watermarkMode || 'fullscreen';
+        // Always positioned — fullscreen removed as user-facing option
         const wmAlpha2 = (wizardState.watermarkOpacity != null ? wizardState.watermarkOpacity : 50) / 100;
         const wmAspectRatio2 = wizardWatermarkImage.height / wizardWatermarkImage.width;
         ctx.save();
         ctx.globalAlpha = wmAlpha2;
-        if (wmMode2 === 'fullscreen') {
-            const WM_UI_REF_SCALE = 1.15;
-            const renderScale2 = ((wizardState.watermarkScale || 100) / 100) * WM_UI_REF_SCALE;
-            const scaledW2 = W * renderScale2;
-            const scaledH2 = H * renderScale2;
-            const offsetX2 = (scaledW2 - W) / 2;
-            const offsetY2 = (scaledH2 - H) / 2;
-            ctx.drawImage(wizardWatermarkImage, -offsetX2, -offsetY2, scaledW2, scaledH2);
-        } else {
-            const wmScale2 = (wizardState.watermarkScale || 25) / 100;
-            const wmDrawWidth2 = W * wmScale2 * 0.5;
-            const wmDrawHeight2 = wmDrawWidth2 * wmAspectRatio2;
-            const wmX2 = (W * (wizardState.watermarkX || 0.5)) - (wmDrawWidth2 / 2);
-            const wmY2 = (H * (wizardState.watermarkY || 0.5)) - (wmDrawHeight2 / 2);
-            applyShapeClip(ctx, wizardState.watermarkShape || 'original', wmX2, wmY2, wmDrawWidth2, wmDrawHeight2, 'watermark');
-            ctx.drawImage(wizardWatermarkImage, wmX2, wmY2, wmDrawWidth2, wmDrawHeight2);
-        }
+        const wmScale2 = (wizardState.watermarkScale || 25) / 100;
+        const wmDrawWidth2 = W * wmScale2 * 0.5;
+        const wmDrawHeight2 = wmDrawWidth2 * wmAspectRatio2;
+        const wmX2 = (W * (wizardState.watermarkX || 0.5)) - (wmDrawWidth2 / 2);
+        const wmY2 = (H * (wizardState.watermarkY || 0.5)) - (wmDrawHeight2 / 2);
+        applyShapeClip(ctx, wizardState.watermarkShape || 'original', wmX2, wmY2, wmDrawWidth2, wmDrawHeight2, 'watermark');
+        ctx.drawImage(wizardWatermarkImage, wmX2, wmY2, wmDrawWidth2, wmDrawHeight2);
         ctx.restore();
         ctx.globalAlpha = 1.0;
     }
@@ -5528,58 +5502,22 @@ function drawWizardWatermarkPreview() {
             return; // Exit early - will redraw when image loads
         }
         
-        // Get current mode and settings
-        const mode = wizardState.watermarkMode || 'fullscreen';
-        const scale = watermarkUiToRenderScale(wizardState.watermarkScale);
+        // Always positioned — fullscreen removed as user-facing option.
+        // Width = W × (UI%/100) × 0.5 — raw slider %, no 1.15× multiplier.
         const opacity = wizardState.watermarkOpacity / 100;
+        const margin = 20;
+        const wmWidth = canvas.width * (wizardState.watermarkScale / 100) * 0.5;
+        const wmHeight = (wmImg.height / wmImg.width) * wmWidth;
 
-        if (mode === 'fullscreen') {
-            // Fullscreen mode: centered overlay sized relative to canvas width (matches backend)
-            const wmWidth = canvas.width * scale;
-            const wmHeight = (wmImg.height / wmImg.width) * wmWidth;
-            
-            // Save context state
-            ctx.save();
-            
-            // Apply opacity (direct match to backend, no halving)
-            ctx.globalAlpha = opacity;
-            
-            // Draw centered
-            const x = (canvas.width - wmWidth) / 2;
-            const y = (canvas.height - wmHeight) / 2;
-            
-            // Apply watermark shape clipping
-            applyShapeClip(ctx, wizardState.watermarkShape || 'original', x, y, wmWidth, wmHeight, 'watermark');
-            ctx.drawImage(wmImg, x, y, wmWidth, wmHeight);
-            
-            // Restore context
-            ctx.restore();
-            
-        } else {
-            // Positioned mode: width = W × (UI%/100) × 0.5 — raw slider %, no 1.15× multiplier.
-            // scale already has 1.15× baked in (render domain); use raw slider value instead.
-            const margin = 20;
-            const wmWidth = canvas.width * (wizardState.watermarkScale / 100) * 0.5;
-            const wmHeight = (wmImg.height / wmImg.width) * wmWidth;
-            
-            // Safe default: bottom-right corner
-            const x = canvas.width - wmWidth - margin;
-            const y = canvas.height - wmHeight - margin;
-            
-            // Save context state
-            ctx.save();
-            
-            // Apply opacity
-            ctx.globalAlpha = opacity;
-            
-            // Apply watermark shape clipping
-            applyShapeClip(ctx, wizardState.watermarkShape || 'original', x, y, wmWidth, wmHeight, 'watermark');
-            // Draw watermark
-            ctx.drawImage(wmImg, x, y, wmWidth, wmHeight);
-            
-            // Restore context
-            ctx.restore();
-        }
+        // Safe default: bottom-right corner
+        const x = canvas.width - wmWidth - margin;
+        const y = canvas.height - wmHeight - margin;
+
+        ctx.save();
+        ctx.globalAlpha = opacity;
+        applyShapeClip(ctx, wizardState.watermarkShape || 'original', x, y, wmWidth, wmHeight, 'watermark');
+        ctx.drawImage(wmImg, x, y, wmWidth, wmHeight);
+        ctx.restore();
     }
 }
 
@@ -6993,7 +6931,7 @@ async function saveWizardBrand() {
         // Save visual settings (position, etc.)
         status.innerHTML = '<div class="status-msg info">Saving settings...</div>';
 
-        console.log(`[WM SAVE] brand=${brandId} wm_mode=${wizardState.watermarkMode||'fullscreen'} wm_x=${wizardState.watermarkX} wm_y=${wizardState.watermarkY} wm_scale=${wizardState.watermarkScale} wm_opacity=${wizardState.watermarkOpacity}`);
+        console.log(`[WM SAVE] brand=${brandId} wm_mode=positioned wm_x=${wizardState.watermarkX} wm_y=${wizardState.watermarkY} wm_scale=${wizardState.watermarkScale} wm_opacity=${wizardState.watermarkOpacity}`);
 
         const settingsPayload = {
             logo_scale: wizardState.logoScale / 100,
@@ -7002,7 +6940,7 @@ async function saveWizardBrand() {
             logo_shape: wizardState.logoShape,
             logo_x: wizardState.logoX,
             logo_y: wizardState.logoY,
-            wm_mode: wizardState.watermarkMode || 'fullscreen'
+            wm_mode: 'positioned'  // always positioned — fullscreen removed as user-facing option
         };
 
         // In edit mode, include display_name so name changes persist
@@ -7178,11 +7116,10 @@ async function saveWizardBrandWithWatermark() {
         };
         
         // Always persist wm_mode/scale/opacity when a watermark exists (new file or existing URL).
-        // Guarding only on watermarkFile means re-saving without re-uploading silently
-        // leaves stale wm_mode = 'fullscreen' in DB, causing massive backend output.
+        // Hard-coded to 'positioned' — fullscreen removed as user-facing option.
         const hasWmForSave = wizardState.watermarkFile || wizardState.watermarkPreviewUrl;
         if (hasWmForSave) {
-            settingsPayload.wm_mode = wizardState.watermarkMode || 'fullscreen';
+            settingsPayload.wm_mode = 'positioned';  // always positioned
             settingsPayload.wm_scale = watermarkUiToRenderScale(wizardState.watermarkScale);
             settingsPayload.wm_opacity = wizardState.watermarkOpacity / 100;
             console.log(`[WM SAVE] brand=${brandId} wm_mode=${settingsPayload.wm_mode} wm_x=${wizardState.watermarkX} wm_y=${wizardState.watermarkY} wm_scale=${wizardState.watermarkScale} wm_opacity=${wizardState.watermarkOpacity} → render_scale=${settingsPayload.wm_scale.toFixed(3)}`);

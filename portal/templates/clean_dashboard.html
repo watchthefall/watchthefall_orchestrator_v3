@@ -2344,7 +2344,7 @@ let secLogoDragStart = { x: 0, y: 0 };
 let secLogoSelectedBrandId = null;  // Which brand's logo is used as secondary
 
 // Watermark positioned-mode state
-let currentWmMode = 'fullscreen';  // 'fullscreen' | 'positioned'
+let currentWmMode = 'positioned';  // always positioned — fullscreen removed
 let currentWmX = 0.5;
 let currentWmY = 0.5;
 
@@ -3333,27 +3333,17 @@ function drawOverlays() {
     // Draw watermark — naturalWidth > 0 guards against drawing a 404'd broken image
     if (watermarkImg && watermarkImg.complete && watermarkImg.naturalWidth > 0) {
         console.log(
-            `[drawOverlays] watermark: mode=${currentWmMode} x=${currentWmX.toFixed(3)} ` +
-            `y=${currentWmY.toFixed(3)} scale=${document.getElementById('wmScale').value}% ` +
-            `→ branch=${currentWmMode === 'positioned' ? 'POSITIONED' : 'FULLSCREEN'}`
+            `[drawOverlays] watermark: mode=positioned x=${currentWmX.toFixed(3)} ` +
+            `y=${currentWmY.toFixed(3)} scale=${document.getElementById('wmScale').value}%`
         );
+        // Always positioned — fullscreen removed as user-facing option
         ctx.globalAlpha = wmOpacity;
-        if (currentWmMode === 'positioned') {
-            // Positioned: match editor formula — width = canvas.width × (uiPct/100) × 0.5
-            const uiPct = parseInt(document.getElementById('wmScale').value) / 100;
-            const wmW = canvas.width * uiPct * 0.5;
-            const wmH = wmW * (watermarkImg.height / watermarkImg.width);
-            const cx = currentWmX * canvas.width;
-            const cy = currentWmY * canvas.height;
-            ctx.drawImage(watermarkImg, cx - wmW / 2, cy - wmH / 2, wmW, wmH);
-        } else {
-            // Fullscreen: scale relative to frame using render scale
-            const scaledW = canvas.width * wmScale;
-            const scaledH = canvas.height * wmScale;
-            const offsetX = (scaledW - canvas.width) / 2;
-            const offsetY = (scaledH - canvas.height) / 2;
-            ctx.drawImage(watermarkImg, -offsetX, -offsetY, scaledW, scaledH);
-        }
+        const uiPct = parseInt(document.getElementById('wmScale').value) / 100;
+        const wmW = canvas.width * uiPct * 0.5;
+        const wmH = wmW * (watermarkImg.height / watermarkImg.width);
+        const cx = currentWmX * canvas.width;
+        const cy = currentWmY * canvas.height;
+        ctx.drawImage(watermarkImg, cx - wmW / 2, cy - wmH / 2, wmW, wmH);
         ctx.globalAlpha = 1.0;
     }
 
@@ -3938,29 +3928,21 @@ function renderScaleToWatermarkUi(renderScale) {
 // ── Unified render path ───────────────────────────────────────────────────────
 // mergeRenderParams: DB field names → slider domain + sparse session override merge
 function mergeRenderParams(brandConfig, sessionOverrides) {
-    // Resolve wm_mode with off-center fallback.
-    // Brands saved before wm_mode was correctly persisted have wm_mode = 'fullscreen'
-    // in DB even when the user configured them as positioned. If wm_x/wm_y are
-    // meaningfully off-center (>0.02 from 0.5) that is a reliable signal the brand
-    // was positioned — prefer 'positioned' over the stale DB value.
+    // wm_mode is always 'positioned' — fullscreen removed as user-facing option.
+    // Normalize any stale 'fullscreen' values from DB.
     const _rawWmMode = brandConfig.wm_mode;
     const _wmX = brandConfig.wm_x ?? 0.5;
     const _wmY = brandConfig.wm_y ?? 0.5;
-    const _offCenter = Math.abs(_wmX - 0.5) > 0.02 || Math.abs(_wmY - 0.5) > 0.02;
-    const _resolvedWmMode = (_rawWmMode === 'positioned')
-        ? 'positioned'
-        : (_offCenter ? 'positioned' : (_rawWmMode || 'fullscreen'));
-    if (_rawWmMode !== 'positioned' && _resolvedWmMode === 'positioned') {
+    const _resolvedWmMode = 'positioned';
+    if (_rawWmMode && _rawWmMode !== 'positioned') {
         console.warn(
             `[mergeRenderParams] brand="${brandConfig.display_name || brandConfig.name}" ` +
-            `id=${brandConfig.id} — wm_mode='${_rawWmMode}' overridden to 'positioned' ` +
-            `(wm_x=${_wmX.toFixed(3)}, wm_y=${_wmY.toFixed(3)} off-center). ` +
-            `Re-save brand to persist wm_mode='positioned' and silence this warning.`
+            `id=${brandConfig.id} — stale wm_mode='${_rawWmMode}' normalized to 'positioned'.`
         );
     } else {
         console.log(
             `[mergeRenderParams] brand="${brandConfig.display_name || brandConfig.name}" ` +
-            `id=${brandConfig.id} — wm_mode='${_resolvedWmMode}' ` +
+            `id=${brandConfig.id} — wm_mode='positioned' ` +
             `wm_x=${_wmX.toFixed(3)} wm_y=${_wmY.toFixed(3)} wm_scale=${brandConfig.wm_scale ?? 1.15}`
         );
     }
@@ -4006,7 +3988,7 @@ function loadRenderParamsIntoSliders(renderParams) {
     document.getElementById('wmScaleVal').textContent = document.getElementById('wmScale').value + '%';
     document.getElementById('wmOpacity').value = Math.round(renderParams.watermark_opacity * 100);
     document.getElementById('wmOpacityVal').textContent = document.getElementById('wmOpacity').value + '%';
-    currentWmMode = renderParams.wm_mode || 'fullscreen';
+    currentWmMode = 'positioned';  // always — fullscreen removed
     currentWmX = renderParams.wm_x ?? 0.5;
     currentWmY = renderParams.wm_y ?? 0.5;
 
