@@ -642,6 +642,16 @@
                                     </div>
                                 </div>
                                 
+                                <!-- Watermark Mode (positioned vs fullscreen) -->
+                                <div class="control-group" id="wmModeGroup">
+                                    <label>Watermark Mode</label>
+                                    <div class="preview-mode-options">
+                                        <button type="button" class="wm-mode-btn" id="wmModePositionedBtn" onclick="setComposerWatermarkMode('positioned')">Positioned</button>
+                                        <button type="button" class="wm-mode-btn active" id="wmModeFullscreenBtn" onclick="setComposerWatermarkMode('fullscreen')">Fullscreen</button>
+                                    </div>
+                                    <p class="help-text" id="wmModeHelp">Fullscreen: covers the entire frame. Positioned: drag it anywhere on canvas.</p>
+                                </div>
+
                                 <!-- Watermark Preview Mode -->
                                 <div class="control-group">
                                     <label>Preview Shows</label>
@@ -1144,6 +1154,26 @@
     background: rgba(134, 237, 165, 0.2);
     border-color: var(--accent, #86EDA5);
     color: var(--accent, #86EDA5);
+}
+
+/* Watermark mode toggle — same visual language as preview-mode-btn
+   but a separate class so setPreviewMode() never clobbers its active state */
+.wm-mode-btn {
+    flex: 1;
+    padding: 6px 4px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    color: #888;
+    transition: all 0.2s;
+}
+.wm-mode-btn:hover { background: rgba(255,255,255,0.1); }
+.wm-mode-btn.active {
+    background: rgba(89, 183, 255, 0.2);
+    border-color: #59b7ff;
+    color: #59b7ff;
 }
 
 /* Extra small button */
@@ -3160,6 +3190,7 @@ let wizardState = {
     watermarkY: 0.18,
     watermarkScale: 25,
     watermarkOpacity: 50,
+    watermarkMode: 'fullscreen',  // 'fullscreen' | 'positioned' — persisted as wm_mode
     // Preview mode for composer
     previewMode: 'logo'  // 'logo' | 'watermark' | 'both'
 };
@@ -3186,7 +3217,11 @@ function resetWizardWatermarkUi() {
         wizardState.watermarkPreviewUrl = null;
         wizardState.activeElement = 'logo';
         wizardState.previewMode = 'logo';
+        wizardState.watermarkMode = 'fullscreen';  // reset mode toggle when watermark is removed
     }
+
+    // Reset mode buttons to default
+    syncWmModeButtons();
 
     const checkbox = document.getElementById('useSeparateWatermark');
     const uploadSection = document.getElementById('watermarkUploadSection');
@@ -3519,7 +3554,9 @@ async function initComposer() {
         const wmSection = document.getElementById('watermarkUploadSection');
         if (wmSection) wmSection.style.display = 'block';
     }
-    
+
+    // Sync wm-mode buttons immediately (before async image loads complete)
+    syncWmModeButtons();
     syncComposerControls();
 }
 
@@ -3582,6 +3619,9 @@ function syncComposerControls() {
     document.querySelectorAll('.composer-logo-only').forEach(el => {
         el.classList.toggle('is-dimmed', isWatermark);
     });
+
+    // Always keep wm-mode buttons in sync with wizardState
+    syncWmModeButtons();
 }
 
 function openComposerWatermarkAccess() {
@@ -3775,6 +3815,36 @@ function setPreviewMode(mode) {
     
     drawComposerCanvas();
     updatePreviewModeHelp();
+}
+
+// Watermark mode toggle — positioned vs fullscreen
+// Updates wizardState.watermarkMode, syncs buttons, redraws canvas.
+// Save functions already read wizardState.watermarkMode so persistence is automatic.
+function setComposerWatermarkMode(mode) {
+    wizardState.watermarkMode = mode;
+    const posBtn = document.getElementById('wmModePositionedBtn');
+    const fsBtn  = document.getElementById('wmModeFullscreenBtn');
+    if (posBtn) posBtn.classList.toggle('active', mode === 'positioned');
+    if (fsBtn)  fsBtn.classList.toggle('active',  mode === 'fullscreen');
+    const help = document.getElementById('wmModeHelp');
+    if (help) help.textContent = mode === 'fullscreen'
+        ? 'Fullscreen: watermark fills the entire frame (position drag disabled).'
+        : 'Positioned: drag the watermark on canvas to place it anywhere.';
+    drawComposerCanvas();
+    console.log(`[WM MODE] set watermarkMode=${mode} for brand=${wizardState.editBrandId||'new'}`);
+}
+
+// Sync wm-mode-btn active state from wizardState (called by syncComposerControls and initComposer)
+function syncWmModeButtons() {
+    const mode = wizardState.watermarkMode || 'fullscreen';
+    const posBtn = document.getElementById('wmModePositionedBtn');
+    const fsBtn  = document.getElementById('wmModeFullscreenBtn');
+    if (posBtn) posBtn.classList.toggle('active', mode === 'positioned');
+    if (fsBtn)  fsBtn.classList.toggle('active',  mode === 'fullscreen');
+    const help = document.getElementById('wmModeHelp');
+    if (help) help.textContent = mode === 'fullscreen'
+        ? 'Fullscreen: watermark fills the entire frame (position drag disabled).'
+        : 'Positioned: drag the watermark on canvas to place it anywhere.';
 }
 
 function updatePreviewModeHelp() {
