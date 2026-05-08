@@ -1678,11 +1678,17 @@ def process_branded_videos():
                 print(f"[PROCESS BRANDS] Using brand defaults (no overrides)")
             
             try:
+                import time as _render_time
+                _render_start = _render_time.time()
+                print(f"[RENDER] process_brand start: brand='{brand_name}' id={brand_id} video='{video_id}'")
                 output_path = processor.process_brand(merged_config, video_id=video_id)
+                _render_elapsed = _render_time.time() - _render_start
+                print(f"[RENDER] process_brand done:  brand='{brand_name}' elapsed={_render_elapsed:.1f}s output='{output_path}'")
                 output_paths.append(output_path)
                 print(f"[PROCESS BRANDS] FINISHED BRAND {i}: {brand_name}")
             except Exception as e:
                 error_message = str(e)
+                print(f"[RENDER ERROR] process_brand raised for brand='{brand_name}': {error_message}")
                 if "audio-only" in error_message or "no valid video stream" in error_message:
                     # Handle audio-only video error specifically
                     print(f"[PROCESS BRANDS] AUDIO-ONLY VIDEO DETECTED FOR BRAND {i}: {brand_name}")

@@ -18,10 +18,13 @@ bind = bind_address
 workers = 1
 
 # Per-worker timeout (seconds)
-timeout = 300
+# FFmpeg on long videos (60-120s clips) can take 5-15 min on shared CPU.
+# Keep this above FFMPEG_TIMEOUT (840s) so gunicorn doesn't SIGKILL before
+# the subprocess timeout fires — clean Python error is better than silent kill.
+timeout = 900
 
 # Graceful timeout for worker shutdown (seconds)
-graceful_timeout = 300
+graceful_timeout = 900
 
 # Keep-alive timeout (seconds)
 keepalive = 5

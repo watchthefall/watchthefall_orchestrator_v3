@@ -4648,18 +4648,29 @@ async function processCurrentBrand() {
     }
     
     // Process in background
+    // AbortController: if the server takes > 12 min, abort the fetch instead of hanging forever
+    const _processController = new AbortController();
+    const _processTimeout = setTimeout(() => {
+        console.error('[PROCESS UI] Fetch timeout after 12 minutes — aborting request');
+        _processController.abort();
+    }, 720000);  // 12 minutes (above 14-min FFmpeg limit — connection should close first)
+
     try {
-        console.log('[BRANDR] Sending to backend:', {
+        console.log('[PROCESS UI] request started:', {
+            brand: current.brand_name,
             brand_id: current.brand_id,
+            file: currentFile,
             userEdited: current.userEdited,
             watermark_scale: current.userEdited ? current.overrides.watermark_scale : '(DB)',
             watermark_opacity: current.userEdited ? current.overrides.watermark_opacity : '(DB)',
-            logo_scale: current.userEdited ? current.overrides.logo_scale : '(DB)'
+            logo_scale: current.userEdited ? current.overrides.logo_scale : '(DB)',
+            ts: new Date().toISOString()
         });
 
         const res = await fetch(`${apiBase}/api/videos/process_brands`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal: _processController.signal,
             body: JSON.stringify({
                 source_path: currentFile,
                 brand_ids: [current.brand_id],
@@ -4689,10 +4700,15 @@ async function processCurrentBrand() {
             })
         });
 
+        clearTimeout(_processTimeout);
+        console.log('[PROCESS UI] response received:', { status: res.status, ok: res.ok, ts: new Date().toISOString() });
+
         let data;
         try {
             data = await res.json();
+            console.log('[PROCESS UI] response json:', { success: data.success, error: data.error, outputs: data.outputs?.length });
         } catch {
+            console.error('[PROCESS UI ERROR] Failed to parse JSON — status was', res.status);
             throw new Error(`Server error ${res.status} — branding failed. Check server logs.`);
         }
 
@@ -4736,8 +4752,21 @@ async function processCurrentBrand() {
         checkQueueComplete();
         
     } catch (err) {
+        clearTimeout(_processTimeout);  // always cancel the 12-min abort timer
         current.status = 'failed';
-        
+
+        // Classify the error type for better user messaging
+        const isAbortError = err.name === 'AbortError';
+        const isNetworkError = err instanceof TypeError && err.message.includes('fetch');
+        const isTimeout = isAbortError || err.message.includes('timed out');
+        console.error('[PROCESS UI ERROR]', {
+            name: err.name,
+            message: err.message,
+            isAbort: isAbortError,
+            isNetwork: isNetworkError,
+            ts: new Date().toISOString()
+        });
+
         // ========== JOB-ITEM MODEL (Commit 5: sync status to jobItems) ==========
         if (currentFile && current.brand_id) {
             const jobItem = jobItems.find(item => item.filename === currentFile && item.brandId === current.brand_id);
@@ -4747,34 +4776,25 @@ async function processCurrentBrand() {
             }
         }
         // ========== END JOB-ITEM MODEL ==========
-        
+
         renderBrandPills();
-            
+
         if (processingQueue[currentQueueIndex] === current) {
-            // Try to parse backend validation error
-            let errorHtml = `<div class="status-msg error">❌ ${current.brand_name}: ${err.message}</div>`;
-                
-            // Check if this is a validation error with fix info
-            try {
-                const errorResponse = await res.json();
-                if (errorResponse.code === 'BRAND_VALIDATION_FAILED' && errorResponse.fix) {
-                    errorHtml = `
-                        <div class="status-msg error">
-                            ❌ <strong>${errorResponse.brand}</strong>: ${errorResponse.error}
-                        </div>
-                        <div style="margin-top:10px; padding:10px; background: rgba(255, 152, 0, 0.1); border-left: 3px solid #ff9800; border-radius: 4px;">
-                            <div style="color:#ff9800; font-weight:600; margin-bottom:5px;">🛠️ How to fix:</div>
-                            <div style="color:#ccc; margin-bottom:10px;">${errorResponse.fix}</div>
-                            ${errorResponse.fix_url ? `<a href="${errorResponse.fix_url}" style="color:var(--accent); text-decoration:underline;">➡️ Go to Manage Brands</a>` : ''}
-                        </div>
-                    `;
-                }
-            } catch (parseErr) {
-                // Fallback to original error
+            let errorHtml;
+
+            if (isTimeout) {
+                errorHtml = `<div class="status-msg error">⏱️ ${current.brand_name}: Processing timed out. The video may be too long — try a shorter clip (under 60 seconds) and retry.</div>`;
+            } else if (isNetworkError) {
+                errorHtml = `<div class="status-msg error">🔌 ${current.brand_name}: Connection lost during processing. Check your internet and retry.</div>`;
+            } else {
+                errorHtml = `<div class="status-msg error">❌ ${current.brand_name}: ${err.message}</div>`;
             }
-                
+
             result.innerHTML = errorHtml + `<button onclick="retryBrand(${processingQueue.indexOf(current)})" style="margin-top:10px; background:#f90;">Retry</button>`;
         }
+        console.log('[PROCESS UI] leaving processing state — status=failed');
+    } finally {
+        clearTimeout(_processTimeout);  // belt-and-suspenders
     }
 }
 

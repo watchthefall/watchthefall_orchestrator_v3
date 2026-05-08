@@ -697,7 +697,9 @@ class VideoProcessor:
             print(error_msg)
             raise Exception(error_msg)
         
-        # Run ffmpeg with optimized settings for Render Pro environments
+        # Build FFmpeg command — veryfast preset keeps encoding time within request window
+        # (fast preset can take 5-10+ min on shared CPU for long videos, causing gunicorn timeout)
+        FFMPEG_TIMEOUT = 840  # 14 minutes — raises clean Python error before gunicorn 900s kill
         cmd = [
             FFMPEG_BIN, '-y',
             '-i', self.video_path,
@@ -709,30 +711,56 @@ class VideoProcessor:
             '-map', '0:a?',
             '-c:v', 'libx264',
             '-crf', '23',
-            '-preset', 'fast',
+            '-preset', 'veryfast',   # was 'fast' — ~2x faster, fits within request window
             '-c:a', 'aac',
             '-b:a', '128k',
             '-movflags', '+faststart',
             output_path
         ]
-        
+
+        print(f"[RENDER] Starting FFmpeg for brand='{brand_name}'")
+        print(f"[RENDER] Input:   {self.video_path}")
+        print(f"[RENDER] Output:  {output_path}")
+        print(f"[RENDER] Timeout: {FFMPEG_TIMEOUT}s")
+        print(f"[RENDER] Command: {' '.join(cmd)}")
+
         try:
-            print(f"[DEBUG] Executing FFmpeg command with Render Pro optimizations: {' '.join(cmd)}")
-            # Add verbose output to see what's happening
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.DEVNULL,  # FFmpeg has no useful stdout
+                stderr=subprocess.PIPE,     # Capture stderr for error reporting only
+                text=True,
+                timeout=FFMPEG_TIMEOUT
+            )
             processing_time = time.time() - start_time
-            print(f"  Processing {brand_name} completed in {processing_time:.2f} seconds")
-            print(f"[DEBUG] FFmpeg stdout: {result.stdout}")
-            print(f"[DEBUG] FFmpeg stderr: {result.stderr}")
-            print(f"[DEBUG] File exists after FFmpeg: {os.path.exists(output_path)}")
-            if os.path.exists(output_path):
-                file_size = os.path.getsize(output_path)
-                print(f"[DEBUG] Output file size: {file_size} bytes")
+            output_exists = os.path.exists(output_path)
+            output_size   = os.path.getsize(output_path) if output_exists else 0
+            print(f"[RENDER] FFmpeg returned code={result.returncode} in {processing_time:.1f}s")
+            print(f"[RENDER] Output exists={output_exists} size={output_size} bytes")
+            if result.returncode != 0:
+                stderr_tail = (result.stderr or '')[-3000:]
+                print(f"[RENDER ERROR] FFmpeg non-zero exit for brand='{brand_name}'")
+                print(f"[RENDER ERROR] stderr tail: {stderr_tail}")
+                raise subprocess.CalledProcessError(result.returncode, cmd, stderr=result.stderr)
+            if not output_exists or output_size == 0:
+                print(f"[RENDER ERROR] FFmpeg exited 0 but output missing/empty: {output_path}")
+                raise Exception(f"FFmpeg produced no output for brand '{brand_name}' — check disk space")
+            print(f"[RENDER] Completed brand='{brand_name}' in {processing_time:.1f}s ({output_size//1024}KB)")
             return output_path
+
+        except subprocess.TimeoutExpired:
+            processing_time = time.time() - start_time
+            print(f"[RENDER ERROR] FFmpeg timed out after {processing_time:.0f}s for brand='{brand_name}'")
+            print(f"[RENDER ERROR] Output path: {output_path}")
+            raise Exception(
+                f"FFmpeg timed out after {FFMPEG_TIMEOUT//60} minutes for brand '{brand_name}'. "
+                f"Try a shorter clip (under 60 seconds)."
+            )
         except subprocess.CalledProcessError as e:
-            error_msg = f"FFmpeg error: {e.stderr}\nFFmpeg stdout: {e.stdout}"
-            print(error_msg)
-            raise Exception(error_msg)
+            stderr_tail = (e.stderr or '')[-3000:]
+            print(f"[RENDER ERROR] FFmpeg failed (code={e.returncode}) for brand='{brand_name}'")
+            print(f"[RENDER ERROR] stderr tail: {stderr_tail}")
+            raise Exception(f"FFmpeg error for brand '{brand_name}': {stderr_tail}")
     
     def process_multiple_brands(self, brands: List[Dict], logo_settings: Optional[Dict] = None,
                                video_id: str = 'video') -> List[str]:
