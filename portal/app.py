@@ -175,15 +175,51 @@ def register_user(email, password):
 
 
 def get_user_tier(user_id):
-    """Get a user's tier from the database. Returns tier name string."""
+    """Get a user's tier from the database. Returns tier name string.
+    On OperationalError (e.g. disk I/O error, disk full) logs server-side
+    and returns DEFAULT_TIER as a safe fallback so callers don't crash."""
+    import traceback as _tb
     from .database import get_connection
-    with get_connection() as conn:
-        c = conn.cursor()
-        c.execute('SELECT tier FROM users WHERE id = ?', (user_id,))
-        row = c.fetchone()
-    if row and row['tier']:
-        return row['tier']
-    return DEFAULT_TIER
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute('SELECT tier FROM users WHERE id = ?', (user_id,))
+            row = c.fetchone()
+        if row and row['tier']:
+            return row['tier']
+        return DEFAULT_TIER
+    except sqlite3.OperationalError as e:
+        print(f"[GET_USER_TIER] DB OperationalError for user_id={user_id}: {e}")
+        print(f"[GET_USER_TIER] Full traceback:\n{_tb.format_exc()}")
+        _log_disk_health_warning()
+        return DEFAULT_TIER
+    except Exception as e:
+        print(f"[GET_USER_TIER] Unexpected error for user_id={user_id}: {e}")
+        print(f"[GET_USER_TIER] Full traceback:\n{_tb.format_exc()}")
+        return DEFAULT_TIER
+
+
+def _log_disk_health_warning():
+    """Fire-and-forget disk health snapshot, called when a DB error is caught."""
+    try:
+        import shutil, sys
+        from .config import DB_PATH
+        db_dir = os.path.dirname(DB_PATH) or '.'
+        usage = shutil.disk_usage(db_dir)
+        free_mb = usage.free / 1024 / 1024
+        used_pct = (usage.used / usage.total) * 100
+        print(
+            f"[DISK HEALTH] free={free_mb:.1f}MB used={used_pct:.1f}% path={DB_PATH}",
+            file=sys.stderr,
+        )
+        if free_mb < 200:
+            print(
+                f"[DISK HEALTH] CRITICAL: only {free_mb:.1f}MB free — "
+                "disk likely full. Clear outputs dir or upgrade Render plan.",
+                file=sys.stderr,
+            )
+    except Exception as _e:
+        print(f"[DISK HEALTH] health check itself failed: {_e}")
 
 
 def login_required(f):
@@ -897,10 +933,9 @@ def brand_video():
         import traceback
         error_trace = traceback.format_exc()
         print(f"[BRANDR ERROR] Failed to render clean_dashboard.html: {error_trace}")
+        # Never expose raw tracebacks to the browser — log server-side only
         return jsonify({
-            'error': 'Failed to load Brandr page',
-            'details': str(e),
-            'trace': error_trace
+            'error': 'Brandr could not load your account data. Please refresh or try again shortly.',
         }), 500
 
 @app.route('/portal/create-experiment')
@@ -1069,8 +1104,71 @@ def test_page():
 
 @app.route('/health')
 def health_check():
-    """Health check endpoint for Render"""
-    return jsonify({'status': 'healthy', 'message': 'Brandr is running'}), 200
+    """Health check endpoint for Render — includes disk and DB diagnostics."""
+    import shutil
+    from .config import DB_PATH, OUTPUT_DIR, RAW_DIR, BRANDS_DIR
+
+    info = {'status': 'healthy', 'message': 'Brandr is running'}
+
+    # Disk space
+    try:
+        db_dir = os.path.dirname(DB_PATH) or '.'
+        usage = shutil.disk_usage(db_dir)
+        free_mb = round(usage.free / 1024 / 1024, 1)
+        total_mb = round(usage.total / 1024 / 1024, 1)
+        used_pct = round((usage.used / usage.total) * 100, 1)
+        info['disk'] = {
+            'free_mb': free_mb,
+            'total_mb': total_mb,
+            'used_pct': used_pct,
+            'warning': free_mb < 200,
+        }
+        if free_mb < 200:
+            info['status'] = 'degraded'
+            info['message'] = f'Disk nearly full ({free_mb}MB free). SQLite I/O errors likely.'
+    except Exception as e:
+        info['disk'] = {'error': str(e)}
+
+    # DB file
+    info['db'] = {
+        'path': DB_PATH,
+        'exists': os.path.exists(DB_PATH),
+        'readable': os.access(DB_PATH, os.R_OK) if os.path.exists(DB_PATH) else False,
+        'writable': os.access(DB_PATH, os.W_OK) if os.path.exists(DB_PATH) else False,
+        'wal_exists': os.path.exists(DB_PATH + '-wal'),
+    }
+
+    # DB integrity (lightweight — single-row PRAGMA)
+    try:
+        with sqlite3.connect(DB_PATH, timeout=3.0) as _c:
+            integrity = _c.execute('PRAGMA integrity_check').fetchone()
+            journal = _c.execute('PRAGMA journal_mode').fetchone()
+        info['db']['integrity'] = integrity[0] if integrity else 'unknown'
+        info['db']['journal_mode'] = journal[0] if journal else 'unknown'
+    except Exception as e:
+        info['db']['integrity'] = f'ERROR: {e}'
+        info['status'] = 'degraded'
+
+    # Storage dir sizes
+    try:
+        def _dir_size_mb(d):
+            total = sum(
+                os.path.getsize(os.path.join(dp, f))
+                for dp, _, files in os.walk(d)
+                for f in files
+                if os.path.isfile(os.path.join(dp, f))
+            )
+            return round(total / 1024 / 1024, 1)
+        info['storage'] = {
+            'outputs_mb': _dir_size_mb(OUTPUT_DIR) if os.path.isdir(OUTPUT_DIR) else 0,
+            'raw_mb': _dir_size_mb(RAW_DIR) if os.path.isdir(RAW_DIR) else 0,
+            'brands_mb': _dir_size_mb(BRANDS_DIR) if os.path.isdir(BRANDS_DIR) else 0,
+        }
+    except Exception as e:
+        info['storage'] = {'error': str(e)}
+
+    status_code = 200 if info['status'] == 'healthy' else 503
+    return jsonify(info), status_code
 
 
 @app.route('/api/upgrade-link/<tier_name>')
@@ -2552,8 +2650,31 @@ def create_brand_api():
                 }), 403
         
         print(f"[BRANDS] Creating brand '{name}' for user #{user_id}")
-        
-        # Create brand for logged-in user
+
+        # --- Reactivation: check for soft-deleted brand with same (name, user_id) ---
+        # delete_brand() only sets is_active=0 — the UNIQUE(name, user_id) constraint
+        # still applies, so a plain INSERT would fail.  Instead we reactivate the row.
+        from .database import find_inactive_brand, update_brand
+        deleted_brand = find_inactive_brand(name, user_id)
+        if deleted_brand:
+            deleted_id = deleted_brand['id']
+            print(f"[BRANDS] Found soft-deleted brand '{name}' (id={deleted_id}) — reactivating")
+            update_brand(
+                deleted_id,
+                is_active=1,
+                display_name=display_name,
+                # Reset visual defaults so the reactivated brand behaves like a fresh one
+                wm_mode='positioned',
+            )
+            print(f"[BRANDS] Reactivated brand: {name} (id={deleted_id})")
+            return jsonify({
+                'success': True,
+                'brand_id': deleted_id,
+                'reactivated': True,
+                'message': f'Brand {name} reactivated',
+            }), 200
+
+        # No deleted brand found — create new
         brand_id = create_brand(
             name=name,
             display_name=display_name,
@@ -2593,9 +2714,9 @@ def create_brand_api():
             text_x_percent=data.get('text_x_percent', 0.5),
             text_y_percent=data.get('text_y_percent', 0.2)
         )
-        
+
         print(f"[BRANDS] Created brand: {name} (id={brand_id})")
-        
+
         return jsonify({
             'success': True,
             'brand_id': brand_id,
@@ -3525,33 +3646,5 @@ def schedule_cleanup():
 schedule_cleanup()
 
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
-schedule_cleanup()
-
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

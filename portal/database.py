@@ -202,9 +202,83 @@ def init_db():
         print("[DATABASE] Database initialized successfully")
     finally:
         conn.close()
-    
+
     # Run migrations
     _run_migrations()
+
+    # Log health diagnostics once at startup
+    try:
+        _log_db_health()
+    except Exception as _e:
+        print(f"[DB HEALTH] startup health check failed: {_e}")
+
+def _log_db_health():
+    """Log DB path, size, permissions, disk space, WAL state, and PRAGMA integrity_check.
+    Called once at startup. Helps diagnose disk I/O errors on Render."""
+    import sys
+    import shutil as _shutil
+
+    db_path = DB_PATH
+    db_dir = os.path.dirname(db_path) or '.'
+
+    print(f"[DB HEALTH] path={db_path}", file=sys.stderr)
+    print(f"[DB HEALTH] exists={os.path.exists(db_path)}", file=sys.stderr)
+
+    if os.path.exists(db_path):
+        try:
+            size_bytes = os.path.getsize(db_path)
+            print(f"[DB HEALTH] size={size_bytes:,} bytes ({size_bytes/1024/1024:.2f} MB)", file=sys.stderr)
+        except OSError as e:
+            print(f"[DB HEALTH] size=ERROR ({e})", file=sys.stderr)
+
+        readable = os.access(db_path, os.R_OK)
+        writable = os.access(db_path, os.W_OK)
+        print(f"[DB HEALTH] readable={readable} writable={writable}", file=sys.stderr)
+
+        wal_path = db_path + '-wal'
+        shm_path = db_path + '-shm'
+        if os.path.exists(wal_path):
+            try:
+                wal_size = os.path.getsize(wal_path)
+                print(f"[DB HEALTH] WAL file exists: {wal_size:,} bytes", file=sys.stderr)
+            except OSError:
+                print(f"[DB HEALTH] WAL file exists (size unknown)", file=sys.stderr)
+        if os.path.exists(shm_path):
+            print(f"[DB HEALTH] SHM file exists", file=sys.stderr)
+    else:
+        print(f"[DB HEALTH] DB file does not exist yet — will be created on first write", file=sys.stderr)
+
+    # Disk free space
+    try:
+        usage = _shutil.disk_usage(db_dir)
+        free_mb = usage.free / 1024 / 1024
+        total_mb = usage.total / 1024 / 1024
+        used_pct = (usage.used / usage.total) * 100
+        print(
+            f"[DB HEALTH] disk free={free_mb:.1f}MB total={total_mb:.1f}MB used={used_pct:.1f}%",
+            file=sys.stderr,
+        )
+        if free_mb < 200:
+            print(
+                f"[DB HEALTH] WARNING: disk is nearly full ({free_mb:.1f}MB free). "
+                f"SQLite disk I/O errors are likely. Clear /var/data/storage/outputs or upgrade plan.",
+                file=sys.stderr,
+            )
+    except Exception as e:
+        print(f"[DB HEALTH] disk_usage=ERROR ({e})", file=sys.stderr)
+
+    # Integrity check — only if the file exists and we can open it
+    if os.path.exists(db_path):
+        try:
+            _conn = sqlite3.connect(db_path, timeout=5.0)
+            integrity = _conn.execute('PRAGMA integrity_check').fetchone()
+            journal = _conn.execute('PRAGMA journal_mode').fetchone()
+            _conn.close()
+            print(f"[DB HEALTH] integrity_check={integrity[0] if integrity else 'unknown'}", file=sys.stderr)
+            print(f"[DB HEALTH] journal_mode={journal[0] if journal else 'unknown'}", file=sys.stderr)
+        except Exception as e:
+            print(f"[DB HEALTH] integrity_check=ERROR ({e})", file=sys.stderr)
+
 
 def _run_migrations():
     """Run database migrations"""
@@ -689,6 +763,24 @@ def get_user_brand_count(user_id):
             (user_id,)
         )
         return c.fetchone()[0]
+
+
+def find_inactive_brand(name, user_id):
+    """Return the first soft-deleted brand matching (name, user_id), or None.
+    Used to detect name collisions that are caused by a soft-deleted brand so the
+    caller can choose to reactivate rather than INSERT (which would hit UNIQUE constraint)."""
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            'SELECT * FROM brands WHERE name = ? AND user_id = ? AND is_active = 0',
+            (name, user_id),
+        )
+        row = c.fetchone()
+    if row:
+        brand = dict(row)
+        brand['is_ready'] = bool(brand.get('logo_path') or brand.get('watermark_path'))
+        return brand
+    return None
 
 
 def create_brand(name, display_name, user_id=None, is_system=False, is_locked=False,
