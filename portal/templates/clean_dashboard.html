@@ -3700,8 +3700,10 @@ async function loadBrands() {
             let html = '';
             
             // Logo preview (if exists) - use brand_id for preview endpoint
+            // ?v= cache-buster ensures browser re-fetches after a logo re-upload (same filename, new content)
             if (b.logo_path) {
-                html += `<img src="${apiBase}/api/preview/brand-asset/${b.id}/logo" class="brand-logo-preview" onerror="this.style.display='none'" alt="Logo">`;
+                const logoV = encodeURIComponent(b.updated_at || Date.now());
+                html += `<img src="${apiBase}/api/preview/brand-asset/${b.id}/logo?v=${logoV}" class="brand-logo-preview" onerror="this.style.display='none'" alt="Logo">`;
             }
             
             // Brand info
@@ -4127,8 +4129,11 @@ async function loadBrandAssets(brandId) {
         return;
     }
 
-    const wmUrl  = `${apiBase}/api/preview/brand-asset/${brandId}/watermark`;
-    const logoUrl = `${apiBase}/api/preview/brand-asset/${brandId}/logo`;
+    // ?v= cache-buster: brand.updated_at changes on every save, so re-uploaded assets
+    // get a distinct URL and browsers won't serve the old cached logo_normalized.png
+    const assetV = encodeURIComponent(brandData.updated_at || Date.now());
+    const wmUrl   = `${apiBase}/api/preview/brand-asset/${brandId}/watermark?v=${assetV}`;
+    const logoUrl = `${apiBase}/api/preview/brand-asset/${brandId}/logo?v=${assetV}`;
     const activeItem = getActiveItem();
     console.log('[BRANDR] loadBrandAssets —', {
         currentFile,

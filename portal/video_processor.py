@@ -265,30 +265,40 @@ class VideoProcessor:
         """
         from .config import STORAGE_ROOT
         
-        # 1. Try DB-stored logo_path (SaaS model)
+        # 1. Try DB-stored logo_path (SaaS model — always takes priority)
         if brand_config:
             db_path = brand_config.get('logo_path')
             if db_path:
                 # Path is relative to STORAGE_ROOT
                 full_path = os.path.join(STORAGE_ROOT, db_path)
                 if os.path.exists(full_path):
-                    print(f"[DEBUG] Using uploaded logo: {full_path}")
+                    print(f"[LOGO] Using uploaded logo: {full_path}")
                     return full_path
-                print(f"[DEBUG] Uploaded logo path not found: {full_path}")
-        
-        # 2. Fallback to master assets Circle folder
+                # logo_path is set in DB but file is missing (ephemeral storage cleared after redeploy?)
+                # Do NOT fall through to Circle folder — that would silently use a stale/wrong logo.
+                print(f"[LOGO WARNING] resolve_logo_path: DB logo_path set but file missing on disk.")
+                print(f"[LOGO WARNING]   brand='{brand_name}'  logo_path='{db_path}'  expected='{full_path}'")
+                print(f"[LOGO WARNING]   Returning None — re-upload the logo to restore it.")
+                return None
+            # brand_config present but no logo_path in DB
+            if brand_config.get('user_id'):
+                # User-owned brand: no logo uploaded yet, don't fall back to master Circle assets
+                print(f"[LOGO] resolve_logo_path: user brand '{brand_name}' has no logo_path in DB — skipping Circle fallback")
+                return None
+
+        # 2. Fallback to master assets Circle folder (system/legacy brands only, no user_id in config)
         logo_filename = f"{brand_name}_logo.png"
         path = os.path.join(self.LOGOS_DIR, logo_filename)
-        
-        print(f"[DEBUG] Looking for logo: {path}")
-        
+
+        print(f"[LOGO] Looking for legacy system logo: {path}")
+
         if os.path.exists(path):
-            print(f"[DEBUG] Found logo: {path}")
+            print(f"[LOGO] Found legacy system logo: {path}")
             return path
         else:
-            print(f"[ERROR] Logo not found for brand '{brand_name}'")
-            print(f"[ERROR] Expected: {logo_filename}")
-            print(f"[ERROR] All logos must follow pattern: {{BrandName}}_logo.png")
+            print(f"[LOGO ERROR] Logo not found for brand '{brand_name}'")
+            print(f"[LOGO ERROR] Expected: {logo_filename}")
+            print(f"[LOGO ERROR] All legacy logos must follow pattern: {{BrandName}}_logo.png")
             return None
     
     def build_filter_complex(self, brand_config: Dict, logo_settings: Optional[Dict] = None) -> str:

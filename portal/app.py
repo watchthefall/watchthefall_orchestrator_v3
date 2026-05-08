@@ -2298,9 +2298,13 @@ def get_brand_asset_preview(brand_id, asset_type):
         
         if not os.path.exists(full_path):
             return jsonify({'error': f'{asset_type.capitalize()} file not found on disk'}), 404
-        
-        # Serve the file
-        return send_from_directory(os.path.dirname(full_path), os.path.basename(full_path))
+
+        # Serve the file — no-cache so browsers always revalidate after re-upload
+        # (logo_normalized.png is overwritten in-place; same URL but new content)
+        response = send_from_directory(os.path.dirname(full_path), os.path.basename(full_path))
+        response.headers['Cache-Control'] = 'no-cache, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        return response
         
     except Exception as e:
         import traceback
@@ -2332,6 +2336,7 @@ def list_brands():
             'user_id': brand['user_id'],
             'is_ready': brand.get('is_ready', False),
             'is_system': brand.get('is_system', False),
+            'updated_at': brand.get('updated_at'),  # cache-bust token for logo/watermark URLs
             
             # Asset Paths
             'logo_path': brand.get('logo_path'),
