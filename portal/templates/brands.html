@@ -3934,23 +3934,38 @@ function drawComposerCanvas() {
     }
     
     if ((previewMode === 'watermark' || previewMode === 'both') && hasWatermark && wizardWatermarkImage.complete) {
-        // Use independent watermark scale/opacity
-        const wmScale = (wizardState.watermarkScale || 25) / 100;
+        const wmMode = wizardState.watermarkMode || 'fullscreen';
         const wmAlpha = (wizardState.watermarkOpacity != null ? wizardState.watermarkOpacity : 50) / 100;
         const wmAspectRatio = wizardWatermarkImage.height / wizardWatermarkImage.width;
-        const wmDrawWidth = W * wmScale * 0.5;
-        const wmDrawHeight = wmDrawWidth * wmAspectRatio;
-        
-        const wmX = (W * wizardState.watermarkX) - (wmDrawWidth / 2);
-        const wmY = (H * wizardState.watermarkY) - (wmDrawHeight / 2);
-        composerLayerBounds.watermark = { x: wmX, y: wmY, w: wmDrawWidth, h: wmDrawHeight };
-        
-        // Apply watermark shape clipping
+
         ctx.save();
         ctx.globalAlpha = wmAlpha;
-        const wmShape = wizardState.watermarkShape || 'original';
-        applyShapeClip(ctx, wmShape, wmX, wmY, wmDrawWidth, wmDrawHeight, 'watermark');
-        ctx.drawImage(wizardWatermarkImage, wmX, wmY, wmDrawWidth, wmDrawHeight);
+
+        if (wmMode === 'fullscreen') {
+            // Fullscreen: match FFmpeg and cockpit exactly.
+            // render_scale = (uiPct/100) * WM_UI_REF_SCALE (1.15), then scale × frame, centred with bleed.
+            const WM_UI_REF_SCALE = 1.15;
+            const renderScale = ((wizardState.watermarkScale || 100) / 100) * WM_UI_REF_SCALE;
+            const scaledW = W * renderScale;
+            const scaledH = H * renderScale;
+            const offsetX = (scaledW - W) / 2;
+            const offsetY = (scaledH - H) / 2;
+            console.log(`[WM PREVIEW] brand=${wizardState.editBrandId||'new'} wm_mode=fullscreen wm_scale=${wizardState.watermarkScale||100}% → render_scale=${renderScale.toFixed(3)} scaled=${Math.round(scaledW)}×${Math.round(scaledH)}`);
+            ctx.drawImage(wizardWatermarkImage, -offsetX, -offsetY, scaledW, scaledH);
+        } else {
+            // Positioned: match backend positioned formula — width = canvas × (uiPct/100) × 0.5
+            const wmScale = (wizardState.watermarkScale || 25) / 100;
+            const wmDrawWidth = W * wmScale * 0.5;
+            const wmDrawHeight = wmDrawWidth * wmAspectRatio;
+            const wmX = (W * (wizardState.watermarkX || 0.5)) - (wmDrawWidth / 2);
+            const wmY = (H * (wizardState.watermarkY || 0.5)) - (wmDrawHeight / 2);
+            composerLayerBounds.watermark = { x: wmX, y: wmY, w: wmDrawWidth, h: wmDrawHeight };
+            const wmShape = wizardState.watermarkShape || 'original';
+            applyShapeClip(ctx, wmShape, wmX, wmY, wmDrawWidth, wmDrawHeight, 'watermark');
+            console.log(`[WM PREVIEW] brand=${wizardState.editBrandId||'new'} wm_mode=positioned wm_x=${(wizardState.watermarkX||0.5).toFixed(3)} wm_y=${(wizardState.watermarkY||0.5).toFixed(3)} wm_scale=${wizardState.watermarkScale||25}% → drawW=${Math.round(wmDrawWidth)}`);
+            ctx.drawImage(wizardWatermarkImage, wmX, wmY, wmDrawWidth, wmDrawHeight);
+        }
+
         ctx.restore();
     }
     
@@ -4019,21 +4034,30 @@ function drawPreviewCanvas(canvasId, aspectW, aspectH) {
         ctx.globalAlpha = 1.0;
     }
     
-    // Draw watermark when mode is watermark/both and watermark exists
+    // Draw watermark when mode is watermark/both and watermark exists — respect wm_mode
     if ((previewMode === 'watermark' || previewMode === 'both') && hasWatermark && wizardWatermarkImage.complete) {
-        const wmScale = (wizardState.watermarkScale || 25) / 100;
-        const wmAlpha = (wizardState.watermarkOpacity != null ? wizardState.watermarkOpacity : 50) / 100;
-        const wmAspectRatio = wizardWatermarkImage.height / wizardWatermarkImage.width;
-        const wmDrawWidth = W * wmScale * 0.5;
-        const wmDrawHeight = wmDrawWidth * wmAspectRatio;
-        
-        const wmX = (W * wizardState.watermarkX) - (wmDrawWidth / 2);
-        const wmY = (H * wizardState.watermarkY) - (wmDrawHeight / 2);
-        
-        ctx.globalAlpha = wmAlpha;
+        const wmMode2 = wizardState.watermarkMode || 'fullscreen';
+        const wmAlpha2 = (wizardState.watermarkOpacity != null ? wizardState.watermarkOpacity : 50) / 100;
+        const wmAspectRatio2 = wizardWatermarkImage.height / wizardWatermarkImage.width;
         ctx.save();
-        applyShapeClip(ctx, wizardState.watermarkShape || 'original', wmX, wmY, wmDrawWidth, wmDrawHeight, 'watermark');
-        ctx.drawImage(wizardWatermarkImage, wmX, wmY, wmDrawWidth, wmDrawHeight);
+        ctx.globalAlpha = wmAlpha2;
+        if (wmMode2 === 'fullscreen') {
+            const WM_UI_REF_SCALE = 1.15;
+            const renderScale2 = ((wizardState.watermarkScale || 100) / 100) * WM_UI_REF_SCALE;
+            const scaledW2 = W * renderScale2;
+            const scaledH2 = H * renderScale2;
+            const offsetX2 = (scaledW2 - W) / 2;
+            const offsetY2 = (scaledH2 - H) / 2;
+            ctx.drawImage(wizardWatermarkImage, -offsetX2, -offsetY2, scaledW2, scaledH2);
+        } else {
+            const wmScale2 = (wizardState.watermarkScale || 25) / 100;
+            const wmDrawWidth2 = W * wmScale2 * 0.5;
+            const wmDrawHeight2 = wmDrawWidth2 * wmAspectRatio2;
+            const wmX2 = (W * (wizardState.watermarkX || 0.5)) - (wmDrawWidth2 / 2);
+            const wmY2 = (H * (wizardState.watermarkY || 0.5)) - (wmDrawHeight2 / 2);
+            applyShapeClip(ctx, wizardState.watermarkShape || 'original', wmX2, wmY2, wmDrawWidth2, wmDrawHeight2, 'watermark');
+            ctx.drawImage(wizardWatermarkImage, wmX2, wmY2, wmDrawWidth2, wmDrawHeight2);
+        }
         ctx.restore();
         ctx.globalAlpha = 1.0;
     }
@@ -6898,7 +6922,9 @@ async function saveWizardBrand() {
 
         // Save visual settings (position, etc.)
         status.innerHTML = '<div class="status-msg info">Saving settings...</div>';
-        
+
+        console.log(`[WM SAVE] brand=${brandId} wm_mode=${wizardState.watermarkMode||'fullscreen'} wm_x=${wizardState.watermarkX} wm_y=${wizardState.watermarkY} wm_scale=${wizardState.watermarkScale} wm_opacity=${wizardState.watermarkOpacity}`);
+
         const settingsPayload = {
             logo_scale: wizardState.logoScale / 100,
             logo_opacity: wizardState.logoOpacity / 100,
@@ -7089,6 +7115,7 @@ async function saveWizardBrandWithWatermark() {
             settingsPayload.wm_mode = wizardState.watermarkMode || 'fullscreen';
             settingsPayload.wm_scale = watermarkUiToRenderScale(wizardState.watermarkScale);
             settingsPayload.wm_opacity = wizardState.watermarkOpacity / 100;
+            console.log(`[WM SAVE] brand=${brandId} wm_mode=${settingsPayload.wm_mode} wm_x=${wizardState.watermarkX} wm_y=${wizardState.watermarkY} wm_scale=${wizardState.watermarkScale} wm_opacity=${wizardState.watermarkOpacity} → render_scale=${settingsPayload.wm_scale.toFixed(3)}`);
         }
 
         // Compute wm_x/wm_y only when a new file was uploaded (placement may have changed)

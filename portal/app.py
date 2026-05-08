@@ -1632,6 +1632,7 @@ def process_branded_videos():
             
             # Log normalized values for debugging
             print(f"[PROCESS BRANDS] Normalized wm_mode={merged_config.get('wm_mode')}, wm_scale={merged_config.get('wm_scale')}, wm_opacity={merged_config.get('wm_opacity')}")
+            print(f"[WM API] brand={merged_config.get('name','?')} wm_mode={merged_config.get('wm_mode')} wm_x={merged_config.get('wm_x')} wm_y={merged_config.get('wm_y')} wm_scale={merged_config.get('wm_scale')} wm_opacity={merged_config.get('wm_opacity')}")
             
             # Apply overrides if provided in the request
             override_applied = False

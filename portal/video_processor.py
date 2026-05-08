@@ -376,6 +376,7 @@ class VideoProcessor:
         
         print(f"[VISUAL_PRESET] Logo: x={logo_x_pct:.2f}, y={logo_y_pct:.2f}, scale={logo_scale_pct:.2f}, opacity={logo_opacity:.2f}, rotation={logo_rotation}°")
         print(f"[VISUAL_PRESET] Watermark: mode={wm_mode}, x={wm_x_pct:.2f}, y={wm_y_pct:.2f}, scale={wm_scale_pct:.2f}, opacity={wm_opacity:.2f}")
+        print(f"[WM RENDER] brand='{brand_name}' wm_mode={wm_mode} wm_x={wm_x_pct:.4f} wm_y={wm_y_pct:.4f} wm_scale={wm_scale_pct:.4f} wm_opacity={wm_opacity:.4f}")
         print(f"[VISUAL_PRESET] Text: enabled={text_enabled}, content='{text_content[:30]}', x={text_x_pct:.2f}, y={text_y_pct:.2f}")
         
         # 1. WATERMARK OVERLAY
@@ -396,6 +397,7 @@ class VideoProcessor:
                 overlay_y = -offset_y
 
                 print(f"[VISUAL_PRESET] Watermark fullscreen: {scaled_w}x{scaled_h}, overlay=({overlay_x},{overlay_y}), opacity={wm_opacity:.2f}")
+                print(f"[WM RENDER] computed size={scaled_w}x{scaled_h} overlay={overlay_x},{overlay_y}")
 
                 filters.append(f"movie='{watermark_path}',scale={scaled_w}:{scaled_h},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{wm_opacity}*alpha(X,Y)'[watermark]")
                 filters.append(f"[{current_input}][watermark]overlay={overlay_x}:{overlay_y}[v1]")
@@ -413,6 +415,7 @@ class VideoProcessor:
                 wm_y_expr = f"{wm_cy_px}-h/2"
 
                 print(f"[VISUAL_PRESET] Watermark positioned: width={wm_target_w}px, center=({wm_cx_px},{wm_cy_px}), opacity={wm_opacity:.2f}")
+                print(f"[WM RENDER] computed size={wm_target_w}x(auto) overlay={wm_x_expr},{wm_y_expr}")
 
                 filters.append(f"movie='{watermark_path}',scale={wm_target_w}:-1,format=rgba,colorchannelmixer=aa={wm_opacity}[watermark]")
                 filters.append(f"[{current_input}][watermark]overlay={wm_x_expr}:{wm_y_expr}[v1]")
