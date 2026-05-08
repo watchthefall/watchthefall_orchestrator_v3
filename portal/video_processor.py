@@ -37,12 +37,13 @@ def normalize_video(input_path: str) -> str:
         fixed_path = input_path.replace(".mp4", "_normalized.mp4")
         print(f"[NORMALIZE] Normalizing video to clean 8-bit H264 SDR: {input_path}")
         
+        NORMALIZE_TIMEOUT = 300  # 5 min — normalization is just scale+re-encode, not overlay rendering
         cmd = [
             FFMPEG_BIN, "-y",
             "-i", input_path,
             "-vf", "scale=720:-2",  # Scale to 720px width, maintain aspect ratio (even height)
             "-c:v", "libx264",  # Re-encode to H264 (NOT copy)
-            "-preset", "fast",
+            "-preset", "veryfast",  # was 'fast' — matches main render preset, ~2x faster
             "-crf", "23",
             "-pix_fmt", "yuv420p",  # Force 8-bit SDR (strips HDR/10-bit)
             "-c:a", "aac",
@@ -50,19 +51,28 @@ def normalize_video(input_path: str) -> str:
             "-movflags", "+faststart",
             fixed_path
         ]
-        
-        print(f"[NORMALIZE] Running command: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
+
+        print(f"[NORMALIZE] Running command (timeout={NORMALIZE_TIMEOUT}s): {' '.join(cmd)}")
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=NORMALIZE_TIMEOUT
+        )
+
         if result.returncode == 0 and os.path.exists(fixed_path):
             file_size = os.path.getsize(fixed_path) / (1024 * 1024)
             print(f"[NORMALIZE] Successfully normalized video: {fixed_path} ({file_size:.2f}MB)")
             return fixed_path
         else:
-            print(f"[NORMALIZE] Failed to normalize video. stderr: {result.stderr}")
+            print(f"[NORMALIZE] Failed to normalize video (code={result.returncode}). stderr: {(result.stderr or '')[-1000:]}")
             if os.path.exists(fixed_path):
                 os.remove(fixed_path)  # Clean up failed output
             return input_path
+    except subprocess.TimeoutExpired:
+        print(f"[NORMALIZE] Normalization timed out after {NORMALIZE_TIMEOUT}s — using original file")
+        return input_path
     except Exception as e:
         print(f"[NORMALIZE] Error during normalization: {e}")
         return input_path

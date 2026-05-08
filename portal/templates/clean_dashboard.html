@@ -4653,7 +4653,7 @@ async function processCurrentBrand() {
     const _processTimeout = setTimeout(() => {
         console.error('[PROCESS UI] Fetch timeout after 12 minutes — aborting request');
         _processController.abort();
-    }, 720000);  // 12 minutes (above 14-min FFmpeg limit — connection should close first)
+    }, 720000);  // 12 min: browser gives up before the 14-min FFmpeg server timeout fires
 
     try {
         console.log('[PROCESS UI] request started:', {
