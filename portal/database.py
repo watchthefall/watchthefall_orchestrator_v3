@@ -21,23 +21,50 @@ def get_connection():
         conn.close()
 
 
-def _retry_write(fn, max_retries=5):
+def _retry_write(fn, max_retries=7):
     """Execute a write function with retry on database lock.
     fn receives a connection and should perform the write + commit.
-    Returns whatever fn returns."""
-    backoff_times = [0.2, 0.4, 0.8, 1.6, 3.2]
+    Returns whatever fn returns.
+
+    Retriable conditions:
+      - 'database is locked'  — another writer holds EXCLUSIVE/RESERVED lock
+      - 'database is locked (database is locked)' — WAL checkpoint contention
+
+    Non-retriable conditions (re-raised immediately):
+      - disk I/O error        — disk full or corrupted; retrying will not help
+      - any other error       — surface immediately for diagnosis
+
+    The caller is responsible for catching OperationalError if the write
+    is non-critical (e.g. usage counters after a successful render).
+    """
+    # Total soft-wait: 0.3+0.6+1.2+2.4+4.8+6.0+8.0 = 23.3 s across all retries.
+    # Each attempt also benefits from the connection-level timeout=30 s.
+    backoff_times = [0.3, 0.6, 1.2, 2.4, 4.8, 6.0, 8.0]
+    last_exc = None
     for attempt in range(max_retries):
         try:
             with get_connection() as conn:
                 result = fn(conn)
                 return result
         except sqlite3.OperationalError as e:
-            if 'locked' in str(e).lower() and attempt < max_retries - 1:
+            err_lower = str(e).lower()
+            # Disk I/O errors are not lock-related; retrying will not help.
+            if 'disk i/o' in err_lower or 'disk i/o error' in err_lower:
+                print(f"[DATABASE] Disk I/O error (not retrying): {e}")
+                raise
+            if 'locked' in err_lower and attempt < max_retries - 1:
                 wait_time = backoff_times[attempt]
-                print(f"[DATABASE] Locked on attempt {attempt + 1}/{max_retries}, retrying in {wait_time}s...")
+                print(
+                    f"[DATABASE] Locked on attempt {attempt + 1}/{max_retries}, "
+                    f"retrying in {wait_time}s… ({e})"
+                )
+                last_exc = e
                 time.sleep(wait_time)
                 continue
             else:
+                # Last attempt or non-lock error — raise
+                if attempt == max_retries - 1 and last_exc is not None:
+                    print(f"[DATABASE] All {max_retries} write attempts exhausted. Last error: {e}")
                 raise
     return None
 
@@ -1093,26 +1120,33 @@ def get_download(download_id, user_id):
         return dict(row) if row else None
 
 def cleanup_old_downloads(max_age_hours=24):
-    """Delete downloads older than max_age_hours"""
+    """Delete downloads older than max_age_hours.
+    Uses _retry_write so the background cleanup thread doesn't hold a
+    long-lived write connection that could block post-render accounting."""
     from datetime import datetime, timedelta
     import os
-    
+
     cutoff_time = datetime.utcnow() - timedelta(hours=max_age_hours)
-    
-    with get_connection() as conn:
+    cutoff_iso = cutoff_time.isoformat()
+
+    deleted_count = 0
+
+    def _do_cleanup(conn):
         c = conn.cursor()
-        
-        c.execute('''
-            DELETE FROM downloads 
-            WHERE created_at < ?
-        ''', (cutoff_time.isoformat(),))
-        
-        deleted_count = c.rowcount
+        c.execute('DELETE FROM downloads WHERE created_at < ?', (cutoff_iso,))
+        count = c.rowcount
         conn.commit()
-    
-    # Also clean up old files from the storage directory
+        return count
+
+    try:
+        deleted_count = _retry_write(_do_cleanup) or 0
+    except sqlite3.OperationalError as e:
+        print(f"[CLEANUP] DB locked during download cleanup (will retry next cycle): {e}")
+        deleted_count = 0
+
+    # Also clean up old files from the storage directory (always best-effort)
     cleanup_old_files(max_age_hours)
-    
+
     return deleted_count
 
 def cleanup_old_files(max_age_hours=24):

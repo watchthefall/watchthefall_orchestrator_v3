@@ -1839,21 +1839,51 @@ def process_branded_videos():
         for i, dl in enumerate(download_urls, 1):
             print(f"[PROCESS BRANDS]   {i}. {dl['filename']} (brand: {dl['brand']})")
         print(f"[PROCESS BRANDS] ========================================")
-        
-        # Increment daily branding job counter
-        increment_branding_jobs(user_id)
-        
-        return jsonify({
+
+        # -----------------------------------------------------------------------
+        # POST-RENDER ACCOUNTING — non-critical.
+        # Any failure here MUST NOT turn a successful render into a failed job.
+        # Render output already exists on disk; the user must be able to download it.
+        # -----------------------------------------------------------------------
+        _warnings = []
+
+        # Increment daily branding job counter (best-effort)
+        try:
+            increment_branding_jobs(user_id)
+        except sqlite3.OperationalError as _e:
+            _warnings.append("Usage counter could not be updated (DB temporarily locked)")
+            print(f"[USAGE WARNING] Failed to increment branding_jobs for user={user_id}: {_e}")
+        except Exception as _e:
+            _warnings.append("Usage counter could not be updated")
+            print(f"[USAGE WARNING] Unexpected error incrementing branding_jobs for user={user_id}: {_e}")
+
+        # Best-effort success event log (log_event already swallows its own errors,
+        # but make explicit so the outer handler never catches this path)
+        try:
+            log_event('info', None, f'Branding job completed: {len(output_paths)} output(s) for user={user_id}')
+        except Exception:
+            pass
+
+        response_body = {
             'success': True,
             'message': f'Successfully processed video for {len(output_paths)} brands',
-            'outputs': download_urls
-        })
-        
+            'outputs': download_urls,
+        }
+        if _warnings:
+            response_body['warnings'] = _warnings
+            print(f"[PROCESS BRANDS] Completed with {len(_warnings)} warning(s): {_warnings}")
+
+        return jsonify(response_body)
+
     except Exception as e:
         import traceback
         print(f"[PROCESS BRANDS EXCEPTION]:")
         traceback.print_exc()
-        log_event('error', None, f'Brand processing failed: {str(e)}')
+        # log_event is best-effort — wrap to prevent double-fault
+        try:
+            log_event('error', None, f'Brand processing failed: {str(e)}')
+        except Exception:
+            pass
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/videos/fetch', methods=['POST'])
