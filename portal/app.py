@@ -439,6 +439,37 @@ def change_password():
     return render_template('change_password.html')
 
 
+# ── Admin: Beta Waitlist ──
+
+@app.route('/portal/admin/waitlist')
+@admin_required
+def admin_waitlist():
+    """Admin view: list all pending beta waitlist entries."""
+    import traceback as _tb
+    try:
+        entries = get_pending_waitlist_entries()
+    except Exception as _e:
+        print(f"[ADMIN WAITLIST] Error fetching entries: {_tb.format_exc()}")
+        entries = []
+    return render_template('admin_waitlist.html', entries=entries)
+
+
+@app.route('/portal/admin/waitlist/<int:entry_id>/approve', methods=['POST'])
+@admin_required
+def admin_waitlist_approve(entry_id):
+    """Admin action: approve a pending beta waitlist entry."""
+    import traceback as _tb
+    try:
+        success = approve_waitlist_entry(entry_id, session.get('email', 'admin'))
+        if success:
+            print(f"[ADMIN WAITLIST] Approved entry id={entry_id} by {session.get('email')}")
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'error': 'Entry not found or already actioned.'}), 404
+    except Exception as _e:
+        print(f"[ADMIN WAITLIST] Approve error for id={entry_id}: {_tb.format_exc()}")
+        return jsonify({'success': False, 'error': 'Server error approving entry.'}), 500
+
+
 # ── Admin API: Password Reset ──
 @app.route('/api/admin/reset-password', methods=['POST'])
 @admin_required

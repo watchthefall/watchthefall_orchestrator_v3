@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en" data-tier="{{ tier|default('Explorer') }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Beta Waitlist — Brandr Admin</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      background: #121214;
+      color: #eaeaea;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px 60px;
+    }
+    .page-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+    .page-header h1 { font-size: 1.5rem; font-weight: 700; color: #fff; }
+    .back-link {
+      font-size: 0.85rem;
+      color: #888;
+      text-decoration: none;
+      padding: 6px 12px;
+      border: 1px solid #2a2a30;
+      border-radius: 6px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .back-link:hover { color: #eaeaea; border-color: #555; }
+    .count-badge {
+      font-size: 0.8rem;
+      color: #888;
+      background: #1e1e22;
+      border: 1px solid #2a2a30;
+      border-radius: 99px;
+      padding: 3px 10px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #555;
+    }
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .empty-state p { font-size: 0.95rem; }
+
+    /* Table */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid #2a2a30;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    thead tr {
+      background: #1e1e22;
+      border-bottom: 1px solid #2a2a30;
+    }
+    th {
+      padding: 12px 14px;
+      text-align: left;
+      font-weight: 600;
+      color: #888;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    tbody tr {
+      border-bottom: 1px solid #1e1e22;
+      transition: background 0.15s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #18181c; }
+    td {
+      padding: 12px 14px;
+      color: #ccc;
+      vertical-align: middle;
+    }
+    td.name { color: #eaeaea; font-weight: 500; }
+    td.email { color: #aaa; font-family: monospace; font-size: 0.83rem; }
+    td.muted { color: #666; }
+
+    /* Platform badge */
+    .platform-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: #2a2a30;
+      color: #aaa;
+    }
+
+    /* Date */
+    .date-cell { font-size: 0.8rem; color: #666; white-space: nowrap; }
+
+    /* Referral */
+    .ref-code {
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: #C7A53C;
+      background: rgba(199,165,60,0.08);
+      border-radius: 4px;
+      padding: 1px 6px;
+    }
+
+    /* Approve button */
+    .btn-approve {
+      padding: 6px 16px;
+      background: #C7A53C;
+      color: #121214;
+      font-weight: 700;
+      font-size: 0.82rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+      white-space: nowrap;
+    }
+    .btn-approve:hover { background: #d4b44e; }
+    .btn-approve:disabled { opacity: 0.5; cursor: not-allowed; }
+    .approved-label {
+      font-size: 0.82rem;
+      color: #4ade80;
+      font-weight: 600;
+      display: none;
+    }
+
+    /* Notes / discord */
+    .discord-handle { font-size: 0.8rem; color: #7289da; }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #202026;
+      border: 1px solid #2a2a30;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 0.88rem;
+      color: #eaeaea;
+      transition: transform 0.3s ease;
+      z-index: 999;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    #toast.success { border-color: rgba(74,222,128,0.4); color: #4ade80; }
+    #toast.error   { border-color: rgba(248,113,113,0.4); color: #f87171; }
+  </style>
+</head>
+<body>
+  {% include '_nav.html' %}
+
+  <div class="container">
+    <div class="page-header">
+      <a href="/portal/admin" class="back-link">← Admin Console</a>
+      <h1>Beta Waitlist</h1>
+      <span class="count-badge">{{ entries|length }} pending</span>
+    </div>
+
+    {% if entries %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Platform</th>
+            <th>Type</th>
+            <th>Pages</th>
+            <th>Discord</th>
+            <th>Referral</th>
+            <th>Submitted</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in entries %}
+          <tr id="row-{{ e.id }}">
+            <td class="muted">{{ e.id }}</td>
+            <td class="name">{{ e.creator_name or '—' }}</td>
+            <td class="email">{{ e.email }}</td>
+            <td>
+              {% if e.main_platform %}
+                <span class="platform-badge">{{ e.main_platform }}</span>
+              {% else %}
+                <span class="muted">—</span>
+              {% endif %}
+            </td>
+            <td>{{ e.creator_type or '—' }}</td>
+            <td class="muted">{{ e.page_count or '—' }}</td>
+            <td>
+              {% if e.discord_username %}
+                <span class="discord-handle">{{ e.discord_username }}</span>
+              {% else %}
+                <span class="muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if e.referral_code_used %}
+                <span class="ref-code">{{ e.referral_code_used }}</span>
+              {% else %}
+                <span class="muted">—</span>
+              {% endif %}
+            </td>
+            <td class="date-cell">
+              {{ e.created_at[:10] if e.created_at else '—' }}
+            </td>
+            <td>
+              <button class="btn-approve" onclick="approveEntry({{ e.id }}, this)">
+                Approve
+              </button>
+              <span class="approved-label" id="approved-{{ e.id }}">✓ Approved</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="icon">📋</div>
+      <p>No pending waitlist entries.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    const toast = document.getElementById('toast');
+    let toastTimer;
+
+    function showToast(msg, type) {
+      toast.textContent = msg;
+      toast.className = 'show ' + type;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.className = ''; }, 3000);
+    }
+
+    async function approveEntry(id, btn) {
+      btn.disabled = true;
+      btn.textContent = 'Approving…';
+      try {
+        const res = await fetch(`/portal/admin/waitlist/${id}/approve`, { method: 'POST' });
+        const json = await res.json();
+        if (json.success) {
+          btn.style.display = 'none';
+          const label = document.getElementById('approved-' + id);
+          if (label) label.style.display = 'inline';
+          showToast('Approved — they can now register with that email.', 'success');
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Approve';
+          showToast(json.error || 'Failed to approve. Try again.', 'error');
+        }
+      } catch (_err) {
+        btn.disabled = false;
+        btn.textContent = 'Approve';
+        showToast('Network error. Try again.', 'error');
+      }
+    }
+  </script>
+</body>
+</html>
