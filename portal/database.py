@@ -547,16 +547,23 @@ def create_waitlist_entry(email, creator_name, main_platform, creator_type,
         return (row['id'] if row else None), False
 
 
-def get_waitlist_entry_by_email(email):
-    """Return the beta_access row for this email, or None."""
+def get_waitlist_entry_by_email(email, timeout=8.0):
+    """Return the beta_access row for this email, or None.
+    Uses a short timeout (default 8s) so callers in the registration path
+    fail fast rather than waiting the full 30-second get_connection() timeout."""
     try:
-        with get_connection() as conn:
+        conn = sqlite3.connect(DB_PATH, timeout=timeout)
+        conn.row_factory = sqlite3.Row
+        conn.execute(f'PRAGMA busy_timeout={int(timeout * 1000)}')
+        try:
             c = conn.cursor()
             c.execute('SELECT * FROM beta_access WHERE email = ?', (email.lower().strip(),))
             row = c.fetchone()
-        return dict(row) if row else None
+            return dict(row) if row else None
+        finally:
+            conn.close()
     except Exception as e:
-        print(f"[BETA_ACCESS] get_waitlist_entry_by_email error: {e}")
+        print(f"[BETA_ACCESS] get_waitlist_entry_by_email error: {e}", flush=True)
         return None
 
 
@@ -592,18 +599,26 @@ def approve_waitlist_entry(entry_id, approved_by_email):
 
 
 def claim_waitlist_entry(entry_id, user_id):
-    """Mark a beta_access row as claimed after the approved user registers."""
+    """Mark a beta_access row as claimed after the approved user registers.
+    Uses a 5-second timeout — this is a non-critical post-create operation
+    and must fail fast rather than blocking the registration response."""
     now = datetime.utcnow().isoformat()
+    conn = None
     try:
-        with get_connection() as conn:
-            c = conn.cursor()
-            c.execute(
-                "UPDATE beta_access SET status='claimed', claimed_user_id=?, claimed_at=? WHERE id=?",
-                (user_id, now, entry_id)
-            )
-            conn.commit()
+        conn = sqlite3.connect(DB_PATH, timeout=5.0)
+        conn.execute('PRAGMA busy_timeout=5000')
+        c = conn.cursor()
+        c.execute(
+            "UPDATE beta_access SET status='claimed', claimed_user_id=?, claimed_at=? WHERE id=?",
+            (user_id, now, entry_id)
+        )
+        conn.commit()
+        print(f"[BETA_ACCESS] claim_waitlist_entry: id={entry_id} claimed by user={user_id}", flush=True)
     except Exception as e:
-        print(f"[BETA_ACCESS] claim_waitlist_entry warning for id={entry_id}: {e}")
+        print(f"[BETA_ACCESS] claim_waitlist_entry warning for id={entry_id}: {e}", flush=True)
+    finally:
+        if conn:
+            conn.close()
 
 
 # ========== END BETA ACCESS ==========

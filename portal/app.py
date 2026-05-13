@@ -153,18 +153,17 @@ def authenticate_user(email, password):
     return None, None
 
 
-def register_user(email, password):
+def register_user(email, password, beta_entry=None):
     """Register a new user. Admin emails default to Platinum tier.
-    If a beta_access row is approved for this email, applies any package fields
-    (tier_grant, founding_status, founding_discount_percent, bonus_tier_until)
-    and marks the row as claimed. Package application is best-effort — failures
+    beta_entry should be pre-fetched by the caller (register()) to avoid a
+    redundant DB round-trip. Package application is best-effort — failures
     are logged but never block account creation."""
     from .database import get_connection
     try:
         is_admin_email = email.lower() in [e.lower() for e in ADMIN_EMAILS]
 
         # Determine tier: admin → Platinum, beta package → tier_grant if set, else Explorer
-        beta_entry = get_waitlist_entry_by_email(email) if not is_admin_email else None
+        print(f"[REGISTER] tier resolution start (admin={is_admin_email})", flush=True)
         if is_admin_email:
             tier = 'Platinum'
         elif beta_entry and beta_entry.get('tier_grant'):
@@ -173,7 +172,9 @@ def register_user(email, password):
             tier = 'Explorer'
 
         special_status = None  # Never auto-assign
+        print(f"[REGISTER] tier resolved: {tier}", flush=True)
 
+        print("[REGISTER] user insert start", flush=True)
         with get_connection() as conn:
             c = conn.cursor()
             password_hash = hash_password(password)
@@ -183,20 +184,33 @@ def register_user(email, password):
             )
             conn.commit()
             user_id = c.lastrowid
+        print(f"[REGISTER] user insert done: user_id={user_id}", flush=True)
 
-        print(f"[AUTH] Registered user: {email} tier={tier}")
+        print(f"[AUTH] Registered user: {email} tier={tier}", flush=True)
 
         # Apply optional beta package fields (best-effort — never blocks registration)
         if beta_entry:
+            print("[REGISTER] apply beta package start", flush=True)
             try:
                 _apply_beta_package(user_id, beta_entry)
             except Exception as _pkg_err:
-                print(f"[AUTH] Warning: beta package apply failed for user={user_id}: {_pkg_err}")
-            # Mark beta_access row as claimed regardless of package application outcome
-            claim_waitlist_entry(beta_entry['id'], user_id)
+                print(f"[AUTH] Warning: beta package apply failed for user={user_id}: {_pkg_err}", flush=True)
+            print("[REGISTER] apply beta package done", flush=True)
+
+            print("[REGISTER] claim waitlist start", flush=True)
+            try:
+                claim_waitlist_entry(beta_entry['id'], user_id)
+            except Exception as _claim_err:
+                print(f"[AUTH] Warning: claim_waitlist_entry failed for id={beta_entry['id']}: {_claim_err}", flush=True)
+            print("[REGISTER] claim waitlist done", flush=True)
 
         return user_id
     except sqlite3.IntegrityError:
+        print(f"[REGISTER] IntegrityError — duplicate email: {email}", flush=True)
+        return None
+    except Exception as _reg_err:
+        import traceback as _tb
+        print(f"[REGISTER] Unexpected error in register_user: {_reg_err}\n{_tb.format_exc()}", flush=True)
         return None
 
 
@@ -337,8 +351,10 @@ def inject_global_context():
 @app.route('/portal/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        print("[REGISTER] POST received", flush=True)
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
+        print(f"[REGISTER] email parsed: {email}", flush=True)
 
         if not email or not password:
             flash('Email and password are required.', 'error')
@@ -352,15 +368,19 @@ def register():
         # Only admin emails and approved beta_access entries may register.
         # This check is backend-enforced; frontend messaging is secondary.
         is_admin_email = email.lower() in [e.lower() for e in ADMIN_EMAILS]
+        entry = None
         if not is_admin_email:
+            print("[REGISTER] beta lookup start", flush=True)
             try:
                 entry = get_waitlist_entry_by_email(email)
             except Exception as _e:
                 import traceback as _tb
-                print(f"[REGISTER] DB error checking beta_access for {email}: {_tb.format_exc()}")
+                print(f"[REGISTER] DB error checking beta_access for {email}: {_tb.format_exc()}", flush=True)
                 entry = None
+            print(f"[REGISTER] beta lookup done: status={entry.get('status') if entry else None}", flush=True)
 
             if not entry or entry.get('status') != 'approved':
+                print(f"[REGISTER] gate blocked — not approved", flush=True)
                 flash(
                     'Brandr is currently invite-only. '
                     'Join the beta waitlist to request access.',
@@ -369,11 +389,21 @@ def register():
                 return render_template('register.html', blocked=True)
         # ── END GATE ───────────────────────────────────────────────────────
 
-        user_id = register_user(email, password)
+        print("[REGISTER] gate passed — calling register_user", flush=True)
+        try:
+            user_id = register_user(email, password, beta_entry=entry)
+        except Exception as _ru_err:
+            import traceback as _tb
+            print(f"[REGISTER] register_user raised unexpectedly: {_ru_err}\n{_tb.format_exc()}", flush=True)
+            flash('Brandr could not complete registration right now. Please try again shortly.', 'error')
+            return render_template('register.html')
+
+        print(f"[REGISTER] register_user returned: user_id={user_id}", flush=True)
         if user_id:
             session['user_id'] = user_id
             session['email'] = email
             flash('Welcome to Brandr! Your account is ready.', 'success')
+            print("[REGISTER] redirecting to brand_video", flush=True)
             return redirect(url_for('brand_video'))
         else:
             flash('An account with this email already exists.', 'error')
