@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brandr Beta — Creator Command Centre</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold:        #C7A53C;
+      --gold-light:  #d4b44e;
+      --gold-soft:   rgba(199,165,60,0.12);
+      --gold-border: rgba(199,165,60,0.25);
+      --gold-glow:   rgba(199,165,60,0.18);
+      --bg:          #0e0e10;
+      --surface:     #18181c;
+      --surface2:    #202026;
+      --border:      #2a2a30;
+      --text:        #eaeaea;
+      --muted:       #888;
+      --error:       #f87171;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ── Layout ── */
+    .page-wrap {
+      max-width: 540px;
+      margin: 0 auto;
+      padding: 0 20px 60px;
+    }
+
+    /* ── Header / Hero ── */
+    .hero {
+      text-align: center;
+      padding: 56px 0 40px;
+    }
+    .hero-logo {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      margin-bottom: 20px;
+      filter: drop-shadow(0 0 12px var(--gold-glow));
+    }
+    .hero-wordmark {
+      font-size: 2.4rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--gold);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .hero-tagline {
+      font-size: 1rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 500;
+      margin-bottom: 20px;
+    }
+    .hero-headline {
+      font-size: 1.55rem;
+      font-weight: 600;
+      color: #fff;
+      line-height: 1.35;
+      margin-bottom: 12px;
+    }
+    .hero-sub {
+      font-size: 0.95rem;
+      color: var(--muted);
+      max-width: 400px;
+      margin: 0 auto 24px;
+    }
+    .beta-pill {
+      display: inline-block;
+      padding: 4px 12px;
+      background: var(--gold-soft);
+      border: 1px solid var(--gold-border);
+      border-radius: 99px;
+      font-size: 0.78rem;
+      color: var(--gold);
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+
+    /* ── Beta honesty notice ── */
+    .beta-notice {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--gold);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 28px;
+      text-align: left;
+    }
+    .beta-notice strong { color: var(--text); }
+
+    /* ── Glass card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 28px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 20px;
+    }
+
+    /* ── Form ── */
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.83rem;
+      color: var(--muted);
+      font-weight: 500;
+      margin-bottom: 6px;
+      letter-spacing: 0.01em;
+    }
+    .form-group label .req {
+      color: var(--gold);
+      margin-left: 2px;
+    }
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 11px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .form-group select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 36px;
+    }
+    .form-group input::placeholder { color: #555; }
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--gold);
+    }
+    .form-group select option { background: #1a1a1e; }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 420px) {
+      .form-row { grid-template-columns: 1fr; }
+    }
+
+    /* ── Optional label ── */
+    .optional-tag {
+      font-size: 0.75rem;
+      color: #555;
+      font-weight: 400;
+      margin-left: 4px;
+    }
+
+    /* ── CTA button ── */
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      background: var(--gold);
+      color: #0e0e10;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: background 0.2s, transform 0.1s;
+      margin-top: 8px;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--gold-light); }
+    .btn-primary:active:not(:disabled) { transform: scale(0.99); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* ── Error / validation ── */
+    .field-error {
+      font-size: 0.8rem;
+      color: var(--error);
+      margin-top: 4px;
+      display: none;
+    }
+    .has-error input,
+    .has-error select { border-color: var(--error) !important; }
+    .has-error .field-error { display: block; }
+
+    /* ── Benefits panel ── */
+    .benefits {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .benefit-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.9rem;
+    }
+    .benefit-icon {
+      color: var(--gold);
+      font-size: 1rem;
+      line-height: 1.4;
+      flex-shrink: 0;
+    }
+    .benefit-text { color: var(--muted); }
+    .benefit-text strong { color: var(--text); }
+
+    /* ── Discord callout ── */
+    .discord-card {
+      background: linear-gradient(135deg, #1a1a24 0%, var(--surface2) 100%);
+      border: 1px solid var(--gold-border);
+      border-radius: 12px;
+      padding: 20px 20px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .discord-card .dc-icon { font-size: 1.8rem; margin-bottom: 8px; }
+    .discord-card h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    .discord-card p {
+      font-size: 0.83rem;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+    .btn-discord {
+      display: inline-block;
+      padding: 9px 22px;
+      background: #5865F2;
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.9rem;
+      border-radius: 7px;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .btn-discord:hover { background: #4752c4; }
+
+    /* ── Login link ── */
+    .login-nudge {
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--muted);
+      padding-top: 4px;
+    }
+    .login-nudge a {
+      color: var(--gold);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .login-nudge a:hover { color: var(--gold-light); }
+
+    /* ── Success state ── */
+    #success-state { display: none; }
+    .success-card {
+      text-align: center;
+      padding: 48px 24px;
+    }
+    .success-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+    }
+    .success-card h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 10px;
+    }
+    .success-card p {
+      font-size: 0.95rem;
+      color: var(--muted);
+      max-width: 340px;
+      margin: 0 auto 24px;
+      line-height: 1.7;
+    }
+    .success-card .btn-discord { font-size: 1rem; padding: 11px 28px; }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+
+    <!-- Hero -->
+    <div class="hero">
+      <img src="/static/img/brandr_logo.png" alt="Brandr" class="hero-logo"
+           onerror="this.style.display='none'">
+      <div class="hero-wordmark">BRANDR</div>
+      <div class="hero-tagline">Creator Command Centre</div>
+      <h1 class="hero-headline">Paste clips. Brand them.<br>Build from there.</h1>
+      <p class="hero-sub">
+        A mobile-first branding engine for creators managing pages, clips, brands, and communities.
+      </p>
+      <span class="beta-pill">Invite-Only Beta</span>
+    </div>
+
+    <!-- Beta honesty notice -->
+    <div class="beta-notice">
+      <strong>Beta status:</strong> Brandr currently delivers fast
+      <strong>9:16 branded video output</strong> for TikTok, Reels, and Shorts.
+      Square, landscape, YouTube, and feed formats are planned — not yet live.
+    </div>
+
+    <!-- Waitlist form -->
+    <div id="form-state">
+      <div class="card">
+        <div class="card-title">Join the Brandr Beta</div>
+        <form id="waitlist-form" novalidate>
+
+          <div class="form-group" id="fg-name">
+            <label for="creator_name">Creator / Business Name <span class="req">*</span></label>
+            <input type="text" id="creator_name" name="creator_name"
+                   placeholder="Your name, page name, business, or agency" autocomplete="name">
+            <div class="field-error">Please enter your name or business name.</div>
+          </div>
+
+          <div class="form-group" id="fg-email">
+            <label for="email">Email <span class="req">*</span></label>
+            <input type="email" id="email" name="email"
+                   placeholder="you@example.com" autocomplete="email">
+            <div class="field-error">Please enter a valid email address.</div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group" id="fg-platform">
+              <label for="main_platform">Main Platform <span class="req">*</span></label>
+              <select id="main_platform" name="main_platform">
+                <option value="" disabled selected>Select…</option>
+                <option>TikTok</option>
+                <option>Instagram</option>
+                <option>YouTube</option>
+                <option>X</option>
+                <option>Facebook</option>
+                <option>Other</option>
+              </select>
+              <div class="field-error">Please select a platform.</div>
+            </div>
+
+            <div class="form-group" id="fg-pages">
+              <label for="page_count">Pages / Accounts</label>
+              <select id="page_count" name="page_count">
+                <option value="" disabled selected>Select…</option>
+                <option>1</option>
+                <option>2–5</option>
+                <option>6–20</option>
+                <option>20+</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" id="fg-type">
+            <label for="creator_type">Creator Type <span class="req">*</span></label>
+            <select id="creator_type" name="creator_type">
+              <option value="" disabled selected>What describes you best?</option>
+              <option>Solo creator</option>
+              <option>Multi-page operator</option>
+              <option>Meme / theme page</option>
+              <option>News / commentary</option>
+              <option>Small business</option>
+              <option>Agency / social media manager</option>
+              <option>Music / artist project</option>
+              <option>AI content creator</option>
+              <option>Other</option>
+            </select>
+            <div class="field-error">Please select your creator type.</div>
+          </div>
+
+          <div class="form-group">
+            <label for="discord_username">
+              Discord Username <span class="optional-tag">(optional)</span>
+            </label>
+            <input type="text" id="discord_username" name="discord_username"
+                   placeholder="username or username#0000">
+          </div>
+
+          <div class="form-group">
+            <label for="referral_code_used">
+              Referral Code <span class="optional-tag">(optional)</span>
+            </label>
+            <input type="text" id="referral_code_used" name="referral_code_used"
+                   placeholder="Leave blank if you don't have one">
+          </div>
+
+          <div id="submit-error" style="font-size:0.85rem;color:var(--error);margin-bottom:10px;display:none;"></div>
+
+          <button type="submit" class="btn-primary" id="submit-btn">
+            Request Beta Access
+          </button>
+        </form>
+      </div>
+
+      <!-- Benefits -->
+      <div class="card">
+        <div class="card-title">What beta members get</div>
+        <div class="benefits">
+          <div class="benefit-item">
+            <span class="benefit-icon">⚡</span>
+            <span class="benefit-text">
+              <strong>Fast branded video output</strong> — paste a clip, pick a brand, download.
+            </span>
+          </div>
+          <div class="benefit-item">
+            <span class="benefit-icon">🎨</span>
+            <span class="benefit-text">
+              <strong>Multi-brand workspace</strong> — manage logos, watermarks, and positioning per brand.
+            </span>
+          </div>
+          <div class="benefit-item">
+            <span class="benefit-icon">📱</span>
+            <span class="benefit-text">
+              <strong>Mobile-first</strong> — built for short-form creators, not desktop video editors.
+            </span>
+          </div>
+          <div class="benefit-item">
+            <span class="benefit-icon">🏅</span>
+            <span class="benefit-text">
+              <strong>Founding member pricing</strong> — beta members lock in lifetime early-access rates.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Discord -->
+      <div class="discord-card">
+        <div class="dc-icon">💬</div>
+        <h3>Join the Brandr Discord</h3>
+        <p>Beta updates, feature previews, early creator rewards, and the community building around it.</p>
+        <a href="https://discord.gg/UeMfn4AmF" target="_blank" rel="noopener" class="btn-discord">
+          Join Discord
+        </a>
+      </div>
+
+      <div class="login-nudge">
+        Already approved? <a href="{{ url_for('login') }}">Log in here</a>
+      </div>
+    </div><!-- /#form-state -->
+
+    <!-- Success state (shown after submit) -->
+    <div id="success-state">
+      <div class="card success-card">
+        <div class="success-icon">🎉</div>
+        <h2>You're on the list.</h2>
+        <p id="success-msg">
+          You'll be notified when your access is approved.<br>
+          Join the Discord for beta updates, feature previews, and early creator rewards.
+        </p>
+        <a href="https://discord.gg/UeMfn4AmF" target="_blank" rel="noopener" class="btn-discord">
+          Join the Brandr Discord
+        </a>
+      </div>
+      <div class="login-nudge" style="margin-top:16px;">
+        Already approved? <a href="{{ url_for('login') }}">Log in here</a>
+      </div>
+    </div>
+
+  </div><!-- /.page-wrap -->
+
+  <script>
+    const form = document.getElementById('waitlist-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const submitError = document.getElementById('submit-error');
+
+    function showError(fieldGroupId, show) {
+      const fg = document.getElementById(fieldGroupId);
+      if (!fg) return;
+      fg.classList.toggle('has-error', show);
+    }
+
+    function validateField(id, groupId, check) {
+      const el = document.getElementById(id);
+      const valid = el && check(el.value);
+      showError(groupId, !valid);
+      return valid;
+    }
+
+    function validate() {
+      let ok = true;
+      if (!validateField('creator_name', 'fg-name', v => v.trim().length > 0)) ok = false;
+      if (!validateField('email', 'fg-email', v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()))) ok = false;
+      if (!validateField('main_platform', 'fg-platform', v => v.trim().length > 0)) ok = false;
+      if (!validateField('creator_type', 'fg-type', v => v.trim().length > 0)) ok = false;
+      return ok;
+    }
+
+    // Live validation — clear errors on input
+    ['creator_name','email','main_platform','creator_type'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', () => showError('fg-' + id.replace('creator_','').replace('main_',''), false));
+    });
+
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      submitError.style.display = 'none';
+
+      if (!validate()) return;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending…';
+
+      try {
+        const data = new FormData(form);
+        const res = await fetch('/api/waitlist', { method: 'POST', body: data });
+        const json = await res.json();
+
+        if (json.success) {
+          const msg = json.created === false
+            ? "You're already on the Brandr beta list. We'll let you know when your access is approved."
+            : "You'll be notified when your access is approved.\nJoin the Discord for beta updates, feature previews, and early creator rewards.";
+          document.getElementById('success-msg').textContent = msg;
+          document.getElementById('form-state').style.display = 'none';
+          document.getElementById('success-state').style.display = 'block';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          submitError.textContent = json.error || 'Something went wrong. Please try again.';
+          submitError.style.display = 'block';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Request Beta Access';
+        }
+      } catch (_err) {
+        submitError.textContent = 'Network error. Please check your connection and try again.';
+        submitError.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Request Beta Access';
+      }
+    });
+  </script>
+</body>
+</html>

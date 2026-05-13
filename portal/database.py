@@ -227,6 +227,35 @@ def init_db():
             )
         ''')
         
+        # Beta access / waitlist table
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS beta_access (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL,
+                creator_name TEXT,
+                main_platform TEXT,
+                creator_type TEXT,
+                page_count TEXT,
+                referral_code_used TEXT,
+                discord_username TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                access_level TEXT NOT NULL DEFAULT 'waitlist',
+                tier_grant TEXT DEFAULT NULL,
+                bonus_tier_until TEXT DEFAULT NULL,
+                founding_status INTEGER DEFAULT 0,
+                founding_status_granted_at TEXT DEFAULT NULL,
+                founding_discount_percent REAL DEFAULT NULL,
+                referred_by_user_id INTEGER DEFAULT NULL,
+                claimed_user_id INTEGER DEFAULT NULL,
+                created_at TEXT NOT NULL,
+                approved_at TEXT DEFAULT NULL,
+                approved_by TEXT DEFAULT NULL,
+                claimed_at TEXT DEFAULT NULL,
+                notes TEXT DEFAULT NULL,
+                UNIQUE(email)
+            )
+        ''')
+
         conn.commit()
         print("[DATABASE] Database initialized successfully")
     finally:
@@ -468,8 +497,117 @@ def _run_migrations():
         
         # Platinum is a valid internal supertier — no migration needed.
         # Do NOT auto-convert Platinum users. Platinum is assigned manually by admins.
+
+        # Migration: Add founding/beta package columns to users table
+        for col_sql in [
+            "ALTER TABLE users ADD COLUMN founding_status INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN founding_status_granted_at TEXT DEFAULT NULL",
+            "ALTER TABLE users ADD COLUMN founding_discount_percent REAL DEFAULT NULL",
+            "ALTER TABLE users ADD COLUMN bonus_tier_until TEXT DEFAULT NULL",
+            "ALTER TABLE users ADD COLUMN first_login_welcome_seen INTEGER DEFAULT 0",
+        ]:
+            col_name = col_sql.split("ADD COLUMN ")[1].split()[0]
+            try:
+                c.execute(f"SELECT {col_name} FROM users LIMIT 1")
+            except sqlite3.OperationalError:
+                print(f"[DATABASE] Running migration: Adding {col_name} to users")
+                c.execute(col_sql)
+                conn.commit()
+                print(f"[DATABASE] Migration completed: {col_name} added")
     finally:
         conn.close()
+
+# ========== BETA ACCESS / WAITLIST ==========
+
+def create_waitlist_entry(email, creator_name, main_platform, creator_type,
+                          page_count, referral_code_used, discord_username):
+    """Insert a new waitlist entry. Returns (id, created) tuple.
+    If email already exists, returns (existing_id, False).
+    Raises on unexpected errors (caller wraps in try/except)."""
+    now = datetime.utcnow().isoformat()
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute('''
+                INSERT INTO beta_access
+                    (email, creator_name, main_platform, creator_type,
+                     page_count, referral_code_used, discord_username,
+                     status, access_level, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 'waitlist', ?)
+            ''', (email.lower().strip(), creator_name, main_platform, creator_type,
+                  page_count, referral_code_used or None, discord_username or None, now))
+            conn.commit()
+            return c.lastrowid, True
+    except sqlite3.IntegrityError:
+        # Duplicate email — return existing row id
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute('SELECT id FROM beta_access WHERE email = ?', (email.lower().strip(),))
+            row = c.fetchone()
+        return (row['id'] if row else None), False
+
+
+def get_waitlist_entry_by_email(email):
+    """Return the beta_access row for this email, or None."""
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute('SELECT * FROM beta_access WHERE email = ?', (email.lower().strip(),))
+            row = c.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"[BETA_ACCESS] get_waitlist_entry_by_email error: {e}")
+        return None
+
+
+def get_pending_waitlist_entries():
+    """Return all pending waitlist entries ordered by created_at ascending."""
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute(
+                "SELECT * FROM beta_access WHERE status = 'pending' ORDER BY created_at ASC"
+            )
+            return [dict(r) for r in c.fetchall()]
+    except Exception as e:
+        print(f"[BETA_ACCESS] get_pending_waitlist_entries error: {e}")
+        return []
+
+
+def approve_waitlist_entry(entry_id, approved_by_email):
+    """Set status='approved' on a beta_access row. Returns True on success, False otherwise."""
+    now = datetime.utcnow().isoformat()
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute(
+                "UPDATE beta_access SET status='approved', approved_at=?, approved_by=? WHERE id=?",
+                (now, approved_by_email, entry_id)
+            )
+            conn.commit()
+            return c.rowcount > 0
+    except Exception as e:
+        print(f"[BETA_ACCESS] approve_waitlist_entry error for id={entry_id}: {e}")
+        return False
+
+
+def claim_waitlist_entry(entry_id, user_id):
+    """Mark a beta_access row as claimed after the approved user registers."""
+    now = datetime.utcnow().isoformat()
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute(
+                "UPDATE beta_access SET status='claimed', claimed_user_id=?, claimed_at=? WHERE id=?",
+                (user_id, now, entry_id)
+            )
+            conn.commit()
+    except Exception as e:
+        print(f"[BETA_ACCESS] claim_waitlist_entry warning for id={entry_id}: {e}")
+
+
+# ========== END BETA ACCESS ==========
+
 
 def get_db():
     """Get database connection with busy timeout.

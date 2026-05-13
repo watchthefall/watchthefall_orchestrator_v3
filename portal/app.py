@@ -15,6 +15,7 @@ import threading
 from yt_dlp import YoutubeDL
 import hashlib
 import sqlite3
+from datetime import datetime
 from functools import wraps
 import shutil
 import re
@@ -87,7 +88,9 @@ from .config import (
 )
 from .database import (
     log_event, get_daily_usage, increment_branding_jobs, increment_downloads,
-    get_user_special_status, set_user_special_status
+    get_user_special_status, set_user_special_status,
+    create_waitlist_entry, get_waitlist_entry_by_email,
+    get_pending_waitlist_entries, approve_waitlist_entry, claim_waitlist_entry,
 )
 
 
@@ -151,13 +154,26 @@ def authenticate_user(email, password):
 
 
 def register_user(email, password):
-    """Register a new user. Admin emails default to Platinum tier, no special_status."""
+    """Register a new user. Admin emails default to Platinum tier.
+    If a beta_access row is approved for this email, applies any package fields
+    (tier_grant, founding_status, founding_discount_percent, bonus_tier_until)
+    and marks the row as claimed. Package application is best-effort — failures
+    are logged but never block account creation."""
     from .database import get_connection
     try:
         is_admin_email = email.lower() in [e.lower() for e in ADMIN_EMAILS]
-        tier = 'Platinum' if is_admin_email else 'Explorer'
-        special_status = None  # Never auto-assign beta_tester
-        
+
+        # Determine tier: admin → Platinum, beta package → tier_grant if set, else Explorer
+        beta_entry = get_waitlist_entry_by_email(email) if not is_admin_email else None
+        if is_admin_email:
+            tier = 'Platinum'
+        elif beta_entry and beta_entry.get('tier_grant'):
+            tier = beta_entry['tier_grant']
+        else:
+            tier = 'Explorer'
+
+        special_status = None  # Never auto-assign
+
         with get_connection() as conn:
             c = conn.cursor()
             password_hash = hash_password(password)
@@ -167,11 +183,44 @@ def register_user(email, password):
             )
             conn.commit()
             user_id = c.lastrowid
-        
-        print(f"[AUTH] Registered user: {email} tier={tier} special_status={special_status}")
+
+        print(f"[AUTH] Registered user: {email} tier={tier}")
+
+        # Apply optional beta package fields (best-effort — never blocks registration)
+        if beta_entry:
+            try:
+                _apply_beta_package(user_id, beta_entry)
+            except Exception as _pkg_err:
+                print(f"[AUTH] Warning: beta package apply failed for user={user_id}: {_pkg_err}")
+            # Mark beta_access row as claimed regardless of package application outcome
+            claim_waitlist_entry(beta_entry['id'], user_id)
+
         return user_id
     except sqlite3.IntegrityError:
         return None
+
+
+def _apply_beta_package(user_id, beta_entry):
+    """Apply founding/bonus fields from a beta_access row to the user record.
+    All fields are optional — only written if present in the row.
+    Does not touch tier enforcement logic."""
+    from .database import get_connection
+    updates = {}
+    if beta_entry.get('founding_status'):
+        updates['founding_status'] = 1
+        updates['founding_status_granted_at'] = datetime.utcnow().isoformat()
+    if beta_entry.get('founding_discount_percent') is not None:
+        updates['founding_discount_percent'] = beta_entry['founding_discount_percent']
+    if beta_entry.get('bonus_tier_until'):
+        updates['bonus_tier_until'] = beta_entry['bonus_tier_until']
+    if not updates:
+        return
+    set_clause = ', '.join(f"{k} = ?" for k in updates)
+    values = list(updates.values()) + [user_id]
+    with get_connection() as conn:
+        conn.execute(f"UPDATE users SET {set_clause} WHERE id = ?", values)
+        conn.commit()
+    print(f"[AUTH] Beta package applied to user={user_id}: {list(updates.keys())}")
 
 
 def get_user_tier(user_id):
@@ -288,22 +337,47 @@ def inject_global_context():
 @app.route('/portal/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+
+        if not email or not password:
+            flash('Email and password are required.', 'error')
+            return render_template('register.html')
+
         if len(password) < 6:
             flash('Password must be at least 6 characters.', 'error')
             return render_template('register.html')
-        
+
+        # ── REGISTRATION GATE ──────────────────────────────────────────────
+        # Only admin emails and approved beta_access entries may register.
+        # This check is backend-enforced; frontend messaging is secondary.
+        is_admin_email = email.lower() in [e.lower() for e in ADMIN_EMAILS]
+        if not is_admin_email:
+            try:
+                entry = get_waitlist_entry_by_email(email)
+            except Exception as _e:
+                import traceback as _tb
+                print(f"[REGISTER] DB error checking beta_access for {email}: {_tb.format_exc()}")
+                entry = None
+
+            if not entry or entry.get('status') != 'approved':
+                flash(
+                    'Brandr is currently invite-only. '
+                    'Join the beta waitlist to request access.',
+                    'error'
+                )
+                return render_template('register.html', blocked=True)
+        # ── END GATE ───────────────────────────────────────────────────────
+
         user_id = register_user(email, password)
         if user_id:
             session['user_id'] = user_id
             session['email'] = email
-            flash('Registration successful!', 'success')
-            return redirect(url_for('dashboard'))
+            flash('Welcome to Brandr! Your account is ready.', 'success')
+            return redirect(url_for('brand_video'))
         else:
-            flash('Email already exists or registration failed', 'error')
-    
+            flash('An account with this email already exists.', 'error')
+
     return render_template('register.html')
 
 @app.route('/portal/login', methods=['GET', 'POST'])
@@ -861,8 +935,58 @@ watermark_jobs = {}
 
 @app.route('/')
 def index():
-    """Redirect root to portal"""
-    return redirect(url_for('portal_home'))
+    """Root: logged-in users go to Create, logged-out visitors go to /beta."""
+    if 'user_id' in session:
+        return redirect(url_for('brand_video'))
+    return redirect(url_for('beta_page'))
+
+
+@app.route('/beta')
+def beta_page():
+    """Public beta waitlist landing page.
+    Logged-in users are redirected to Create."""
+    if 'user_id' in session:
+        return redirect(url_for('brand_video'))
+    return render_template('beta.html')
+
+
+@app.route('/api/waitlist', methods=['POST'])
+def waitlist_submit():
+    """Public endpoint: submit a waitlist application.
+    No login required. Does not create an app account."""
+    import traceback as _tb
+    try:
+        email = (request.form.get('email') or '').strip().lower()
+        creator_name = (request.form.get('creator_name') or '').strip()
+        main_platform = (request.form.get('main_platform') or '').strip()
+        creator_type = (request.form.get('creator_type') or '').strip()
+        page_count = (request.form.get('page_count') or '').strip()
+        referral_code_used = (request.form.get('referral_code_used') or '').strip() or None
+        discord_username = (request.form.get('discord_username') or '').strip() or None
+
+        if not email or not creator_name:
+            return jsonify({'success': False, 'error': 'Email and name are required.'}), 400
+
+        _entry_id, created = create_waitlist_entry(
+            email, creator_name, main_platform, creator_type,
+            page_count, referral_code_used, discord_username
+        )
+
+        if created:
+            print(f"[WAITLIST] New entry: {email} platform={main_platform} type={creator_type}")
+            return jsonify({'success': True, 'created': True})
+        else:
+            # Already on the list — friendly, not an error
+            return jsonify({'success': True, 'created': False,
+                            'message': "You're already on the Brandr beta list."})
+
+    except Exception as _e:
+        print(f"[WAITLIST] Error on submission: {_tb.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': 'Something went wrong saving your application. Please try again.'
+        }), 500
+
 
 @app.route('/api')
 def api_root():
