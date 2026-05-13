@@ -1,7 +1,7 @@
 """
 Brandr - Flask Application
 """
-from flask import Flask, request, jsonify, render_template, send_from_directory, send_file, redirect, url_for, session, flash
+from flask import Flask, request, jsonify, render_template, render_template_string, send_from_directory, send_file, redirect, url_for, session, flash
 import os
 import io
 import json
@@ -644,14 +644,30 @@ def dashboard():
     
     # Tier/limit context for usage widget
     tier = get_user_tier(user_id)
-    special_status = get_user_special_status(user_id)
+
+    try:
+        special_status = get_user_special_status(user_id)
+    except Exception as _e:
+        print(f"[DASHBOARD] get_user_special_status failed for user={user_id}: {_e}")
+        special_status = None
+
     limits = get_effective_limits(tier, special_status)
     max_brands = limits.get('max_brand_configs', 1)
-    brand_count = get_user_brand_count(user_id) if user_id else 0
+
+    try:
+        brand_count = get_user_brand_count(user_id) if user_id else 0
+    except Exception as _e:
+        print(f"[DASHBOARD] get_user_brand_count failed for user={user_id}: {_e}")
+        brand_count = 0
+
     can_create = (max_brands == -1) or (brand_count < max_brands)
-    
+
     # Daily usage counters
-    usage = get_daily_usage(user_id) if user_id else {'branding_jobs': 0, 'downloads': 0}
+    try:
+        usage = get_daily_usage(user_id) if user_id else {'branding_jobs': 0, 'downloads': 0}
+    except Exception as _e:
+        print(f"[DASHBOARD] get_daily_usage failed for user={user_id}: {_e}")
+        usage = {'branding_jobs': 0, 'downloads': 0}
     
     return render_template('dashboard.html',
         state=state,
@@ -3648,6 +3664,80 @@ def api_download_batch():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+
+@app.errorhandler(Exception)
+def handle_unhandled_exception(e):
+    """
+    Global catch-all for unhandled exceptions.
+    Prevents raw Werkzeug 500 pages from leaking tracebacks to users.
+    DB OperationalErrors (disk I/O, lock) are handled with a specific message.
+    """
+    import traceback as _tb
+    from werkzeug.exceptions import HTTPException
+
+    # HTTPExceptions (404, 403, 405…) pass through — Flask handles them normally
+    if isinstance(e, HTTPException):
+        return e
+
+    tb_str = _tb.format_exc()
+
+    if isinstance(e, sqlite3.OperationalError):
+        print(f"[GLOBAL HANDLER] DB OperationalError on {request.path}: {e}")
+        print(f"[GLOBAL HANDLER] Traceback:\n{tb_str}")
+        _log_disk_health_warning()
+        user_msg = (
+            "Brandr is temporarily unavailable — the database is under heavy load "
+            "or the disk is full. Please refresh or try again in a moment."
+        )
+    else:
+        print(f"[GLOBAL HANDLER] Unhandled {type(e).__name__} on {request.path}: {e}")
+        print(f"[GLOBAL HANDLER] Traceback:\n{tb_str}")
+        user_msg = "Something went wrong on our end. Please refresh or try again shortly."
+
+    # API routes → JSON
+    if request.path.startswith('/api/'):
+        return jsonify({'success': False, 'error': user_msg}), 500
+
+    # HTML routes → friendly error card
+    return render_template_string('''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brandr — Temporarily Unavailable</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #121214; color: #eaeaea;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #1e1e22; border: 1px solid #333; border-radius: 12px;
+      padding: 2.5rem 3rem; max-width: 480px; width: 90%; text-align: center;
+    }
+    h1 { font-size: 1.4rem; margin-bottom: 1rem; color: #fff; }
+    p { color: #a0a0a0; line-height: 1.6; margin-bottom: 1.5rem; }
+    a {
+      display: inline-block; padding: 0.6rem 1.5rem;
+      background: #C7A53C; color: #121214; border-radius: 6px;
+      text-decoration: none; font-weight: 600;
+    }
+    a:hover { background: #d4b44e; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>⚠️ Something went wrong</h1>
+    <p>{{ message }}</p>
+    <a href="/portal/dashboard">Back to Dashboard</a>
+  </div>
+</body>
+</html>
+''', message=user_msg), 500
 
 
 def schedule_cleanup():
