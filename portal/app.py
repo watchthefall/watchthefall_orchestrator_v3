@@ -3676,9 +3676,10 @@ def handle_unhandled_exception(e):
     import traceback as _tb
     from werkzeug.exceptions import HTTPException
 
-    # HTTPExceptions (404, 403, 405…) pass through — Flask handles them normally
+    # HTTPExceptions (404, 403, 405, abort()…) pass through with their original status.
+    # e.get_response() works in both Flask 1.x and 2.x; bare `return e` is 2.x-only.
     if isinstance(e, HTTPException):
-        return e
+        return e.get_response()
 
     tb_str = _tb.format_exc()
 
