@@ -1,6 +1,8 @@
 """
 Database models and initialization
 """
+import os
+import sys
 import sqlite3
 import json
 import time
