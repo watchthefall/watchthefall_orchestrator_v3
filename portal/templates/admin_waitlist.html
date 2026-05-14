@@ -14,166 +14,173 @@
       min-height: 100vh;
     }
     .container {
-      max-width: 1100px;
+      max-width: 1200px;
       margin: 0 auto;
       padding: 32px 20px 60px;
     }
+
+    /* ── Header ── */
     .page-header {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 28px;
-      flex-wrap: wrap;
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 24px; flex-wrap: wrap;
     }
-    .page-header h1 { font-size: 1.5rem; font-weight: 700; color: #fff; }
+    .page-header h1 { font-size: 1.5rem; font-weight: 700; color: #fff; flex: 1; }
     .back-link {
-      font-size: 0.85rem;
-      color: #888;
-      text-decoration: none;
-      padding: 6px 12px;
-      border: 1px solid #2a2a30;
-      border-radius: 6px;
-      transition: color 0.2s, border-color 0.2s;
+      font-size: 0.85rem; color: #888; text-decoration: none;
+      padding: 6px 12px; border: 1px solid #2a2a30; border-radius: 6px;
+      transition: color .2s, border-color .2s;
     }
     .back-link:hover { color: #eaeaea; border-color: #555; }
-    .count-badge {
-      font-size: 0.8rem;
-      color: #888;
-      background: #1e1e22;
-      border: 1px solid #2a2a30;
-      border-radius: 99px;
-      padding: 3px 10px;
+    .btn-export {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 16px; background: #1e1e22; border: 1px solid #2a2a30;
+      border-radius: 6px; color: #C7A53C; font-size: 0.83rem; font-weight: 600;
+      text-decoration: none; transition: background .2s, border-color .2s;
+      white-space: nowrap;
     }
+    .btn-export:hover { background: #252528; border-color: #C7A53C; }
 
-    /* Empty state */
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: #555;
+    /* ── Summary count chips ── */
+    .counts-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+    .count-chip {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 13px; background: #1e1e22; border: 1px solid #2a2a30;
+      border-radius: 99px; font-size: 0.8rem; color: #888;
+      text-decoration: none; transition: border-color .15s, color .15s; white-space: nowrap;
     }
+    .count-chip:hover { border-color: #555; color: #ccc; }
+    .count-chip.active { border-color: #C7A53C; color: #C7A53C; }
+    .count-chip .n { font-size: 0.88rem; font-weight: 700; color: #eaeaea; }
+    .count-chip.active .n { color: #C7A53C; }
+
+    .result-line { font-size: 0.8rem; color: #555; margin-bottom: 16px; }
+
+    /* ── Empty state ── */
+    .empty-state { text-align: center; padding: 60px 20px; color: #555; }
     .empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; }
     .empty-state p { font-size: 0.95rem; }
 
-    /* Table */
-    .table-wrap {
-      overflow-x: auto;
-      border-radius: 12px;
-      border: 1px solid #2a2a30;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.88rem;
-    }
-    thead tr {
-      background: #1e1e22;
-      border-bottom: 1px solid #2a2a30;
-    }
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid #2a2a30; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    thead tr { background: #1e1e22; border-bottom: 1px solid #2a2a30; }
     th {
-      padding: 12px 14px;
-      text-align: left;
-      font-weight: 600;
-      color: #888;
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      white-space: nowrap;
+      padding: 11px 13px; text-align: left; font-weight: 600; color: #888;
+      font-size: 0.74rem; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
     }
-    tbody tr {
-      border-bottom: 1px solid #1e1e22;
-      transition: background 0.15s;
-    }
+    tbody tr { border-bottom: 1px solid #1e1e22; transition: background .15s; }
     tbody tr:last-child { border-bottom: none; }
     tbody tr:hover { background: #18181c; }
-    td {
-      padding: 12px 14px;
-      color: #ccc;
-      vertical-align: middle;
-    }
-    td.name { color: #eaeaea; font-weight: 500; }
-    td.email { color: #aaa; font-family: monospace; font-size: 0.83rem; }
-    td.muted { color: #666; }
+    td { padding: 11px 13px; color: #ccc; vertical-align: middle; }
+    td.name  { color: #eaeaea; font-weight: 500; max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    td.email { color: #aaa; font-family: monospace; font-size: 0.79rem; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    td.muted { color: #555; }
 
-    /* Platform badge */
+    /* ── Status badge ── */
+    .status-badge {
+      display: inline-block; padding: 2px 9px; border-radius: 99px;
+      font-size: 0.72rem; font-weight: 700; letter-spacing: .03em; white-space: nowrap;
+    }
+    .status-pending  { background: rgba(199,165,60,.15);  color: #C7A53C; }
+    .status-approved { background: rgba(74,222,128,.15);  color: #4ade80; }
+    .status-claimed  { background: rgba(96,165,250,.15);  color: #60a5fa; }
+    .status-rejected { background: rgba(248,113,113,.15); color: #f87171; }
+    .status-spam     { background: rgba(100,100,100,.12); color: #666;    }
+
+    /* ── Misc cell styles ── */
     .platform-badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      background: #2a2a30;
-      color: #aaa;
+      display: inline-block; padding: 2px 7px; border-radius: 4px;
+      font-size: 0.72rem; font-weight: 600; background: #2a2a30; color: #aaa;
     }
-
-    /* Date */
-    .date-cell { font-size: 0.8rem; color: #666; white-space: nowrap; }
-
-    /* Referral */
-    .ref-code {
-      font-family: monospace;
-      font-size: 0.8rem;
-      color: #C7A53C;
-      background: rgba(199,165,60,0.08);
-      border-radius: 4px;
-      padding: 1px 6px;
+    .date-cell  { font-size: 0.77rem; color: #555; white-space: nowrap; }
+    .ref-code   {
+      font-family: monospace; font-size: 0.77rem; color: #C7A53C;
+      background: rgba(199,165,60,.08); border-radius: 4px; padding: 1px 5px;
     }
+    .discord-handle { font-size: 0.77rem; color: #7289da; }
 
-    /* Approve button */
-    .btn-approve {
-      padding: 6px 16px;
-      background: #C7A53C;
-      color: #121214;
-      font-weight: 700;
-      font-size: 0.82rem;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.2s, opacity 0.2s;
-      white-space: nowrap;
+    /* ── Action buttons ── */
+    .actions { display: flex; gap: 5px; flex-wrap: nowrap; align-items: center; }
+    .btn-action {
+      padding: 4px 11px; font-size: 0.77rem; font-weight: 700;
+      border: 1px solid transparent; border-radius: 5px; cursor: pointer;
+      transition: opacity .2s, background .2s; white-space: nowrap;
     }
-    .btn-approve:hover { background: #d4b44e; }
-    .btn-approve:disabled { opacity: 0.5; cursor: not-allowed; }
-    .approved-label {
-      font-size: 0.82rem;
-      color: #4ade80;
-      font-weight: 600;
-      display: none;
-    }
+    .btn-action:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-approve { background: #C7A53C; color: #121214; border-color: #C7A53C; }
+    .btn-approve:hover:not(:disabled) { background: #d4b44e; }
+    .btn-reject  { background: rgba(248,113,113,.1); color: #f87171; border-color: rgba(248,113,113,.3); }
+    .btn-reject:hover:not(:disabled)  { background: rgba(248,113,113,.2); }
+    .btn-spam    { background: #1e1e22; color: #666; border-color: #2a2a30; }
+    .btn-spam:hover:not(:disabled)    { color: #888; border-color: #444; }
+    .btn-reset   { background: #1e1e22; color: #aaa; border-color: #2a2a30; }
+    .btn-reset:hover:not(:disabled)   { background: #252528; }
 
-    /* Notes / discord */
-    .discord-handle { font-size: 0.8rem; color: #7289da; }
+    .action-done { font-size: 0.77rem; font-weight: 600; white-space: nowrap; }
+    .action-done.approved { color: #4ade80; }
+    .action-done.claimed  { color: #60a5fa; }
+    .action-done.rejected { color: #f87171; }
+    .action-done.spam     { color: #666; }
 
-    /* Toast */
+    /* ── Toast ── */
     #toast {
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
+      position: fixed; bottom: 24px; left: 50%;
       transform: translateX(-50%) translateY(80px);
-      background: #202026;
-      border: 1px solid #2a2a30;
-      border-radius: 8px;
-      padding: 10px 20px;
-      font-size: 0.88rem;
-      color: #eaeaea;
-      transition: transform 0.3s ease;
-      z-index: 999;
-      pointer-events: none;
-      white-space: nowrap;
+      background: #202026; border: 1px solid #2a2a30; border-radius: 8px;
+      padding: 10px 20px; font-size: 0.88rem; color: #eaeaea;
+      transition: transform .3s ease; z-index: 999;
+      pointer-events: none; white-space: nowrap;
     }
-    #toast.show { transform: translateX(-50%) translateY(0); }
-    #toast.success { border-color: rgba(74,222,128,0.4); color: #4ade80; }
-    #toast.error   { border-color: rgba(248,113,113,0.4); color: #f87171; }
+    #toast.show    { transform: translateX(-50%) translateY(0); }
+    #toast.success { border-color: rgba(74,222,128,.4); color: #4ade80; }
+    #toast.error   { border-color: rgba(248,113,113,.4); color: #f87171; }
   </style>
 </head>
 <body>
   {% include '_nav.html' %}
 
   <div class="container">
+
+    <!-- Header -->
     <div class="page-header">
       <a href="/portal/admin" class="back-link">← Admin Console</a>
       <h1>Beta Waitlist</h1>
-      <span class="count-badge">{{ entries|length }} pending</span>
+      <a href="/portal/admin/waitlist/export" class="btn-export">⬇ Export CSV</a>
     </div>
+
+    <!-- Summary count chips (also act as filter links) -->
+    <div class="counts-row">
+      <a href="/portal/admin/waitlist"
+         class="count-chip {% if active_filter == 'all' %}active{% endif %}">
+        All <span class="n">{{ counts.total }}</span>
+      </a>
+      <a href="/portal/admin/waitlist?status=pending"
+         class="count-chip {% if active_filter == 'pending' %}active{% endif %}">
+        Pending <span class="n">{{ counts.pending }}</span>
+      </a>
+      <a href="/portal/admin/waitlist?status=approved"
+         class="count-chip {% if active_filter == 'approved' %}active{% endif %}">
+        Approved <span class="n">{{ counts.approved }}</span>
+      </a>
+      <a href="/portal/admin/waitlist?status=claimed"
+         class="count-chip {% if active_filter == 'claimed' %}active{% endif %}">
+        Claimed <span class="n">{{ counts.claimed }}</span>
+      </a>
+      <a href="/portal/admin/waitlist?status=rejected"
+         class="count-chip {% if active_filter == 'rejected' %}active{% endif %}">
+        Rejected <span class="n">{{ counts.rejected }}</span>
+      </a>
+      <a href="/portal/admin/waitlist?status=spam"
+         class="count-chip {% if active_filter == 'spam' %}active{% endif %}">
+        Spam <span class="n">{{ counts.spam }}</span>
+      </a>
+    </div>
+
+    <p class="result-line">
+      Showing <strong style="color:#888">{{ entries|length }}</strong>
+      entr{{ 'y' if entries|length == 1 else 'ies' }}{% if active_filter != 'all' %}
+      &nbsp;—&nbsp;<span style="color:#aaa">{{ active_filter }}</span>{% endif %}
+    </p>
 
     {% if entries %}
     <div class="table-wrap">
@@ -181,6 +188,7 @@
         <thead>
           <tr>
             <th>#</th>
+            <th>Status</th>
             <th>Name</th>
             <th>Email</th>
             <th>Platform</th>
@@ -189,56 +197,87 @@
             <th>Discord</th>
             <th>Referral</th>
             <th>Submitted</th>
-            <th>Action</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {% for e in entries %}
+          {% set s = e.status or 'pending' %}
           <tr id="row-{{ e.id }}">
             <td class="muted">{{ e.id }}</td>
-            <td class="name">{{ e.creator_name or '—' }}</td>
-            <td class="email">{{ e.email }}</td>
+
             <td>
-              {% if e.main_platform %}
-                <span class="platform-badge">{{ e.main_platform }}</span>
-              {% else %}
-                <span class="muted">—</span>
-              {% endif %}
+              <span class="status-badge status-{{ s }}" id="badge-{{ e.id }}">
+                {{ s|title }}
+              </span>
             </td>
+
+            <td class="name" title="{{ e.creator_name or '' }}">{{ e.creator_name or '—' }}</td>
+            <td class="email" title="{{ e.email }}">{{ e.email }}</td>
+
+            <td>
+              {% if e.main_platform %}<span class="platform-badge">{{ e.main_platform }}</span>
+              {% else %}<span class="muted">—</span>{% endif %}
+            </td>
+
             <td>{{ e.creator_type or '—' }}</td>
             <td class="muted">{{ e.page_count or '—' }}</td>
+
             <td>
-              {% if e.discord_username %}
-                <span class="discord-handle">{{ e.discord_username }}</span>
-              {% else %}
-                <span class="muted">—</span>
-              {% endif %}
+              {% if e.discord_username %}<span class="discord-handle">{{ e.discord_username }}</span>
+              {% else %}<span class="muted">—</span>{% endif %}
             </td>
+
             <td>
-              {% if e.referral_code_used %}
-                <span class="ref-code">{{ e.referral_code_used }}</span>
-              {% else %}
-                <span class="muted">—</span>
-              {% endif %}
+              {% if e.referral_code_used %}<span class="ref-code">{{ e.referral_code_used }}</span>
+              {% else %}<span class="muted">—</span>{% endif %}
             </td>
-            <td class="date-cell">
-              {{ e.created_at[:10] if e.created_at else '—' }}
-            </td>
+
+            <td class="date-cell">{{ e.created_at[:10] if e.created_at else '—' }}</td>
+
             <td>
-              <button class="btn-approve" onclick="approveEntry({{ e.id }}, this)">
-                Approve
-              </button>
-              <span class="approved-label" id="approved-{{ e.id }}">✓ Approved</span>
+              <div class="actions" id="actions-{{ e.id }}">
+                {% if s == 'pending' %}
+                  <button class="btn-action btn-approve"
+                          onclick="approveEntry({{ e.id }}, this)">Approve</button>
+                  <button class="btn-action btn-reject"
+                          onclick="doSetStatus({{ e.id }}, 'rejected', this)">Reject</button>
+                  <button class="btn-action btn-spam"
+                          onclick="doSetStatus({{ e.id }}, 'spam', this)">Spam</button>
+
+                {% elif s == 'approved' %}
+                  <span class="action-done approved">✓ Approved</span>
+                  <button class="btn-action btn-reset"
+                          onclick="doSetStatus({{ e.id }}, 'pending', this)">↩ Reset</button>
+
+                {% elif s == 'claimed' %}
+                  <span class="action-done claimed">✓ Claimed</span>
+
+                {% elif s == 'rejected' %}
+                  <span class="action-done rejected">✗ Rejected</span>
+                  <button class="btn-action btn-reset"
+                          onclick="doSetStatus({{ e.id }}, 'pending', this)">↩ Reset</button>
+
+                {% elif s == 'spam' %}
+                  <span class="action-done spam">⚠ Spam</span>
+                  <button class="btn-action btn-reset"
+                          onclick="doSetStatus({{ e.id }}, 'pending', this)">↩ Reset</button>
+
+                {% else %}
+                  <span class="muted">{{ s }}</span>
+                {% endif %}
+              </div>
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+
     {% else %}
     <div class="empty-state">
       <div class="icon">📋</div>
-      <p>No pending waitlist entries.</p>
+      <p>No entries{% if active_filter != 'all' %} with status <strong>{{ active_filter }}</strong>{% endif %}.</p>
     </div>
     {% endif %}
   </div>
@@ -251,30 +290,87 @@
 
     function showToast(msg, type) {
       toast.textContent = msg;
-      toast.className = 'show ' + type;
+      toast.className = 'show ' + (type || '');
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => { toast.className = ''; }, 3000);
+      toastTimer = setTimeout(() => { toast.className = ''; }, 3500);
+    }
+
+    /* Re-render the status badge and action cell after an in-page action. */
+    function applyNewStatus(id, newStatus) {
+      // Update badge
+      const badge = document.getElementById('badge-' + id);
+      if (badge) {
+        badge.className = 'status-badge status-' + newStatus;
+        badge.textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+      }
+
+      // Rebuild action cell
+      const cell = document.getElementById('actions-' + id);
+      if (!cell) return;
+
+      const resetBtn = `<button class="btn-action btn-reset" onclick="doSetStatus(${id},'pending',this)">↩ Reset</button>`;
+
+      const map = {
+        pending:  `<button class="btn-action btn-approve" onclick="approveEntry(${id},this)">Approve</button>
+                   <button class="btn-action btn-reject"  onclick="doSetStatus(${id},'rejected',this)">Reject</button>
+                   <button class="btn-action btn-spam"    onclick="doSetStatus(${id},'spam',this)">Spam</button>`,
+        approved: `<span class="action-done approved">✓ Approved</span>${resetBtn}`,
+        claimed:  `<span class="action-done claimed">✓ Claimed</span>`,
+        rejected: `<span class="action-done rejected">✗ Rejected</span>${resetBtn}`,
+        spam:     `<span class="action-done spam">⚠ Spam</span>${resetBtn}`,
+      };
+      cell.innerHTML = map[newStatus] || `<span class="muted">${newStatus}</span>`;
     }
 
     async function approveEntry(id, btn) {
       btn.disabled = true;
       btn.textContent = 'Approving…';
       try {
-        const res = await fetch(`/portal/admin/waitlist/${id}/approve`, { method: 'POST' });
+        const res  = await fetch(`/portal/admin/waitlist/${id}/approve`, { method: 'POST' });
         const json = await res.json();
         if (json.success) {
-          btn.style.display = 'none';
-          const label = document.getElementById('approved-' + id);
-          if (label) label.style.display = 'inline';
+          applyNewStatus(id, 'approved');
           showToast('Approved — they can now register with that email.', 'success');
         } else {
           btn.disabled = false;
           btn.textContent = 'Approve';
           showToast(json.error || 'Failed to approve. Try again.', 'error');
         }
-      } catch (_err) {
+      } catch (_) {
         btn.disabled = false;
         btn.textContent = 'Approve';
+        showToast('Network error. Try again.', 'error');
+      }
+    }
+
+    async function doSetStatus(id, newStatus, btn) {
+      const orig = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '…';
+      try {
+        const res  = await fetch(`/portal/admin/waitlist/${id}/status`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ status: newStatus }),
+        });
+        const json = await res.json();
+        if (json.success) {
+          applyNewStatus(id, newStatus);
+          const msg = {
+            rejected: 'Marked as rejected.',
+            spam:     'Marked as spam.',
+            pending:  'Reset to pending.',
+            approved: 'Approved.',
+          }[newStatus] || `Status set to ${newStatus}.`;
+          showToast(msg, 'success');
+        } else {
+          btn.disabled = false;
+          btn.textContent = orig;
+          showToast(json.error || 'Action failed. Try again.', 'error');
+        }
+      } catch (_) {
+        btn.disabled = false;
+        btn.textContent = orig;
         showToast('Network error. Try again.', 'error');
       }
     }

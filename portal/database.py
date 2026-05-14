@@ -568,17 +568,79 @@ def get_waitlist_entry_by_email(email, timeout=8.0):
 
 
 def get_pending_waitlist_entries():
-    """Return all pending waitlist entries ordered by created_at ascending."""
+    """Return all pending waitlist entries ordered by created_at ascending.
+    Kept for backward-compat; prefer get_all_waitlist_entries(status='pending')."""
+    return get_all_waitlist_entries(status='pending')
+
+
+def get_all_waitlist_entries(status=None):
+    """Return waitlist entries, optionally filtered by status.
+    status=None returns everything, ordered newest-first.
+    Any unknown status value simply returns zero rows (no crash)."""
     try:
         with get_connection() as conn:
             c = conn.cursor()
-            c.execute(
-                "SELECT * FROM beta_access WHERE status = 'pending' ORDER BY created_at ASC"
-            )
+            if status:
+                c.execute(
+                    "SELECT * FROM beta_access WHERE status = ? ORDER BY created_at DESC",
+                    (status,)
+                )
+            else:
+                c.execute("SELECT * FROM beta_access ORDER BY created_at DESC")
             return [dict(r) for r in c.fetchall()]
     except Exception as e:
-        print(f"[BETA_ACCESS] get_pending_waitlist_entries error: {e}")
+        print(f"[BETA_ACCESS] get_all_waitlist_entries error: {e}")
         return []
+
+
+def get_waitlist_counts():
+    """Return a dict of entry counts per status, plus a grand total.
+    Always returns all expected keys even if a status has zero rows."""
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute("SELECT status, COUNT(*) as cnt FROM beta_access GROUP BY status")
+            rows = c.fetchall()
+        counts = {'total': 0, 'pending': 0, 'approved': 0,
+                  'claimed': 0, 'rejected': 0, 'spam': 0}
+        for row in rows:
+            s = row['status'] or 'pending'
+            if s in counts:
+                counts[s] = row['cnt']
+            else:
+                counts[s] = row['cnt']   # preserve unknown statuses
+            counts['total'] += row['cnt']
+        return counts
+    except Exception as e:
+        print(f"[BETA_ACCESS] get_waitlist_counts error: {e}")
+        return {'total': 0, 'pending': 0, 'approved': 0,
+                'claimed': 0, 'rejected': 0, 'spam': 0}
+
+
+def set_waitlist_entry_status(entry_id, new_status, actioned_by):
+    """Set an arbitrary status on a beta_access row (rejected, spam, etc.).
+    Appends an audit note recording who changed it and when.
+    Returns True on success, False if the row was not found."""
+    now = datetime.utcnow().isoformat()
+    note_line = f"[{now}] status→'{new_status}' by {actioned_by}"
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute('SELECT notes FROM beta_access WHERE id = ?', (entry_id,))
+            row = c.fetchone()
+            if not row:
+                return False
+            existing = (row['notes'] or '').strip()
+            new_notes = (existing + '\n' + note_line).strip()
+            c.execute(
+                "UPDATE beta_access SET status = ?, notes = ? WHERE id = ?",
+                (new_status, new_notes, entry_id)
+            )
+            conn.commit()
+            return c.rowcount > 0
+    except Exception as e:
+        print(f"[BETA_ACCESS] set_waitlist_entry_status error for id={entry_id}: {e}")
+        return False
 
 
 def approve_waitlist_entry(entry_id, approved_by_email):

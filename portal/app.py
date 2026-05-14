@@ -1,7 +1,7 @@
 """
 Brandr - Flask Application
 """
-from flask import Flask, request, jsonify, render_template, render_template_string, send_from_directory, send_file, redirect, url_for, session, flash
+from flask import Flask, request, jsonify, render_template, render_template_string, send_from_directory, send_file, redirect, url_for, session, flash, Response
 import os
 import io
 import json
@@ -90,7 +90,8 @@ from .database import (
     log_event, get_daily_usage, increment_branding_jobs, increment_downloads,
     get_user_special_status, set_user_special_status,
     create_waitlist_entry, get_waitlist_entry_by_email,
-    get_pending_waitlist_entries, approve_waitlist_entry, claim_waitlist_entry,
+    get_pending_waitlist_entries, get_all_waitlist_entries, get_waitlist_counts,
+    approve_waitlist_entry, claim_waitlist_entry, set_waitlist_entry_status,
 )
 
 
@@ -471,17 +472,72 @@ def change_password():
 
 # ── Admin: Beta Waitlist ──
 
+_WAITLIST_STATUSES = {'pending', 'approved', 'claimed', 'rejected', 'spam'}
+
+
 @app.route('/portal/admin/waitlist')
 @admin_required
 def admin_waitlist():
-    """Admin view: list all pending beta waitlist entries."""
+    """Admin view: all waitlist entries with optional ?status= filter and summary counts."""
     import traceback as _tb
+
+    status_filter = request.args.get('status', '').strip().lower() or None
+    if status_filter and status_filter not in _WAITLIST_STATUSES:
+        status_filter = None  # ignore unrecognised filter values
+
     try:
-        entries = get_pending_waitlist_entries()
-    except Exception as _e:
+        entries = get_all_waitlist_entries(status=status_filter)
+    except Exception:
         print(f"[ADMIN WAITLIST] Error fetching entries: {_tb.format_exc()}")
         entries = []
-    return render_template('admin_waitlist.html', entries=entries)
+
+    try:
+        counts = get_waitlist_counts()
+    except Exception:
+        print(f"[ADMIN WAITLIST] Error fetching counts: {_tb.format_exc()}")
+        counts = {'total': 0, 'pending': 0, 'approved': 0,
+                  'claimed': 0, 'rejected': 0, 'spam': 0}
+
+    return render_template('admin_waitlist.html',
+                           entries=entries,
+                           counts=counts,
+                           active_filter=status_filter or 'all')
+
+
+@app.route('/portal/admin/waitlist/export')
+@admin_required
+def admin_waitlist_export():
+    """Export all waitlist entries as a UTF-8 CSV download."""
+    import csv, io, traceback as _tb
+    from datetime import datetime as _dt
+
+    try:
+        entries = get_all_waitlist_entries()
+    except Exception:
+        print(f"[ADMIN WAITLIST] Export error: {_tb.format_exc()}")
+        return jsonify({'success': False, 'error': 'Could not fetch waitlist data.'}), 500
+
+    fields = [
+        'id', 'email', 'creator_name', 'main_platform', 'creator_type',
+        'page_count', 'referral_code_used', 'discord_username', 'status',
+        'access_level', 'tier_grant', 'founding_status', 'founding_discount_percent',
+        'referred_by_user_id', 'claimed_user_id', 'created_at',
+        'approved_at', 'approved_by', 'claimed_at', 'notes',
+    ]
+
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fields, extrasaction='ignore')
+    writer.writeheader()
+    for entry in entries:
+        writer.writerow({k: (entry.get(k) if entry.get(k) is not None else '') for k in fields})
+
+    filename = f"brandr_waitlist_{_dt.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+    print(f"[ADMIN WAITLIST] CSV export: {len(entries)} rows by {session.get('email')}")
+    return Response(
+        buf.getvalue(),
+        mimetype='text/csv; charset=utf-8',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )
 
 
 @app.route('/portal/admin/waitlist/<int:entry_id>/approve', methods=['POST'])
@@ -493,11 +549,35 @@ def admin_waitlist_approve(entry_id):
         success = approve_waitlist_entry(entry_id, session.get('email', 'admin'))
         if success:
             print(f"[ADMIN WAITLIST] Approved entry id={entry_id} by {session.get('email')}")
-            return jsonify({'success': True})
+            return jsonify({'success': True, 'status': 'approved'})
         return jsonify({'success': False, 'error': 'Entry not found or already actioned.'}), 404
     except Exception as _e:
         print(f"[ADMIN WAITLIST] Approve error for id={entry_id}: {_tb.format_exc()}")
         return jsonify({'success': False, 'error': 'Server error approving entry.'}), 500
+
+
+@app.route('/portal/admin/waitlist/<int:entry_id>/status', methods=['POST'])
+@admin_required
+def admin_waitlist_set_status(entry_id):
+    """Admin action: set status to rejected or spam (or reset to pending)."""
+    import traceback as _tb
+    try:
+        data = request.get_json(force=True) or {}
+        new_status = (data.get('status') or '').strip().lower()
+        if new_status not in _WAITLIST_STATUSES:
+            return jsonify({
+                'success': False,
+                'error': f"Invalid status '{new_status}'. Allowed: {sorted(_WAITLIST_STATUSES)}"
+            }), 400
+
+        success = set_waitlist_entry_status(entry_id, new_status, session.get('email', 'admin'))
+        if success:
+            print(f"[ADMIN WAITLIST] id={entry_id} → '{new_status}' by {session.get('email')}")
+            return jsonify({'success': True, 'status': new_status})
+        return jsonify({'success': False, 'error': 'Entry not found.'}), 404
+    except Exception:
+        print(f"[ADMIN WAITLIST] Set-status error for id={entry_id}: {_tb.format_exc()}")
+        return jsonify({'success': False, 'error': 'Server error.'}), 500
 
 
 # ── Admin API: Password Reset ──
