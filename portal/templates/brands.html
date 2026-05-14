@@ -1361,7 +1361,7 @@
     #composerMainCanvas {
         width: min(100%, 420px);
         height: auto;
-        max-height: none;
+        max-height: 50vh; /* Prevent canvas from consuming the full screen on mobile */
     }
 
     .canvas-hint {
@@ -3001,7 +3001,11 @@ async function createBrand(e) {
 function editBrand(brandId) {
     const loadToken = ++wizardLoadToken;
     resetWizardWatermarkUi();
-    
+    // Reset save button and drag state before the async fetch so the wizard never
+    // opens with stale "Saving..." state from a previous session.
+    resetWizardSaveButton();
+    composerDragging = false;
+
     // Fetch brand data and open the 2-step wizard in edit mode
     fetch(`${apiBase}/api/brands/${brandId}`)
         .then(res => res.json())
@@ -3265,6 +3269,24 @@ function setWatermarkEditorVisibility(isVisible) {
     wmEditor.style.display = isVisible ? '' : 'none';
 }
 
+// ========== WIZARD SAVE-STATE HELPERS ==========
+// Single timer ID; cleared on every successful reset so it never fires stale.
+let _wizardSaveTimer = null;
+
+/** Reset the Step-2 Save Brand button to its default enabled state.
+ *  Safe to call from anywhere: open, close, success, error, early-return paths.
+ *  Also cancels any pending safety timeout. */
+function resetWizardSaveButton() {
+    clearTimeout(_wizardSaveTimer);
+    _wizardSaveTimer = null;
+    const saveBtn = document.querySelector('#wizardStep2 .wizard-actions .btn-primary');
+    if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Brand';
+    }
+}
+// ========== END WIZARD SAVE-STATE HELPERS ==========
+
 
 // ========== STEP 4: GLOBAL PLACEMENT ENGINE (v2) ==========
 // State and configuration are now defined in the Step 4 section below to ensure v2 logic is used.
@@ -3282,13 +3304,18 @@ function openBrandWizard() {
     
     wizardLoadToken += 1;
     resetWizardWatermarkUi();
-    
+    // Always start from a clean save-button state regardless of previous session
+    resetWizardSaveButton();
+
     // Clear stale globals
     wizardLogoImage = null;
     wizardDragging = false;
     wizardPinching = false;
+    wizardPinchStartDist = 0;
+    wizardPinchStartScale = 0;
     wizardDragOffset = { x: 0, y: 0 };
-    
+    composerDragging = false;
+
     // Reset state to defaults
     wizardState = {
         step: 1,
@@ -3406,13 +3433,18 @@ function closeBrandWizard() {
     // Clear logo preview URL to prevent memory leaks
     revokePreviewUrlIfBlob(wizardState.logoPreviewUrl);
     revokePreviewUrlIfBlob(wizardState.watermarkPreviewUrl);
-    
+
+    // Always reset the save button on close — covers in-flight close, TIER_LIMIT
+    // path, and any other early exit where the button may still be in "Saving..." state.
+    resetWizardSaveButton();
+
     // ========== WIZARD STABILIZATION (Commit A): Clear stale globals on close ==========
     // Ensure image globals are cleared when wizard closes
     wizardLogoImage = null;
     wizardWatermarkImage = null;
     wizardDragging = false;
     wizardPinching = false;
+    composerDragging = false;
     // ========== END STABILIZATION ==========
 }
 
@@ -3900,17 +3932,26 @@ function applyShapeClip(ctx, shape, x, y, w, h, assetType) {
 
 function drawComposerCanvas() {
     const canvas = document.getElementById('composerMainCanvas');
-    if (!canvas || !wizardLogoImage) {
-        console.warn('[Composer][draw] Early return: missing canvas or logo image', {
-            hasCanvas: !!canvas,
-            hasLogoImage: !!wizardLogoImage,
-            logoComplete: !!wizardLogoImage?.complete,
-            editMode: wizardState.editMode === true,
-            brandId: wizardState.editBrandId || null,
-            logoPreviewUrl: wizardState.logoPreviewUrl || null,
-            watermarkPreviewUrl: wizardState.watermarkPreviewUrl || null,
-            previewMode: wizardState.previewMode || 'logo'
-        });
+    if (!canvas) return;
+
+    // If logo hasn't loaded yet, draw a visible placeholder so the canvas isn't
+    // a featureless black rectangle on mobile (especially during slow server loads).
+    if (!wizardLogoImage) {
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height;
+        ctx.clearRect(0, 0, W, H);
+        const grad = ctx.createLinearGradient(0, 0, W, H);
+        grad.addColorStop(0, '#1a1a2e');
+        grad.addColorStop(1, '#0f0c29');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = 'rgba(255,255,255,0.28)';
+        ctx.font = '15px -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Loading brand image…', W / 2, H / 2 - 8);
+        ctx.font = '12px -apple-system, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.14)';
+        ctx.fillText('(this should only take a moment)', W / 2, H / 2 + 14);
         return;
     }
     
@@ -6852,10 +6893,17 @@ async function saveWizardBrand() {
         saveBtn.disabled = true;
         saveBtn.textContent = 'Saving...';
     }
-    
+    // Safety timeout: auto-recover after 30 s so mobile never stays stuck forever
+    clearTimeout(_wizardSaveTimer);
+    _wizardSaveTimer = setTimeout(function() {
+        resetWizardSaveButton();
+        const s = document.getElementById('wizardStatus');
+        if (s) s.innerHTML = '<div class="status-msg error">❌ Save timed out. Please try again.</div>';
+    }, 30000);
+
     try {
         let brandId;
-        
+
         if (isEdit) {
             // Edit mode: use existing brand ID
             brandId = wizardState.editBrandId;
@@ -6863,7 +6911,7 @@ async function saveWizardBrand() {
         } else {
             // Create mode: create new brand
             status.innerHTML = '<div class="status-msg info">Creating brand...</div>';
-            
+
             const createRes = await fetch(`${apiBase}/api/brands`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -6872,10 +6920,11 @@ async function saveWizardBrand() {
                     display_name: wizardState.displayName
                 })
             });
-            
+
             const createData = await createRes.json();
             if (!createData.success) {
                 if (createData.code === 'TIER_LIMIT_REACHED') {
+                    resetWizardSaveButton(); // must reset before close so next open is clean
                     closeBrandWizard();
                     showUpgradeModal(null, createData.error);
                     return;
@@ -6975,23 +7024,17 @@ async function saveWizardBrand() {
         
         const successMsg = isEdit ? 'Brand updated successfully!' : 'Brand created successfully!';
         status.innerHTML = `<div class="status-msg success">✅ ${successMsg}</div>`;
-        
-        // Re-enable save button before closing
-        if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.textContent = 'Save Brand';
-        }
-        
+
+        // Re-enable save button before closing (also clears safety timeout)
+        resetWizardSaveButton();
+
         setTimeout(() => {
             closeBrandWizard();
             loadBrands();
         }, 1000);
-        
+
     } catch (err) {
-        if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.textContent = 'Save Brand';
-        }
+        resetWizardSaveButton();
         status.innerHTML = `<div class="status-msg error">❌ ${err.message}</div>`;
     }
 }
@@ -7035,13 +7078,14 @@ async function saveWizardBrandWithWatermark() {
         const createData = await createRes.json();
         if (!createData.success) {
             if (createData.code === 'TIER_LIMIT_REACHED') {
+                resetWizardSaveButton(); // must reset before close so next open is clean
                 closeBrandWizard();
                 showUpgradeModal(null, createData.error);
                 return;
             }
             throw new Error(createData.error || 'Failed to create brand');
         }
-        
+
         const brandId = createData.brand_id;
         
         // Step 2: Upload logo if present
@@ -7176,26 +7220,17 @@ async function saveWizardBrandWithWatermark() {
         }
         
         status.innerHTML = '<div class="status-msg success">✅ Brand created successfully!</div>';
-        
-        // ========== WIZARD STABILIZATION (Commit A): Re-enable button before close ==========
-        // Reset button state so next wizard open starts fresh
-        if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.textContent = 'Save Brand';
-        }
-        // ========== END STABILIZATION ==========
-        
+
+        // Reset button state so next wizard open starts fresh (also clears safety timeout)
+        resetWizardSaveButton();
+
         setTimeout(() => {
             closeBrandWizard();
             loadBrands();
         }, 1000);
-        
+
     } catch (err) {
-        // Re-enable button on error
-        if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.textContent = 'Save Brand';
-        }
+        resetWizardSaveButton();
         status.innerHTML = `<div class="status-msg error">❌ ${err.message}</div>`;
     }
 }
