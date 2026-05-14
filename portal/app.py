@@ -92,6 +92,7 @@ from .database import (
     create_waitlist_entry, get_waitlist_entry_by_email,
     get_pending_waitlist_entries, get_all_waitlist_entries, get_waitlist_counts,
     approve_waitlist_entry, claim_waitlist_entry, set_waitlist_entry_status,
+    user_can_download_filename,
 )
 
 
@@ -2435,6 +2436,15 @@ def download_video(filename):
     filename = os.path.basename(filename)
     print(f'[DOWNLOAD] Requested: {filename}')
 
+    user_id = session.get('user_id')
+
+    # Ownership check — must pass before we reveal whether the file exists.
+    # Returns False on any DB error (conservative deny-by-default).
+    if not user_can_download_filename(user_id, filename):
+        print(f'[DOWNLOAD] Ownership denied: user={user_id} file={filename}')
+        # Return 404, not 403, so we don't reveal file existence to non-owners.
+        return jsonify({'error': 'File not found', 'filename': filename}), 404
+
     # Search all known locations in priority order
     search_paths = [
         os.path.join(OUTPUT_DIR, filename),   # branded outputs first
@@ -2443,14 +2453,14 @@ def download_video(filename):
     ]
     filepath = next((p for p in search_paths if os.path.exists(p)), None)
 
-    # Last resort: authoritative file_path from downloads DB record
+    # Last resort: authoritative file_path from downloads DB record (user-scoped)
     if filepath is None:
         try:
             with get_connection() as conn:
                 c = conn.cursor()
                 c.execute(
-                    'SELECT file_path FROM downloads WHERE filename = ? ORDER BY created_at DESC LIMIT 1',
-                    (filename,)
+                    'SELECT file_path FROM downloads WHERE filename = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1',
+                    (filename, user_id)
                 )
                 row = c.fetchone()
                 if row and row['file_path'] and os.path.exists(row['file_path']):
@@ -2497,6 +2507,8 @@ def download_zip():
     if not raw_files:
         return jsonify({'error': 'No files requested'}), 400
 
+    user_id = session.get('user_id')
+
     # Sanitize: basename only, .mp4 only, no traversal
     sanitized, rejected = [], []
     for name in raw_files:
@@ -2509,6 +2521,13 @@ def download_zip():
     if rejected:
         print(f'[DOWNLOAD-ZIP] Rejected (invalid names): {rejected}')
         return jsonify({'error': 'Invalid filenames', 'rejected': rejected}), 400
+
+    # Ownership check — reject the entire request if any file is not owned.
+    # Deny-by-default: user_can_download_filename returns False on DB errors.
+    unauthorized = [f for f in sanitized if not user_can_download_filename(user_id, f)]
+    if unauthorized:
+        print(f'[DOWNLOAD-ZIP] Ownership denied for user={user_id}: {unauthorized}')
+        return jsonify({'error': 'Unauthorized', 'unauthorized': unauthorized}), 403
 
     # Resolve files — branded outputs live in OUTPUT_DIR only
     found, missing = [], []

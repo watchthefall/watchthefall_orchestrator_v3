@@ -1479,6 +1479,72 @@ def set_user_special_status(user_id, status):
     return _retry_write(_do_update)
 
 
+# ============================================================================
+# OWNERSHIP HELPERS
+# ============================================================================
+
+def user_can_download_filename(user_id, filename):
+    """Return True if user_id is permitted to download this filename.
+
+    Covers two cases:
+      1. Raw/fetched file  — filename matches a downloads row owned by this user.
+      2. Branded output    — filename is "{source_stem}_{brand}.mp4"; check that
+                             the source file ("{source_stem}.mp4") is in downloads
+                             and owned by this user.
+
+    Conservative by design:
+      • Returns False on any DB error (never raises, never 500s the caller).
+      • Returns False if ownership cannot be confirmed — deny by default.
+
+    Does NOT verify whether the file physically exists on disk; callers
+    must still do their own os.path.exists() check.
+    """
+    if not user_id or not filename:
+        return False
+
+    # Filenames are already basename-sanitised by the caller, but be defensive.
+    filename = os.path.basename(filename)
+
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+
+            # Case 1: direct match (raw / fetched file)
+            c.execute(
+                'SELECT id FROM downloads WHERE filename = ? AND user_id = ? LIMIT 1',
+                (filename, user_id)
+            )
+            if c.fetchone():
+                return True
+
+            # Case 2: branded output — strip the last "_segment" to get source stem.
+            # Format: "{source_stem}_{brand_name}.mp4"
+            # source_stem may itself contain underscores (e.g. "my_video_abc123"),
+            # so we split off only the final segment.
+            stem_with_ext = filename[:-4] if filename.endswith('.mp4') else filename
+            parts = stem_with_ext.split('_')
+            if len(parts) >= 2:
+                source_stem = '_'.join(parts[:-1])
+                source_filename = source_stem + '.mp4'
+                c.execute(
+                    'SELECT id FROM downloads WHERE filename = ? AND user_id = ? LIMIT 1',
+                    (source_filename, user_id)
+                )
+                if c.fetchone():
+                    return True
+
+            return False
+
+    except Exception as e:
+        print(f'[OWNERSHIP] user_can_download_filename error for user={user_id} file={filename}: {e}')
+        return False
+
+
+# ============================================================================
+# END OWNERSHIP HELPERS
+# ============================================================================
+
+
 # Initialize database on import
 init_db()
 
