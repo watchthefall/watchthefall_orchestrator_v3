@@ -5681,7 +5681,18 @@ function inlineFetchVideo() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ urls: [url] })
     })
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+        if (!r.ok) {
+            // Surface HTTP errors (500, 403, etc.) with a clear message
+            return r.json().catch(function() {
+                return { success: false, error: 'Server error (' + r.status + '). Please try again.' };
+            }).then(function(data) {
+                var msg = data.error || ('Server error (' + r.status + '). Please try again.');
+                throw new Error(msg);
+            });
+        }
+        return r.json();
+    })
     .then(function(data) {
         if (data.success && data.results && data.results[0] && data.results[0].success) {
             var result = data.results[0];
@@ -5697,14 +5708,15 @@ function inlineFetchVideo() {
                 openUpgradeModal('Download limit reached', data.message);
             }
         } else {
-            var errMsg = (data.results && data.results[0] && data.results[0].error) || data.error || 'Download failed.';
+            var errMsg = (data.results && data.results[0] && data.results[0].error) || data.error || 'Download failed. Please try again.';
             status.style.color = '#ff6b6b';
             status.textContent = errMsg;
         }
     })
     .catch(function(err) {
+        status.style.display = 'block';
         status.style.color = '#ff6b6b';
-        status.textContent = 'Network error. Please try again.';
+        status.textContent = (err && err.message) ? err.message : 'Something went wrong. Please try again.';
     })
     .finally(function() {
         btn.disabled = false;

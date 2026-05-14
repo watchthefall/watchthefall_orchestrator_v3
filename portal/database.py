@@ -1341,18 +1341,23 @@ def _today_str():
 
 
 def get_daily_usage(user_id):
-    """Get today's usage counters for a user. Returns dict with branding_jobs, downloads."""
+    """Get today's usage counters for a user. Returns dict with branding_jobs, downloads.
+    Returns zero-usage dict on any DB error so callers never crash."""
     today = _today_str()
-    with get_connection() as conn:
-        c = conn.cursor()
-        c.execute(
-            'SELECT branding_jobs, downloads FROM daily_usage WHERE user_id = ? AND usage_date = ?',
-            (user_id, today)
-        )
-        row = c.fetchone()
-    if row:
-        return {'branding_jobs': row['branding_jobs'], 'downloads': row['downloads']}
-    return {'branding_jobs': 0, 'downloads': 0}
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute(
+                'SELECT branding_jobs, downloads FROM daily_usage WHERE user_id = ? AND usage_date = ?',
+                (user_id, today)
+            )
+            row = c.fetchone()
+        if row:
+            return {'branding_jobs': row['branding_jobs'], 'downloads': row['downloads']}
+        return {'branding_jobs': 0, 'downloads': 0}
+    except Exception as e:
+        print(f"[DAILY_USAGE] get_daily_usage error for user={user_id}: {e}", flush=True)
+        return {'branding_jobs': 0, 'downloads': 0}
 
 
 def increment_branding_jobs(user_id, count=1):
@@ -1388,14 +1393,18 @@ def increment_downloads(user_id, count=1):
 
 
 def get_user_special_status(user_id):
-    """Get user's special_status from the database. Returns None if no status."""
-    with get_connection() as conn:
-        c = conn.cursor()
-        c.execute('SELECT special_status FROM users WHERE id = ?', (user_id,))
-        row = c.fetchone()
-    if row and row['special_status']:
-        return row['special_status']
-    return None
+    """Get user's special_status from the database. Returns None if no status or on DB error."""
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute('SELECT special_status FROM users WHERE id = ?', (user_id,))
+            row = c.fetchone()
+        if row and row['special_status']:
+            return row['special_status']
+        return None
+    except Exception as e:
+        print(f"[SPECIAL_STATUS] get_user_special_status error for user={user_id}: {e}", flush=True)
+        return None
 
 
 def set_user_special_status(user_id, status):

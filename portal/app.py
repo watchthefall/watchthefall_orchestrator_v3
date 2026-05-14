@@ -2094,10 +2094,29 @@ def fetch_videos_from_urls():
     try:
         # --- Tier enforcement: daily fetch limit ---
         user_id = session.get('user_id')
+        print(f"[FETCH] POST received user_id={user_id}", flush=True)
+
+        print("[FETCH] tier lookup start", flush=True)
         tier = get_user_tier(user_id)
-        special_status = get_user_special_status(user_id)
+        print(f"[FETCH] tier lookup done: {tier}", flush=True)
+
+        print("[FETCH] special_status lookup start", flush=True)
+        try:
+            special_status = get_user_special_status(user_id)
+        except Exception as _ss_err:
+            print(f"[FETCH] special_status lookup error (using None): {_ss_err}", flush=True)
+            special_status = None
+        print(f"[FETCH] special_status lookup done: {special_status}", flush=True)
+
         limits = get_effective_limits(tier, special_status)
-        usage = get_daily_usage(user_id)
+
+        print("[FETCH] daily usage lookup start", flush=True)
+        try:
+            usage = get_daily_usage(user_id)
+        except Exception as _du_err:
+            print(f"[FETCH] daily usage lookup error (using zeros): {_du_err}", flush=True)
+            usage = {'branding_jobs': 0, 'downloads': 0}
+        print(f"[FETCH] daily usage lookup done: {usage}", flush=True)
         
         if not YoutubeDL:
             return jsonify({'success': False, 'error': 'yt-dlp not installed'}), 500
@@ -2286,27 +2305,37 @@ def fetch_videos_from_urls():
                 }
         
         # Download sequentially to keep memory low
+        print(f"[FETCH] download loop start: {len(urls)} URL(s)", flush=True)
         results = []
         for url in urls:
             results.append(download_one(url))
-        
+
         success_count = sum(1 for r in results if r.get('success'))
-        log_event('info', None, f'Fetch complete: {success_count}/{len(urls)} successful')
-        
-        # Increment daily download counter for successful downloads
+        print(f"[FETCH] download loop done: {success_count}/{len(urls)} succeeded", flush=True)
+
+        try:
+            log_event('info', None, f'Fetch complete: {success_count}/{len(urls)} successful')
+        except Exception as _log_err:
+            print(f"[FETCH] log_event warning: {_log_err}", flush=True)
+
+        # Increment daily download counter for successful downloads (non-critical)
         if success_count > 0:
-            increment_downloads(user_id, success_count)
-        
+            try:
+                increment_downloads(user_id, success_count)
+            except Exception as _inc_err:
+                print(f"[FETCH] increment_downloads warning (non-critical): {_inc_err}", flush=True)
+
+        print("[FETCH] returning success response", flush=True)
         return jsonify({
             'success': True,
             'total': len(urls),
             'successful': success_count,
             'results': results
         })
-        
+
     except Exception as e:
         import traceback
-        print(f"[FETCH EXCEPTION]:")
+        print(f"[FETCH EXCEPTION]:", flush=True)
         traceback.print_exc()
         log_event('error', None, f'Fetch failed: {str(e)}')
         return jsonify({'success': False, 'error': str(e)}), 500
