@@ -1233,24 +1233,24 @@ def get_user_downloads(user_id, limit=10):
         return [dict(row) for row in rows]
 
 def toggle_download_bookmark(download_id, user_id):
-    """Toggle bookmark status for a download"""
-    def _do_toggle():
-        with get_connection() as conn:
-            c = conn.cursor()
-            
-            # Check if download exists and belongs to user
-            c.execute('SELECT bookmarked FROM downloads WHERE id = ? AND user_id = ?', (download_id, user_id))
-            row = c.fetchone()
-            if not row:
-                return None
-            
-            # Toggle bookmark
-            new_state = 0 if row['bookmarked'] else 1
-            c.execute('UPDATE downloads SET bookmarked = ? WHERE id = ? AND user_id = ?', 
-                     (new_state, download_id, user_id))
-            conn.commit()
-            return new_state
-    
+    """Toggle bookmark status for a download.
+    _do_toggle must accept conn as its first argument — _retry_write calls fn(conn)."""
+    def _do_toggle(conn):
+        c = conn.cursor()
+
+        # Check if download exists and belongs to user
+        c.execute('SELECT bookmarked FROM downloads WHERE id = ? AND user_id = ?', (download_id, user_id))
+        row = c.fetchone()
+        if not row:
+            return None
+
+        # Toggle bookmark
+        new_state = 0 if row['bookmarked'] else 1
+        c.execute('UPDATE downloads SET bookmarked = ? WHERE id = ? AND user_id = ?',
+                  (new_state, download_id, user_id))
+        conn.commit()
+        return new_state
+
     return _retry_write(_do_toggle)
 
 def get_user_bookmark_count(user_id):

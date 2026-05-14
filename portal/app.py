@@ -2478,6 +2478,7 @@ def download_zip():
 # ============================================================================
 
 @app.route('/api/preview/extract-frame', methods=['POST'])
+@login_required
 def extract_frame():
     """Extract first frame from video for canvas preview"""
     import base64
