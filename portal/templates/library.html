@@ -274,23 +274,30 @@
         }
         
         async function toggleLibraryBookmarkFull(downloadId, btn) {
+            if (btn) btn.disabled = true;
             try {
                 const res = await fetch(`/api/downloads/${downloadId}/bookmark`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });
-                
+
                 if (!res.ok) throw new Error('Failed to toggle bookmark');
-                
+
                 const data = await res.json();
-                
-                // Reload library to reflect changes
+
+                // Reload library to reflect changes (btn ref becomes stale after this — harmless)
                 await loadLibrary();
-                
+
                 console.log(`[Bookmark] Item ${downloadId} bookmarked: ${data.bookmarked}, Total: ${data.bookmark_count}`);
             } catch (err) {
                 console.error('[Bookmark] Error:', err);
-                alert('Failed to update bookmark. Please try again.');
+                // Re-enable and show a brief error indicator — no alert() (bad on mobile)
+                if (btn) {
+                    btn.disabled = false;
+                    const orig = btn.textContent;
+                    btn.textContent = orig + ' ⚠';
+                    setTimeout(() => { if (btn) btn.textContent = orig; }, 3000);
+                }
             }
         }
         

@@ -4621,7 +4621,13 @@ async function processCurrentBrand() {
     const current = processingQueue[currentQueueIndex];
     const btn = document.getElementById('processCurrentBtn');
     const result = document.getElementById('processResult');
-    
+
+    // Duplicate-submit guard: bail if this brand is already in-flight
+    if (current.status === 'processing') {
+        console.warn('[PROCESS UI] Already processing this brand — ignoring duplicate submit');
+        return;
+    }
+
     // Save current slider state to this brand's overrides
     saveCurrentOverridesFromSliders();
 
@@ -5390,17 +5396,18 @@ function selectVideoFromLibrary(filename, sourceUrl) {
 
 // ========== LIBRARY BOOKMARK ==========
 async function toggleLibraryBookmark(downloadId, btn) {
+    if (btn) btn.disabled = true;
     try {
         const res = await fetch(`/api/downloads/${downloadId}/bookmark`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
-        
+
         if (!res.ok) throw new Error('Failed to toggle bookmark');
-        
+
         const data = await res.json();
-        
-        // Update button appearance
+
+        // In-place update — no full reload needed
         if (data.bookmarked) {
             btn.textContent = '★';
             btn.classList.add('bookmarked');
@@ -5410,12 +5417,14 @@ async function toggleLibraryBookmark(downloadId, btn) {
             btn.classList.remove('bookmarked');
             btn.title = 'Bookmark this item';
         }
-        
+
         console.log(`[Bookmark] Item ${downloadId} bookmarked: ${data.bookmarked}, Total bookmarks: ${data.bookmark_count}`);
     } catch (err) {
         console.error('[Bookmark] Error:', err);
-        // Revert button on error
-        btn.textContent = btn.classList.contains('bookmarked') ? '☆' : '★';
+        // Revert icon on error (no alert — bad on mobile)
+        if (btn) btn.textContent = btn.classList.contains('bookmarked') ? '★' : '☆';
+    } finally {
+        if (btn) btn.disabled = false;
     }
 }
 // ========== END LIBRARY BOOKMARK ==========
