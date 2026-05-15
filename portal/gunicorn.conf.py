@@ -14,8 +14,18 @@ print(f"[GUNICORN CONFIG] Binding to: {bind_address}", file=sys.stderr)
 
 bind = bind_address
 
-# Number of worker processes
-workers = 1
+# Number of worker processes.
+# 2 workers: one can be occupied by a long FFmpeg render while the other
+# continues to serve page loads, health checks, and API calls.
+# Memory budget on Render free (512 MB):
+#   - preload_app=True means the second worker is a COW fork of the master.
+#   - Flask app resident set ≈ 80–120 MB per worker at idle (shared pages
+#     stay shared until modified).
+#   - FFmpeg spawns as a subprocess outside the worker's heap, so its
+#     memory is not charged against the worker RSS during processing.
+#   - Two workers at idle ≈ 160–220 MB resident — well within 512 MB.
+#   - Do not raise above 2 on the free plan without benchmarking memory.
+workers = 2
 
 # Per-worker timeout (seconds)
 # FFmpeg on long videos (60-120s clips) can take 5-15 min on shared CPU.

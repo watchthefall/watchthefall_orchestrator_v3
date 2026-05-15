@@ -1040,14 +1040,16 @@ def debug_brands():
 
 @app.route("/__debug_health")
 def debug_health():
-    """Health check endpoint"""
+    """Deep health check — admin/debug use only, not called by Render health checks.
+    Includes PRAGMA integrity_check (full DB page scan — can take seconds on large DBs)
+    and directory write-test probes. Never link this publicly."""
     import os
     from .config import UPLOAD_DIR, OUTPUT_DIR, TEMP_DIR
-    
-    # Check if essential directories are writable
+    from .database import run_db_integrity_check
+
+    # Directory writability probes
     dirs = [UPLOAD_DIR, OUTPUT_DIR, TEMP_DIR]
     health_checks = {}
-    
     for directory in dirs:
         try:
             test_file = os.path.join(directory, '.health_check')
@@ -1057,13 +1059,16 @@ def debug_health():
             health_checks[directory] = 'OK'
         except Exception as e:
             health_checks[directory] = f'ERROR: {str(e)}'
-    
-    # Overall health
+
+    # Full DB integrity scan (moved here from /health and startup _log_db_health)
+    integrity = run_db_integrity_check()
+
     all_healthy = all(status == 'OK' for status in health_checks.values())
-    
+
     return jsonify({
         'status': 'healthy' if all_healthy else 'unhealthy',
-        'checks': health_checks
+        'checks': health_checks,
+        'db_integrity': integrity,
     })
 
 # Global conversion lock - only one FFmpeg process at a time (Render free tier 512MB RAM)
@@ -1386,13 +1391,19 @@ def test_page():
 
 @app.route('/health')
 def health_check():
-    """Health check endpoint for Render — includes disk and DB diagnostics."""
+    """Health check endpoint for Render.
+    Intentionally fast and non-blocking:
+    - Disk usage: one syscall (shutil.disk_usage)
+    - DB: SELECT 1 connectivity check + journal_mode PRAGMA only
+    - No PRAGMA integrity_check (full page scan — moved to /__debug_health)
+    - No os.walk on storage dirs (O(n) in file count — removed)
+    """
     import shutil
-    from .config import DB_PATH, OUTPUT_DIR, RAW_DIR, BRANDS_DIR
+    from .config import DB_PATH
 
     info = {'status': 'healthy', 'message': 'Brandr is running'}
 
-    # Disk space
+    # Disk space — single syscall, always fast
     try:
         db_dir = os.path.dirname(DB_PATH) or '.'
         usage = shutil.disk_usage(db_dir)
@@ -1411,43 +1422,26 @@ def health_check():
     except Exception as e:
         info['disk'] = {'error': str(e)}
 
-    # DB file
+    # DB file metadata — filesystem stat calls only, no DB open
     info['db'] = {
-        'path': DB_PATH,
         'exists': os.path.exists(DB_PATH),
         'readable': os.access(DB_PATH, os.R_OK) if os.path.exists(DB_PATH) else False,
         'writable': os.access(DB_PATH, os.W_OK) if os.path.exists(DB_PATH) else False,
         'wal_exists': os.path.exists(DB_PATH + '-wal'),
     }
 
-    # DB integrity (lightweight — single-row PRAGMA)
+    # DB connectivity — SELECT 1 (microseconds) + journal_mode PRAGMA
+    # PRAGMA integrity_check is intentionally omitted: it does a full DB
+    # page scan and blocks the worker. Use /__debug_health for that.
     try:
         with sqlite3.connect(DB_PATH, timeout=3.0) as _c:
-            integrity = _c.execute('PRAGMA integrity_check').fetchone()
+            _c.execute('SELECT 1').fetchone()
             journal = _c.execute('PRAGMA journal_mode').fetchone()
-        info['db']['integrity'] = integrity[0] if integrity else 'unknown'
+        info['db']['connectivity'] = 'ok'
         info['db']['journal_mode'] = journal[0] if journal else 'unknown'
     except Exception as e:
-        info['db']['integrity'] = f'ERROR: {e}'
+        info['db']['connectivity'] = f'ERROR: {e}'
         info['status'] = 'degraded'
-
-    # Storage dir sizes
-    try:
-        def _dir_size_mb(d):
-            total = sum(
-                os.path.getsize(os.path.join(dp, f))
-                for dp, _, files in os.walk(d)
-                for f in files
-                if os.path.isfile(os.path.join(dp, f))
-            )
-            return round(total / 1024 / 1024, 1)
-        info['storage'] = {
-            'outputs_mb': _dir_size_mb(OUTPUT_DIR) if os.path.isdir(OUTPUT_DIR) else 0,
-            'raw_mb': _dir_size_mb(RAW_DIR) if os.path.isdir(RAW_DIR) else 0,
-            'brands_mb': _dir_size_mb(BRANDS_DIR) if os.path.isdir(BRANDS_DIR) else 0,
-        }
-    except Exception as e:
-        info['storage'] = {'error': str(e)}
 
     status_code = 200 if info['status'] == 'healthy' else 503
     return jsonify(info), status_code

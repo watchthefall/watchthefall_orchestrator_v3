@@ -271,8 +271,9 @@ def init_db():
         print(f"[DB HEALTH] startup health check failed: {_e}")
 
 def _log_db_health():
-    """Log DB path, size, permissions, disk space, WAL state, and PRAGMA integrity_check.
-    Called once at startup. Helps diagnose disk I/O errors on Render."""
+    """Log DB path, size, permissions, disk space, WAL state, and journal mode.
+    Called once at startup. Cheap: no integrity_check — use run_db_integrity_check()
+    on-demand for a full scan. Helps diagnose disk I/O errors on Render."""
     import sys
     import shutil as _shutil
 
@@ -325,17 +326,34 @@ def _log_db_health():
     except Exception as e:
         print(f"[DB HEALTH] disk_usage=ERROR ({e})", file=sys.stderr)
 
-    # Integrity check — only if the file exists and we can open it
+    # Connectivity + journal mode — cheap: single row read, no full-page scan.
+    # PRAGMA integrity_check is intentionally omitted here; it does a full DB
+    # page scan (O(n) in DB size) which blocks the master process at boot.
+    # Call run_db_integrity_check() manually if you suspect corruption.
     if os.path.exists(db_path):
         try:
             _conn = sqlite3.connect(db_path, timeout=5.0)
-            integrity = _conn.execute('PRAGMA integrity_check').fetchone()
+            _conn.execute('SELECT 1').fetchone()
             journal = _conn.execute('PRAGMA journal_mode').fetchone()
             _conn.close()
-            print(f"[DB HEALTH] integrity_check={integrity[0] if integrity else 'unknown'}", file=sys.stderr)
+            print(f"[DB HEALTH] connectivity=ok", file=sys.stderr)
             print(f"[DB HEALTH] journal_mode={journal[0] if journal else 'unknown'}", file=sys.stderr)
         except Exception as e:
-            print(f"[DB HEALTH] integrity_check=ERROR ({e})", file=sys.stderr)
+            print(f"[DB HEALTH] connectivity=ERROR ({e})", file=sys.stderr)
+
+
+def run_db_integrity_check():
+    """Run PRAGMA integrity_check and return the result string.
+    This is a full DB page scan — O(n) in database size — and can take
+    several seconds on a large database. Call manually from the debug
+    health endpoint only, never on the hot path or at startup."""
+    try:
+        _conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        result = _conn.execute('PRAGMA integrity_check').fetchone()
+        _conn.close()
+        return result[0] if result else 'unknown'
+    except Exception as e:
+        return f'ERROR: {e}'
 
 
 def _run_migrations():
