@@ -514,6 +514,103 @@
     </div>
 </div>
 
+<!-- Brand Editor Shell — Option C foundation (Phase 10F: Text/CTA mode V1) -->
+<div id="brandEditorShell" class="modal">
+    <div class="bes-content">
+        <!-- Header -->
+        <div class="bes-header">
+            <div class="bes-header-inner">
+                <h2 id="besTitle">Text / CTA</h2>
+                <span id="besBrandChip" class="bes-brand-chip"></span>
+            </div>
+            <button class="modal-close" onclick="closeBrandEditor()">×</button>
+        </div>
+
+        <!-- Mode tabs: Text/CTA is the only real mode here.
+             Logo / Watermark / Position route to existing working editors. -->
+        <div class="bes-tabs" role="tablist">
+            <button class="bes-tab" data-mode="logo"      onclick="switchEditorMode('logo')">✏️ Logo</button>
+            <button class="bes-tab" data-mode="watermark" onclick="switchEditorMode('watermark')">💧 Watermark</button>
+            <button class="bes-tab active" data-mode="text" onclick="switchEditorMode('text')">T&nbsp; Text / CTA</button>
+            <button class="bes-tab" data-mode="position"  onclick="switchEditorMode('position')">⊞ Position</button>
+        </div>
+
+        <!-- Status bar -->
+        <div id="besStatus" class="bes-status-bar"></div>
+
+        <!-- Text / CTA mode panel -->
+        <div id="besTextPanel" class="bes-panel">
+
+            <!-- Enable toggle -->
+            <div class="bes-field-group">
+                <label class="bes-toggle-label">
+                    <input type="checkbox" id="besTextEnabled"
+                           onchange="brandEditorDraft.textEnabled = this.checked">
+                    <span class="bes-toggle-text">Enable Text / CTA</span>
+                </label>
+                <p class="bes-help">Add a text preset to this brand. Saved as a text setting — verify on a rendered video before publishing.</p>
+            </div>
+
+            <!-- Preset selector -->
+            <div class="bes-field-group">
+                <label class="bes-label" for="besPreset">Preset</label>
+                <select id="besPreset" class="bes-select" onchange="onTextPresetChange(this.value)">
+                    <option value="follow">Follow @BrandName</option>
+                    <option value="credit">Credit: @creator</option>
+                    <option value="source">Source: BrandName</option>
+                    <option value="watchthefall">WatchTheFall.wtf</option>
+                    <option value="subscribe">Subscribe / Follow for more</option>
+                    <option value="custom" selected>Custom</option>
+                </select>
+            </div>
+
+            <!-- Text content -->
+            <div class="bes-field-group">
+                <label class="bes-label" for="besTextContent">Text</label>
+                <input type="text" id="besTextContent" class="bes-input"
+                       placeholder="Enter your text…"
+                       oninput="brandEditorDraft.textContent = this.value;
+                                document.getElementById('besPreset').value = 'custom';">
+            </div>
+
+            <!-- Position -->
+            <div class="bes-field-group">
+                <label class="bes-label">Position</label>
+                <div class="bes-position-options">
+                    <button type="button" class="bes-pos-btn" data-pos="top"
+                            onclick="setEditorTextPosition('top')">Top</button>
+                    <button type="button" class="bes-pos-btn" data-pos="lower-third"
+                            onclick="setEditorTextPosition('lower-third')">Lower Third</button>
+                    <button type="button" class="bes-pos-btn active" data-pos="bottom"
+                            onclick="setEditorTextPosition('bottom')">Bottom</button>
+                </div>
+            </div>
+
+            <!-- Style: size + colour -->
+            <div class="bes-field-row">
+                <div class="bes-field-group bes-field-half">
+                    <label class="bes-label">Size <span id="besTextSizeVal">48px</span></label>
+                    <input type="range" id="besTextSize" min="20" max="96" value="48"
+                           oninput="brandEditorDraft.textSize = parseInt(this.value);
+                                    document.getElementById('besTextSizeVal').textContent = this.value + 'px';">
+                </div>
+                <div class="bes-field-group bes-field-half">
+                    <label class="bes-label">Colour</label>
+                    <input type="color" id="besTextColor" value="#ffffff"
+                           oninput="brandEditorDraft.textColor = this.value;">
+                </div>
+            </div>
+        </div>
+
+        <!-- Sticky footer -->
+        <div class="bes-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeBrandEditor()">Cancel</button>
+            <button type="button" class="btn btn-primary" id="besTextSaveBtn"
+                    onclick="saveEditorText()">Save Text Preset</button>
+        </div>
+    </div>
+</div>
+
 <!-- Brand Creation Wizard (MVP 2-Step Flow) -->
 <div id="brandWizard" class="modal">
     <div class="wizard-content">
@@ -3001,6 +3098,188 @@
 /* ================================================================
    END V2 SHELL
    ================================================================ */
+
+/* ================================================================
+   BRAND EDITOR SHELL — Option C foundation (Phase 10F)
+   ================================================================ */
+
+#brandEditorShell .bes-content {
+    background: #1a1a2e;
+    border-radius: 12px;
+    max-width: 540px;
+    width: 92%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.bes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    flex-shrink: 0;
+}
+
+.bes-header-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.bes-header-inner h2 {
+    margin: 0;
+    font-size: 18px;
+    white-space: nowrap;
+}
+
+.bes-brand-chip {
+    background: rgba(212,175,55,0.15);
+    color: #d4af37;
+    border: 1px solid rgba(212,175,55,0.3);
+    border-radius: 20px;
+    font-size: 11px;
+    padding: 2px 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+}
+
+.bes-tabs {
+    display: flex;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.bes-tabs::-webkit-scrollbar { display: none; }
+
+.bes-tab {
+    flex: 1;
+    padding: 10px 8px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: rgba(255,255,255,0.45);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+    min-width: 60px;
+}
+.bes-tab:hover { color: rgba(255,255,255,0.75); }
+.bes-tab.active {
+    color: #d4af37;
+    border-bottom-color: #d4af37;
+}
+
+.bes-status-bar { padding: 0 20px; flex-shrink: 0; min-height: 0; }
+.bes-status-bar:not(:empty) { padding: 8px 20px 0; }
+
+.bes-panel { flex: 1; overflow-y: auto; padding: 20px; }
+
+.bes-field-group { margin-bottom: 18px; }
+
+.bes-field-row { display: flex; gap: 16px; margin-bottom: 18px; }
+.bes-field-half { flex: 1; margin-bottom: 0; }
+
+.bes-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.bes-toggle-label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.bes-toggle-label input[type="checkbox"] {
+    width: 16px; height: 16px; accent-color: #d4af37; cursor: pointer;
+}
+.bes-toggle-text { font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.9); }
+
+.bes-help { font-size: 12px; color: rgba(255,255,255,0.4); margin: 6px 0 0; line-height: 1.5; }
+
+.bes-select {
+    width: 100%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    color: #fff;
+    padding: 9px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(255,255,255,0.4)' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+}
+.bes-select:focus { outline: none; border-color: #d4af37; }
+.bes-select option { background: #1a1a2e; color: #fff; }
+
+.bes-input {
+    width: 100%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    color: #fff;
+    padding: 9px 12px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+.bes-input::placeholder { color: rgba(255,255,255,0.3); }
+.bes-input:focus { outline: none; border-color: #d4af37; }
+
+.bes-position-options { display: flex; gap: 8px; }
+.bes-pos-btn {
+    flex: 1;
+    padding: 8px 4px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    color: rgba(255,255,255,0.6);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.bes-pos-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.bes-pos-btn.active {
+    background: rgba(212,175,55,0.15);
+    border-color: rgba(212,175,55,0.4);
+    color: #d4af37;
+    font-weight: 600;
+}
+
+.bes-footer {
+    display: flex;
+    gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+}
+.bes-footer .btn { flex: 1; }
+
+@media (max-width: 560px) {
+    #brandEditorShell .bes-content {
+        width: 100%;
+        border-radius: 12px 12px 0 0;
+        max-height: 95vh;
+    }
+    .bes-tab { font-size: 11px; padding: 9px 6px; }
+    .bes-field-row { flex-direction: column; gap: 0; }
+    .bes-field-half { margin-bottom: 18px; }
+}
+
+/* ================================================================
+   END BRAND EDITOR SHELL
+   ================================================================ */
 </style>
 
 <script src="{{ url_for('static', filename='js/brand_editor.js') }}"></script>
@@ -3256,7 +3535,7 @@ function renderWorkspace(brand) {
                             <div class="v2-action-sub">Manage watermark style &amp; opacity</div>
                         </div>
                     </button>
-                    <button class="v2-action-btn" onclick="editBrand(${brand.id})">
+                    <button class="v2-action-btn" onclick="openBrandEditor(${brand.id}, 'text')">
                         <span class="v2-action-icon" style="font-weight:700;">T</span>
                         <div>
                             <div class="v2-action-label">Edit Text</div>
@@ -3870,6 +4149,147 @@ function editBrandLogo(brandId)      { editBrand(brandId); }
 function editBrandPosition(brandId)  { editBrand(brandId, { step: 2 }); }
 function editBrandWatermark(brandId) { editBrand(brandId, { step: 2, activeElement: 'watermark' }); }
 
+// ========== BRAND EDITOR SHELL — Option C (Phase 10F) ==========
+
+function openBrandEditor(brandId, mode) {
+    mode = mode || 'text';
+    brandEditorDraft.brandId = brandId;
+    brandEditorDraft.mode = mode;
+
+    fetch(`${apiBase}/api/brands/${brandId}`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) throw new Error(data.error || 'Failed to load brand');
+            const brand = data.brand;
+
+            // Hydrate draft from server
+            brandEditorDraft.brandName    = brand.display_name || brand.name || '';
+            brandEditorDraft.textEnabled  = !!brand.text_enabled;
+            brandEditorDraft.textContent  = brand.text_content  || '';
+            brandEditorDraft.textPosition = brand.text_position || 'bottom';
+            brandEditorDraft.textSize     = brand.text_size     || 48;
+            brandEditorDraft.textColor    = brand.text_color    || '#FFFFFF';
+            brandEditorDraft.textPreset   = 'custom';
+
+            // Populate UI controls
+            const enabledEl  = document.getElementById('besTextEnabled');
+            const contentEl  = document.getElementById('besTextContent');
+            const presetEl   = document.getElementById('besPreset');
+            const sizeEl     = document.getElementById('besTextSize');
+            const sizeValEl  = document.getElementById('besTextSizeVal');
+            const colorEl    = document.getElementById('besTextColor');
+            const titleEl    = document.getElementById('besTitle');
+            const chipEl     = document.getElementById('besBrandChip');
+            const statusEl   = document.getElementById('besStatus');
+            const saveBtnEl  = document.getElementById('besTextSaveBtn');
+
+            if (enabledEl)  enabledEl.checked    = brandEditorDraft.textEnabled;
+            if (contentEl)  contentEl.value       = brandEditorDraft.textContent;
+            if (presetEl)   presetEl.value         = 'custom';
+            if (sizeEl)     sizeEl.value           = brandEditorDraft.textSize;
+            if (sizeValEl)  sizeValEl.textContent  = brandEditorDraft.textSize + 'px';
+            if (colorEl)    colorEl.value          = brandEditorDraft.textColor;
+            if (titleEl)    titleEl.textContent    = 'Text / CTA';
+            if (chipEl)     chipEl.textContent     = brandEditorDraft.brandName;
+            if (statusEl)   statusEl.innerHTML     = '';
+            if (saveBtnEl)  { saveBtnEl.disabled = false; saveBtnEl.textContent = 'Save Text Preset'; }
+
+            // Sync position buttons
+            document.querySelectorAll('.bes-pos-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.pos === brandEditorDraft.textPosition);
+            });
+
+            // Open shell
+            document.getElementById('brandEditorShell').classList.add('active');
+        })
+        .catch(err => {
+            alert('Error loading brand: ' + err.message);
+        });
+}
+
+function closeBrandEditor() {
+    document.getElementById('brandEditorShell').classList.remove('active');
+}
+
+function switchEditorMode(mode) {
+    // Text is the only real mode here — other modes route to existing working editors
+    if (mode === 'text') return;
+    const id = brandEditorDraft.brandId;
+    closeBrandEditor();
+    if (mode === 'logo')      editBrandLogo(id);
+    else if (mode === 'watermark') editBrandWatermark(id);
+    else if (mode === 'position')  editBrandPosition(id);
+}
+
+function onTextPresetChange(preset) {
+    brandEditorDraft.textPreset = preset;
+    const contentEl = document.getElementById('besTextContent');
+    if (!contentEl) return;
+    const name = _e(brandEditorDraft.brandName) || 'BrandName';
+    if      (preset === 'follow')      contentEl.value = 'Follow @' + name;
+    else if (preset === 'credit')      contentEl.value = 'Credit: @creator';
+    else if (preset === 'source')      contentEl.value = 'Source: ' + name;
+    else if (preset === 'watchthefall') contentEl.value = 'WatchTheFall.wtf';
+    else if (preset === 'subscribe')   contentEl.value = 'Subscribe / Follow for more';
+    // 'custom' — leave field unchanged
+    brandEditorDraft.textContent = contentEl.value;
+}
+
+function setEditorTextPosition(pos) {
+    brandEditorDraft.textPosition = pos;
+    document.querySelectorAll('.bes-pos-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.pos === pos);
+    });
+}
+
+async function saveEditorText() {
+    const saveBtnEl = document.getElementById('besTextSaveBtn');
+    const statusEl  = document.getElementById('besStatus');
+
+    // Flush current UI values into draft (guards against any oninput edge cases)
+    const enabledEl = document.getElementById('besTextEnabled');
+    const contentEl = document.getElementById('besTextContent');
+    const sizeEl    = document.getElementById('besTextSize');
+    const colorEl   = document.getElementById('besTextColor');
+    if (enabledEl) brandEditorDraft.textEnabled = enabledEl.checked;
+    if (contentEl) brandEditorDraft.textContent  = contentEl.value.trim();
+    if (sizeEl)    brandEditorDraft.textSize      = parseInt(sizeEl.value, 10) || 48;
+    if (colorEl)   brandEditorDraft.textColor     = colorEl.value;
+
+    if (saveBtnEl) { saveBtnEl.disabled = true; saveBtnEl.textContent = 'Saving…'; }
+    if (statusEl)  statusEl.innerHTML = '<div class="status-msg info">Saving text settings…</div>';
+
+    try {
+        const res = await fetch(`${apiBase}/api/brands/${brandEditorDraft.brandId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text_enabled:  brandEditorDraft.textEnabled ? 1 : 0,
+                text_content:  brandEditorDraft.textContent,
+                text_position: brandEditorDraft.textPosition,
+                text_size:     brandEditorDraft.textSize,
+                text_color:    brandEditorDraft.textColor
+            })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Save failed');
+
+        if (statusEl)  statusEl.innerHTML = '<div class="status-msg success">✅ Text preset saved</div>';
+        if (saveBtnEl) { saveBtnEl.disabled = false; saveBtnEl.textContent = 'Save Text Preset'; }
+
+        // Refresh brand rail — sessionStorage preserves selected brand
+        loadBrands();
+
+        setTimeout(() => {
+            if (statusEl) statusEl.innerHTML = '';
+        }, 2500);
+
+    } catch (err) {
+        if (statusEl)  statusEl.innerHTML = `<div class="status-msg error">❌ ${_e(err.message)}</div>`;
+        if (saveBtnEl) { saveBtnEl.disabled = false; saveBtnEl.textContent = 'Save Text Preset'; }
+    }
+}
+
 async function deleteBrand(brandId, brandName) {
     if (!confirm(`Delete brand "${brandName}"? This cannot be undone.`)) return;
     
@@ -3921,6 +4341,19 @@ let wizardState = {
     watermarkMode: 'positioned',  // always positioned — fullscreen removed as user-facing option
     // Preview mode for composer
     previewMode: 'logo'  // 'logo' | 'watermark' | 'both'
+};
+
+// ========== BRAND EDITOR SHELL DRAFT STATE (Option C) ==========
+let brandEditorDraft = {
+    brandId: null,
+    brandName: '',
+    mode: 'text',
+    textEnabled: false,
+    textContent: '',
+    textPreset: 'custom',
+    textPosition: 'bottom',
+    textSize: 48,
+    textColor: '#FFFFFF'
 };
 
 let wizardCanvas = null;
