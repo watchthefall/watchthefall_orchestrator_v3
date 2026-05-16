@@ -384,6 +384,8 @@ class VideoProcessor:
             text_position = brand_config.get('text_position', 'top')
             if text_position == 'bottom':
                 text_y_pct = 0.88
+            elif text_position == 'lower-third':
+                text_y_pct = 0.72
             elif text_position == 'center':
                 text_y_pct = 0.5
             # 'top' keeps 0.2 — correct as-is
