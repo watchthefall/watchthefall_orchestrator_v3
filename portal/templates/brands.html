@@ -123,7 +123,22 @@
             color: #4caf50;
             text-align: center;
         }
-        
+
+        .brand-ready-hint {
+            font-size: 11px;
+            color: #808080;
+            margin-top: 4px;
+        }
+
+        .finish-setup-link {
+            color: #ff9800;
+            text-decoration: underline;
+            font-weight: 600;
+        }
+        .finish-setup-link:hover {
+            color: #ffb74d;
+        }
+
         .brand-actions {
             display: flex;
             gap: 8px;
@@ -519,7 +534,7 @@
                     
                     <!-- Right: Upload zone -->
                     <div class="step1-upload">
-                        <h3>Upload Brand Image</h3>
+                        <h3>Upload Your Logo</h3>
                         <div class="upload-zone-large" id="wizardLogoUploadZone" onclick="document.getElementById('wizardLogoInput').click()">
                             <input type="file" id="wizardLogoInput" accept="image/*" hidden>
                             <div class="upload-placeholder-large">
@@ -598,6 +613,7 @@
                             <button type="button" class="btn btn-secondary btn-sm" onclick="toggleComposerBgRemoval()" id="composerBgBtn">
                                 ✨ Auto-Remove BG
                             </button>
+                            <p class="help-text" style="margin-top:6px;">Removes white or dark backgrounds from your logo automatically.</p>
                         </div>
                         
                         <!-- Advanced toggle (hidden features) -->
@@ -620,9 +636,9 @@
                             <div class="control-group">
                                 <label class="toggle-label">
                                     <input type="checkbox" id="useSeparateWatermark" onchange="toggleSeparateWatermark()">
-                                    <span>Use separate watermark</span>
+                                    <span>Add a Watermark</span>
                                 </label>
-                                <p class="help-text">If left empty, Brandr uses your main brand image</p>
+                                <p class="help-text">Your logo is your main brand mark. A watermark is an optional second image — typically a channel icon or secondary mark — placed separately on the video.</p>
                             </div>
                             
                             <!-- Watermark Upload (shown when toggle is on) -->
@@ -1361,7 +1377,7 @@
     #composerMainCanvas {
         width: min(100%, 420px);
         height: auto;
-        max-height: 50vh; /* Prevent canvas from consuming the full screen on mobile */
+        max-height: 44vh; /* Reduced from 50vh to give controls more breathing room on mobile */
     }
 
     .canvas-hint {
@@ -1373,6 +1389,10 @@
 }
 
 @media (max-width: 480px) {
+    .brand-grid {
+        grid-template-columns: 1fr; /* Single column on narrow phones — 280px min was too wide at 390px */
+    }
+
     .composer-content {
         padding: 0 12px 16px;
     }
@@ -2627,15 +2647,15 @@ function renderBrands(brands, canCreate) {
         
         // Readiness badges
         const isReady = brand.is_ready || false;
-        const readinessBadge = isReady 
-            ? '<span class="brand-badge badge-ready">✅ Ready</span>'
+        const readinessBadge = isReady
+            ? '<span class="brand-badge badge-ready">✅ Ready</span><div class="brand-ready-hint">Ready to use in Create.</div>'
             : '<span class="brand-badge badge-incomplete">⚠️ Incomplete</span>';
-        
+
         const missingAssets = [];
         if (!brand.logo_path) missingAssets.push('logo');
         if (!brand.watermark_path) missingAssets.push('watermark');
-        const warningMsg = !isReady 
-            ? `<div class="badge-warning">Missing: ${missingAssets.join(', ')}</div>` 
+        const warningMsg = !isReady
+            ? `<div class="badge-warning">Missing: ${missingAssets.join(', ')} — <a href="#" onclick="editBrand(${brand.id}); return false;" class="finish-setup-link">Finish setup →</a></div>`
             : '';
         
         const deleteBtn = `<button class="btn btn-danger" onclick="deleteBrand(${brand.id}, '${brand.name}')">Delete</button>`;
