@@ -360,14 +360,29 @@
 {% set active_page = 'brands_page' %}
 {% include '_nav.html' %}
 
-<div class="container">
+<div class="container" id="v2Container" data-brand-video-url="{{ url_for('brand_video') }}">
     <header>
-        <h1>Brand Management</h1>
-        <button id="createBrandBtn" class="btn btn-primary" onclick="console.log('Button clicked!'); openBrandWizard();">+ Create Brand</button>
+        <h1>Brand Settings</h1>
+        <button id="createBrandBtn" class="btn btn-primary" onclick="openBrandWizard()">+ Create Brand</button>
     </header>
-    
-    <div id="brandGrid" class="brand-grid">
-        <!-- Brands loaded here -->
+
+    <!-- Format selector — session-only, no canvas redraw -->
+    <div class="v2-format-tabs" id="v2FormatTabs">
+        <button class="v2-format-tab active" data-format="vertical_9_16" onclick="switchFormat('vertical_9_16')">Vertical 9:16</button>
+        <button class="v2-format-tab" data-format="portrait_4_5"   onclick="switchFormat('portrait_4_5')">Portrait 4:5</button>
+        <button class="v2-format-tab" data-format="square_1_1"     onclick="switchFormat('square_1_1')">Square 1:1</button>
+        <button class="v2-format-tab" data-format="landscape_16_9" onclick="switchFormat('landscape_16_9')">Landscape 16:9</button>
+        <button class="v2-format-tab" data-format="original"       onclick="switchFormat('original')">Original</button>
+    </div>
+
+    <!-- V2 two-column layout: selected brand workspace + compact brand rail -->
+    <div class="v2-layout">
+        <div class="v2-workspace" id="v2Workspace">
+            <div class="v2-ws-loading">Loading brands…</div>
+        </div>
+        <div class="v2-rail" id="v2Rail">
+            <!-- brands loaded here by renderBrands() -->
+        </div>
     </div>
 </div>
 
@@ -2575,6 +2590,417 @@
     box-sizing: border-box !important;
 }
 /* ========== END PATCH A OVERRIDES ========== */
+
+/* ================================================================
+   V2 SHELL — Brand Settings Dashboard
+   ================================================================ */
+
+/* Format tab bar */
+.v2-format-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.v2-format-tabs::-webkit-scrollbar { display: none; }
+
+.v2-format-tab {
+    flex-shrink: 0;
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    color: #777;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    white-space: nowrap;
+}
+.v2-format-tab:hover { color: #ccc; }
+.v2-format-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 600;
+}
+
+/* Two-column layout: workspace + rail */
+.v2-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 20px;
+    align-items: start;
+}
+
+/* ---- Workspace ---- */
+.v2-workspace {
+    background: #1a1a1e;
+    border: 1px solid #2a2a2e;
+    border-radius: 12px;
+    overflow: hidden;
+    min-height: 420px;
+}
+.v2-ws-loading {
+    padding: 60px 24px;
+    text-align: center;
+    color: #555;
+}
+.v2-ws-empty {
+    padding: 80px 24px;
+    text-align: center;
+}
+
+/* Workspace header */
+.v2-ws-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.v2-ws-identity {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+}
+.v2-ws-logo {
+    width: 52px;
+    height: 52px;
+    object-fit: contain;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    padding: 6px;
+    flex-shrink: 0;
+}
+.v2-ws-logo-placeholder {
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.06);
+    border-radius: 8px;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+.v2-ws-identity-info { flex: 1; min-width: 0; }
+.v2-ws-name {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.v2-ws-edit-btn { flex-shrink: 0; font-size: 13px; padding: 7px 14px; }
+
+/* Status chips */
+.v2-status-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.v2-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.v2-chip-ready     { background: rgba(40,167,69,0.15);  color: #4caf50; border: 1px solid rgba(40,167,69,0.25);  }
+.v2-chip-incomplete{ background: rgba(255,152,0,0.15);  color: #ff9800; border: 1px solid rgba(255,152,0,0.25);  }
+.v2-chip-asset     { background: rgba(255,255,255,0.05); color: #aaa;    border: 1px solid rgba(255,255,255,0.1); }
+
+/* Format status line */
+.v2-ws-format-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #555;
+    flex-wrap: wrap;
+}
+.v2-format-viewing { color: var(--accent); font-weight: 600; }
+.v2-status-dot { color: #333; }
+
+/* Workspace body */
+.v2-ws-body {
+    display: flex;
+    min-height: 260px;
+}
+
+/* Mini format preview panel */
+.v2-ws-preview-panel {
+    width: 180px;
+    flex-shrink: 0;
+    background: rgba(0,0,0,0.35);
+    border-right: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+.v2-ws-preview {
+    background: #0a0a0a;
+    border-radius: 6px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+/* Aspect ratios — CSS only, no canvas redraw */
+.v2-ws-preview.fmt-vertical_9_16  { aspect-ratio: 9/16;  }
+.v2-ws-preview.fmt-portrait_4_5   { aspect-ratio: 4/5;   }
+.v2-ws-preview.fmt-square_1_1     { aspect-ratio: 1/1;   }
+.v2-ws-preview.fmt-landscape_16_9 { aspect-ratio: 16/9;  }
+.v2-ws-preview.fmt-original       { aspect-ratio: 9/16;  }
+
+.v2-preview-logo {
+    max-width: 65%;
+    max-height: 65%;
+    object-fit: contain;
+}
+.v2-preview-empty {
+    color: #333;
+    font-size: 11px;
+    text-align: center;
+    padding: 12px;
+    line-height: 1.4;
+}
+
+/* Panels: layer list + quick actions */
+.v2-ws-panels {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-width: 0;
+}
+
+/* Layer List */
+.v2-layer-list {
+    padding: 18px;
+    border-right: 1px solid rgba(255,255,255,0.06);
+}
+.v2-panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #555;
+    margin: 0 0 12px 0;
+}
+.v2-layer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+}
+.v2-layer-active  { background: rgba(255,255,255,0.04); }
+.v2-layer-missing { background: rgba(255,152,0,0.05); border: 1px dashed rgba(255,152,0,0.2); }
+.v2-layer-optional{ background: rgba(255,255,255,0.015); opacity: 0.7; }
+.v2-layer-thumb {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.06);
+    padding: 4px;
+    flex-shrink: 0;
+}
+.v2-layer-thumb-empty {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.06);
+    border-radius: 5px;
+    flex-shrink: 0;
+    color: #888;
+}
+.v2-layer-info { flex: 1; min-width: 0; }
+.v2-layer-name { font-size: 13px; font-weight: 600; color: #EAEAEA; }
+.v2-layer-status { font-size: 11px; color: #555; margin-top: 2px; }
+.v2-layer-eye { font-size: 13px; color: #444; flex-shrink: 0; }
+
+/* Quick Actions */
+.v2-quick-actions { padding: 18px; }
+.v2-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 11px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 8px;
+    color: #EAEAEA;
+    cursor: pointer;
+    text-align: left;
+    margin-bottom: 7px;
+    transition: background 0.15s, border-color 0.15s;
+}
+.v2-action-btn:hover {
+    background: rgba(255,255,255,0.065);
+    border-color: rgba(255,255,255,0.14);
+}
+.v2-action-btn:last-child { margin-bottom: 0; }
+.v2-action-icon {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.06);
+    border-radius: 6px;
+    font-size: 13px;
+    flex-shrink: 0;
+    color: var(--accent);
+}
+.v2-action-label { font-size: 12px; font-weight: 600; }
+.v2-action-sub   { font-size: 11px; color: #555; margin-top: 1px; }
+
+/* Workspace footer */
+.v2-ws-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 24px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+}
+.v2-start-btn {
+    padding: 10px 22px;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+/* ---- Brand Rail ---- */
+.v2-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.v2-rail-card {
+    background: #1a1a1e;
+    border: 1px solid #2a2a2e;
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+.v2-rail-card:hover { border-color: #3a3a3e; }
+.v2-rail-card.selected {
+    border-color: var(--accent);
+    background: rgba(134,237,165,0.035);
+}
+.v2-rail-card-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.v2-rail-thumb {
+    width: 38px;
+    height: 38px;
+    object-fit: contain;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.06);
+    padding: 4px;
+    flex-shrink: 0;
+}
+.v2-rail-thumb-empty {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+.v2-rail-info { flex: 1; min-width: 0; }
+.v2-rail-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #EAEAEA;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.v2-rail-meta { margin-top: 3px; }
+.v2-rail-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+}
+.v2-rail-updated { font-size: 11px; color: #444; margin-top: 3px; }
+.v2-rail-edit-btn {
+    flex-shrink: 0;
+    font-size: 11px;
+    padding: 5px 10px;
+}
+
+/* Create Brand card */
+.v2-rail-create {
+    background: rgba(255,255,255,0.015);
+    border: 1px dashed #2e2e32;
+    border-radius: 10px;
+    padding: 18px 12px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    text-align: center;
+}
+.v2-rail-create:hover {
+    border-color: var(--accent);
+    background: rgba(134,237,165,0.025);
+}
+.v2-rail-create-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+.v2-rail-create-icon  { font-size: 22px; color: var(--accent); line-height: 1; }
+.v2-rail-create-label { font-size: 13px; font-weight: 600; color: var(--accent); }
+.v2-rail-create-sub   { font-size: 11px; color: #555; }
+
+/* ---- Mobile / responsive ---- */
+@media (max-width: 960px) {
+    .v2-layout {
+        grid-template-columns: 1fr;
+    }
+    .v2-rail {
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 10px;
+        padding-bottom: 6px;
+        scrollbar-width: none;
+    }
+    .v2-rail::-webkit-scrollbar { display: none; }
+    .v2-rail-card { flex-shrink: 0; width: 200px; }
+    .v2-rail-create { flex-shrink: 0; width: 160px; }
+}
+
+@media (max-width: 680px) {
+    .v2-ws-body { flex-direction: column; }
+    .v2-ws-preview-panel {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        padding: 12px;
+    }
+    .v2-ws-preview { max-height: 160px; width: auto; }
+    .v2-ws-panels { grid-template-columns: 1fr; }
+    .v2-layer-list {
+        border-right: none;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+}
+
+/* ================================================================
+   END V2 SHELL
+   ================================================================ */
 </style>
 
 <script src="{{ url_for('static', filename='js/brand_editor.js') }}"></script>
@@ -2589,6 +3015,26 @@ const apiBase = window.location.origin;
 let editor = null;
 let logoRemoveBgMode = 'none';  // 'none', 'dark', 'light'
 let logoRemoveBgThreshold = 50;  // 20-150
+
+// ========== V2 SHELL STATE ==========
+let allBrands = [];
+let selectedBrandId = null;
+let selectedFormat = 'vertical_9_16';
+
+/** Minimal HTML-escape for template literal interpolation. */
+function _e(s) {
+    if (s == null) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+// ========== END V2 SHELL STATE ==========
+
+// Restore saved format selection before first render
+initFormatTabs();
 
 // Load brands on page load
 loadBrands();
@@ -2611,7 +3057,8 @@ async function loadBrands() {
         
         renderBrands(userBrands, data.can_create);
     } catch (err) {
-        document.getElementById('brandGrid').innerHTML = `<div class="status-msg error">${err.message}</div>`;
+        const ws = document.getElementById('v2Workspace');
+        if (ws) ws.innerHTML = `<div class="v2-ws-loading status-msg error">${_e(err.message)}</div>`;
     }
 }
 
@@ -2624,57 +3071,302 @@ function updateCreateButtonState(canCreate, tier, maxBrands, count) {
 }
 
 function renderBrands(brands, canCreate) {
-    const grid = document.getElementById('brandGrid');
-    grid.innerHTML = '';
-    
-    // Handle empty state - new users with zero brands
+    // Store brands for selectBrand() to reference
+    allBrands = brands;
+
+    const rail = document.getElementById('v2Rail');
+    if (!rail) return;
+    rail.innerHTML = '';
+
+    // Empty state — no brands yet
     if (brands.length === 0) {
-        grid.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px;">
-                <div style="font-size: 48px; margin-bottom: 20px;">🎨</div>
-                <h2 style="margin-bottom: 12px;">No Brands Yet</h2>
-                <p style="color: #aaa; margin-bottom: 24px;">Create your first brand to get started with custom watermarks and logos</p>
-                <button class="btn btn-primary" onclick="openBrandWizard()">✨ Create Your First Brand</button>
-            </div>
-        `;
+        showEmptyWorkspace();
+        _appendCreateCard(rail);
         return;
     }
-    
-    brands.forEach(brand => {
-        const card = document.createElement('div');
-        card.className = 'brand-card';
-        
-        const logo = brand.logo_path ? `${apiBase}/api/preview/brand-asset/${brand.id}/logo?t=${Date.now()}` : '';
-        
-        // Readiness badges
-        const isReady = brand.is_ready || false;
-        const readinessBadge = isReady
-            ? '<span class="brand-badge badge-ready">✅ Ready</span><div class="brand-ready-hint">Ready to use in Create.</div>'
-            : '<span class="brand-badge badge-incomplete">⚠️ Incomplete</span>';
 
-        const missingAssets = [];
-        if (!brand.logo_path) missingAssets.push('logo');
-        if (!brand.watermark_path) missingAssets.push('watermark');
-        const warningMsg = !isReady
-            ? `<div class="badge-warning">Missing: ${missingAssets.join(', ')} — <a href="#" onclick="editBrand(${brand.id}); return false;" class="finish-setup-link">Finish setup →</a></div>`
-            : '';
-        
-        const deleteBtn = `<button class="btn btn-danger" onclick="deleteBrand(${brand.id}, '${brand.name}')">Delete</button>`;
-        
+    // Render compact rail cards
+    brands.forEach(brand => {
+        const logoUrl = brand.logo_path
+            ? `${apiBase}/api/preview/brand-asset/${brand.id}/logo?t=${Date.now()}`
+            : null;
+        const isReady = brand.is_ready || false;
+
+        const card = document.createElement('div');
+        card.className = 'v2-rail-card';
+        card.dataset.brandId = brand.id;
+        card.addEventListener('click', () => selectBrand(brand.id));
+
         card.innerHTML = `
-            ${logo ? `<img src="${logo}" class="brand-logo" alt="${brand.display_name}">` : ''}
-            ${readinessBadge}
-            <div class="brand-name">${brand.display_name}</div>
-            ${warningMsg}
-            <div class="brand-actions">
-                <button class="btn btn-secondary" onclick="editBrand(${brand.id})">Edit</button>
-                ${deleteBtn}
+            <div class="v2-rail-card-inner">
+                ${logoUrl
+                    ? `<img src="${logoUrl}" class="v2-rail-thumb" alt="${_e(brand.display_name)}">`
+                    : '<div class="v2-rail-thumb v2-rail-thumb-empty">🎨</div>'}
+                <div class="v2-rail-info">
+                    <div class="v2-rail-name">${_e(brand.display_name)}</div>
+                    <div class="v2-rail-meta">
+                        <span class="v2-rail-badge ${isReady ? 'badge-ready' : 'badge-incomplete'}">
+                            ${isReady ? '✅ Ready' : '⚠️ Incomplete'}
+                        </span>
+                    </div>
+                    <div class="v2-rail-updated">${_e(_timeAgo(brand.updated_at))}</div>
+                </div>
+                <button class="btn btn-secondary btn-sm v2-rail-edit-btn"
+                        onclick="event.stopPropagation(); editBrand(${brand.id})">Edit</button>
+            </div>`;
+
+        rail.appendChild(card);
+    });
+
+    _appendCreateCard(rail);
+
+    // Auto-select: restore from sessionStorage, fall back to first brand
+    const savedId = parseInt(sessionStorage.getItem('brandr_selected_brand_id') || '0', 10);
+    const target = brands.find(b => b.id === savedId) || brands[0];
+    if (target) selectBrand(target.id);
+}
+
+// ========== V2 SHELL: BRAND SELECTION + WORKSPACE ==========
+
+/** Select a brand: highlight its rail card and render the workspace. */
+function selectBrand(brandId) {
+    selectedBrandId = brandId;
+    sessionStorage.setItem('brandr_selected_brand_id', String(brandId));
+
+    // Highlight the selected rail card, clear others
+    document.querySelectorAll('.v2-rail-card').forEach(c => {
+        c.classList.toggle('selected', parseInt(c.dataset.brandId, 10) === brandId);
+    });
+
+    const brand = allBrands.find(b => b.id === brandId);
+    if (brand) renderWorkspace(brand);
+}
+
+/** Render the selected brand's full workspace panel. */
+function renderWorkspace(brand) {
+    const ws = document.getElementById('v2Workspace');
+    if (!ws) return;
+
+    const logoUrl = brand.logo_path
+        ? `${apiBase}/api/preview/brand-asset/${brand.id}/logo?t=${Date.now()}`
+        : null;
+    const wmUrl = brand.watermark_path
+        ? `${apiBase}/api/preview/brand-asset/${brand.id}/watermark?t=${Date.now()}`
+        : null;
+
+    const isReady   = brand.is_ready || false;
+    const hasWm     = !!brand.watermark_path;
+    const hasText   = !!brand.text_enabled;
+
+    const formatLabel = _formatLabel(selectedFormat);
+    const brandVideoUrl = document.getElementById('v2Container')?.dataset?.brandVideoUrl || '/portal/brand_video';
+
+    ws.innerHTML = `
+        <!-- Workspace header: identity + chips + format status -->
+        <div class="v2-ws-header">
+            <div class="v2-ws-identity">
+                ${logoUrl
+                    ? `<img src="${logoUrl}" class="v2-ws-logo" alt="${_e(brand.display_name)}">`
+                    : '<div class="v2-ws-logo v2-ws-logo-placeholder">🎨</div>'}
+                <div class="v2-ws-identity-info">
+                    <h2 class="v2-ws-name">${_e(brand.display_name)}</h2>
+                    <div class="v2-status-chips">
+                        ${isReady
+                            ? '<span class="v2-chip v2-chip-ready">✅ Ready</span>'
+                            : '<span class="v2-chip v2-chip-incomplete">⚠️ Incomplete</span>'}
+                        ${hasWm   ? '<span class="v2-chip v2-chip-asset">Watermark</span>' : ''}
+                        ${hasText ? '<span class="v2-chip v2-chip-asset">Text / CTA</span>' : ''}
+                    </div>
+                </div>
+                <button class="btn btn-secondary v2-ws-edit-btn"
+                        onclick="editBrand(${brand.id})">✏️ Edit</button>
             </div>
-        `;
-        
-        grid.appendChild(card);
+            <div class="v2-ws-format-status">
+                <span class="v2-format-viewing" id="v2FormatViewing">Viewing: ${_e(formatLabel)}</span>
+                <span class="v2-status-dot">·</span>
+                <span>Default layout saved</span>
+                <span class="v2-status-dot">·</span>
+                <span>4 formats follow default</span>
+            </div>
+        </div>
+
+        <!-- Workspace body: preview + layer list + quick actions -->
+        <div class="v2-ws-body">
+            <!-- Mini format preview -->
+            <div class="v2-ws-preview-panel">
+                <div class="v2-ws-preview fmt-${selectedFormat}" id="v2WsPreview">
+                    ${logoUrl
+                        ? `<img src="${logoUrl}" class="v2-preview-logo" alt="${_e(brand.display_name)}">`
+                        : '<div class="v2-preview-empty">No logo<br>uploaded</div>'}
+                </div>
+            </div>
+
+            <!-- Panels: layer list + quick actions -->
+            <div class="v2-ws-panels">
+                <!-- Layer List -->
+                <div class="v2-layer-list">
+                    <h4 class="v2-panel-title">Layer List</h4>
+
+                    <div class="v2-layer ${logoUrl ? 'v2-layer-active' : 'v2-layer-missing'}">
+                        ${logoUrl
+                            ? `<img src="${logoUrl}" class="v2-layer-thumb" alt="Logo">`
+                            : '<div class="v2-layer-thumb v2-layer-thumb-empty">🎨</div>'}
+                        <div class="v2-layer-info">
+                            <div class="v2-layer-name">Main Logo</div>
+                            <div class="v2-layer-status">Required</div>
+                        </div>
+                        <span class="v2-layer-eye">👁</span>
+                    </div>
+
+                    <div class="v2-layer ${hasWm ? 'v2-layer-active' : 'v2-layer-optional'}">
+                        ${wmUrl
+                            ? `<img src="${wmUrl}" class="v2-layer-thumb" alt="Watermark">`
+                            : '<div class="v2-layer-thumb v2-layer-thumb-empty" style="font-size:14px;">💧</div>'}
+                        <div class="v2-layer-info">
+                            <div class="v2-layer-name">Watermark</div>
+                            <div class="v2-layer-status">${hasWm ? 'Enabled' : 'Optional'}</div>
+                        </div>
+                        <span class="v2-layer-eye" style="opacity:${hasWm ? 1 : 0.35}">👁</span>
+                    </div>
+
+                    <div class="v2-layer ${hasText ? 'v2-layer-active' : 'v2-layer-optional'}">
+                        <div class="v2-layer-thumb v2-layer-thumb-empty" style="font-size:15px;font-weight:700;color:var(--accent);">T</div>
+                        <div class="v2-layer-info">
+                            <div class="v2-layer-name">Text / CTA</div>
+                            <div class="v2-layer-status">${hasText ? 'Enabled' : 'Optional'}</div>
+                        </div>
+                        <span class="v2-layer-eye" style="opacity:${hasText ? 1 : 0.35}">👁</span>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="v2-quick-actions">
+                    <h4 class="v2-panel-title">Quick Actions</h4>
+                    <button class="v2-action-btn" onclick="editBrand(${brand.id})">
+                        <span class="v2-action-icon">✏️</span>
+                        <div>
+                            <div class="v2-action-label">Edit Logo</div>
+                            <div class="v2-action-sub">Update your main logo</div>
+                        </div>
+                    </button>
+                    <button class="v2-action-btn" onclick="editBrand(${brand.id})">
+                        <span class="v2-action-icon">💧</span>
+                        <div>
+                            <div class="v2-action-label">Edit Watermark</div>
+                            <div class="v2-action-sub">Manage watermark style &amp; opacity</div>
+                        </div>
+                    </button>
+                    <button class="v2-action-btn" onclick="editBrand(${brand.id})">
+                        <span class="v2-action-icon" style="font-weight:700;">T</span>
+                        <div>
+                            <div class="v2-action-label">Edit Text</div>
+                            <div class="v2-action-sub">Customize text or CTA</div>
+                        </div>
+                    </button>
+                    <button class="v2-action-btn" onclick="editBrand(${brand.id})">
+                        <span class="v2-action-icon">⊞</span>
+                        <div>
+                            <div class="v2-action-label">Edit Position</div>
+                            <div class="v2-action-sub">Adjust placement &amp; size</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Workspace footer: delete + Start Branding -->
+        <div class="v2-ws-footer">
+            <button class="btn btn-danger btn-sm"
+                    onclick="deleteBrand(${brand.id}, '${_e(brand.name)}')">Delete Brand</button>
+            <a class="btn btn-primary v2-start-btn" href="${_e(brandVideoUrl)}">Start Branding →</a>
+        </div>`;
+}
+
+/** Show an empty state when the user has no brands. */
+function showEmptyWorkspace() {
+    const ws = document.getElementById('v2Workspace');
+    if (!ws) return;
+    ws.innerHTML = `
+        <div class="v2-ws-empty">
+            <div style="font-size:48px;margin-bottom:16px;">🎨</div>
+            <h2 style="margin-bottom:12px;">No Brands Yet</h2>
+            <p style="color:#aaa;margin-bottom:24px;">Create your first brand to get started</p>
+            <button class="btn btn-primary" onclick="openBrandWizard()">✨ Create Your First Brand</button>
+        </div>`;
+}
+
+/** Append the "+ Create Brand" card to the rail. */
+function _appendCreateCard(rail) {
+    const card = document.createElement('div');
+    card.className = 'v2-rail-create';
+    card.onclick = openBrandWizard;
+    card.innerHTML = `
+        <div class="v2-rail-create-inner">
+            <span class="v2-rail-create-icon">+</span>
+            <div class="v2-rail-create-label">Create New Brand</div>
+            <div class="v2-rail-create-sub">Build a new brand and customise your layouts.</div>
+        </div>`;
+    rail.appendChild(card);
+}
+
+// ========== V2 SHELL: FORMAT TABS ==========
+
+/** Restore the saved format tab on page load (before brands fetch returns). */
+function initFormatTabs() {
+    const saved = sessionStorage.getItem('brandr_selected_format') || 'vertical_9_16';
+    selectedFormat = saved;
+    document.querySelectorAll('.v2-format-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.format === saved);
     });
 }
+
+/** Switch the active format tab. Updates session state and workspace label/preview class only — no canvas redraw. */
+function switchFormat(format) {
+    selectedFormat = format;
+    sessionStorage.setItem('brandr_selected_format', format);
+
+    document.querySelectorAll('.v2-format-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.format === format);
+    });
+
+    // Update the workspace preview class and "Viewing: X" label without full re-render
+    const preview = document.getElementById('v2WsPreview');
+    if (preview) {
+        preview.className = 'v2-ws-preview fmt-' + format;
+    }
+    const viewingEl = document.getElementById('v2FormatViewing');
+    if (viewingEl) {
+        viewingEl.textContent = 'Viewing: ' + _formatLabel(format);
+    }
+}
+
+/** Human-readable label for a format key. */
+function _formatLabel(format) {
+    const labels = {
+        vertical_9_16:  'Vertical 9:16',
+        portrait_4_5:   'Portrait 4:5',
+        square_1_1:     'Square 1:1',
+        landscape_16_9: 'Landscape 16:9',
+        original:       'Original',
+    };
+    return labels[format] || 'Vertical 9:16';
+}
+
+/** Return a relative time string for an ISO timestamp (e.g. "3d ago"). */
+function _timeAgo(isoStr) {
+    if (!isoStr) return '';
+    try {
+        const diffMs   = Date.now() - new Date(isoStr).getTime();
+        const diffDays = Math.floor(diffMs / 86400000);
+        if (diffDays < 1)  return 'today';
+        if (diffDays === 1) return '1d ago';
+        if (diffDays < 30)  return `${diffDays}d ago`;
+        const diffMo = Math.floor(diffDays / 30);
+        return diffMo === 1 ? '1mo ago' : `${diffMo}mo ago`;
+    } catch (_) { return ''; }
+}
+
+// ========== END V2 SHELL ==========
 
 function openCreateModal() {
     document.getElementById('createModal').classList.add('active');
