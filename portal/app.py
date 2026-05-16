@@ -1372,6 +1372,131 @@ def admin_set_tier():
     return jsonify({'success': True, 'user_id': user_id, 'tier': new_tier, 'special_status': new_status})
 
 
+@app.route('/api/admin/disk-cleanup', methods=['POST'])
+@admin_required
+def admin_disk_cleanup():
+    """
+    Delete old files from OUTPUT_DIR and RAW_DIR to recover disk space.
+    Runs PRAGMA wal_checkpoint(TRUNCATE) afterwards to shrink the WAL file.
+
+    Body (JSON, all optional):
+        cutoff_hours  int  How many hours old a file must be to be deleted.
+                          Default 1.  Clamped to [0, 168].
+
+    Response:
+        success              bool
+        files_deleted        int   total files removed
+        bytes_freed          int   total bytes freed
+        raw_files_deleted    int
+        output_files_deleted int
+        checkpoint_result    str   "ok" | "failed" | "skipped"
+        checkpoint_error     str   only present when checkpoint fails
+        errors               list  non-fatal per-file errors (usually empty)
+        cutoff_hours         int   the effective cutoff used
+    """
+    import os
+    import time
+    import shutil
+    from .config import RAW_DIR, OUTPUT_DIR, DB_PATH
+    from .database import get_connection
+
+    admin_email = session.get('email', 'unknown')
+    data = request.get_json(force=True) or {}
+
+    # --- Cutoff: clamp to [0, 168] hours (0 = delete everything, 168 = one week) ---
+    try:
+        cutoff_hours = float(data.get('cutoff_hours', 1))
+    except (TypeError, ValueError):
+        cutoff_hours = 1.0
+    cutoff_hours = max(0.0, min(168.0, cutoff_hours))
+    cutoff_mtime = time.time() - cutoff_hours * 3600
+
+    print(f"[DISK CLEANUP] started by admin={admin_email} cutoff_hours={cutoff_hours:.1f}")
+
+    total_deleted = 0
+    total_bytes = 0
+    raw_deleted = 0
+    output_deleted = 0
+    errors = []
+
+    def _purge_dir(directory):
+        """Delete files older than cutoff_mtime in directory. Returns (count, bytes)."""
+        count = 0
+        freed = 0
+        if not os.path.isdir(directory):
+            return count, freed
+        try:
+            entries = os.listdir(directory)
+        except OSError as e:
+            errors.append(f"listdir({directory}): {e}")
+            return count, freed
+        for name in entries:
+            path = os.path.join(directory, name)
+            if not os.path.isfile(path):
+                continue
+            try:
+                mtime = os.path.getmtime(path)
+                if mtime < cutoff_mtime:
+                    size = os.path.getsize(path)
+                    os.remove(path)
+                    count += 1
+                    freed += size
+            except OSError as e:
+                errors.append(f"{path}: {e}")
+        return count, freed
+
+    raw_deleted, raw_bytes = _purge_dir(RAW_DIR)
+    output_deleted, output_bytes = _purge_dir(OUTPUT_DIR)
+    total_deleted = raw_deleted + output_deleted
+    total_bytes = raw_bytes + output_bytes
+
+    freed_mb = total_bytes / 1024 / 1024
+    print(
+        f"[DISK CLEANUP] deleted {total_deleted} files "
+        f"({raw_deleted} raw + {output_deleted} output), "
+        f"freed {freed_mb:.2f} MB"
+    )
+
+    # --- WAL checkpoint ---
+    checkpoint_result = "skipped"
+    checkpoint_error = None
+    try:
+        with get_connection() as conn:
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        checkpoint_result = "ok"
+        print("[DISK CLEANUP] wal checkpoint success")
+    except Exception as e:
+        checkpoint_result = "failed"
+        checkpoint_error = str(e)
+        print(f"[DISK CLEANUP] wal checkpoint failure: {e}")
+
+    # --- Disk usage snapshot post-cleanup ---
+    try:
+        db_dir = os.path.dirname(DB_PATH) or '.'
+        usage = shutil.disk_usage(db_dir)
+        free_mb_after = usage.free / 1024 / 1024
+        print(f"[DISK CLEANUP] disk free after cleanup: {free_mb_after:.1f} MB")
+    except Exception:
+        free_mb_after = None
+
+    response = {
+        'success': True,
+        'files_deleted': total_deleted,
+        'bytes_freed': total_bytes,
+        'raw_files_deleted': raw_deleted,
+        'output_files_deleted': output_deleted,
+        'cutoff_hours': cutoff_hours,
+        'checkpoint_result': checkpoint_result,
+        'errors': errors,
+    }
+    if free_mb_after is not None:
+        response['disk_free_mb_after'] = round(free_mb_after, 1)
+    if checkpoint_error:
+        response['checkpoint_error'] = checkpoint_error
+
+    return jsonify(response)
+
+
 @app.route('/portal/test')
 @login_required
 def test_page():
