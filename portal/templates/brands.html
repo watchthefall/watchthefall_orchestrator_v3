@@ -4157,7 +4157,7 @@ function openBrandEditor(brandId, mode) {
     brandEditorDraft.mode = mode;
 
     // Prefer cached allBrands to avoid a network round-trip (free-tier cold-start safety)
-    const _cached = (window.allBrands || []).find(b => b.id === brandId);
+    const _cached = (allBrands || []).find(b => b.id === brandId);
     const _hydrate = _cached
         ? Promise.resolve({ success: true, brand: _cached })
         : fetch(`${apiBase}/api/brands/${brandId}`).then(r => r.json());
