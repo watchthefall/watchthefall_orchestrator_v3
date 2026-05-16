@@ -535,6 +535,7 @@
                     <!-- Right: Upload zone -->
                     <div class="step1-upload">
                         <h3>Upload Your Logo</h3>
+                        <p class="help-text" style="margin-bottom:8px;">Used as the primary brand mark on all rendered videos.</p>
                         <div class="upload-zone-large" id="wizardLogoUploadZone" onclick="document.getElementById('wizardLogoInput').click()">
                             <input type="file" id="wizardLogoInput" accept="image/*" hidden>
                             <div class="upload-placeholder-large">
@@ -6973,14 +6974,14 @@ async function saveWizardBrand() {
             
             const logoData = await logoRes.json();
             if (!logoData.success) {
-                console.warn('Logo upload warning:', logoData.error);
+                throw new Error('Logo upload failed: ' + (logoData.error || 'unknown error'));
             }
         }
-        
+
         // Upload separate watermark only if a new file was selected
         if (wizardState.useSeparateWatermark && wizardState.watermarkFile) {
             status.innerHTML = '<div class="status-msg info">Uploading watermark...</div>';
-            
+
             const wmForm = new FormData();
             wmForm.append('file', wizardState.watermarkFile);
             wmForm.append('watermark_scale', watermarkUiToRenderScale(wizardState.watermarkScale));
@@ -6993,7 +6994,7 @@ async function saveWizardBrand() {
 
             const wmData = await wmRes.json();
             if (!wmData.success) {
-                console.warn('Watermark upload warning:', wmData.error);
+                throw new Error('Watermark upload failed: ' + (wmData.error || 'unknown error'));
             }
         }
 
@@ -7131,33 +7132,31 @@ async function saveWizardBrandWithWatermark() {
             
             const logoData = await logoRes.json();
             if (!logoData.success) {
-                console.warn('Logo upload warning:', logoData.error);
-                // Continue anyway - brand is created
+                throw new Error('Logo upload failed: ' + (logoData.error || 'unknown error'));
             }
         }
-        
+
         // Step 3: Upload watermark if present
         if (wizardState.watermarkFile) {
             status.innerHTML = '<div class="status-msg info">Uploading watermark...</div>';
-            
+
             // Use the edited canvas state for upload to preserve shape/contrast edits
             const watermarkFileToUpload = await getWatermarkFileForUpload();
-            
+
             const wmForm = new FormData();
             wmForm.append('file', watermarkFileToUpload);
             wmForm.append('watermark_scale', watermarkUiToRenderScale(wizardState.watermarkScale));
             wmForm.append('watermark_opacity', wizardState.watermarkOpacity / 100);
             wmForm.append('watermark_mode', wizardState.watermarkMode);
-            
+
             const wmRes = await fetch(`${apiBase}/api/brands/${brandId}/upload_watermark`, {
                 method: 'POST',
                 body: wmForm
             });
-            
+
             const wmData = await wmRes.json();
             if (!wmData.success) {
-                console.warn('Watermark upload warning:', wmData.error);
-                // Continue anyway - brand is created
+                throw new Error('Watermark upload failed: ' + (wmData.error || 'unknown error'));
             }
         }
         
