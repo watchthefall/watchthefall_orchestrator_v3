@@ -4156,8 +4156,13 @@ function openBrandEditor(brandId, mode) {
     brandEditorDraft.brandId = brandId;
     brandEditorDraft.mode = mode;
 
-    fetch(`${apiBase}/api/brands/${brandId}`)
-        .then(res => res.json())
+    // Prefer cached allBrands to avoid a network round-trip (free-tier cold-start safety)
+    const _cached = (window.allBrands || []).find(b => b.id === brandId);
+    const _hydrate = _cached
+        ? Promise.resolve({ success: true, brand: _cached })
+        : fetch(`${apiBase}/api/brands/${brandId}`).then(r => r.json());
+
+    _hydrate
         .then(data => {
             if (!data.success) throw new Error(data.error || 'Failed to load brand');
             const brand = data.brand;
