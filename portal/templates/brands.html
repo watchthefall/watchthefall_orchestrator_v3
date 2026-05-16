@@ -3242,14 +3242,14 @@ function renderWorkspace(brand) {
                 <!-- Quick Actions -->
                 <div class="v2-quick-actions">
                     <h4 class="v2-panel-title">Quick Actions</h4>
-                    <button class="v2-action-btn" onclick="editBrand(${brand.id})">
+                    <button class="v2-action-btn" onclick="editBrandLogo(${brand.id})">
                         <span class="v2-action-icon">✏️</span>
                         <div>
                             <div class="v2-action-label">Edit Logo</div>
                             <div class="v2-action-sub">Update your main logo</div>
                         </div>
                     </button>
-                    <button class="v2-action-btn" onclick="editBrand(${brand.id})">
+                    <button class="v2-action-btn" onclick="editBrandWatermark(${brand.id})">
                         <span class="v2-action-icon">💧</span>
                         <div>
                             <div class="v2-action-label">Edit Watermark</div>
@@ -3263,7 +3263,7 @@ function renderWorkspace(brand) {
                             <div class="v2-action-sub">Customize text or CTA</div>
                         </div>
                     </button>
-                    <button class="v2-action-btn" onclick="editBrand(${brand.id})">
+                    <button class="v2-action-btn" onclick="editBrandPosition(${brand.id})">
                         <span class="v2-action-icon">⊞</span>
                         <div>
                             <div class="v2-action-label">Edit Position</div>
@@ -3711,7 +3711,7 @@ async function createBrand(e) {
     }
 }
 
-function editBrand(brandId) {
+function editBrand(brandId, options = {}) {
     const loadToken = ++wizardLoadToken;
     resetWizardWatermarkUi();
     // Reset save button and drag state before the async fetch so the wizard never
@@ -3852,13 +3852,23 @@ function editBrand(brandId) {
             // Show wizard
             const wizardEl = document.getElementById('brandWizard');
             if (wizardEl) wizardEl.classList.add('active');
-            
+
+            // Route to requested step/layer if specified by caller
+            if (options.step === 2) {
+                if (options.activeElement) wizardState.activeElement = options.activeElement;
+                showWizardStep(2);
+            }
+
             console.log(`[Brand Wizard] Editing brand #${brandId}: ${brand.display_name}`);
         })
         .catch(err => {
             alert('Error loading brand: ' + err.message);
         });
 }
+
+function editBrandLogo(brandId)      { editBrand(brandId); }
+function editBrandPosition(brandId)  { editBrand(brandId, { step: 2 }); }
+function editBrandWatermark(brandId) { editBrand(brandId, { step: 2, activeElement: 'watermark' }); }
 
 async function deleteBrand(brandId, brandName) {
     if (!confirm(`Delete brand "${brandName}"? This cannot be undone.`)) return;
