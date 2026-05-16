@@ -378,6 +378,17 @@ class VideoProcessor:
         text_size = brand_config.get('text_size', 48)
         text_color = brand_config.get('text_color', '#FFFFFF')
 
+        # If x/y are still at migration defaults, translate text_position into y_pct.
+        # Brands with explicit canvas placement have non-default values and are unaffected.
+        if abs(text_x_pct - 0.5) < 0.001 and abs(text_y_pct - 0.2) < 0.001:
+            text_position = brand_config.get('text_position', 'top')
+            if text_position == 'bottom':
+                text_y_pct = 0.88
+            elif text_position == 'center':
+                text_y_pct = 0.5
+            # 'top' keeps 0.2 — correct as-is
+            print(f"[VISUAL_PRESET] Text position fallback: '{text_position}' → y={text_y_pct:.2f}")
+
         print(f"[VISUAL_PRESET] Logo: x={logo_x_pct:.2f}, y={logo_y_pct:.2f}, scale={logo_scale_pct:.2f}, opacity={logo_opacity:.2f}, rotation={logo_rotation}°")
         print(f"[VISUAL_PRESET] Watermark: mode={wm_mode}, x={wm_x_pct:.2f}, y={wm_y_pct:.2f}, scale={wm_scale_pct:.2f}, opacity={wm_opacity:.2f}")
         print(f"[WM RENDER] brand='{brand_name}' wm_mode={wm_mode} wm_x={wm_x_pct:.4f} wm_y={wm_y_pct:.4f} wm_scale={wm_scale_pct:.4f} wm_opacity={wm_opacity:.4f}")
