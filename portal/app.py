@@ -2216,7 +2216,7 @@ def process_branded_videos():
                 import time as _render_time
                 _render_start = _render_time.time()
                 print(f"[RENDER] process_brand start: brand='{brand_name}' id={brand_id} video='{video_id}'")
-                output_path = processor.process_brand(merged_config, video_id=video_id)
+                output_path = processor.process_brand(merged_config, video_id=video_id, output_format=output_format)
                 _render_elapsed = _render_time.time() - _render_start
                 print(f"[RENDER] process_brand done:  brand='{brand_name}' elapsed={_render_elapsed:.1f}s output='{output_path}'")
                 output_paths.append(output_path)

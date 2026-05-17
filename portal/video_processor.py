@@ -666,8 +666,8 @@ class VideoProcessor:
         
         return filter_complex
     
-    def process_brand(self, brand_config: Dict, logo_settings: Optional[Dict] = None, 
-                     video_id: str = 'video') -> str:
+    def process_brand(self, brand_config: Dict, logo_settings: Optional[Dict] = None,
+                     video_id: str = 'video', output_format: str = 'vertical_9_16') -> str:
         """
         Process video with brand overlays
         
@@ -686,6 +686,7 @@ class VideoProcessor:
         
         print(f"[DEBUG] Processing brand: {brand_name}")
         print(f"[DEBUG] Video ID: {video_id}")
+        print(f"[DEBUG] Output format: {output_format}")
         print(f"[DEBUG] Output filename: {output_filename}")
         print(f"[DEBUG] Output path: {output_path}")
         
