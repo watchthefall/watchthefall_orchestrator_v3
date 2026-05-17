@@ -4295,7 +4295,7 @@ function editBrand(brandId, options = {}) {
 
 function editBrandLogo(brandId)      { openBrandEditor(brandId, 'logo'); }
 function editBrandPosition(brandId)  { editBrand(brandId, { step: 2 }); }
-function editBrandWatermark(brandId) { editBrand(brandId, { step: 2, activeElement: 'watermark' }); }
+function editBrandWatermark(brandId) { openBrandEditor(brandId, 'watermark'); }
 
 // ========== BRAND EDITOR SHELL — Option C (Phase 10F) ==========
 
