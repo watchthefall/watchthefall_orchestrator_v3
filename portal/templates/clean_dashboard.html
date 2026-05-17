@@ -141,6 +141,11 @@
         background: rgba(255,255,255,0.06);
         color: #97a0b4;
     }
+    .output-format-pill[disabled] {
+        opacity: 0.45;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
     .output-format-pill.active .output-format-pill-tag {
         background: rgba(57,255,20,0.18);
         color: var(--accent);
@@ -1975,31 +1980,31 @@
     
     <!-- ===== BRAND SELECTION (shown in selection mode) ===== -->
     <div id="outputFormatsSection" class="output-format-panel">
-        <div class="output-format-title">Output formats</div>
-        <p class="review-subcopy">Choose where this content should be prepared next. 9:16 is live now; other targets are planned.</p>
+        <div class="output-format-title">Output format</div>
+        <p class="review-subcopy">Vertical 9:16 is Brandr's live output format. Other formats are coming soon.</p>
         <div class="output-format-grid" id="outputFormatGrid">
             <button type="button" class="output-format-pill active" data-format-key="reels916" onclick="toggleOutputFormat('reels916')">
                 <span class="output-format-pill-tag">9:16</span>
-                <span>TikTok / Reels</span>
+                <span>Vertical 9:16</span>
                 <span class="output-format-state live">Live</span>
             </button>
-            <button type="button" class="output-format-pill" data-format-key="feed11" onclick="toggleOutputFormat('feed11')">
+            <button type="button" class="output-format-pill" data-format-key="feed11" disabled>
                 <span class="output-format-pill-tag">1:1</span>
-                <span>Instagram Feed</span>
+                <span>Square 1:1</span>
                 <span class="output-format-state planned">Planned</span>
             </button>
-            <button type="button" class="output-format-pill" data-format-key="wide169" onclick="toggleOutputFormat('wide169')">
+            <button type="button" class="output-format-pill" data-format-key="wide169" disabled>
                 <span class="output-format-pill-tag">16:9</span>
-                <span>YouTube / X</span>
+                <span>Landscape 16:9</span>
                 <span class="output-format-state planned">Planned</span>
             </button>
-            <button type="button" class="output-format-pill optional" data-format-key="autoPack" onclick="toggleOutputFormat('autoPack')">
+            <button type="button" class="output-format-pill optional" data-format-key="autoPack" disabled>
                 <span class="output-format-pill-tag">Auto</span>
                 <span>Auto platform pack</span>
                 <span class="output-format-state planned">Coming soon</span>
             </button>
         </div>
-        <div class="output-format-note" id="outputFormatSummary">9:16 is live now. Other formats are planned for future output support.</div>
+        <div class="output-format-note" id="outputFormatSummary">Vertical 9:16 is the only live output format. Other formats are planned.</div>
     </div>
 
     <div id="selectionModeHeader">
@@ -2017,7 +2022,7 @@
             <button id="prevPreviewBtn" class="ptb-nav-btn" onclick="cyclePreview(-1)">&#9664;</button>
             <div class="ptb-center">
                 <strong id="activePreviewName" class="ptb-name">--</strong>
-                <span class="ptb-format">Story 9:16</span>
+                <span class="ptb-format">Vertical 9:16</span>
                 <div id="overrideIndicator" class="ptb-override-tag" style="display:none;">edited this session</div>
             </div>
             <button id="nextPreviewBtn" class="ptb-nav-btn" onclick="cyclePreview(1)">&#9654;</button>
@@ -2050,7 +2055,7 @@
             <div class="review-context-top">
                 <div class="review-context-main">
                     <div class="review-context-title-row">
-                        <div class="review-context-title" id="reviewActiveTitle">Story 9:16</div>
+                        <div class="review-context-title" id="reviewActiveTitle">Vertical 9:16</div>
                         <span id="reviewStateBadge" class="review-state-badge default">Default</span>
                     </div>
                     <div class="review-context-meta" id="reviewContextMeta">Select a version to review.</div>
@@ -2701,7 +2706,7 @@ function updateReviewHeader() {
     const remaining = Math.max(total - (currentQueueIndex + 1), 0);
 
     if (!current || total === 0) {
-        title.textContent = 'Reviewing: Story 9:16';
+        title.textContent = 'Reviewing: Vertical 9:16';
         meta.textContent = '0 remaining';
         summary.textContent = 'Version 0 of 0';
         queueSummary.textContent = '';
@@ -2712,7 +2717,7 @@ function updateReviewHeader() {
     }
 
     const activeBrandName = brandDataCache[current.brand_id] ? brandDataCache[current.brand_id].display_name : current.brand_name;
-    title.textContent = `Reviewing: ${activeBrandName} · Story 9:16`;
+    title.textContent = `Reviewing: ${activeBrandName} · Vertical 9:16`;
     meta.textContent = remaining > 0 ? `${remaining} remaining` : 'Last version';
     summary.textContent = `Version ${currentQueueIndex + 1} of ${total}`;
     queueSummary.textContent = skipped > 0 ? `${reviewed} reviewed • ${skipped} skipped` : `${reviewed} reviewed`;

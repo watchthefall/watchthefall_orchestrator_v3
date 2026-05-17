@@ -367,14 +367,15 @@
         <button id="createBrandBtn" class="btn btn-primary" onclick="openBrandWizard()">+ Create Brand</button>
     </header>
 
-    <!-- Format selector — session-only, no canvas redraw -->
+    <!-- Format selector — session-only, no canvas redraw. Only Vertical 9:16 is render-real. -->
     <div class="v2-format-tabs" id="v2FormatTabs">
         <button class="v2-format-tab active" data-format="vertical_9_16" onclick="switchFormat('vertical_9_16')">Vertical 9:16</button>
-        <button class="v2-format-tab" data-format="portrait_4_5"   onclick="switchFormat('portrait_4_5')">Portrait 4:5</button>
-        <button class="v2-format-tab" data-format="square_1_1"     onclick="switchFormat('square_1_1')">Square 1:1</button>
-        <button class="v2-format-tab" data-format="landscape_16_9" onclick="switchFormat('landscape_16_9')">Landscape 16:9</button>
-        <button class="v2-format-tab" data-format="original"       onclick="switchFormat('original')">Original</button>
+        <button class="v2-format-tab" data-format="portrait_4_5"   disabled>Portrait 4:5 <span class="format-badge-planned">Planned</span></button>
+        <button class="v2-format-tab" data-format="square_1_1"     disabled>Square 1:1 <span class="format-badge-planned">Planned</span></button>
+        <button class="v2-format-tab" data-format="landscape_16_9" disabled>Landscape 16:9 <span class="format-badge-planned">Planned</span></button>
+        <button class="v2-format-tab" data-format="original"       disabled>Original <span class="format-badge-planned">Planned</span></button>
     </div>
+    <p class="v2-format-sub">Vertical 9:16 renders live. Other formats are coming soon.</p>
 
     <!-- V2 two-column layout: selected brand workspace + compact brand rail -->
     <div class="v2-layout">
@@ -2904,6 +2905,30 @@
     border-bottom-color: var(--accent);
     font-weight: 600;
 }
+.v2-format-tab[disabled] {
+    opacity: 0.42;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+.v2-format-tab[disabled]:hover { color: #777; }
+.format-badge-planned {
+    display: inline-block;
+    margin-left: 5px;
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.07);
+    color: #7a8299;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    vertical-align: middle;
+}
+.v2-format-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.28);
+    margin: 0;
+    padding: 3px 4px 8px;
+}
 
 /* Two-column layout: workspace + rail */
 .v2-layout {
@@ -3026,12 +3051,12 @@
     justify-content: center;
     overflow: hidden;
 }
-/* Aspect ratios — CSS only, no canvas redraw */
+/* Aspect ratios — CSS only, no canvas redraw. Only vertical_9_16 is render-real. */
 .v2-ws-preview.fmt-vertical_9_16  { aspect-ratio: 9/16;  }
 .v2-ws-preview.fmt-portrait_4_5   { aspect-ratio: 4/5;   }
 .v2-ws-preview.fmt-square_1_1     { aspect-ratio: 1/1;   }
 .v2-ws-preview.fmt-landscape_16_9 { aspect-ratio: 16/9;  }
-.v2-ws-preview.fmt-original       { aspect-ratio: 9/16;  }
+.v2-ws-preview.fmt-original       { aspect-ratio: unset; } /* not render-real yet — no false 9:16 mapping */
 
 .v2-preview-logo {
     max-width: 65%;
@@ -3825,10 +3850,13 @@ function _appendCreateCard(rail) {
 
 /** Restore the saved format tab on page load (before brands fetch returns). */
 function initFormatTabs() {
+    const allowedActive = ['vertical_9_16'];
     const saved = sessionStorage.getItem('brandr_selected_format') || 'vertical_9_16';
-    selectedFormat = saved;
+    const format = allowedActive.includes(saved) ? saved : 'vertical_9_16';
+    if (format !== saved) sessionStorage.setItem('brandr_selected_format', format);
+    selectedFormat = format;
     document.querySelectorAll('.v2-format-tab').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.format === saved);
+        btn.classList.toggle('active', btn.dataset.format === format);
     });
 }
 
