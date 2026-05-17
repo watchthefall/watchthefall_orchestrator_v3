@@ -723,6 +723,48 @@
             <p class="bes-help">Scale and opacity are saved to this brand. Watermark position is managed via the Position editor.</p>
         </div>
 
+        <!-- Position mode panel -->
+        <div id="besPositionPanel" class="bes-panel" style="display:none;">
+
+            <!-- Logo Position -->
+            <div class="bes-field-group">
+                <label class="bes-label">Logo X <span id="besPosLogoXVal">85%</span></label>
+                <input type="range" id="besPosLogoX" min="5" max="95" value="85"
+                       oninput="brandEditorDraft.posLogoX = parseInt(this.value);
+                                document.getElementById('besPosLogoXVal').textContent = this.value + '%';">
+            </div>
+            <div class="bes-field-group">
+                <label class="bes-label">Logo Y <span id="besPosLogoYVal">85%</span></label>
+                <input type="range" id="besPosLogoY" min="5" max="95" value="85"
+                       oninput="brandEditorDraft.posLogoY = parseInt(this.value);
+                                document.getElementById('besPosLogoYVal').textContent = this.value + '%';">
+            </div>
+
+            <!-- Watermark Position (shown only if brand has a watermark) -->
+            <div id="besPosWmSection" style="display:none;">
+                <div class="bes-field-group">
+                    <label class="bes-label">Watermark X <span id="besPosWmXVal">50%</span></label>
+                    <input type="range" id="besPosWmX" min="5" max="95" value="50"
+                           oninput="brandEditorDraft.posWmX = parseInt(this.value);
+                                    document.getElementById('besPosWmXVal').textContent = this.value + '%';">
+                </div>
+                <div class="bes-field-group">
+                    <label class="bes-label">Watermark Y <span id="besPosWmYVal">50%</span></label>
+                    <input type="range" id="besPosWmY" min="5" max="95" value="50"
+                           oninput="brandEditorDraft.posWmY = parseInt(this.value);
+                                    document.getElementById('besPosWmYVal').textContent = this.value + '%';">
+                </div>
+            </div>
+
+            <p class="bes-help">Position is % of frame width/height. 50% = centre, 85% = near edge. Drag positioning is available in the Advanced editor.</p>
+
+            <div style="margin-top:12px;">
+                <button type="button" class="btn btn-secondary"
+                        style="font-size:13px; padding:8px 14px; width:100%;"
+                        onclick="editBrandPosition(brandEditorDraft.brandId)">Open Advanced Position Editor →</button>
+            </div>
+        </div>
+
         <!-- Sticky footer -->
         <div class="bes-footer">
             <button type="button" class="btn btn-secondary" onclick="closeBrandEditor()">Cancel</button>
@@ -732,6 +774,8 @@
                     style="display:none;" onclick="saveLogoSettings()">Save Logo Settings</button>
             <button type="button" class="btn btn-primary" id="besWatermarkSaveBtn"
                     style="display:none;" onclick="saveWatermarkSettings()">Save Watermark Settings</button>
+            <button type="button" class="btn btn-primary" id="besPositionSaveBtn"
+                    style="display:none;" onclick="savePositionSettings()">Save Position</button>
         </div>
     </div>
 </div>
@@ -4420,6 +4464,30 @@ function openBrandEditor(brandId, mode) {
                 }
             }
 
+            // Populate position UI controls
+            brandEditorDraft.posLogoX = Math.round((brand.logo_x != null ? brand.logo_x : 0.85) * 100);
+            brandEditorDraft.posLogoY = Math.round((brand.logo_y != null ? brand.logo_y : 0.85) * 100);
+            brandEditorDraft.posWmX   = Math.round((brand.wm_x  != null ? brand.wm_x   : 0.50) * 100);
+            brandEditorDraft.posWmY   = Math.round((brand.wm_y  != null ? brand.wm_y   : 0.50) * 100);
+            const posLogoXEl   = document.getElementById('besPosLogoX');
+            const posLogoXVal  = document.getElementById('besPosLogoXVal');
+            const posLogoYEl   = document.getElementById('besPosLogoY');
+            const posLogoYVal  = document.getElementById('besPosLogoYVal');
+            const posWmXEl     = document.getElementById('besPosWmX');
+            const posWmXVal    = document.getElementById('besPosWmXVal');
+            const posWmYEl     = document.getElementById('besPosWmY');
+            const posWmYVal    = document.getElementById('besPosWmYVal');
+            const posWmSection = document.getElementById('besPosWmSection');
+            if (posLogoXEl)   posLogoXEl.value        = brandEditorDraft.posLogoX;
+            if (posLogoXVal)  posLogoXVal.textContent  = brandEditorDraft.posLogoX + '%';
+            if (posLogoYEl)   posLogoYEl.value         = brandEditorDraft.posLogoY;
+            if (posLogoYVal)  posLogoYVal.textContent  = brandEditorDraft.posLogoY + '%';
+            if (posWmXEl)     posWmXEl.value           = brandEditorDraft.posWmX;
+            if (posWmXVal)    posWmXVal.textContent    = brandEditorDraft.posWmX + '%';
+            if (posWmYEl)     posWmYEl.value           = brandEditorDraft.posWmY;
+            if (posWmYVal)    posWmYVal.textContent    = brandEditorDraft.posWmY + '%';
+            if (posWmSection) posWmSection.style.display = brandEditorDraft.wmPath ? '' : 'none';
+
             // Apply mode-specific layout then open shell
             _applyEditorMode(mode);
             document.getElementById('brandEditorShell').classList.add('active');
@@ -4438,9 +4506,11 @@ function _applyEditorMode(mode) {
     const textPanel = document.getElementById('besTextPanel');
     const logoPanel = document.getElementById('besLogoPanel');
     const wmPanel   = document.getElementById('besWatermarkPanel');
+    const posPanel  = document.getElementById('besPositionPanel');
     const textSave  = document.getElementById('besTextSaveBtn');
     const logoSave  = document.getElementById('besLogoSaveBtn');
     const wmSave    = document.getElementById('besWatermarkSaveBtn');
+    const posSave   = document.getElementById('besPositionSaveBtn');
     const titleEl   = document.getElementById('besTitle');
     const statusEl  = document.getElementById('besStatus');
     if (statusEl) statusEl.innerHTML = '';
@@ -4448,26 +4518,42 @@ function _applyEditorMode(mode) {
         if (textPanel) textPanel.style.display = 'none';
         if (logoPanel) logoPanel.style.display = '';
         if (wmPanel)   wmPanel.style.display   = 'none';
+        if (posPanel)  posPanel.style.display  = 'none';
         if (textSave)  textSave.style.display  = 'none';
         if (logoSave)  logoSave.style.display  = '';
         if (wmSave)    wmSave.style.display     = 'none';
-        if (titleEl)   titleEl.textContent     = 'Logo';
+        if (posSave)   posSave.style.display    = 'none';
+        if (titleEl)   titleEl.textContent      = 'Logo';
     } else if (mode === 'watermark') {
         if (textPanel) textPanel.style.display = 'none';
         if (logoPanel) logoPanel.style.display = 'none';
         if (wmPanel)   wmPanel.style.display   = '';
+        if (posPanel)  posPanel.style.display  = 'none';
         if (textSave)  textSave.style.display  = 'none';
         if (logoSave)  logoSave.style.display  = 'none';
         if (wmSave)    wmSave.style.display     = '';
-        if (titleEl)   titleEl.textContent     = 'Watermark';
+        if (posSave)   posSave.style.display    = 'none';
+        if (titleEl)   titleEl.textContent      = 'Watermark';
+    } else if (mode === 'position') {
+        if (textPanel) textPanel.style.display = 'none';
+        if (logoPanel) logoPanel.style.display = 'none';
+        if (wmPanel)   wmPanel.style.display   = 'none';
+        if (posPanel)  posPanel.style.display  = '';
+        if (textSave)  textSave.style.display  = 'none';
+        if (logoSave)  logoSave.style.display  = 'none';
+        if (wmSave)    wmSave.style.display     = 'none';
+        if (posSave)   posSave.style.display    = '';
+        if (titleEl)   titleEl.textContent      = 'Position';
     } else {
         if (textPanel) textPanel.style.display = '';
         if (logoPanel) logoPanel.style.display = 'none';
         if (wmPanel)   wmPanel.style.display   = 'none';
+        if (posPanel)  posPanel.style.display  = 'none';
         if (textSave)  textSave.style.display  = '';
         if (logoSave)  logoSave.style.display  = 'none';
         if (wmSave)    wmSave.style.display     = 'none';
-        if (titleEl)   titleEl.textContent     = 'Text / CTA';
+        if (posSave)   posSave.style.display    = 'none';
+        if (titleEl)   titleEl.textContent      = 'Text / CTA';
     }
 }
 
@@ -4476,15 +4562,11 @@ function closeBrandEditor() {
 }
 
 function switchEditorMode(mode) {
-    const id = brandEditorDraft.brandId;
-    // Text, Logo, and Watermark live inside the shell — switch in-place
-    if (mode === 'text' || mode === 'logo' || mode === 'watermark') {
+    // Text, Logo, Watermark, and Position all live inside the shell — switch in-place
+    if (mode === 'text' || mode === 'logo' || mode === 'watermark' || mode === 'position') {
         _applyEditorMode(mode);
         return;
     }
-    // Position still routes to the existing canvas editor (owns wm_x/wm_y)
-    closeBrandEditor();
-    if (mode === 'position') editBrandPosition(id);
 }
 
 function setBesLogoShape(shape) {
@@ -4625,6 +4707,38 @@ async function uploadWatermarkInShell(file) {
     } catch (err) {
         if (statusEl)  statusEl.innerHTML = `<div class="status-msg error">❌ ${_e(err.message)}</div>`;
         if (saveBtnEl) saveBtnEl.disabled = false;
+    }
+}
+
+async function savePositionSettings() {
+    const saveBtnEl = document.getElementById('besPositionSaveBtn');
+    const statusEl  = document.getElementById('besStatus');
+    if (saveBtnEl) { saveBtnEl.disabled = true; saveBtnEl.textContent = 'Saving…'; }
+    if (statusEl)  statusEl.innerHTML = '<div class="status-msg info">Saving position…</div>';
+    const clamp = v => Math.max(0.05, Math.min(0.95, v));
+    try {
+        const payload = {
+            logo_x: clamp(brandEditorDraft.posLogoX / 100),
+            logo_y: clamp(brandEditorDraft.posLogoY / 100)
+        };
+        if (brandEditorDraft.wmPath) {
+            payload.wm_x = clamp(brandEditorDraft.posWmX / 100);
+            payload.wm_y = clamp(brandEditorDraft.posWmY / 100);
+        }
+        const res = await fetch(`${apiBase}/api/brands/${brandEditorDraft.brandId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Save failed');
+        if (statusEl) statusEl.innerHTML = '<div class="status-msg success">✅ Position saved</div>';
+        loadBrands();
+        setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 2500);
+    } catch (err) {
+        if (statusEl) statusEl.innerHTML = `<div class="status-msg error">❌ ${_e(err.message)}</div>`;
+    } finally {
+        if (saveBtnEl) { saveBtnEl.disabled = false; saveBtnEl.textContent = 'Save Position'; }
     }
 }
 
@@ -4806,7 +4920,12 @@ let brandEditorDraft = {
     // watermark fields (wmScaleUi is UI %, converted via watermarkUiToRenderScale on save)
     wmPath: null,
     wmScaleUi: 50,
-    wmOpacity: 50
+    wmOpacity: 50,
+    // position fields — stored as integer % (5–95), converted to 0–1 float on save
+    posLogoX: 85,
+    posLogoY: 85,
+    posWmX:   50,
+    posWmY:   50
 };
 
 let wizardCanvas = null;
