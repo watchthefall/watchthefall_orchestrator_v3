@@ -2162,7 +2162,27 @@ def process_branded_videos():
                 merged_config['logo_padding'] = data['logo_padding']
                 override_applied = True
                 print(f"[PROCESS BRANDS] Override: logo_padding = {data['logo_padding']} (DB default: {db_brand.get('logo_padding')})")
-            
+            if 'text_enabled' in data:
+                merged_config['text_enabled'] = 1 if data['text_enabled'] else 0
+                override_applied = True
+                print(f"[PROCESS BRANDS] Override: text_enabled = {data['text_enabled']} (DB default: {db_brand.get('text_enabled')})")
+            if 'text_content' in data:
+                merged_config['text_content'] = str(data['text_content'])
+                override_applied = True
+                print(f"[PROCESS BRANDS] Override: text_content = '{str(data['text_content'])[:30]}' (DB default: '{str(db_brand.get('text_content',''))[:30]}')")
+            if 'text_size' in data:
+                merged_config['text_size'] = int(data['text_size'])
+                override_applied = True
+                print(f"[PROCESS BRANDS] Override: text_size = {data['text_size']} (DB default: {db_brand.get('text_size')})")
+            if 'text_color' in data:
+                merged_config['text_color'] = str(data['text_color'])
+                override_applied = True
+                print(f"[PROCESS BRANDS] Override: text_color = {data['text_color']} (DB default: {db_brand.get('text_color')})")
+            if 'text_position' in data:
+                merged_config['text_position'] = str(data['text_position'])
+                override_applied = True
+                print(f"[PROCESS BRANDS] Override: text_position = {data['text_position']} (DB default: {db_brand.get('text_position')})")
+
             # Merge secondary logo composition fields (already tier-gated above)
             if sec_logo_resolved_path:
                 merged_config['secondary_logo_enabled'] = True
