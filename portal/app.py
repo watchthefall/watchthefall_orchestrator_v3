@@ -2781,14 +2781,24 @@ def extract_frame():
                 height = stream.get('height', 1280)
                 break
         
-        # Extract first frame as JPEG (small, fast)
+        # Extract frame as JPEG — optional timestamp seek (default: frame 0)
+        raw_t = data.get('t') or data.get('timestamp')
+        try:
+            seek_sec = float(raw_t) if raw_t is not None else None
+            if seek_sec is not None and seek_sec < 0:
+                seek_sec = None
+        except (TypeError, ValueError):
+            seek_sec = None
+
         temp_frame = os.path.join(tempfile.gettempdir(), f'frame_{uuid.uuid4().hex}.jpg')
-        
-        extract_cmd = [
-            FFMPEG_BIN, '-y',
+
+        extract_cmd = [FFMPEG_BIN, '-y']
+        if seek_sec is not None:
+            extract_cmd += ['-ss', str(seek_sec)]
+        extract_cmd += [
             '-i', video_path,
             '-vframes', '1',
-            '-q:v', '5',  # Quality 2-31 (lower = better, 5 is good balance)
+            '-q:v', '5',
             temp_frame
         ]
         

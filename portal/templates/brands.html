@@ -548,7 +548,7 @@
                            onchange="brandEditorDraft.textEnabled = this.checked">
                     <span class="bes-toggle-text">Enable Text / CTA</span>
                 </label>
-                <p class="bes-help">Add a text preset to this brand. Saved as a text setting — verify on a rendered video before publishing.</p>
+                <p class="bes-help">Add a text overlay to this brand. When enabled, text renders on every video in the selected position.</p>
             </div>
 
             <!-- Preset selector -->
@@ -4279,7 +4279,18 @@ async function saveEditorText() {
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Save failed');
 
-        if (statusEl)  statusEl.innerHTML = '<div class="status-msg success">✅ Text preset saved</div>';
+        const _textEnabled = brandEditorDraft.textEnabled;
+        const _textContent = brandEditorDraft.textContent;
+        let _statusMsg;
+        if (!_textEnabled) {
+            _statusMsg = '<div class="status-msg success">Text disabled</div>';
+        } else if (!_textContent) {
+            _statusMsg = '<div class="status-msg warning">⚠️ Text enabled but no content set</div>';
+        } else {
+            const _preview = _textContent.length > 30 ? _textContent.slice(0, 30) + '…' : _textContent;
+            _statusMsg = `<div class="status-msg success">✅ Text enabled — "${_e(_preview)}"</div>`;
+        }
+        if (statusEl)  statusEl.innerHTML = _statusMsg;
         if (saveBtnEl) { saveBtnEl.disabled = false; saveBtnEl.textContent = 'Save Text Preset'; }
 
         // Refresh brand rail — sessionStorage preserves selected brand
