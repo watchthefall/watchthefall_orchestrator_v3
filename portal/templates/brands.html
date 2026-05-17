@@ -223,6 +223,7 @@
         .status-msg.success { background: rgba(40, 167, 69, 0.2); color: #28a745; }
         .status-msg.error { background: rgba(204, 0, 0, 0.2); color: #f66; }
         .status-msg.info { background: var(--accent-soft); color: var(--accent); }
+        .status-msg.warning { background: rgba(240, 165, 0, 0.15); color: #f0a500; }
         
         /* Nav styles provided by _nav.html partial */
         
@@ -602,11 +603,72 @@
             </div>
         </div>
 
+        <!-- Logo mode panel -->
+        <div id="besLogoPanel" class="bes-panel" style="display:none;">
+
+            <!-- Current logo preview -->
+            <div class="bes-field-group">
+                <label class="bes-label">Current Logo</label>
+                <div class="bes-logo-preview-wrap">
+                    <img id="besLogoPreviewImg" src="" alt="Brand logo" class="bes-logo-preview" style="display:none;">
+                    <div id="besLogoPlaceholder" class="bes-logo-placeholder">No logo uploaded</div>
+                </div>
+                <div style="margin-top:10px;">
+                    <input type="file" id="besLogoInput" accept="image/png,image/jpeg,image/jpg,image/webp,image/*"
+                           style="display:none;" onchange="uploadLogoInShell(this.files[0])">
+                    <button type="button" class="btn btn-secondary"
+                            style="font-size:13px; padding:8px 14px;"
+                            onclick="document.getElementById('besLogoInput').click()">Replace Logo</button>
+                </div>
+            </div>
+
+            <!-- Scale -->
+            <div class="bes-field-group">
+                <label class="bes-label">Scale <span id="besLogoScaleVal">25%</span></label>
+                <input type="range" id="besLogoScale" min="5" max="60" value="25"
+                       oninput="brandEditorDraft.logoScale = parseInt(this.value) / 100;
+                                document.getElementById('besLogoScaleVal').textContent = this.value + '%';">
+            </div>
+
+            <!-- Opacity -->
+            <div class="bes-field-group">
+                <label class="bes-label">Opacity <span id="besLogoOpacityVal">100%</span></label>
+                <input type="range" id="besLogoOpacity" min="0" max="100" value="100"
+                       oninput="brandEditorDraft.logoOpacity = parseInt(this.value) / 100;
+                                document.getElementById('besLogoOpacityVal').textContent = this.value + '%';">
+            </div>
+
+            <!-- Rotation -->
+            <div class="bes-field-group">
+                <label class="bes-label">Rotation <span id="besLogoRotationVal">0°</span></label>
+                <input type="range" id="besLogoRotation" min="0" max="360" value="0"
+                       oninput="brandEditorDraft.logoRotation = parseInt(this.value);
+                                document.getElementById('besLogoRotationVal').textContent = this.value + '°';">
+            </div>
+
+            <!-- Shape -->
+            <div class="bes-field-group">
+                <label class="bes-label">Shape</label>
+                <div class="bes-position-options">
+                    <button type="button" class="bes-pos-btn active" data-shape="original"
+                            onclick="setBesLogoShape('original')">Original</button>
+                    <button type="button" class="bes-pos-btn" data-shape="circle"
+                            onclick="setBesLogoShape('circle')">Circle</button>
+                    <button type="button" class="bes-pos-btn" data-shape="square"
+                            onclick="setBesLogoShape('square')">Square</button>
+                </div>
+            </div>
+
+            <p class="bes-help">Scale, opacity, rotation and shape are saved to this brand. Logo position is managed via the Position editor.</p>
+        </div>
+
         <!-- Sticky footer -->
         <div class="bes-footer">
             <button type="button" class="btn btn-secondary" onclick="closeBrandEditor()">Cancel</button>
             <button type="button" class="btn btn-primary" id="besTextSaveBtn"
                     onclick="saveEditorText()">Save Text Preset</button>
+            <button type="button" class="btn btn-primary" id="besLogoSaveBtn"
+                    style="display:none;" onclick="saveLogoSettings()">Save Logo Settings</button>
         </div>
     </div>
 </div>
@@ -3257,6 +3319,28 @@
     font-weight: 600;
 }
 
+.bes-logo-preview-wrap {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px;
+}
+.bes-logo-preview {
+    max-width: 100%;
+    max-height: 110px;
+    object-fit: contain;
+    border-radius: 4px;
+    display: block;
+}
+.bes-logo-placeholder {
+    font-size: 13px;
+    color: rgba(255,255,255,0.3);
+}
+
 .bes-footer {
     display: flex;
     gap: 10px;
@@ -4145,7 +4229,7 @@ function editBrand(brandId, options = {}) {
         });
 }
 
-function editBrandLogo(brandId)      { editBrand(brandId); }
+function editBrandLogo(brandId)      { openBrandEditor(brandId, 'logo'); }
 function editBrandPosition(brandId)  { editBrand(brandId, { step: 2 }); }
 function editBrandWatermark(brandId) { editBrand(brandId, { step: 2, activeElement: 'watermark' }); }
 
@@ -4167,7 +4251,7 @@ function openBrandEditor(brandId, mode) {
             if (!data.success) throw new Error(data.error || 'Failed to load brand');
             const brand = data.brand;
 
-            // Hydrate draft from server
+            // Hydrate text draft fields
             brandEditorDraft.brandName    = brand.display_name || brand.name || '';
             brandEditorDraft.textEnabled  = !!brand.text_enabled;
             brandEditorDraft.textContent  = brand.text_content  || '';
@@ -4176,14 +4260,20 @@ function openBrandEditor(brandId, mode) {
             brandEditorDraft.textColor    = brand.text_color    || '#FFFFFF';
             brandEditorDraft.textPreset   = 'custom';
 
-            // Populate UI controls
+            // Hydrate logo draft fields
+            brandEditorDraft.logoPath     = brand.logo_path || null;
+            brandEditorDraft.logoScale    = brand.logo_scale    != null ? brand.logo_scale    : 0.25;
+            brandEditorDraft.logoOpacity  = brand.logo_opacity  != null ? brand.logo_opacity  : 1.0;
+            brandEditorDraft.logoShape    = brand.logo_shape    || 'original';
+            brandEditorDraft.logoRotation = brand.logo_rotation != null ? brand.logo_rotation : 0.0;
+
+            // Populate text UI controls
             const enabledEl  = document.getElementById('besTextEnabled');
             const contentEl  = document.getElementById('besTextContent');
             const presetEl   = document.getElementById('besPreset');
             const sizeEl     = document.getElementById('besTextSize');
             const sizeValEl  = document.getElementById('besTextSizeVal');
             const colorEl    = document.getElementById('besTextColor');
-            const titleEl    = document.getElementById('besTitle');
             const chipEl     = document.getElementById('besBrandChip');
             const statusEl   = document.getElementById('besStatus');
             const saveBtnEl  = document.getElementById('besTextSaveBtn');
@@ -4194,17 +4284,54 @@ function openBrandEditor(brandId, mode) {
             if (sizeEl)     sizeEl.value           = brandEditorDraft.textSize;
             if (sizeValEl)  sizeValEl.textContent  = brandEditorDraft.textSize + 'px';
             if (colorEl)    colorEl.value          = brandEditorDraft.textColor;
-            if (titleEl)    titleEl.textContent    = 'Text / CTA';
             if (chipEl)     chipEl.textContent     = brandEditorDraft.brandName;
             if (statusEl)   statusEl.innerHTML     = '';
             if (saveBtnEl)  { saveBtnEl.disabled = false; saveBtnEl.textContent = 'Save Text Preset'; }
 
-            // Sync position buttons
-            document.querySelectorAll('.bes-pos-btn').forEach(btn => {
+            // Sync text position buttons (data-pos only — avoids touching shape buttons)
+            document.querySelectorAll('.bes-pos-btn[data-pos]').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.pos === brandEditorDraft.textPosition);
             });
 
-            // Open shell
+            // Populate logo UI controls
+            const logoScaleEl  = document.getElementById('besLogoScale');
+            const logoScaleVal = document.getElementById('besLogoScaleVal');
+            const logoOpacEl   = document.getElementById('besLogoOpacity');
+            const logoOpacVal  = document.getElementById('besLogoOpacityVal');
+            const logoRotEl    = document.getElementById('besLogoRotation');
+            const logoRotVal   = document.getElementById('besLogoRotationVal');
+            const logoPreview  = document.getElementById('besLogoPreviewImg');
+            const logoPlaceh   = document.getElementById('besLogoPlaceholder');
+
+            const scalePct = Math.round(brandEditorDraft.logoScale * 100);
+            const opacPct  = Math.round(brandEditorDraft.logoOpacity * 100);
+            const rotDeg   = Math.round(brandEditorDraft.logoRotation);
+
+            if (logoScaleEl)  logoScaleEl.value       = scalePct;
+            if (logoScaleVal) logoScaleVal.textContent = scalePct + '%';
+            if (logoOpacEl)   logoOpacEl.value         = opacPct;
+            if (logoOpacVal)  logoOpacVal.textContent  = opacPct + '%';
+            if (logoRotEl)    logoRotEl.value           = rotDeg;
+            if (logoRotVal)   logoRotVal.textContent    = rotDeg + '°';
+
+            if (logoPreview && logoPlaceh) {
+                if (brandEditorDraft.logoPath) {
+                    logoPreview.src = `${apiBase}/api/preview/brand-asset/${brandId}/logo?t=${Date.now()}`;
+                    logoPreview.style.display = '';
+                    logoPlaceh.style.display  = 'none';
+                } else {
+                    logoPreview.style.display = 'none';
+                    logoPlaceh.style.display  = '';
+                }
+            }
+
+            // Sync shape buttons
+            document.querySelectorAll('.bes-pos-btn[data-shape]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.shape === brandEditorDraft.logoShape);
+            });
+
+            // Apply mode-specific layout then open shell
+            _applyEditorMode(mode);
             document.getElementById('brandEditorShell').classList.add('active');
         })
         .catch(err => {
@@ -4212,18 +4339,119 @@ function openBrandEditor(brandId, mode) {
         });
 }
 
+function _applyEditorMode(mode) {
+    brandEditorDraft.mode = mode;
+    // Update active tab
+    document.querySelectorAll('.bes-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+    const textPanel = document.getElementById('besTextPanel');
+    const logoPanel = document.getElementById('besLogoPanel');
+    const textSave  = document.getElementById('besTextSaveBtn');
+    const logoSave  = document.getElementById('besLogoSaveBtn');
+    const titleEl   = document.getElementById('besTitle');
+    const statusEl  = document.getElementById('besStatus');
+    if (statusEl) statusEl.innerHTML = '';
+    if (mode === 'logo') {
+        if (textPanel) textPanel.style.display = 'none';
+        if (logoPanel) logoPanel.style.display = '';
+        if (textSave)  textSave.style.display  = 'none';
+        if (logoSave)  logoSave.style.display  = '';
+        if (titleEl)   titleEl.textContent     = 'Logo';
+    } else {
+        if (textPanel) textPanel.style.display = '';
+        if (logoPanel) logoPanel.style.display = 'none';
+        if (textSave)  textSave.style.display  = '';
+        if (logoSave)  logoSave.style.display  = 'none';
+        if (titleEl)   titleEl.textContent     = 'Text / CTA';
+    }
+}
+
 function closeBrandEditor() {
     document.getElementById('brandEditorShell').classList.remove('active');
 }
 
 function switchEditorMode(mode) {
-    // Text is the only real mode here — other modes route to existing working editors
-    if (mode === 'text') return;
     const id = brandEditorDraft.brandId;
+    // Text and Logo live inside the shell — switch in-place
+    if (mode === 'text' || mode === 'logo') {
+        _applyEditorMode(mode);
+        return;
+    }
+    // Watermark and Position still route to their existing working editors
     closeBrandEditor();
-    if (mode === 'logo')      editBrandLogo(id);
-    else if (mode === 'watermark') editBrandWatermark(id);
-    else if (mode === 'position')  editBrandPosition(id);
+    if (mode === 'watermark') editBrandWatermark(id);
+    else if (mode === 'position') editBrandPosition(id);
+}
+
+function setBesLogoShape(shape) {
+    brandEditorDraft.logoShape = shape;
+    document.querySelectorAll('.bes-pos-btn[data-shape]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.shape === shape);
+    });
+}
+
+async function saveLogoSettings() {
+    const saveBtnEl = document.getElementById('besLogoSaveBtn');
+    const statusEl  = document.getElementById('besStatus');
+    if (saveBtnEl) { saveBtnEl.disabled = true; saveBtnEl.textContent = 'Saving…'; }
+    if (statusEl)  statusEl.innerHTML = '<div class="status-msg info">Saving logo settings…</div>';
+    try {
+        const res = await fetch(`${apiBase}/api/brands/${brandEditorDraft.brandId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                logo_scale:    brandEditorDraft.logoScale,
+                logo_opacity:  brandEditorDraft.logoOpacity,
+                logo_shape:    brandEditorDraft.logoShape,
+                logo_rotation: brandEditorDraft.logoRotation
+            })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Save failed');
+        if (statusEl)  statusEl.innerHTML = '<div class="status-msg success">✅ Logo settings saved</div>';
+        if (saveBtnEl) { saveBtnEl.disabled = false; saveBtnEl.textContent = 'Save Logo Settings'; }
+        loadBrands();
+        setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 2500);
+    } catch (err) {
+        if (statusEl)  statusEl.innerHTML = `<div class="status-msg error">❌ ${_e(err.message)}</div>`;
+        if (saveBtnEl) { saveBtnEl.disabled = false; saveBtnEl.textContent = 'Save Logo Settings'; }
+    }
+}
+
+async function uploadLogoInShell(file) {
+    if (!file) return;
+    const statusEl  = document.getElementById('besStatus');
+    const saveBtnEl = document.getElementById('besLogoSaveBtn');
+    const logoInput = document.getElementById('besLogoInput');
+    if (statusEl)  statusEl.innerHTML = '<div class="status-msg info">Uploading & normalizing logo…</div>';
+    if (saveBtnEl) saveBtnEl.disabled = true;
+    try {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await fetch(`${apiBase}/api/brands/${brandEditorDraft.brandId}/upload_logo`, {
+            method: 'POST',
+            body: form
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Upload failed');
+        brandEditorDraft.logoPath = data.logo_path;
+        const previewImg  = document.getElementById('besLogoPreviewImg');
+        const placeholder = document.getElementById('besLogoPlaceholder');
+        if (previewImg) {
+            previewImg.src = `${apiBase}/api/preview/brand-asset/${brandEditorDraft.brandId}/logo?t=${Date.now()}`;
+            previewImg.style.display = '';
+        }
+        if (placeholder) placeholder.style.display = 'none';
+        if (logoInput)   logoInput.value = '';
+        if (statusEl)  statusEl.innerHTML = '<div class="status-msg success">✅ Logo uploaded</div>';
+        if (saveBtnEl) saveBtnEl.disabled = false;
+        loadBrands();
+        setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 2500);
+    } catch (err) {
+        if (statusEl)  statusEl.innerHTML = `<div class="status-msg error">❌ ${_e(err.message)}</div>`;
+        if (saveBtnEl) saveBtnEl.disabled = false;
+    }
 }
 
 function onTextPresetChange(preset) {
@@ -4364,12 +4592,19 @@ let brandEditorDraft = {
     brandId: null,
     brandName: '',
     mode: 'text',
+    // text fields
     textEnabled: false,
     textContent: '',
     textPreset: 'custom',
     textPosition: 'bottom',
     textSize: 48,
-    textColor: '#FFFFFF'
+    textColor: '#FFFFFF',
+    // logo fields
+    logoPath: null,
+    logoScale: 0.25,
+    logoOpacity: 1.0,
+    logoShape: 'original',
+    logoRotation: 0.0
 };
 
 let wizardCanvas = null;
