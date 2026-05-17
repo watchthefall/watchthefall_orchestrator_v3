@@ -726,33 +726,44 @@
         <!-- Position mode panel -->
         <div id="besPositionPanel" class="bes-panel" style="display:none;">
 
+            <!-- Approximate 9:16 position preview -->
+            <div id="besPosPreview">
+                <div id="besPosLogoMarker" class="bes-pos-marker"></div>
+                <div id="besPosWmMarker" class="bes-pos-marker"></div>
+            </div>
+            <p style="text-align:center;font-size:11px;color:rgba(255,255,255,0.35);margin:0 0 14px;">Approximate position preview (9:16)</p>
+
             <!-- Logo Position -->
             <div class="bes-field-group">
                 <label class="bes-label">Logo X <span id="besPosLogoXVal">85%</span></label>
-                <input type="range" id="besPosLogoX" min="5" max="95" value="85"
-                       oninput="brandEditorDraft.posLogoX = parseInt(this.value);
-                                document.getElementById('besPosLogoXVal').textContent = this.value + '%';">
+                <input type="range" id="besPosLogoX" min="5" max="95" step="0.5" value="85"
+                       oninput="brandEditorDraft.posLogoX = parseFloat(this.value);
+                                document.getElementById('besPosLogoXVal').textContent = this.value + '%';
+                                _updatePositionPreview();">
             </div>
             <div class="bes-field-group">
                 <label class="bes-label">Logo Y <span id="besPosLogoYVal">85%</span></label>
-                <input type="range" id="besPosLogoY" min="5" max="95" value="85"
-                       oninput="brandEditorDraft.posLogoY = parseInt(this.value);
-                                document.getElementById('besPosLogoYVal').textContent = this.value + '%';">
+                <input type="range" id="besPosLogoY" min="5" max="95" step="0.5" value="85"
+                       oninput="brandEditorDraft.posLogoY = parseFloat(this.value);
+                                document.getElementById('besPosLogoYVal').textContent = this.value + '%';
+                                _updatePositionPreview();">
             </div>
 
             <!-- Watermark Position (shown only if brand has a watermark) -->
             <div id="besPosWmSection" style="display:none;">
                 <div class="bes-field-group">
                     <label class="bes-label">Watermark X <span id="besPosWmXVal">50%</span></label>
-                    <input type="range" id="besPosWmX" min="5" max="95" value="50"
-                           oninput="brandEditorDraft.posWmX = parseInt(this.value);
-                                    document.getElementById('besPosWmXVal').textContent = this.value + '%';">
+                    <input type="range" id="besPosWmX" min="5" max="95" step="0.5" value="50"
+                           oninput="brandEditorDraft.posWmX = parseFloat(this.value);
+                                    document.getElementById('besPosWmXVal').textContent = this.value + '%';
+                                    _updatePositionPreview();">
                 </div>
                 <div class="bes-field-group">
                     <label class="bes-label">Watermark Y <span id="besPosWmYVal">50%</span></label>
-                    <input type="range" id="besPosWmY" min="5" max="95" value="50"
-                           oninput="brandEditorDraft.posWmY = parseInt(this.value);
-                                    document.getElementById('besPosWmYVal').textContent = this.value + '%';">
+                    <input type="range" id="besPosWmY" min="5" max="95" step="0.5" value="50"
+                           oninput="brandEditorDraft.posWmY = parseFloat(this.value);
+                                    document.getElementById('besPosWmYVal').textContent = this.value + '%';
+                                    _updatePositionPreview();">
                 </div>
             </div>
 
@@ -3449,6 +3460,36 @@
     color: rgba(255,255,255,0.3);
 }
 
+/* Position mode preview */
+#besPosPreview {
+    position: relative;
+    width: 90px;
+    height: 160px;
+    background: #111;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0 auto 4px;
+    flex-shrink: 0;
+}
+.bes-pos-marker {
+    position: absolute;
+    transform: translate(-50%, -50%);
+}
+#besPosLogoMarker {
+    background: rgba(99,179,237,0.75);
+    border: 1px solid rgba(99,179,237,1);
+    border-radius: 4px;
+    aspect-ratio: 1 / 1;
+}
+#besPosWmMarker {
+    background: rgba(255,200,100,0.65);
+    border: 1px solid rgba(255,200,100,1);
+    border-radius: 2px;
+    aspect-ratio: 3 / 1;
+    display: none;
+}
+
 .bes-footer {
     display: flex;
     gap: 10px;
@@ -4464,11 +4505,11 @@ function openBrandEditor(brandId, mode) {
                 }
             }
 
-            // Populate position UI controls
-            brandEditorDraft.posLogoX = Math.round((brand.logo_x != null ? brand.logo_x : 0.85) * 100);
-            brandEditorDraft.posLogoY = Math.round((brand.logo_y != null ? brand.logo_y : 0.85) * 100);
-            brandEditorDraft.posWmX   = Math.round((brand.wm_x  != null ? brand.wm_x   : 0.50) * 100);
-            brandEditorDraft.posWmY   = Math.round((brand.wm_y  != null ? brand.wm_y   : 0.50) * 100);
+            // Populate position UI controls (rounded to nearest 0.5 for step=0.5 sliders)
+            brandEditorDraft.posLogoX = Math.round((brand.logo_x != null ? brand.logo_x : 0.85) * 200) / 2;
+            brandEditorDraft.posLogoY = Math.round((brand.logo_y != null ? brand.logo_y : 0.85) * 200) / 2;
+            brandEditorDraft.posWmX   = Math.round((brand.wm_x  != null ? brand.wm_x   : 0.50) * 200) / 2;
+            brandEditorDraft.posWmY   = Math.round((brand.wm_y  != null ? brand.wm_y   : 0.50) * 200) / 2;
             const posLogoXEl   = document.getElementById('besPosLogoX');
             const posLogoXVal  = document.getElementById('besPosLogoXVal');
             const posLogoYEl   = document.getElementById('besPosLogoY');
@@ -4487,6 +4528,7 @@ function openBrandEditor(brandId, mode) {
             if (posWmYEl)     posWmYEl.value           = brandEditorDraft.posWmY;
             if (posWmYVal)    posWmYVal.textContent    = brandEditorDraft.posWmY + '%';
             if (posWmSection) posWmSection.style.display = brandEditorDraft.wmPath ? '' : 'none';
+            _updatePositionPreview();
 
             // Apply mode-specific layout then open shell
             _applyEditorMode(mode);
@@ -4742,6 +4784,35 @@ async function savePositionSettings() {
     }
 }
 
+function _updatePositionPreview() {
+    const logoMarker = document.getElementById('besPosLogoMarker');
+    const wmMarker   = document.getElementById('besPosWmMarker');
+    if (!logoMarker) return;
+
+    const logoScale = brandEditorDraft.logoScale != null ? brandEditorDraft.logoScale : 0.25;
+    const logoShape = brandEditorDraft.logoShape || 'original';
+
+    // Logo marker: position as % of preview container, width as % of preview width.
+    // transform: translate(-50%,-50%) enforces centre-anchor matching render cx - w/2.
+    logoMarker.style.left         = brandEditorDraft.posLogoX + '%';
+    logoMarker.style.top          = brandEditorDraft.posLogoY + '%';
+    logoMarker.style.width        = (logoScale * 100) + '%';
+    logoMarker.style.borderRadius = logoShape === 'circle' ? '50%' : '4px';
+
+    if (!wmMarker) return;
+    if (brandEditorDraft.wmPath) {
+        // Matches render: ui_scale = wm_scale / WM_UI_REF_SCALE; wm_target_w = ui_scale * W * 0.5
+        // wmScaleUi is already the UI %, so ui_scale = wmScaleUi/100, width = ui_scale * 50% of W
+        const wmWidthPct = (brandEditorDraft.wmScaleUi != null ? brandEditorDraft.wmScaleUi : 50) * 0.5;
+        wmMarker.style.left    = brandEditorDraft.posWmX + '%';
+        wmMarker.style.top     = brandEditorDraft.posWmY + '%';
+        wmMarker.style.width   = wmWidthPct + '%';
+        wmMarker.style.display = '';
+    } else {
+        wmMarker.style.display = 'none';
+    }
+}
+
 function updateBesLogoPreviewStyle() {
     const img = document.getElementById('besLogoPreviewImg');
     if (!img || img.style.display === 'none') return;
@@ -4921,7 +4992,7 @@ let brandEditorDraft = {
     wmPath: null,
     wmScaleUi: 50,
     wmOpacity: 50,
-    // position fields — stored as integer % (5–95), converted to 0–1 float on save
+    // position fields — stored as float % (5–95, step 0.5), converted to 0–1 float on save
     posLogoX: 85,
     posLogoY: 85,
     posWmX:   50,
