@@ -685,6 +685,44 @@
             <p class="bes-help">Scale, opacity, rotation and shape are saved to this brand. Logo position is managed via the Position editor.</p>
         </div>
 
+        <!-- Watermark mode panel -->
+        <div id="besWatermarkPanel" class="bes-panel" style="display:none;">
+
+            <!-- Current watermark preview -->
+            <div class="bes-field-group">
+                <label class="bes-label">Current Watermark</label>
+                <div class="bes-logo-preview-wrap">
+                    <img id="besWmPreviewImg" src="" alt="Brand watermark" class="bes-logo-preview" style="display:none;">
+                    <div id="besWmPlaceholder" class="bes-logo-placeholder">No watermark uploaded</div>
+                </div>
+                <div style="margin-top:10px;">
+                    <input type="file" id="besWmInput" accept="image/png,image/jpeg,image/jpg,image/webp,image/*"
+                           style="display:none;" onchange="uploadWatermarkInShell(this.files[0])">
+                    <button type="button" class="btn btn-secondary"
+                            style="font-size:13px; padding:8px 14px;"
+                            onclick="document.getElementById('besWmInput').click()">Replace Watermark</button>
+                </div>
+            </div>
+
+            <!-- Scale -->
+            <div class="bes-field-group">
+                <label class="bes-label">Scale <span id="besWmScaleVal">50%</span></label>
+                <input type="range" id="besWmScale" min="10" max="130" value="50"
+                       oninput="brandEditorDraft.wmScaleUi = parseInt(this.value);
+                                document.getElementById('besWmScaleVal').textContent = this.value + '%';">
+            </div>
+
+            <!-- Opacity -->
+            <div class="bes-field-group">
+                <label class="bes-label">Opacity <span id="besWmOpacityVal">50%</span></label>
+                <input type="range" id="besWmOpacity" min="0" max="100" value="50"
+                       oninput="brandEditorDraft.wmOpacity = parseInt(this.value);
+                                document.getElementById('besWmOpacityVal').textContent = this.value + '%';">
+            </div>
+
+            <p class="bes-help">Scale and opacity are saved to this brand. Watermark position is managed via the Position editor.</p>
+        </div>
+
         <!-- Sticky footer -->
         <div class="bes-footer">
             <button type="button" class="btn btn-secondary" onclick="closeBrandEditor()">Cancel</button>
@@ -692,6 +730,8 @@
                     onclick="saveEditorText()">Save Text Preset</button>
             <button type="button" class="btn btn-primary" id="besLogoSaveBtn"
                     style="display:none;" onclick="saveLogoSettings()">Save Logo Settings</button>
+            <button type="button" class="btn btn-primary" id="besWatermarkSaveBtn"
+                    style="display:none;" onclick="saveWatermarkSettings()">Save Watermark Settings</button>
         </div>
     </div>
 </div>
@@ -4355,6 +4395,31 @@ function openBrandEditor(brandId, mode) {
             });
             updateBesLogoPreviewStyle();
 
+            // Populate watermark UI controls
+            brandEditorDraft.wmScaleUi = renderScaleToWatermarkUi(brand.wm_scale != null ? brand.wm_scale : 0.25);
+            brandEditorDraft.wmOpacity = Math.round((brand.wm_opacity != null ? brand.wm_opacity : 0.5) * 100);
+            brandEditorDraft.wmPath    = brand.watermark_path || null;
+            const wmScaleEl   = document.getElementById('besWmScale');
+            const wmScaleVal  = document.getElementById('besWmScaleVal');
+            const wmOpacEl    = document.getElementById('besWmOpacity');
+            const wmOpacVal   = document.getElementById('besWmOpacityVal');
+            const wmPreview   = document.getElementById('besWmPreviewImg');
+            const wmPlaceh    = document.getElementById('besWmPlaceholder');
+            if (wmScaleEl)  wmScaleEl.value       = brandEditorDraft.wmScaleUi;
+            if (wmScaleVal) wmScaleVal.textContent = brandEditorDraft.wmScaleUi + '%';
+            if (wmOpacEl)   wmOpacEl.value         = brandEditorDraft.wmOpacity;
+            if (wmOpacVal)  wmOpacVal.textContent  = brandEditorDraft.wmOpacity + '%';
+            if (wmPreview && wmPlaceh) {
+                if (brandEditorDraft.wmPath) {
+                    wmPreview.src = `${apiBase}/api/preview/brand-asset/${brandId}/watermark?t=${Date.now()}`;
+                    wmPreview.style.display = '';
+                    wmPlaceh.style.display  = 'none';
+                } else {
+                    wmPreview.style.display = 'none';
+                    wmPlaceh.style.display  = '';
+                }
+            }
+
             // Apply mode-specific layout then open shell
             _applyEditorMode(mode);
             document.getElementById('brandEditorShell').classList.add('active');
@@ -4372,22 +4437,36 @@ function _applyEditorMode(mode) {
     });
     const textPanel = document.getElementById('besTextPanel');
     const logoPanel = document.getElementById('besLogoPanel');
+    const wmPanel   = document.getElementById('besWatermarkPanel');
     const textSave  = document.getElementById('besTextSaveBtn');
     const logoSave  = document.getElementById('besLogoSaveBtn');
+    const wmSave    = document.getElementById('besWatermarkSaveBtn');
     const titleEl   = document.getElementById('besTitle');
     const statusEl  = document.getElementById('besStatus');
     if (statusEl) statusEl.innerHTML = '';
     if (mode === 'logo') {
         if (textPanel) textPanel.style.display = 'none';
         if (logoPanel) logoPanel.style.display = '';
+        if (wmPanel)   wmPanel.style.display   = 'none';
         if (textSave)  textSave.style.display  = 'none';
         if (logoSave)  logoSave.style.display  = '';
+        if (wmSave)    wmSave.style.display     = 'none';
         if (titleEl)   titleEl.textContent     = 'Logo';
+    } else if (mode === 'watermark') {
+        if (textPanel) textPanel.style.display = 'none';
+        if (logoPanel) logoPanel.style.display = 'none';
+        if (wmPanel)   wmPanel.style.display   = '';
+        if (textSave)  textSave.style.display  = 'none';
+        if (logoSave)  logoSave.style.display  = 'none';
+        if (wmSave)    wmSave.style.display     = '';
+        if (titleEl)   titleEl.textContent     = 'Watermark';
     } else {
         if (textPanel) textPanel.style.display = '';
         if (logoPanel) logoPanel.style.display = 'none';
+        if (wmPanel)   wmPanel.style.display   = 'none';
         if (textSave)  textSave.style.display  = '';
         if (logoSave)  logoSave.style.display  = 'none';
+        if (wmSave)    wmSave.style.display     = 'none';
         if (titleEl)   titleEl.textContent     = 'Text / CTA';
     }
 }
@@ -4398,15 +4477,14 @@ function closeBrandEditor() {
 
 function switchEditorMode(mode) {
     const id = brandEditorDraft.brandId;
-    // Text and Logo live inside the shell — switch in-place
-    if (mode === 'text' || mode === 'logo') {
+    // Text, Logo, and Watermark live inside the shell — switch in-place
+    if (mode === 'text' || mode === 'logo' || mode === 'watermark') {
         _applyEditorMode(mode);
         return;
     }
-    // Watermark and Position still route to their existing working editors
+    // Position still routes to the existing canvas editor (owns wm_x/wm_y)
     closeBrandEditor();
-    if (mode === 'watermark') editBrandWatermark(id);
-    else if (mode === 'position') editBrandPosition(id);
+    if (mode === 'position') editBrandPosition(id);
 }
 
 function setBesLogoShape(shape) {
@@ -4479,6 +4557,68 @@ async function uploadLogoInShell(file) {
         if (placeholder) placeholder.style.display = 'none';
         if (logoInput)   logoInput.value = '';
         if (statusEl)  statusEl.innerHTML = '<div class="status-msg success">✅ Logo uploaded</div>';
+        if (saveBtnEl) saveBtnEl.disabled = false;
+        loadBrands();
+        setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 2500);
+    } catch (err) {
+        if (statusEl)  statusEl.innerHTML = `<div class="status-msg error">❌ ${_e(err.message)}</div>`;
+        if (saveBtnEl) saveBtnEl.disabled = false;
+    }
+}
+
+async function saveWatermarkSettings() {
+    const saveBtnEl = document.getElementById('besWatermarkSaveBtn');
+    const statusEl  = document.getElementById('besStatus');
+    if (saveBtnEl) { saveBtnEl.disabled = true; saveBtnEl.textContent = 'Saving…'; }
+    if (statusEl)  statusEl.innerHTML = '<div class="status-msg info">Saving watermark settings…</div>';
+    try {
+        const res = await fetch(`${apiBase}/api/brands/${brandEditorDraft.brandId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                wm_scale:   watermarkUiToRenderScale(brandEditorDraft.wmScaleUi),
+                wm_opacity: brandEditorDraft.wmOpacity / 100,
+                wm_mode:    'positioned'
+            })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Save failed');
+        if (statusEl) statusEl.innerHTML = '<div class="status-msg success">✅ Watermark settings saved</div>';
+        loadBrands();
+        setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 2500);
+    } catch (err) {
+        if (statusEl) statusEl.innerHTML = `<div class="status-msg error">❌ ${_e(err.message)}</div>`;
+    } finally {
+        if (saveBtnEl) { saveBtnEl.disabled = false; saveBtnEl.textContent = 'Save Watermark Settings'; }
+    }
+}
+
+async function uploadWatermarkInShell(file) {
+    if (!file) return;
+    const statusEl  = document.getElementById('besStatus');
+    const saveBtnEl = document.getElementById('besWatermarkSaveBtn');
+    const wmInput   = document.getElementById('besWmInput');
+    if (statusEl)  statusEl.innerHTML = '<div class="status-msg info">Uploading & normalizing watermark…</div>';
+    if (saveBtnEl) saveBtnEl.disabled = true;
+    try {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await fetch(`${apiBase}/api/brands/${brandEditorDraft.brandId}/upload_watermark`, {
+            method: 'POST',
+            body: form
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Upload failed');
+        brandEditorDraft.wmPath = data.watermark_path;
+        const previewImg = document.getElementById('besWmPreviewImg');
+        const placeholder = document.getElementById('besWmPlaceholder');
+        if (previewImg) {
+            previewImg.src = `${apiBase}/api/preview/brand-asset/${brandEditorDraft.brandId}/watermark?t=${Date.now()}`;
+            previewImg.style.display = '';
+        }
+        if (placeholder) placeholder.style.display = 'none';
+        if (wmInput)   wmInput.value = '';
+        if (statusEl)  statusEl.innerHTML = '<div class="status-msg success">✅ Watermark uploaded</div>';
         if (saveBtnEl) saveBtnEl.disabled = false;
         loadBrands();
         setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 2500);
@@ -4662,7 +4802,11 @@ let brandEditorDraft = {
     logoScale: 0.25,
     logoOpacity: 1.0,
     logoShape: 'original',
-    logoRotation: 0.0
+    logoRotation: 0.0,
+    // watermark fields (wmScaleUi is UI %, converted via watermarkUiToRenderScale on save)
+    wmPath: null,
+    wmScaleUi: 50,
+    wmOpacity: 50
 };
 
 let wizardCanvas = null;
