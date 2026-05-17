@@ -1983,22 +1983,22 @@
         <div class="output-format-title">Output format</div>
         <p class="review-subcopy">Vertical 9:16 is Brandr's live output format. Other formats are coming soon.</p>
         <div class="output-format-grid" id="outputFormatGrid">
-            <button type="button" class="output-format-pill active" data-format-key="reels916" onclick="toggleOutputFormat('reels916')">
+            <button type="button" class="output-format-pill active" data-format-key="vertical_9_16" onclick="toggleOutputFormat('vertical_9_16')">
                 <span class="output-format-pill-tag">9:16</span>
                 <span>Vertical 9:16</span>
                 <span class="output-format-state live">Live</span>
             </button>
-            <button type="button" class="output-format-pill" data-format-key="feed11" disabled>
+            <button type="button" class="output-format-pill" data-format-key="square_1_1" disabled>
                 <span class="output-format-pill-tag">1:1</span>
                 <span>Square 1:1</span>
                 <span class="output-format-state planned">Planned</span>
             </button>
-            <button type="button" class="output-format-pill" data-format-key="wide169" disabled>
+            <button type="button" class="output-format-pill" data-format-key="landscape_16_9" disabled>
                 <span class="output-format-pill-tag">16:9</span>
                 <span>Landscape 16:9</span>
                 <span class="output-format-state planned">Planned</span>
             </button>
-            <button type="button" class="output-format-pill optional" data-format-key="autoPack" disabled>
+            <button type="button" class="output-format-pill optional" data-format-key="auto_pack" disabled>
                 <span class="output-format-pill-tag">Auto</span>
                 <span>Auto platform pack</span>
                 <span class="output-format-state planned">Coming soon</span>
@@ -2358,14 +2358,14 @@ let isQueueMode = false;
 let processingQueue = [];
 let currentQueueIndex = 0;
 let isReviewCompletionState = false;
-let selectedOutputFormats = ['reels916'];
+let selectedOutputFormats = ['vertical_9_16'];
 let completedOutputs = []; // accumulates { brand_name, download_url } after each successful brand
 
 const OUTPUT_FORMAT_OPTIONS = {
-    reels916: { label: 'TikTok / Reels (9:16)' },
-    feed11: { label: 'Instagram Feed (1:1)' },
-    wide169: { label: 'YouTube / X (16:9)' },
-    autoPack: { label: 'Auto platform pack' }
+    vertical_9_16: { label: 'Vertical 9:16' },
+    square_1_1: { label: 'Square 1:1' },
+    landscape_16_9: { label: 'Landscape 16:9' },
+    auto_pack: { label: 'Auto platform pack' }
 };
 
 // ========== PER-BRAND OVERRIDE STATE (selection mode) ==========
@@ -4693,6 +4693,7 @@ async function processCurrentBrand() {
                 source_path: currentFile,
                 brand_ids: [current.brand_id],
                 brands: [current.brand_name],
+                output_format: selectedOutputFormats[0] || 'vertical_9_16',
                 ...(current.userEdited ? {
                     watermark_scale: current.overrides.watermark_scale,
                     watermark_opacity: current.overrides.watermark_opacity,
@@ -4878,6 +4879,7 @@ async function processAllBrands() {
                     source_path: currentFile,
                     brand_ids: [item.brand_id],
                     brands: [item.brand_name],
+                    output_format: selectedOutputFormats[0] || 'vertical_9_16',
                     ...(item.userEdited ? {
                         watermark_scale: item.overrides.watermark_scale,
                         watermark_opacity: item.overrides.watermark_opacity,

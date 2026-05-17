@@ -1673,6 +1673,17 @@ def process_branded_videos():
             }), 403
 
         data = request.get_json(force=True) or {}
+
+        SUPPORTED_OUTPUT_FORMATS = {'vertical_9_16'}
+        output_format = data.get('output_format', 'vertical_9_16')
+        if output_format not in SUPPORTED_OUTPUT_FORMATS:
+            return jsonify({
+                'success': False,
+                'error': 'OUTPUT_FORMAT_UNSUPPORTED',
+                'message': f'Output format "{output_format}" is not yet supported. Only Vertical 9:16 is available.',
+                'supported_formats': ['vertical_9_16']
+            }), 400
+
         url = data.get('url')
         
         # Accept brand_ids (NEW) or brands (DEPRECATED)
@@ -1731,6 +1742,7 @@ def process_branded_videos():
         print(f"[PROCESS BRANDS] URL: {url}")
         print(f"[PROCESS BRANDS] Brand IDs: {brand_ids}")
         print(f"[PROCESS BRANDS] Brand Names (deprecated): {selected_brands}")
+        print(f"[PROCESS BRANDS] Output format: {output_format}")
         print(f"[PROCESS BRANDS] ========================================")
 
         if not url:
