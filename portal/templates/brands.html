@@ -639,6 +639,7 @@
                            oninput="document.getElementById('besLogoRemoveBgStrengthVal').textContent = this.value;">
                     <p style="font-size:11px; color:#888; margin-top:4px;">Higher values remove more aggressively.</p>
                 </div>
+                <p style="font-size:11px; color:#888; margin-top:6px;">Applies when you replace/upload a logo.</p>
             </div>
 
             <!-- Scale -->
@@ -646,7 +647,8 @@
                 <label class="bes-label">Scale <span id="besLogoScaleVal">25%</span></label>
                 <input type="range" id="besLogoScale" min="5" max="60" value="25"
                        oninput="brandEditorDraft.logoScale = parseInt(this.value) / 100;
-                                document.getElementById('besLogoScaleVal').textContent = this.value + '%';">
+                                document.getElementById('besLogoScaleVal').textContent = this.value + '%';
+                                updateBesLogoPreviewStyle();">
             </div>
 
             <!-- Opacity -->
@@ -654,7 +656,8 @@
                 <label class="bes-label">Opacity <span id="besLogoOpacityVal">100%</span></label>
                 <input type="range" id="besLogoOpacity" min="0" max="100" value="100"
                        oninput="brandEditorDraft.logoOpacity = parseInt(this.value) / 100;
-                                document.getElementById('besLogoOpacityVal').textContent = this.value + '%';">
+                                document.getElementById('besLogoOpacityVal').textContent = this.value + '%';
+                                updateBesLogoPreviewStyle();">
             </div>
 
             <!-- Rotation -->
@@ -662,7 +665,8 @@
                 <label class="bes-label">Rotation <span id="besLogoRotationVal">0°</span></label>
                 <input type="range" id="besLogoRotation" min="0" max="360" value="0"
                        oninput="brandEditorDraft.logoRotation = parseInt(this.value);
-                                document.getElementById('besLogoRotationVal').textContent = this.value + '°';">
+                                document.getElementById('besLogoRotationVal').textContent = this.value + '°';
+                                updateBesLogoPreviewStyle();">
             </div>
 
             <!-- Shape -->
@@ -3347,6 +3351,7 @@
     align-items: center;
     justify-content: center;
     min-height: 80px;
+    overflow: hidden;
 }
 .bes-logo-preview {
     max-width: 100%;
@@ -4348,6 +4353,7 @@ function openBrandEditor(brandId, mode) {
             document.querySelectorAll('.bes-pos-btn[data-shape]').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.shape === brandEditorDraft.logoShape);
             });
+            updateBesLogoPreviewStyle();
 
             // Apply mode-specific layout then open shell
             _applyEditorMode(mode);
@@ -4408,6 +4414,7 @@ function setBesLogoShape(shape) {
     document.querySelectorAll('.bes-pos-btn[data-shape]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.shape === shape);
     });
+    updateBesLogoPreviewStyle();
 }
 
 async function saveLogoSettings() {
@@ -4467,6 +4474,7 @@ async function uploadLogoInShell(file) {
         if (previewImg) {
             previewImg.src = `${apiBase}/api/preview/brand-asset/${brandEditorDraft.brandId}/logo?t=${Date.now()}`;
             previewImg.style.display = '';
+            updateBesLogoPreviewStyle();
         }
         if (placeholder) placeholder.style.display = 'none';
         if (logoInput)   logoInput.value = '';
@@ -4478,6 +4486,21 @@ async function uploadLogoInShell(file) {
         if (statusEl)  statusEl.innerHTML = `<div class="status-msg error">❌ ${_e(err.message)}</div>`;
         if (saveBtnEl) saveBtnEl.disabled = false;
     }
+}
+
+function updateBesLogoPreviewStyle() {
+    const img = document.getElementById('besLogoPreviewImg');
+    if (!img || img.style.display === 'none') return;
+    const scale    = brandEditorDraft.logoScale    != null ? brandEditorDraft.logoScale    : 1;
+    const opacity  = brandEditorDraft.logoOpacity  != null ? brandEditorDraft.logoOpacity  : 1;
+    const rotation = brandEditorDraft.logoRotation != null ? brandEditorDraft.logoRotation : 0;
+    const shape    = brandEditorDraft.logoShape    || 'original';
+    img.style.width        = (scale * 100) + '%';
+    img.style.opacity      = opacity;
+    img.style.transform    = rotation ? `rotate(${rotation}deg)` : '';
+    img.style.borderRadius = shape === 'circle' ? '50%'
+                           : shape === 'square' ? '0'
+                           : '4px';
 }
 
 function setBesLogoRemoveBg(mode) {
