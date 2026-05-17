@@ -622,6 +622,25 @@
                 </div>
             </div>
 
+            <!-- Background removal -->
+            <div class="bes-field-group">
+                <label class="bes-label">Background Removal</label>
+                <div class="mode-toggle">
+                    <button type="button" class="mode-btn active" id="besLogoRemoveBgNone"
+                            onclick="setBesLogoRemoveBg('none')">None</button>
+                    <button type="button" class="mode-btn" id="besLogoRemoveBgDark"
+                            onclick="setBesLogoRemoveBg('dark')">Remove Dark</button>
+                    <button type="button" class="mode-btn" id="besLogoRemoveBgLight"
+                            onclick="setBesLogoRemoveBg('light')">Remove Light</button>
+                </div>
+                <div id="besLogoRemoveBgSlider" style="display:none; margin-top:8px;">
+                    <label style="font-size:11px; color:#888;">Removal Strength <span id="besLogoRemoveBgStrengthVal" style="color:var(--accent);">50</span></label>
+                    <input type="range" id="besLogoRemoveBgThreshold" min="20" max="150" value="50" style="width:100%;"
+                           oninput="document.getElementById('besLogoRemoveBgStrengthVal').textContent = this.value;">
+                    <p style="font-size:11px; color:#888; margin-top:4px;">Higher values remove more aggressively.</p>
+                </div>
+            </div>
+
             <!-- Scale -->
             <div class="bes-field-group">
                 <label class="bes-label">Scale <span id="besLogoScaleVal">25%</span></label>
@@ -4429,6 +4448,13 @@ async function uploadLogoInShell(file) {
     try {
         const form = new FormData();
         form.append('file', file);
+        const bgMode = document.getElementById('besLogoRemoveBgDark')?.classList.contains('active') ? 'dark'
+                     : document.getElementById('besLogoRemoveBgLight')?.classList.contains('active') ? 'light'
+                     : 'none';
+        if (bgMode !== 'none') {
+            form.append('remove_bg', bgMode);
+            form.append('bg_strength', document.getElementById('besLogoRemoveBgThreshold')?.value || '50');
+        }
         const res = await fetch(`${apiBase}/api/brands/${brandEditorDraft.brandId}/upload_logo`, {
             method: 'POST',
             body: form
@@ -4452,6 +4478,15 @@ async function uploadLogoInShell(file) {
         if (statusEl)  statusEl.innerHTML = `<div class="status-msg error">❌ ${_e(err.message)}</div>`;
         if (saveBtnEl) saveBtnEl.disabled = false;
     }
+}
+
+function setBesLogoRemoveBg(mode) {
+    ['none', 'dark', 'light'].forEach(m => {
+        const btn = document.getElementById(`besLogoRemoveBg${m.charAt(0).toUpperCase() + m.slice(1)}`);
+        if (btn) btn.classList.toggle('active', m === mode);
+    });
+    const slider = document.getElementById('besLogoRemoveBgSlider');
+    if (slider) slider.style.display = (mode === 'none') ? 'none' : '';
 }
 
 function onTextPresetChange(preset) {
