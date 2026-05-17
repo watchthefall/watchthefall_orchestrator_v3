@@ -18,30 +18,57 @@ except ImportError:
     PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def normalize_video(input_path: str) -> str:
+def normalize_video(input_path: str, output_format: str = 'vertical_9_16') -> str:
     """
-    Normalize video to standard 8-bit H264 SDR format, stripping HDR/DOVI metadata.
-    
+    Normalize video to standard 8-bit H264 SDR format, stripping HDR/DOVI metadata,
+    and enforce the target output format dimensions.
+
     This stage MUST run before branding to handle:
     - HEVC 10-bit Dolby Vision inputs
     - Corrupt timestamps from Instagram/TikTok
     - HDR colorspace metadata
-    
+    - Format-specific aspect ratio enforcement
+
+    NOTE: As of Patch 24, this function also enforces product output format dimensions
+    so that VideoProcessor probes the final target frame size before overlay composition.
+    Overlay positions are calculated against post-normalize W×H, so the format transform
+    must happen here — not inside VideoProcessor or build_filter_complex.
+
     Args:
         input_path: Path to the input video file
-        
+        output_format: Target output format key (default: 'vertical_9_16')
+
     Returns:
         Path to normalized video file (or original if normalization fails)
     """
     try:
         fixed_path = input_path.replace(".mp4", "_normalized.mp4")
         print(f"[NORMALIZE] Normalizing video to clean 8-bit H264 SDR: {input_path}")
-        
+
+        # Choose vf_filter based on output_format.
+        # For vertical_9_16: scale so both dimensions reach 720×1280 (preserving AR),
+        # then center-crop to exactly 720×1280.
+        # v1 behavior: center crop is applied to all non-9:16 sources.
+        # Square and landscape sources may be severely cropped as a result.
+        # blur-pad / smart-fit for square and landscape is deferred to a future phase.
+        # Geometry is preserved for true 9:16 sources (720×1280 in → 720×1280 out);
+        # visual result is equivalent subject to normal re-encoding.
+        if output_format == 'vertical_9_16':
+            vf_filter = "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280:(iw-720)/2:(ih-1280)/2"
+            print(f"[NORMALIZE] output_format=vertical_9_16 target=720x1280")
+        else:
+            # Fallback: width-only normalize, preserve source aspect ratio.
+            # Used for future 'original' format and any unrecognised format key.
+            vf_filter = "scale=720:-2"
+            print(f"[NORMALIZE] output_format={output_format} — using fallback scale=720:-2")
+
+        print(f"[NORMALIZE] vf_filter={vf_filter}")
+
         NORMALIZE_TIMEOUT = 300  # 5 min — normalization is just scale+re-encode, not overlay rendering
         cmd = [
             FFMPEG_BIN, "-y",
             "-i", input_path,
-            "-vf", "scale=720:-2",  # Scale to 720px width, maintain aspect ratio (even height)
+            "-vf", vf_filter,
             "-c:v", "libx264",  # Re-encode to H264 (NOT copy)
             "-preset", "veryfast",  # was 'fast' — matches main render preset, ~2x faster
             "-crf", "23",

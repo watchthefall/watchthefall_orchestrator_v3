@@ -2105,9 +2105,10 @@ def process_branded_videos():
             else:
                 print(f"[PROCESS BRANDS] Dual-logo composition not available for tier: {tier}")
         
-        # Normalize video timestamps to fix corrupted Instagram videos
-        print(f"[PROCESS BRANDS] Normalizing video timestamps: {video_filepath}")
-        normalized_video_path = normalize_video(video_filepath)
+        # Normalize video timestamps to fix corrupted Instagram videos,
+        # and enforce target output format dimensions before VideoProcessor probes.
+        print(f"[PROCESS BRANDS] Normalizing video (output_format={output_format}): {video_filepath}")
+        normalized_video_path = normalize_video(video_filepath, output_format=output_format)
         print(f"[PROCESS BRANDS] Using normalized video: {normalized_video_path}")
         
         # 3. Process video with selected brands ONE AT A TIME
