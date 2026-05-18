@@ -2246,17 +2246,27 @@ def process_branded_videos():
         print(f"[PROCESS BRANDS] ALL BRANDS COMPLETED: {len(output_paths)} successful")
         
         # 4. Generate download URLs
+        # Format metadata for vertical_9_16 is hardcoded (Patch 24 guarantees 720×1280).
+        # Future formats will supply their own values when enabled.
+        _fmt_meta = {}
+        if output_format == 'vertical_9_16':
+            _fmt_meta = {'width': 720, 'height': 1280, 'aspect_ratio': 0.5625}
+
         download_urls = []
         for output_path in output_paths:
             filename = os.path.basename(output_path)
             # Extract brand name from filename (format: {video_id}_{brand_name}.mp4)
-            # Split by underscore and take the last part before .mp4
+            # Split by underscore and take the last part before .mp4.
+            # NOTE: this breaks if a format suffix is added to the filename — fix before
+            # enabling filename suffixes (Patch 27).
             name_parts = filename.replace('.mp4', '').split('_')
             brand_name = name_parts[-1] if len(name_parts) > 1 else 'unknown'
             download_urls.append({
                 'brand': brand_name,
                 'filename': filename,
-                'download_url': f'/api/videos/download/{filename}'
+                'download_url': f'/api/videos/download/{filename}',
+                'output_format': output_format,
+                **_fmt_meta
             })
         
         # Clean up original video (only if we downloaded it, not if it was local)
