@@ -3083,18 +3083,17 @@
     line-height: 1.4;
 }
 
-/* Panels: layer list + quick actions */
+/* Panels: layer list */
 .v2-ws-panels {
     flex: 1;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     min-width: 0;
 }
 
 /* Layer List */
 .v2-layer-list {
     padding: 18px;
-    border-right: 1px solid rgba(255,255,255,0.06);
 }
 .v2-panel-title {
     font-size: 11px;
@@ -3789,39 +3788,15 @@ function renderWorkspace(brand) {
                         </div>
                         <span class="v2-layer-eye" style="opacity:${hasText ? 1 : 0.35};pointer-events:none">👁</span>
                     </div>
-                </div>
 
-                <!-- Quick Actions -->
-                <div class="v2-quick-actions">
-                    <h4 class="v2-panel-title">Quick Actions</h4>
-                    <button class="v2-action-btn" onclick="editBrandLogo(${brand.id})">
-                        <span class="v2-action-icon">✏️</span>
-                        <div>
-                            <div class="v2-action-label">Edit Logo</div>
-                            <div class="v2-action-sub">Update your main logo</div>
+                    <div class="v2-layer v2-layer-active" onclick="openBrandEditor(${brand.id}, 'position')">
+                        <div class="v2-layer-thumb v2-layer-thumb-empty" style="font-size:16px;">⊞</div>
+                        <div class="v2-layer-info">
+                            <div class="v2-layer-name">Position</div>
+                            <div class="v2-layer-status">Configured</div>
                         </div>
-                    </button>
-                    <button class="v2-action-btn" onclick="editBrandWatermark(${brand.id})">
-                        <span class="v2-action-icon">💧</span>
-                        <div>
-                            <div class="v2-action-label">Edit Watermark</div>
-                            <div class="v2-action-sub">Manage watermark style &amp; opacity</div>
-                        </div>
-                    </button>
-                    <button class="v2-action-btn" onclick="openBrandEditor(${brand.id}, 'text')">
-                        <span class="v2-action-icon" style="font-weight:700;">T</span>
-                        <div>
-                            <div class="v2-action-label">Edit Text</div>
-                            <div class="v2-action-sub">Customize text or CTA</div>
-                        </div>
-                    </button>
-                    <button class="v2-action-btn" onclick="editBrandPosition(${brand.id})">
-                        <span class="v2-action-icon">⊞</span>
-                        <div>
-                            <div class="v2-action-label">Edit Position</div>
-                            <div class="v2-action-sub">Adjust placement &amp; size</div>
-                        </div>
-                    </button>
+                        <span class="v2-layer-eye" style="pointer-events:none">👁</span>
+                    </div>
                 </div>
             </div>
         </div>
