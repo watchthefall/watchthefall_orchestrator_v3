@@ -207,6 +207,26 @@ def init_db():
                 FOREIGN KEY (user_id) REFERENCES users (id)
             )
         ''')
+
+        # Branded outputs table - track rendered/branded output files per user
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS branded_outputs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                source_filename TEXT NOT NULL,
+                source_download_id INTEGER,
+                output_filename TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                brand_id INTEGER,
+                brand_name TEXT,
+                output_format TEXT DEFAULT 'vertical_9_16',
+                width INTEGER,
+                height INTEGER,
+                aspect_ratio REAL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users (id)
+            )
+        ''')
         
         # Add bookmarked column if it doesn't exist (migration for existing databases)
         try:
@@ -1276,6 +1296,27 @@ def save_download(user_id, source_url, filename, file_path, display_name=None):
     
     return _retry_write(_do_save)
 
+def save_branded_output(user_id, source_filename, output_filename, file_path,
+                        brand_id=None, brand_name=None, output_format='vertical_9_16',
+                        width=None, height=None, aspect_ratio=None,
+                        source_download_id=None):
+    """Persist a branded output record. Returns the new row id."""
+    def _do_save(conn):
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO branded_outputs
+              (user_id, source_filename, source_download_id, output_filename,
+               file_path, brand_id, brand_name, output_format,
+               width, height, aspect_ratio, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (user_id, source_filename, source_download_id, output_filename,
+              file_path, brand_id, brand_name, output_format,
+              width, height, aspect_ratio, datetime.utcnow().isoformat()))
+        conn.commit()
+        return c.lastrowid
+    return _retry_write(_do_save)
+
+
 def update_display_name(download_id, user_id, display_name):
     """Update the display_name for a download (UI-only rename)"""
     def _do_update(conn):
@@ -1526,6 +1567,15 @@ def user_can_download_filename(user_id, filename):
     try:
         with get_connection() as conn:
             c = conn.cursor()
+
+            # Case 0: branded output with a DB record (structured ownership — preferred path).
+            # New outputs rendered after Patch 26 will always have a row here.
+            c.execute(
+                'SELECT id FROM branded_outputs WHERE output_filename = ? AND user_id = ? LIMIT 1',
+                (filename, user_id)
+            )
+            if c.fetchone():
+                return True
 
             # Case 1: direct match (raw / fetched file)
             c.execute(

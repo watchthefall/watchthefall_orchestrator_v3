@@ -92,7 +92,7 @@ from .database import (
     create_waitlist_entry, get_waitlist_entry_by_email,
     get_pending_waitlist_entries, get_all_waitlist_entries, get_waitlist_counts,
     approve_waitlist_entry, claim_waitlist_entry, set_waitlist_entry_status,
-    user_can_download_filename,
+    user_can_download_filename, save_branded_output,
 )
 
 
@@ -2113,8 +2113,9 @@ def process_branded_videos():
         
         # 3. Process video with selected brands ONE AT A TIME
         processor = VideoProcessor(normalized_video_path, OUTPUT_DIR)
-        
+
         output_paths = []
+        _bo_save_warnings = []  # Collect best-effort branded_outputs insert failures
         
         total_brands = len(resolved_brands)
         for i, db_brand in enumerate(resolved_brands, 1):
@@ -2221,6 +2222,28 @@ def process_branded_videos():
                 _render_elapsed = _render_time.time() - _render_start
                 print(f"[RENDER] process_brand done:  brand='{brand_name}' elapsed={_render_elapsed:.1f}s output='{output_path}'")
                 output_paths.append(output_path)
+                # Best-effort: persist branded output record for structured ownership.
+                # Failure here must never block the render response.
+                try:
+                    _bo_width = 720 if output_format == 'vertical_9_16' else None
+                    _bo_height = 1280 if output_format == 'vertical_9_16' else None
+                    _bo_ar = 0.5625 if output_format == 'vertical_9_16' else None
+                    save_branded_output(
+                        user_id=user_id,
+                        source_filename=os.path.basename(video_filepath),
+                        output_filename=os.path.basename(output_path),
+                        file_path=output_path,
+                        brand_id=brand_id,
+                        brand_name=brand_name,
+                        output_format=output_format,
+                        width=_bo_width,
+                        height=_bo_height,
+                        aspect_ratio=_bo_ar,
+                    )
+                    print(f"[BRANDED OUTPUT] Saved metadata for {os.path.basename(output_path)}")
+                except Exception as _bo_e:
+                    print(f"[BRANDED OUTPUT] Failed to save metadata for {output_path}: {_bo_e}")
+                    _bo_save_warnings.append("Branded output metadata could not be saved")
                 print(f"[PROCESS BRANDS] FINISHED BRAND {i}: {brand_name}")
             except Exception as e:
                 error_message = str(e)
@@ -2290,6 +2313,7 @@ def process_branded_videos():
         # Render output already exists on disk; the user must be able to download it.
         # -----------------------------------------------------------------------
         _warnings = []
+        _warnings.extend(_bo_save_warnings)
 
         # Increment daily branding job counter (best-effort)
         try:
