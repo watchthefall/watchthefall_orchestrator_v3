@@ -1585,14 +1585,15 @@ def user_can_download_filename(user_id, filename):
             if c.fetchone():
                 return True
 
-            # Case 2: branded output — strip the last "_segment" to get source stem.
-            # Format: "{source_stem}_{brand_name}.mp4"
-            # source_stem may itself contain underscores (e.g. "my_video_abc123"),
-            # so we split off only the final segment.
+            # Case 2: legacy 2-segment branded output fallback.
+            # Only applies to pre-Patch-28 filenames: {video_id}_{brand_slug}.mp4
+            # Format-suffix outputs ({video_id}_{brand_slug}_{format_key}.mp4) have 3+
+            # underscore segments and must authorize through Case 0 (branded_outputs row).
+            # If Case 0 missed (save_branded_output failed), deny — correct conservative behavior.
             stem_with_ext = filename[:-4] if filename.endswith('.mp4') else filename
             parts = stem_with_ext.split('_')
-            if len(parts) >= 2:
-                source_stem = '_'.join(parts[:-1])
+            if len(parts) == 2:
+                source_stem = parts[0]
                 source_filename = source_stem + '.mp4'
                 c.execute(
                     'SELECT id FROM downloads WHERE filename = ? AND user_id = ? LIMIT 1',

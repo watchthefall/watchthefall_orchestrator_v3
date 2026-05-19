@@ -2245,7 +2245,10 @@ def process_branded_videos():
                     print(f"[BRANDED OUTPUT] Saved metadata for {os.path.basename(output_path)}")
                 except Exception as _bo_e:
                     print(f"[BRANDED OUTPUT] Failed to save metadata for {output_path}: {_bo_e}")
-                    _bo_save_warnings.append("Branded output metadata could not be saved")
+                    _bo_save_warnings.append(
+                        "Branded output metadata could not be saved — "
+                        "download authorization may fail. Re-render if download is unavailable."
+                    )
                 print(f"[PROCESS BRANDS] FINISHED BRAND {i}: {brand_name}")
             except Exception as e:
                 error_message = str(e)

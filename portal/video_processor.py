@@ -708,7 +708,7 @@ class VideoProcessor:
         """
         start_time = time.time()
         brand_name = brand_config.get('name', 'brand')
-        output_filename = f"{video_id}_{brand_name}.mp4"
+        output_filename = f"{video_id}_{brand_name}_{output_format}.mp4"
         output_path = os.path.join(self.output_dir, output_filename)
         
         print(f"[DEBUG] Processing brand: {brand_name}")
