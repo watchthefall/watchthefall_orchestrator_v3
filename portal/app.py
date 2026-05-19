@@ -2115,6 +2115,7 @@ def process_branded_videos():
         processor = VideoProcessor(normalized_video_path, OUTPUT_DIR)
 
         output_paths = []
+        output_metadata = {}    # Structured brand metadata keyed by output_path (format-suffix-safe)
         _bo_save_warnings = []  # Collect best-effort branded_outputs insert failures
         
         total_brands = len(resolved_brands)
@@ -2222,6 +2223,7 @@ def process_branded_videos():
                 _render_elapsed = _render_time.time() - _render_start
                 print(f"[RENDER] process_brand done:  brand='{brand_name}' elapsed={_render_elapsed:.1f}s output='{output_path}'")
                 output_paths.append(output_path)
+                output_metadata[output_path] = {'brand_id': brand_id, 'brand_name': brand_name}
                 # Best-effort: persist branded output record for structured ownership.
                 # Failure here must never block the render response.
                 try:
@@ -2278,12 +2280,8 @@ def process_branded_videos():
         download_urls = []
         for output_path in output_paths:
             filename = os.path.basename(output_path)
-            # Extract brand name from filename (format: {video_id}_{brand_name}.mp4)
-            # Split by underscore and take the last part before .mp4.
-            # NOTE: this breaks if a format suffix is added to the filename — fix before
-            # enabling filename suffixes (Patch 27).
-            name_parts = filename.replace('.mp4', '').split('_')
-            brand_name = name_parts[-1] if len(name_parts) > 1 else 'unknown'
+            _meta = output_metadata.get(output_path, {})
+            brand_name = _meta.get('brand_name', 'unknown')
             download_urls.append({
                 'brand': brand_name,
                 'filename': filename,
