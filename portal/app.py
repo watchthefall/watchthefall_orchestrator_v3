@@ -1674,14 +1674,14 @@ def process_branded_videos():
 
         data = request.get_json(force=True) or {}
 
-        SUPPORTED_OUTPUT_FORMATS = {'vertical_9_16'}
+        SUPPORTED_OUTPUT_FORMATS = {'vertical_9_16', 'square_1_1'}
         output_format = data.get('output_format', 'vertical_9_16')
         if output_format not in SUPPORTED_OUTPUT_FORMATS:
             return jsonify({
                 'success': False,
                 'error': 'OUTPUT_FORMAT_UNSUPPORTED',
-                'message': f'Output format "{output_format}" is not yet supported. Only Vertical 9:16 is available.',
-                'supported_formats': ['vertical_9_16']
+                'message': f'Output format "{output_format}" is not yet supported. Supported: Vertical 9:16, Square 1:1.',
+                'supported_formats': ['vertical_9_16', 'square_1_1']
             }), 400
 
         url = data.get('url')
@@ -2227,9 +2227,12 @@ def process_branded_videos():
                 # Best-effort: persist branded output record for structured ownership.
                 # Failure here must never block the render response.
                 try:
-                    _bo_width = 720 if output_format == 'vertical_9_16' else None
-                    _bo_height = 1280 if output_format == 'vertical_9_16' else None
-                    _bo_ar = 0.5625 if output_format == 'vertical_9_16' else None
+                    if output_format == 'vertical_9_16':
+                        _bo_width, _bo_height, _bo_ar = 720, 1280, 0.5625
+                    elif output_format == 'square_1_1':
+                        _bo_width, _bo_height, _bo_ar = 720, 720, 1.0
+                    else:
+                        _bo_width, _bo_height, _bo_ar = None, None, None
                     save_branded_output(
                         user_id=user_id,
                         source_filename=os.path.basename(video_filepath),
@@ -2274,11 +2277,12 @@ def process_branded_videos():
         print(f"[PROCESS BRANDS] ALL BRANDS COMPLETED: {len(output_paths)} successful")
         
         # 4. Generate download URLs
-        # Format metadata for vertical_9_16 is hardcoded (Patch 24 guarantees 720×1280).
-        # Future formats will supply their own values when enabled.
-        _fmt_meta = {}
         if output_format == 'vertical_9_16':
             _fmt_meta = {'width': 720, 'height': 1280, 'aspect_ratio': 0.5625}
+        elif output_format == 'square_1_1':
+            _fmt_meta = {'width': 720, 'height': 720, 'aspect_ratio': 1.0}
+        else:
+            _fmt_meta = {}
 
         download_urls = []
         for output_path in output_paths:

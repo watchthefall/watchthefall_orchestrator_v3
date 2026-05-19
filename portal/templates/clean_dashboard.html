@@ -1981,17 +1981,17 @@
     <!-- ===== BRAND SELECTION (shown in selection mode) ===== -->
     <div id="outputFormatsSection" class="output-format-panel">
         <div class="output-format-title">Output format</div>
-        <p class="review-subcopy">Vertical 9:16 is Brandr's live output format. Other formats are coming soon.</p>
+        <p class="review-subcopy">Vertical 9:16 and Square 1:1 are Brandr's live output formats. Other formats are coming soon.</p>
         <div class="output-format-grid" id="outputFormatGrid">
             <button type="button" class="output-format-pill active" data-format-key="vertical_9_16" onclick="toggleOutputFormat('vertical_9_16')">
                 <span class="output-format-pill-tag">9:16</span>
                 <span>Vertical 9:16</span>
                 <span class="output-format-state live">Live</span>
             </button>
-            <button type="button" class="output-format-pill" data-format-key="square_1_1" disabled>
+            <button type="button" class="output-format-pill" data-format-key="square_1_1" onclick="toggleOutputFormat('square_1_1')">
                 <span class="output-format-pill-tag">1:1</span>
                 <span>Square 1:1</span>
-                <span class="output-format-state planned">Coming soon</span>
+                <span class="output-format-state live">Live</span>
             </button>
             <button type="button" class="output-format-pill" data-format-key="landscape_16_9" disabled>
                 <span class="output-format-pill-tag">16:9</span>
@@ -2004,7 +2004,7 @@
                 <span class="output-format-state planned">Coming soon</span>
             </button>
         </div>
-        <div class="output-format-note" id="outputFormatSummary">Vertical 9:16 is the only live output format. Other formats are planned.</div>
+        <div class="output-format-note" id="outputFormatSummary">Vertical 9:16 and Square 1:1 are live. Landscape and Auto are coming soon.</div>
     </div>
 
     <div id="selectionModeHeader">
@@ -2663,7 +2663,9 @@ function updateOutputFormatUI() {
     });
 
     if (summary) {
-        summary.textContent = 'Vertical 9:16 is the only live output format. Other formats are coming soon.';
+        const selected = selectedOutputFormats[0];
+        const label = OUTPUT_FORMAT_OPTIONS[selected] ? OUTPUT_FORMAT_OPTIONS[selected].label : selected;
+        summary.textContent = `Selected: ${label}. Vertical 9:16 and Square 1:1 are live. Landscape and Auto are coming soon.`;
     }
 
     if (brandHelp) {
@@ -2673,14 +2675,7 @@ function updateOutputFormatUI() {
 
 function toggleOutputFormat(formatKey) {
     if (!OUTPUT_FORMAT_OPTIONS[formatKey]) return;
-
-    if (selectedOutputFormats.includes(formatKey)) {
-        if (selectedOutputFormats.length === 1) return;
-        selectedOutputFormats = selectedOutputFormats.filter(key => key !== formatKey);
-    } else {
-        selectedOutputFormats = [...selectedOutputFormats, formatKey];
-    }
-
+    selectedOutputFormats = [formatKey];
     updateOutputFormatUI();
 }
 

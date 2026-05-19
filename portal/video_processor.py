@@ -45,39 +45,54 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16') -> st
         fixed_path = input_path.replace(".mp4", "_normalized.mp4")
         print(f"[NORMALIZE] Normalizing video to clean 8-bit H264 SDR: {input_path}")
 
-        # Choose vf_filter based on output_format.
-        # For vertical_9_16: scale so both dimensions reach 720×1280 (preserving AR),
-        # then center-crop to exactly 720×1280.
-        # v1 behavior: center crop is applied to all non-9:16 sources.
-        # Square and landscape sources may be severely cropped as a result.
-        # blur-pad / smart-fit for square and landscape is deferred to a future phase.
-        # Geometry is preserved for true 9:16 sources (720×1280 in → 720×1280 out);
-        # visual result is equivalent subject to normal re-encoding.
+        NORMALIZE_TIMEOUT = 300  # 5 min — normalization is just scale+re-encode, not overlay rendering
+
         if output_format == 'vertical_9_16':
-            vf_filter = "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280:(iw-720)/2:(ih-1280)/2"
             print(f"[NORMALIZE] output_format=vertical_9_16 target=720x1280")
+            cmd = [
+                FFMPEG_BIN, "-y", "-i", input_path,
+                "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280:(iw-720)/2:(ih-1280)/2",
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+                "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-b:a", "128k",
+                "-movflags", "+faststart",
+                fixed_path
+            ]
+        elif output_format == 'square_1_1':
+            # Blur-pad: blurred 720×720 background + foreground scaled to fit, centered.
+            # Preserves full source frame — no cropping of faces/text.
+            _fc = (
+                "[0:v]split=2[fg][bg_raw];"
+                "[bg_raw]scale=720:720:force_original_aspect_ratio=increase,"
+                "crop=720:720:(iw-720)/2:(ih-720)/2,"
+                "gblur=sigma=25[bg];"
+                "[fg]scale=720:720:force_original_aspect_ratio=decrease[fg_scaled];"
+                "[bg][fg_scaled]overlay=(W-w)/2:(H-h)/2[out]"
+            )
+            print(f"[NORMALIZE] output_format=square_1_1 target=720x720 strategy=blur-pad")
+            cmd = [
+                FFMPEG_BIN, "-y", "-i", input_path,
+                "-filter_complex", _fc,
+                "-map", "[out]",
+                "-map", "0:a?",
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+                "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-b:a", "128k",
+                "-movflags", "+faststart",
+                fixed_path
+            ]
         else:
             # Fallback: width-only normalize, preserve source aspect ratio.
-            # Used for future 'original' format and any unrecognised format key.
-            vf_filter = "scale=720:-2"
             print(f"[NORMALIZE] output_format={output_format} — using fallback scale=720:-2")
-
-        print(f"[NORMALIZE] vf_filter={vf_filter}")
-
-        NORMALIZE_TIMEOUT = 300  # 5 min — normalization is just scale+re-encode, not overlay rendering
-        cmd = [
-            FFMPEG_BIN, "-y",
-            "-i", input_path,
-            "-vf", vf_filter,
-            "-c:v", "libx264",  # Re-encode to H264 (NOT copy)
-            "-preset", "veryfast",  # was 'fast' — matches main render preset, ~2x faster
-            "-crf", "23",
-            "-pix_fmt", "yuv420p",  # Force 8-bit SDR (strips HDR/10-bit)
-            "-c:a", "aac",
-            "-b:a", "128k",
-            "-movflags", "+faststart",
-            fixed_path
-        ]
+            cmd = [
+                FFMPEG_BIN, "-y", "-i", input_path,
+                "-vf", "scale=720:-2",
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+                "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-b:a", "128k",
+                "-movflags", "+faststart",
+                fixed_path
+            ]
 
         print(f"[NORMALIZE] Running command (timeout={NORMALIZE_TIMEOUT}s): {' '.join(cmd)}")
         result = subprocess.run(
