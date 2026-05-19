@@ -3111,7 +3111,10 @@
     padding: 8px 10px;
     border-radius: 8px;
     margin-bottom: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
 }
+.v2-layer:hover { background: rgba(255,255,255,0.08); opacity: 1; }
 .v2-layer-active  { background: rgba(255,255,255,0.04); }
 .v2-layer-missing { background: rgba(255,152,0,0.05); border: 1px dashed rgba(255,152,0,0.2); }
 .v2-layer-optional{ background: rgba(255,255,255,0.015); opacity: 0.7; }
@@ -3756,7 +3759,7 @@ function renderWorkspace(brand) {
                 <div class="v2-layer-list">
                     <h4 class="v2-panel-title">Layer List</h4>
 
-                    <div class="v2-layer ${logoUrl ? 'v2-layer-active' : 'v2-layer-missing'}">
+                    <div class="v2-layer ${logoUrl ? 'v2-layer-active' : 'v2-layer-missing'}" onclick="editBrandLogo(${brand.id})">
                         ${logoUrl
                             ? `<img src="${logoUrl}" class="v2-layer-thumb" alt="Logo">`
                             : '<div class="v2-layer-thumb v2-layer-thumb-empty">🎨</div>'}
@@ -3764,10 +3767,10 @@ function renderWorkspace(brand) {
                             <div class="v2-layer-name">Main Logo</div>
                             <div class="v2-layer-status">Required</div>
                         </div>
-                        <span class="v2-layer-eye">👁</span>
+                        <span class="v2-layer-eye" style="pointer-events:none">👁</span>
                     </div>
 
-                    <div class="v2-layer ${hasWm ? 'v2-layer-active' : 'v2-layer-optional'}">
+                    <div class="v2-layer ${hasWm ? 'v2-layer-active' : 'v2-layer-optional'}" onclick="editBrandWatermark(${brand.id})">
                         ${wmUrl
                             ? `<img src="${wmUrl}" class="v2-layer-thumb" alt="Watermark">`
                             : '<div class="v2-layer-thumb v2-layer-thumb-empty" style="font-size:14px;">💧</div>'}
@@ -3775,16 +3778,16 @@ function renderWorkspace(brand) {
                             <div class="v2-layer-name">Watermark</div>
                             <div class="v2-layer-status">${hasWm ? 'Enabled' : 'Optional'}</div>
                         </div>
-                        <span class="v2-layer-eye" style="opacity:${hasWm ? 1 : 0.35}">👁</span>
+                        <span class="v2-layer-eye" style="opacity:${hasWm ? 1 : 0.35};pointer-events:none">👁</span>
                     </div>
 
-                    <div class="v2-layer ${hasText ? 'v2-layer-active' : 'v2-layer-optional'}">
+                    <div class="v2-layer ${hasText ? 'v2-layer-active' : 'v2-layer-optional'}" onclick="openBrandEditor(${brand.id}, 'text')">
                         <div class="v2-layer-thumb v2-layer-thumb-empty" style="font-size:15px;font-weight:700;color:var(--accent);">T</div>
                         <div class="v2-layer-info">
                             <div class="v2-layer-name">Text / CTA</div>
                             <div class="v2-layer-status">${hasText ? 'Enabled' : 'Optional'}</div>
                         </div>
-                        <span class="v2-layer-eye" style="opacity:${hasText ? 1 : 0.35}">👁</span>
+                        <span class="v2-layer-eye" style="opacity:${hasText ? 1 : 0.35};pointer-events:none">👁</span>
                     </div>
                 </div>
 
