@@ -92,7 +92,7 @@ from .database import (
     create_waitlist_entry, get_waitlist_entry_by_email,
     get_pending_waitlist_entries, get_all_waitlist_entries, get_waitlist_counts,
     approve_waitlist_entry, claim_waitlist_entry, set_waitlist_entry_status,
-    user_can_download_filename, save_branded_output,
+    user_can_download_filename, save_branded_output, get_connection,
 )
 
 
@@ -2722,7 +2722,6 @@ def download_zip():
 
     # Resolve files — 3-step chain matching direct download endpoint
     found, missing = [], []
-    db = get_db()
     for base in sanitized:
         resolved = None
 
@@ -2734,10 +2733,11 @@ def download_zip():
         # Step 2: branded_outputs.file_path
         if resolved is None:
             try:
-                row = db.execute(
-                    'SELECT file_path FROM branded_outputs WHERE output_filename = ? AND user_id = ? LIMIT 1',
-                    (base, user_id)
-                ).fetchone()
+                with get_connection() as conn:
+                    row = conn.execute(
+                        'SELECT file_path FROM branded_outputs WHERE output_filename = ? AND user_id = ? LIMIT 1',
+                        (base, user_id)
+                    ).fetchone()
                 if row and row['file_path'] and os.path.exists(row['file_path']):
                     resolved = row['file_path']
             except Exception as e:
@@ -2746,10 +2746,11 @@ def download_zip():
         # Step 3: downloads.file_path
         if resolved is None:
             try:
-                row = db.execute(
-                    'SELECT file_path FROM downloads WHERE filename = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1',
-                    (base, user_id)
-                ).fetchone()
+                with get_connection() as conn:
+                    row = conn.execute(
+                        'SELECT file_path FROM downloads WHERE filename = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1',
+                        (base, user_id)
+                    ).fetchone()
                 if row and row['file_path'] and os.path.exists(row['file_path']):
                     resolved = row['file_path']
             except Exception as e:
