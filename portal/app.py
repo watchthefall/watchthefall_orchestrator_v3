@@ -2720,16 +2720,47 @@ def download_zip():
         print(f'[DOWNLOAD-ZIP] Ownership denied for user={user_id}: {unauthorized}')
         return jsonify({'error': 'Unauthorized', 'unauthorized': unauthorized}), 403
 
-    # Resolve files — branded outputs live in OUTPUT_DIR only
+    # Resolve files — 3-step chain matching direct download endpoint
     found, missing = [], []
+    db = get_db()
     for base in sanitized:
-        path = os.path.join(OUTPUT_DIR, base)
-        if os.path.exists(path):
-            found.append((base, path))
-            print(f'[DOWNLOAD-ZIP] Added: {path}')
+        resolved = None
+
+        # Step 1: OUTPUT_DIR flat lookup
+        candidate = os.path.join(OUTPUT_DIR, base)
+        if os.path.exists(candidate):
+            resolved = candidate
+
+        # Step 2: branded_outputs.file_path
+        if resolved is None:
+            try:
+                row = db.execute(
+                    'SELECT file_path FROM branded_outputs WHERE output_filename = ? AND user_id = ? LIMIT 1',
+                    (base, user_id)
+                ).fetchone()
+                if row and row['file_path'] and os.path.exists(row['file_path']):
+                    resolved = row['file_path']
+            except Exception as e:
+                print(f'[DOWNLOAD-ZIP] DB branded_outputs lookup error for {base}: {e}')
+
+        # Step 3: downloads.file_path
+        if resolved is None:
+            try:
+                row = db.execute(
+                    'SELECT file_path FROM downloads WHERE filename = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1',
+                    (base, user_id)
+                ).fetchone()
+                if row and row['file_path'] and os.path.exists(row['file_path']):
+                    resolved = row['file_path']
+            except Exception as e:
+                print(f'[DOWNLOAD-ZIP] DB downloads lookup error for {base}: {e}')
+
+        if resolved:
+            found.append((base, resolved))
+            print(f'[DOWNLOAD-ZIP] Added: {resolved}')
         else:
             missing.append(base)
-            print(f'[DOWNLOAD-ZIP] Missing: {path}')
+            print(f'[DOWNLOAD-ZIP] Missing: {base}')
 
     if missing:
         return jsonify({'error': 'Some output files not found', 'missing': missing}), 404
