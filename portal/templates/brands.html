@@ -3058,6 +3058,7 @@
     background: #0a0a0a;
     border-radius: 6px;
     width: 100%;
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -3070,10 +3071,27 @@
 .v2-ws-preview.fmt-landscape_16_9 { aspect-ratio: 16/9;  }
 .v2-ws-preview.fmt-original       { aspect-ratio: unset; } /* not render-real yet — no false 9:16 mapping */
 
-.v2-preview-logo {
-    max-width: 65%;
-    max-height: 65%;
+/* Read-only layout preview overlays */
+.v2-preview-overlay {
+    position: absolute;
+    transform: translate(-50%, -50%);
     object-fit: contain;
+    pointer-events: none;
+    max-width: 95%;
+}
+.v2-preview-text {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 7px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 90%;
+    pointer-events: none;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+    line-height: 1.2;
 }
 .v2-preview-empty {
     color: #333;
@@ -3746,9 +3764,17 @@ function renderWorkspace(brand) {
             <!-- Mini format preview -->
             <div class="v2-ws-preview-panel">
                 <div class="v2-ws-preview fmt-${selectedFormat}" id="v2WsPreview">
-                    ${logoUrl
-                        ? `<img src="${logoUrl}" class="v2-preview-logo" alt="${_e(brand.display_name)}">`
-                        : '<div class="v2-preview-empty">No logo<br>uploaded</div>'}
+                    ${logoUrl ? `
+                        <img src="${logoUrl}"
+                             class="v2-preview-overlay"
+                             style="left:${(brand.logo_x||0.5)*100}%;top:${(brand.logo_y||0.5)*100}%;width:${(brand.logo_scale||0.25)*100}%;opacity:${brand.logo_opacity!=null?brand.logo_opacity:1};border-radius:${brand.logo_shape==='circle'?'50%':'4px'}"
+                             onerror="this.style.display='none'">
+                        ${wmUrl ? `<img src="${wmUrl}"
+                             class="v2-preview-overlay"
+                             style="left:${(brand.wm_x||0.5)*100}%;top:${(brand.wm_y||0.5)*100}%;width:${(brand.wm_scale||0.25)*50}%;opacity:${brand.wm_opacity!=null?brand.wm_opacity:0.5}"
+                             onerror="this.style.display='none'">` : ''}
+                        ${hasText && brand.text_content ? `<div class="v2-preview-text" style="color:${brand.text_color||'#fff'};${brand.text_position==='top'?'top:8px':'bottom:8px'}">${_e(brand.text_content)}</div>` : ''}
+                    ` : '<div class="v2-preview-empty">No logo<br>uploaded</div>'}
                 </div>
             </div>
 
