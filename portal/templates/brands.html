@@ -4232,21 +4232,23 @@ async function createBrand(e) {
             }
         }
         
-        // Warn if both assets are missing (only in create mode)
+        // No assets uploaded during create — open Logo shell so user can add one immediately
         if (mode === 'create' && !logoFile && !wmFile) {
-            status.innerHTML = `<div class="status-msg info">⚠️ Brand created but won't work in Brandr until you upload at least a logo or watermark.</div>`;
-            setTimeout(() => {
-                closeCreateModal();
-                loadBrands();
-            }, 3000);
+            status.innerHTML = `<div class="status-msg success">✅ Brand created! Add a logo in the editor.</div>`;
+            await new Promise(r => setTimeout(r, 800));
+            closeCreateModal();
+            await loadBrands();
+            openBrandEditor(createdBrandId, 'logo');
             return;
         }
-        
+
         status.innerHTML = `<div class="status-msg success">✅ Brand ${mode === 'edit' ? 'updated' : 'created'} successfully!</div>`;
-        setTimeout(() => {
-            closeCreateModal();
-            loadBrands();
-        }, 1000);
+        await new Promise(r => setTimeout(r, 800));
+        closeCreateModal();
+        await loadBrands();
+        if (mode === 'create') {
+            openBrandEditor(createdBrandId, 'logo');
+        }
         
     } catch (err) {
         // Re-enable button on error
