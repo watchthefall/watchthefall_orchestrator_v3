@@ -4236,7 +4236,7 @@ async function createBrand(e) {
         if (mode === 'create' && !logoFile && !wmFile) {
             status.innerHTML = `<div class="status-msg success">✅ Brand created! Add a logo in the editor.</div>`;
             await new Promise(r => setTimeout(r, 800));
-            closeCreateModal();
+            closeBrandWizard();
             await loadBrands();
             openBrandEditor(createdBrandId, 'logo');
             return;
@@ -4244,7 +4244,11 @@ async function createBrand(e) {
 
         status.innerHTML = `<div class="status-msg success">✅ Brand ${mode === 'edit' ? 'updated' : 'created'} successfully!</div>`;
         await new Promise(r => setTimeout(r, 800));
-        closeCreateModal();
+        if (mode === 'create') {
+            closeBrandWizard();
+        } else {
+            closeCreateModal();
+        }
         await loadBrands();
         if (mode === 'create') {
             openBrandEditor(createdBrandId, 'logo');
