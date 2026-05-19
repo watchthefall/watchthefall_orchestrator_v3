@@ -1317,6 +1317,22 @@ def save_branded_output(user_id, source_filename, output_filename, file_path,
     return _retry_write(_do_save)
 
 
+def get_branded_outputs_for_user(user_id, limit=50):
+    """Return branded output records for a user, newest first. Excludes file_path."""
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('''
+            SELECT id, output_filename, brand_name, output_format, source_filename,
+                   width, height, aspect_ratio, created_at
+            FROM branded_outputs
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+        ''', (user_id, limit))
+        rows = c.fetchall()
+        return [dict(row) for row in rows]
+
+
 def update_display_name(download_id, user_id, display_name):
     """Update the display_name for a download (UI-only rename)"""
     def _do_update(conn):

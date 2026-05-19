@@ -4034,6 +4034,20 @@ def get_recent_downloads():
     })
 
 
+@app.route('/api/outputs/branded', methods=['GET'])
+@login_required
+def get_branded_outputs():
+    """List branded output records for the current user."""
+    from .database import get_branded_outputs_for_user
+    user_id = session['user_id']
+    limit = request.args.get('limit', 50, type=int)
+    try:
+        outputs = get_branded_outputs_for_user(user_id, limit)
+        return jsonify({'success': True, 'outputs': outputs, 'count': len(outputs)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': 'Could not load branded outputs'}), 500
+
+
 @app.route('/api/downloads/<int:download_id>/bookmark', methods=['POST'])
 @login_required
 def toggle_download_bookmark_api(download_id):

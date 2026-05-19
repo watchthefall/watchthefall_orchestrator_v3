@@ -13,9 +13,7 @@
             color: #EAEAEA;
             min-height: 100vh;
         }
-        
-        /* Nav styles provided by _nav.html partial */
-        
+
         /* Main Content */
         .container {
             max-width: 1200px;
@@ -32,7 +30,7 @@
             color: #808080;
             margin-bottom: 2rem;
         }
-        
+
         /* Actions */
         .actions {
             margin-bottom: 2rem;
@@ -60,14 +58,47 @@
         .btn-secondary:hover {
             background-color: #3a3a3a;
         }
-        
+
+        /* Tabs */
+        .lib-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid #3a3a3a;
+            margin-bottom: 2rem;
+        }
+        .lib-tab {
+            padding: 0.6rem 1.25rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #808080;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            transition: color 0.15s, border-color 0.15s;
+        }
+        .lib-tab:hover {
+            color: #EAEAEA;
+        }
+        .lib-tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+        .lib-panel {
+            display: none;
+        }
+        .lib-panel.active {
+            display: block;
+        }
+
         /* Loading State */
         .loading {
             text-align: center;
             padding: 60px 20px;
             color: #808080;
         }
-        
+
         /* Empty State */
         .empty-state {
             text-align: center;
@@ -89,7 +120,7 @@
             color: #808080;
             margin-bottom: 1.5rem;
         }
-        
+
         /* Media Grid */
         .media-grid {
             display: grid;
@@ -167,38 +198,101 @@
             border-color: var(--accent);
             color: var(--accent);
         }
+
+        /* Render card specifics */
+        .render-card .brand-name {
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 6px;
+        }
+        .render-card .format-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            background: var(--accent-soft);
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+        .render-card .render-meta {
+            font-size: 0.8rem;
+            color: #808080;
+            margin-bottom: 4px;
+        }
+        .render-card .render-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
     </style>
 </head>
 <body>
     {% set active_page = 'library' %}
     {% include '_nav.html' %}
-    
+
     <div class="container">
         <h1>Library</h1>
-        <p class="subtitle">Your saved source media</p>
-        
+        <p class="subtitle">Your saved media and finished renders</p>
+
         <div class="actions">
             <a href="{{ url_for('download') }}" class="btn">Get New Media</a>
         </div>
-        
-        <div id="library-content">
-            <div class="loading">Loading your media...</div>
+
+        <div class="lib-tabs">
+            <button class="lib-tab active" id="tab-source" onclick="switchTab('source')">Source Videos</button>
+            <button class="lib-tab" id="tab-renders" onclick="switchTab('renders')">Finished Renders</button>
+        </div>
+
+        <div class="lib-panel active" id="panel-source">
+            <div id="library-content">
+                <div class="loading">Loading your media...</div>
+            </div>
+        </div>
+
+        <div class="lib-panel" id="panel-renders">
+            <div id="renders-content">
+                <div class="loading">Loading finished renders...</div>
+            </div>
         </div>
     </div>
-    
+
     <script>
+        const FORMAT_LABELS = {
+            'vertical_9_16': 'Vertical 9:16',
+            'square_1_1': 'Square 1:1',
+            'landscape_16_9': 'Landscape 16:9',
+        };
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.lib-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.lib-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            document.getElementById('panel-' + tab).classList.add('active');
+        }
+
+        // --- Source Videos ---
+
         async function loadLibrary() {
             const container = document.getElementById('library-content');
-            
+
             try {
                 const response = await fetch('/api/downloads/recent?limit=50');
                 if (!response.ok) {
                     throw new Error('Failed to load library');
                 }
-                
+
                 const data = await response.json();
                 const downloads = data.downloads || [];
-                
+
                 if (downloads.length === 0) {
                     container.innerHTML = `
                         <div class="empty-state">
@@ -210,14 +304,14 @@
                     `;
                     return;
                 }
-                
+
                 const grid = document.createElement('div');
                 grid.className = 'media-grid';
-                
+
                 downloads.forEach(download => {
                     const card = document.createElement('div');
                     card.className = 'media-card';
-                    
+
                     const filename = download.filename || 'Unknown file';
                     const sourceUrl = download.source_url || '';
                     const truncatedUrl = sourceUrl.length > 50 ? sourceUrl.substring(0, 50) + '...' : sourceUrl;
@@ -225,7 +319,7 @@
                     const isAvailable = download.file_exists;
                     const isBookmarked = download.bookmarked === 1;
                     const downloadId = download.id;
-                    
+
                     card.innerHTML = `
                         <div class="filename">${escapeHtml(filename)}</div>
                         <div class="source">${escapeHtml(truncatedUrl)}</div>
@@ -242,13 +336,13 @@
                             ${download.file_path ? `<a href="/api/videos/download-original/${download.id}" class="btn btn-secondary btn-small">Download</a>` : ''}
                         </div>
                     `;
-                    
+
                     grid.appendChild(card);
                 });
-                
+
                 container.innerHTML = '';
                 container.appendChild(grid);
-                
+
             } catch (error) {
                 container.innerHTML = `
                     <div class="empty-state">
@@ -260,19 +354,12 @@
                 `;
             }
         }
-        
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
+
         function useInCreate(filename) {
             sessionStorage.setItem('lastDownloadFilename', filename);
             window.location.href = "{{ url_for('brand_video') }}";
         }
-        
+
         async function toggleLibraryBookmarkFull(downloadId, btn) {
             if (btn) btn.disabled = true;
             try {
@@ -284,14 +371,10 @@
                 if (!res.ok) throw new Error('Failed to toggle bookmark');
 
                 const data = await res.json();
-
-                // Reload library to reflect changes (btn ref becomes stale after this — harmless)
                 await loadLibrary();
-
                 console.log(`[Bookmark] Item ${downloadId} bookmarked: ${data.bookmarked}, Total: ${data.bookmark_count}`);
             } catch (err) {
                 console.error('[Bookmark] Error:', err);
-                // Re-enable and show a brief error indicator — no alert() (bad on mobile)
                 if (btn) {
                     btn.disabled = false;
                     const orig = btn.textContent;
@@ -300,9 +383,88 @@
                 }
             }
         }
-        
-        // Load library on page load
+
+        // --- Finished Renders ---
+
+        async function loadRenderedOutputs() {
+            const container = document.getElementById('renders-content');
+
+            try {
+                const response = await fetch('/api/outputs/branded?limit=50');
+                if (!response.ok) {
+                    throw new Error('Failed to load renders');
+                }
+
+                const data = await response.json();
+                const outputs = data.outputs || [];
+
+                if (outputs.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="icon">🎬</div>
+                            <h2>No finished renders yet</h2>
+                            <p>No finished renders yet. Create one from the Brand Cockpit.</p>
+                            <a href="{{ url_for('brand_video') }}" class="btn">Go to Brand Cockpit</a>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const grid = document.createElement('div');
+                grid.className = 'media-grid';
+
+                outputs.forEach(output => {
+                    const card = document.createElement('div');
+                    card.className = 'media-card render-card';
+
+                    const brandName = output.brand_name || 'Unknown brand';
+                    const formatKey = output.output_format || 'vertical_9_16';
+                    const formatLabel = FORMAT_LABELS[formatKey] || formatKey;
+                    const sourceLabel = output.source_filename
+                        ? output.source_filename.replace(/\.mp4$/i, '')
+                        : 'Unknown source';
+                    const createdAt = output.created_at
+                        ? new Date(output.created_at).toLocaleDateString()
+                        : 'Unknown date';
+                    const hasDimensions = output.width && output.height;
+                    const dimensionsHtml = hasDimensions
+                        ? `<div class="render-meta">Dimensions: ${output.width}×${output.height}</div>`
+                        : '';
+                    const outputFilename = output.output_filename || '';
+
+                    card.innerHTML = `
+                        <div class="brand-name">${escapeHtml(brandName)}</div>
+                        <span class="format-badge">${escapeHtml(formatLabel)}</span>
+                        <div class="render-meta">Source: ${escapeHtml(sourceLabel)}</div>
+                        ${dimensionsHtml}
+                        <div class="render-meta">${escapeHtml(createdAt)}</div>
+                        <div class="render-actions">
+                            <a href="/api/videos/download/${encodeURIComponent(outputFilename)}"
+                               class="btn btn-secondary btn-small">Download</a>
+                        </div>
+                    `;
+
+                    grid.appendChild(card);
+                });
+
+                container.innerHTML = '';
+                container.appendChild(grid);
+
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">⚠️</div>
+                        <h2>Could not load renders</h2>
+                        <p>${escapeHtml(error.message)}</p>
+                        <button class="btn" onclick="loadRenderedOutputs()">Try Again</button>
+                    </div>
+                `;
+            }
+        }
+
+        // Load both panels on page load
         loadLibrary();
+        loadRenderedOutputs();
     </script>
 </body>
 </html>
