@@ -312,7 +312,7 @@
                     const card = document.createElement('div');
                     card.className = 'media-card';
 
-                    const filename = download.filename || 'Unknown file';
+                    const filename = download.display_name || download.filename || 'Unknown file';
                     const sourceUrl = download.source_url || '';
                     const truncatedUrl = sourceUrl.length > 50 ? sourceUrl.substring(0, 50) + '...' : sourceUrl;
                     const createdAt = download.created_at ? new Date(download.created_at).toLocaleDateString() : 'Unknown date';
@@ -420,9 +420,11 @@
                     const brandName = output.brand_name || 'Unknown brand';
                     const formatKey = output.output_format || 'vertical_9_16';
                     const formatLabel = FORMAT_LABELS[formatKey] || formatKey;
-                    const sourceLabel = output.source_filename
-                        ? output.source_filename.replace(/\.mp4$/i, '')
-                        : 'Unknown source';
+                    const sourceLabel = output.source_display_name
+                        ? output.source_display_name
+                        : (output.source_filename
+                            ? output.source_filename.replace(/\.mp4$/i, '')
+                            : 'Unknown source');
                     const createdAt = output.created_at
                         ? new Date(output.created_at).toLocaleDateString()
                         : 'Unknown date';

@@ -1318,15 +1318,20 @@ def save_branded_output(user_id, source_filename, output_filename, file_path,
 
 
 def get_branded_outputs_for_user(user_id, limit=50):
-    """Return branded output records for a user, newest first. Excludes file_path."""
+    """Return branded output records for a user, newest first. Excludes file_path.
+    Patch 41: LEFT JOIN downloads to surface display_name as source_display_name.
+    JOIN is on filename match (source_download_id is always NULL — never passed to save_branded_output).
+    COALESCE falls back to source_filename if no matching download row exists."""
     with get_connection() as conn:
         c = conn.cursor()
         c.execute('''
-            SELECT id, output_filename, brand_name, output_format, source_filename,
-                   width, height, aspect_ratio, created_at
-            FROM branded_outputs
-            WHERE user_id = ?
-            ORDER BY created_at DESC
+            SELECT bo.id, bo.output_filename, bo.brand_name, bo.output_format,
+                   bo.source_filename, bo.width, bo.height, bo.aspect_ratio, bo.created_at,
+                   COALESCE(d.display_name, bo.source_filename) AS source_display_name
+            FROM branded_outputs bo
+            LEFT JOIN downloads d ON d.filename = bo.source_filename AND d.user_id = bo.user_id
+            WHERE bo.user_id = ?
+            ORDER BY bo.created_at DESC
             LIMIT ?
         ''', (user_id, limit))
         rows = c.fetchall()
