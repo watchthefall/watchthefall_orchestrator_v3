@@ -2683,6 +2683,10 @@ def download_video(filename):
         traceback.print_exc()
         return jsonify({'error': 'Failed to serve file', 'details': str(e), 'filename': filename}), 500
 
+# ZIP safety caps — protect Render free tier from OOM on large batch downloads
+MAX_ZIP_FILES = 10
+MAX_ZIP_BYTES = 250 * 1024 * 1024  # 250 MB
+
 @app.route('/api/videos/download-zip', methods=['POST'])
 @login_required
 def download_zip():
@@ -2719,6 +2723,16 @@ def download_zip():
     if unauthorized:
         print(f'[DOWNLOAD-ZIP] Ownership denied for user={user_id}: {unauthorized}')
         return jsonify({'error': 'Unauthorized', 'unauthorized': unauthorized}), 403
+
+    # Cap: file count — checked after ownership, before disk/DB resolution
+    if len(sanitized) > MAX_ZIP_FILES:
+        print(f'[DOWNLOAD-ZIP] Too many files: {len(sanitized)} > {MAX_ZIP_FILES}')
+        return jsonify({
+            'error': 'ZIP_TOO_MANY_FILES',
+            'message': f'You can ZIP up to {MAX_ZIP_FILES} files at once.',
+            'max_files': MAX_ZIP_FILES,
+            'requested': len(sanitized),
+        }), 400
 
     # Resolve files — 3-step chain matching direct download endpoint
     found, missing = [], []
@@ -2768,6 +2782,17 @@ def download_zip():
 
     if not found:
         return jsonify({'error': 'No valid output files found'}), 404
+
+    # Cap: total projected size — calculated after resolution, before building ZIP in memory
+    total_bytes = sum(os.path.getsize(path) for _, path in found)
+    if total_bytes > MAX_ZIP_BYTES:
+        print(f'[DOWNLOAD-ZIP] Too large: {total_bytes} bytes > {MAX_ZIP_BYTES} bytes')
+        return jsonify({
+            'error': 'ZIP_TOO_LARGE',
+            'message': 'This ZIP would be too large. Try downloading fewer files at once.',
+            'max_bytes': MAX_ZIP_BYTES,
+            'total_bytes': total_bytes,
+        }), 413
 
     # Build ZIP in memory
     zip_buffer = io.BytesIO()
