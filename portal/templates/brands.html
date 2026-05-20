@@ -4604,9 +4604,10 @@ function openBrandEditor(brandId, mode) {
 
             // Apply mode-specific layout then open shell
             _applyEditorMode(mode);
-            // Reset all panel scroll positions so shell always opens at top
-            document.querySelectorAll('#brandEditorShell .bes-panel').forEach(p => { p.scrollTop = 0; });
+            // Add active first so the modal is display:flex before scrollTop reset.
+            // scrollTop = 0 is ignored on display:none subtrees; must be set after layout exists.
             document.getElementById('brandEditorShell').classList.add('active');
+            document.querySelectorAll('#brandEditorShell .bes-panel').forEach(p => { p.scrollTop = 0; });
         })
         .catch(err => {
             alert('Error loading brand: ' + err.message);
