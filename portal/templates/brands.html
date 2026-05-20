@@ -650,7 +650,7 @@
 
             <!-- Scale -->
             <div class="bes-field-group">
-                <label class="bes-label">Scale <span id="besLogoScaleVal">25%</span></label>
+                <label class="bes-label">Scale — <span id="besLogoScaleVal">25%</span> <span style="font-size:10px;font-weight:400;opacity:0.45;text-transform:none;letter-spacing:0;">of video width</span></label>
                 <input type="range" id="besLogoScale" min="5" max="60" value="25"
                        oninput="brandEditorDraft.logoScale = parseInt(this.value) / 100;
                                 document.getElementById('besLogoScaleVal').textContent = this.value + '%';
@@ -688,7 +688,7 @@
                 </div>
             </div>
 
-            <p class="bes-help">Scale, opacity, rotation and shape are saved to this brand. Logo position is managed via the Position editor.</p>
+            <p class="bes-help">Scale controls how large your logo appears on rendered videos. The preview above shows shape, rotation, and opacity — not to-scale render size. Logo position is managed via the Position editor.</p>
         </div>
 
         <!-- Watermark mode panel -->
@@ -4898,7 +4898,7 @@ function updateBesLogoPreviewStyle() {
     const opacity  = brandEditorDraft.logoOpacity  != null ? brandEditorDraft.logoOpacity  : 1;
     const rotation = brandEditorDraft.logoRotation != null ? brandEditorDraft.logoRotation : 0;
     const shape    = brandEditorDraft.logoShape    || 'original';
-    img.style.width        = (scale * 100) + '%';
+    img.style.width        = '';   // Patch 40: do not scale preview by render %; CSS max-width/max-height governs
     img.style.opacity      = opacity;
     img.style.transform    = rotation ? `rotate(${rotation}deg)` : '';
     img.style.borderRadius = shape === 'circle' ? '50%'
