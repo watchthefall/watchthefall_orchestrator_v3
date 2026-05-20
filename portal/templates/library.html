@@ -199,6 +199,38 @@
             color: var(--accent);
         }
 
+        /* Count line above panels */
+        .lib-count {
+            font-size: 0.8rem;
+            color: #555;
+            margin-bottom: 1.25rem;
+        }
+
+        /* Source group sections for Finished Renders */
+        .render-source-group {
+            margin-bottom: 2.5rem;
+        }
+        .render-source-heading {
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #555;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #2a2a2a;
+            display: flex;
+            align-items: baseline;
+            gap: 0.6rem;
+        }
+        .render-source-heading .render-group-count {
+            font-weight: 400;
+            color: #444;
+            text-transform: none;
+            letter-spacing: 0;
+            font-size: 0.75rem;
+        }
+
         /* Render card specifics */
         .render-card .brand-name {
             font-weight: 600;
@@ -285,7 +317,7 @@
             const container = document.getElementById('library-content');
 
             try {
-                const response = await fetch('/api/downloads/recent?limit=50');
+                const response = await fetch('/api/downloads/recent?limit=200');
                 if (!response.ok) {
                     throw new Error('Failed to load library');
                 }
@@ -304,6 +336,12 @@
                     `;
                     return;
                 }
+
+                const countText = document.createElement('p');
+                countText.className = 'lib-count';
+                countText.textContent = downloads.length >= 200
+                    ? 'Showing latest 200 source videos'
+                    : `Showing ${downloads.length} source video${downloads.length === 1 ? '' : 's'}`;
 
                 const grid = document.createElement('div');
                 grid.className = 'media-grid';
@@ -341,6 +379,7 @@
                 });
 
                 container.innerHTML = '';
+                container.appendChild(countText);
                 container.appendChild(grid);
 
             } catch (error) {
@@ -390,7 +429,7 @@
             const container = document.getElementById('renders-content');
 
             try {
-                const response = await fetch('/api/outputs/branded?limit=50');
+                const response = await fetch('/api/outputs/branded?limit=200');
                 if (!response.ok) {
                     throw new Error('Failed to load renders');
                 }
@@ -410,47 +449,79 @@
                     return;
                 }
 
-                const grid = document.createElement('div');
-                grid.className = 'media-grid';
+                // Count line
+                const countText = document.createElement('p');
+                countText.className = 'lib-count';
+                countText.textContent = outputs.length >= 200
+                    ? 'Showing latest 200 finished renders'
+                    : `Showing ${outputs.length} finished render${outputs.length === 1 ? '' : 's'}`;
 
+                // Group outputs by source_display_name, preserving insertion order (newest-first from API)
+                const groups = new Map();
                 outputs.forEach(output => {
-                    const card = document.createElement('div');
-                    card.className = 'media-card render-card';
+                    const key = output.source_display_name || output.source_filename || 'Unknown source';
+                    if (!groups.has(key)) groups.set(key, []);
+                    groups.get(key).push(output);
+                });
 
-                    const brandName = output.brand_name || 'Unknown brand';
-                    const formatKey = output.output_format || 'vertical_9_16';
-                    const formatLabel = FORMAT_LABELS[formatKey] || formatKey;
-                    const sourceLabel = output.source_display_name
-                        ? output.source_display_name
-                        : (output.source_filename
-                            ? output.source_filename.replace(/\.mp4$/i, '')
-                            : 'Unknown source');
-                    const createdAt = output.created_at
-                        ? new Date(output.created_at).toLocaleDateString()
-                        : 'Unknown date';
-                    const hasDimensions = output.width && output.height;
-                    const dimensionsHtml = hasDimensions
-                        ? `<div class="render-meta">Dimensions: ${output.width}×${output.height}</div>`
-                        : '';
-                    const outputFilename = output.output_filename || '';
+                // Build grouped sections
+                const wrapper = document.createElement('div');
 
-                    card.innerHTML = `
-                        <div class="brand-name">${escapeHtml(brandName)}</div>
-                        <span class="format-badge">${escapeHtml(formatLabel)}</span>
-                        <div class="render-meta">Source: ${escapeHtml(sourceLabel)}</div>
-                        ${dimensionsHtml}
-                        <div class="render-meta">${escapeHtml(createdAt)}</div>
-                        <div class="render-actions">
-                            <a href="/api/videos/download/${encodeURIComponent(outputFilename)}"
-                               class="btn btn-secondary btn-small">Download</a>
-                        </div>
-                    `;
+                groups.forEach((groupOutputs, sourceKey) => {
+                    const section = document.createElement('div');
+                    section.className = 'render-source-group';
 
-                    grid.appendChild(card);
+                    const heading = document.createElement('div');
+                    heading.className = 'render-source-heading';
+                    heading.innerHTML = `${escapeHtml(sourceKey)}<span class="render-group-count">${groupOutputs.length} render${groupOutputs.length === 1 ? '' : 's'}</span>`;
+
+                    const grid = document.createElement('div');
+                    grid.className = 'media-grid';
+
+                    groupOutputs.forEach(output => {
+                        const card = document.createElement('div');
+                        card.className = 'media-card render-card';
+
+                        const brandName = output.brand_name || 'Unknown brand';
+                        const formatKey = output.output_format || 'vertical_9_16';
+                        const formatLabel = FORMAT_LABELS[formatKey] || formatKey;
+                        const sourceLabel = output.source_display_name
+                            ? output.source_display_name
+                            : (output.source_filename
+                                ? output.source_filename.replace(/\.mp4$/i, '')
+                                : 'Unknown source');
+                        const createdAt = output.created_at
+                            ? new Date(output.created_at).toLocaleDateString()
+                            : 'Unknown date';
+                        const hasDimensions = output.width && output.height;
+                        const dimensionsHtml = hasDimensions
+                            ? `<div class="render-meta">Dimensions: ${output.width}×${output.height}</div>`
+                            : '';
+                        const outputFilename = output.output_filename || '';
+
+                        card.innerHTML = `
+                            <div class="brand-name">${escapeHtml(brandName)}</div>
+                            <span class="format-badge">${escapeHtml(formatLabel)}</span>
+                            <div class="render-meta">Source: ${escapeHtml(sourceLabel)}</div>
+                            ${dimensionsHtml}
+                            <div class="render-meta">${escapeHtml(createdAt)}</div>
+                            <div class="render-actions">
+                                <a href="/api/videos/download/${encodeURIComponent(outputFilename)}"
+                                   class="btn btn-secondary btn-small">Download</a>
+                            </div>
+                        `;
+
+                        grid.appendChild(card);
+                    });
+
+                    section.appendChild(heading);
+                    section.appendChild(grid);
+                    wrapper.appendChild(section);
                 });
 
                 container.innerHTML = '';
-                container.appendChild(grid);
+                container.appendChild(countText);
+                container.appendChild(wrapper);
 
             } catch (error) {
                 container.innerHTML = `
