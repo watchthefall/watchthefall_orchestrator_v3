@@ -612,14 +612,19 @@
                 <label class="bes-label">Current Logo</label>
                 <div class="bes-logo-preview-wrap">
                     <img id="besLogoPreviewImg" src="" alt="Brand logo" class="bes-logo-preview" style="display:none;">
-                    <div id="besLogoPlaceholder" class="bes-logo-placeholder">No logo uploaded</div>
+                    <div id="besLogoPlaceholder" class="bes-logo-placeholder"
+                         onclick="document.getElementById('besLogoInput').click()" style="cursor:pointer;">
+                        <div class="bes-logo-placeholder-icon">⬆</div>
+                        <div>No logo uploaded yet</div>
+                        <div class="bes-logo-placeholder-sub">Tap to upload a logo for your videos</div>
+                    </div>
                 </div>
                 <div style="margin-top:10px;">
                     <input type="file" id="besLogoInput" accept="image/png,image/jpeg,image/jpg,image/webp,image/*"
                            style="display:none;" onchange="uploadLogoInShell(this.files[0])">
-                    <button type="button" class="btn btn-secondary"
+                    <button type="button" id="besLogoUploadBtn" class="btn btn-secondary"
                             style="font-size:13px; padding:8px 14px;"
-                            onclick="document.getElementById('besLogoInput').click()">Replace Logo</button>
+                            onclick="document.getElementById('besLogoInput').click()">Upload Logo</button>
                 </div>
             </div>
 
@@ -3501,7 +3506,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 80px;
+    min-height: 120px;
     overflow: hidden;
 }
 .bes-logo-preview {
@@ -3513,7 +3518,20 @@
 }
 .bes-logo-placeholder {
     font-size: 13px;
+    color: rgba(255,255,255,0.55);
+    text-align: center;
+    padding: 8px 0;
+    line-height: 1.5;
+}
+.bes-logo-placeholder-icon {
+    font-size: 22px;
+    margin-bottom: 6px;
+    opacity: 0.5;
+}
+.bes-logo-placeholder-sub {
+    font-size: 11px;
     color: rgba(255,255,255,0.3);
+    margin-top: 4px;
 }
 
 /* Position mode preview */
@@ -4522,6 +4540,11 @@ function openBrandEditor(brandId, mode) {
                     logoPlaceh.style.display  = '';
                 }
             }
+            // Dynamic upload button label: "Upload Logo" when empty, "Replace Logo" when set
+            const logoUploadBtn = document.getElementById('besLogoUploadBtn');
+            if (logoUploadBtn) {
+                logoUploadBtn.textContent = brandEditorDraft.logoPath ? 'Replace Logo' : 'Upload Logo';
+            }
 
             // Sync shape buttons
             document.querySelectorAll('.bes-pos-btn[data-shape]').forEach(btn => {
@@ -4581,6 +4604,8 @@ function openBrandEditor(brandId, mode) {
 
             // Apply mode-specific layout then open shell
             _applyEditorMode(mode);
+            // Reset all panel scroll positions so shell always opens at top
+            document.querySelectorAll('#brandEditorShell .bes-panel').forEach(p => { p.scrollTop = 0; });
             document.getElementById('brandEditorShell').classList.add('active');
         })
         .catch(err => {
@@ -4729,6 +4754,9 @@ async function uploadLogoInShell(file) {
         }
         if (placeholder) placeholder.style.display = 'none';
         if (logoInput)   logoInput.value = '';
+        // Update button label now that a logo exists
+        const uploadBtnEl = document.getElementById('besLogoUploadBtn');
+        if (uploadBtnEl) uploadBtnEl.textContent = 'Replace Logo';
         if (statusEl)  statusEl.innerHTML = '<div class="status-msg success">✅ Logo uploaded</div>';
         if (saveBtnEl) saveBtnEl.disabled = false;
         loadBrands();
