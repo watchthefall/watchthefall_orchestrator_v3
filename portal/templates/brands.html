@@ -801,8 +801,8 @@
             <button class="modal-close" onclick="closeBrandWizard()">×</button>
         </div>
         
-        <!-- Simple Step Indicator (2 steps only) -->
-        <div class="wizard-progress-simple">
+        <!-- Step indicator: only shown in edit/position mode (Step 2) -->
+        <div class="wizard-progress-simple" id="wizardProgressIndicator" style="display:none;">
             <div class="progress-dot active" id="stepDot1"></div>
             <div class="progress-line-simple"></div>
             <div class="progress-dot" id="stepDot2"></div>
@@ -847,7 +847,7 @@
             
             <div class="wizard-actions">
                 <button type="button" class="btn btn-secondary" onclick="closeBrandWizard()">Cancel</button>
-                <button type="button" class="btn btn-primary" id="step1ContinueBtn" onclick="wizardNextStep()" disabled>Continue →</button>
+                <button type="button" class="btn btn-primary" id="step1ContinueBtn" onclick="createBrandDirect()" disabled>Create Brand</button>
             </div>
         </div>
         
@@ -5308,7 +5308,11 @@ function initWizardCanvas() {
 async function showWizardStep(step) {
     wizardState.step = step;
     
-    // Update simple progress dots
+    // Progress indicator: only show when entering Step 2 (edit / position mode)
+    const progressIndicator = document.getElementById('wizardProgressIndicator');
+    if (progressIndicator) {
+        progressIndicator.style.display = step === 2 ? 'flex' : 'none';
+    }
     const dot1 = document.getElementById('stepDot1');
     const dot2 = document.getElementById('stepDot2');
     if (dot1 && dot2) {
@@ -5341,13 +5345,12 @@ async function showWizardStep(step) {
 }
 
 // Step 1: Update continue button state
+// Logo is optional — name alone is sufficient to enable the button.
 function updateStep1ContinueButton() {
     const btn = document.getElementById('step1ContinueBtn');
     const hasName = wizardState.displayName.trim().length > 0;
-    // In edit mode, logoFile is null but logoPreviewUrl points to existing server asset
-    const hasLogo = wizardState.logoFile !== null || wizardState.logoPreviewUrl !== null;
     if (btn) {
-        btn.disabled = !(hasName && hasLogo);
+        btn.disabled = !hasName;
     }
 }
 
@@ -6172,6 +6175,34 @@ async function wizardPrevStep() {
     } else if (wizardState.step === 4) {
         await showWizardStep(3);
     }
+}
+
+// Direct create: submits from Step 1 without entering the old composer.
+// Reads name inputs, sets wizardState, then calls saveWizardBrand().
+// Old composer is still accessible via the Advanced Position Editor fallback.
+async function createBrandDirect() {
+    const displayNameInput = document.getElementById('wizardDisplayName');
+    const displayName = displayNameInput ? displayNameInput.value.trim() : '';
+
+    if (!displayName) {
+        const status = document.getElementById('wizardStatus');
+        if (status) status.innerHTML = '<div class="status-msg error">Please enter a brand name.</div>';
+        return;
+    }
+
+    wizardState.displayName = displayName;
+
+    // Auto-generate slug from display name
+    let slug = document.getElementById('wizardBrandSlug')?.value.trim() || '';
+    if (!slug) {
+        slug = slugify(displayName);
+        const slugInput = document.getElementById('wizardBrandSlug');
+        if (slugInput) slugInput.value = slug;
+    }
+    wizardState.slug = slug;
+
+    // wizardState.step stays at 1 so saveWizardBrand() resolves the correct save button
+    await saveWizardBrand();
 }
 
 function slugify(text) {
@@ -8730,13 +8761,12 @@ async function saveWizardBrand() {
         return;
     }
     
-    // In create mode, a logo file is required; in edit mode, an existing logo is acceptable
-    if (!wizardState.logoFile && !isEdit) {
-        status.innerHTML = '<div class="status-msg error">Please upload a brand image.</div>';
-        return;
-    }
-    
-    const saveBtn = document.querySelector('#wizardStep2 .wizard-actions .btn-primary');
+    // Logo is optional during creation — user can upload via the Logo layer row afterward.
+
+    // Resolve save button: Step 1 (direct create) or Step 2 (composer / edit mode).
+    const saveBtn = wizardState.step === 1
+        ? document.getElementById('step1ContinueBtn')
+        : document.querySelector('#wizardStep2 .wizard-actions .btn-primary');
     if (saveBtn) {
         saveBtn.disabled = true;
         saveBtn.textContent = 'Saving...';
@@ -8876,9 +8906,17 @@ async function saveWizardBrand() {
         // Re-enable save button before closing (also clears safety timeout)
         resetWizardSaveButton();
 
-        setTimeout(() => {
+        // Capture for post-save handoff before async gap
+        const _newBrandId = isEdit ? null : brandId;
+
+        setTimeout(async () => {
             closeBrandWizard();
-            loadBrands();
+            await loadBrands();
+            // After create: open V2 Logo shell so user lands directly in the modern editor.
+            // After edit: no handoff — brand workspace is already visible.
+            if (_newBrandId) {
+                openBrandEditor(_newBrandId, 'logo');
+            }
         }, 1000);
 
     } catch (err) {
