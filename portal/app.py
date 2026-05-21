@@ -4098,12 +4098,17 @@ def get_recent_downloads():
 @app.route('/api/outputs/branded', methods=['GET'])
 @login_required
 def get_branded_outputs():
-    """List branded output records for the current user."""
+    """List branded output records for the current user.
+    Patch 43: Check file existence server-side, add file_available field, strip file_path."""
     from .database import get_branded_outputs_for_user
     user_id = session['user_id']
     limit = request.args.get('limit', 50, type=int)
     try:
         outputs = get_branded_outputs_for_user(user_id, limit)
+        for output in outputs:
+            file_path = output.get('file_path') or ''
+            output['file_available'] = bool(file_path and os.path.exists(file_path))
+            output.pop('file_path', None)
         return jsonify({'success': True, 'outputs': outputs, 'count': len(outputs)})
     except Exception as e:
         return jsonify({'success': False, 'error': 'Could not load branded outputs'}), 500

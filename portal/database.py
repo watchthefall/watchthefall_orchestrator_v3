@@ -1318,19 +1318,28 @@ def save_branded_output(user_id, source_filename, output_filename, file_path,
 
 
 def get_branded_outputs_for_user(user_id, limit=50):
-    """Return branded output records for a user, newest first. Excludes file_path.
+    """Return branded output records for a user, newest first.
     Patch 41: LEFT JOIN downloads to surface display_name as source_display_name.
-    JOIN is on filename match (source_download_id is always NULL — never passed to save_branded_output).
-    COALESCE falls back to source_filename if no matching download row exists."""
+              JOIN is on filename match (source_download_id is always NULL).
+              COALESCE falls back to source_filename if no matching download row.
+    Patch 43: Deduplicate by output_filename — MAX(id) per filename keeps the latest
+              insert for this user. Includes bo.file_path for server-side availability
+              check in the route; caller must strip file_path before returning to client."""
     with get_connection() as conn:
         c = conn.cursor()
         c.execute('''
             SELECT bo.id, bo.output_filename, bo.brand_name, bo.output_format,
                    bo.source_filename, bo.width, bo.height, bo.aspect_ratio, bo.created_at,
+                   bo.file_path,
                    COALESCE(d.display_name, bo.source_filename) AS source_display_name
             FROM branded_outputs bo
+            JOIN (
+                SELECT output_filename, MAX(id) AS max_id
+                FROM branded_outputs
+                WHERE user_id = ?
+                GROUP BY output_filename
+            ) dedup ON bo.id = dedup.max_id
             LEFT JOIN downloads d ON d.filename = bo.source_filename AND d.user_id = bo.user_id
-            WHERE bo.user_id = ?
             ORDER BY bo.created_at DESC
             LIMIT ?
         ''', (user_id, limit))

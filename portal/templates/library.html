@@ -283,6 +283,24 @@
             border-color: var(--accent);
         }
 
+        /* Render card unavailability */
+        .render-unavailable-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            margin-bottom: 8px;
+        }
+        .btn-secondary:disabled,
+        .btn-secondary[disabled] {
+            opacity: 0.35;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
         /* Render card specifics */
         .render-card .brand-name {
             font-weight: 600;
@@ -497,9 +515,9 @@
             const dlBtn = document.getElementById('renders-dl-btn');
             if (countEl) countEl.textContent = count === 0 ? '0 selected' : `${count} selected`;
             if (dlBtn) dlBtn.disabled = count === 0;
-            // Disable unchecked checkboxes once cap is reached
+            // Disable unchecked checkboxes once cap is reached; skip unavailable cards
             const cbs = document.querySelectorAll('.render-select-cb');
-            cbs.forEach(cb => { if (!cb.checked) cb.disabled = count >= 10; });
+            cbs.forEach(cb => { if (!cb.checked && !cb.dataset.unavailable) cb.disabled = count >= 10; });
             // Clear any leftover error text on state change
             const errEl = document.getElementById('renders-toolbar-error');
             if (errEl) errEl.textContent = '';
@@ -509,7 +527,7 @@
             selectedRenderFiles.clear();
             document.querySelectorAll('.render-select-cb').forEach(cb => {
                 cb.checked = false;
-                cb.disabled = false;
+                if (!cb.dataset.unavailable) cb.disabled = false;
             });
             document.querySelectorAll('.render-card.selected').forEach(c => c.classList.remove('selected'));
             updateRendersToolbar();
@@ -644,20 +662,27 @@
                             ? `<div class="render-meta">Dimensions: ${output.width}×${output.height}</div>`
                             : '';
                         const outputFilename = output.output_filename || '';
+                        const fileAvailable = output.file_available !== false;
 
                         card.innerHTML = `
                             <label class="render-select-label">
-                                <input type="checkbox" class="render-select-cb" value="${escapeHtml(outputFilename)}" onchange="toggleRenderSelection(this)">
+                                <input type="checkbox" class="render-select-cb"
+                                       value="${escapeHtml(outputFilename)}"
+                                       onchange="toggleRenderSelection(this)"
+                                       ${fileAvailable ? '' : 'disabled data-unavailable="true"'}>
                                 Select
                             </label>
+                            ${!fileAvailable ? '<span class="render-unavailable-badge">Unavailable</span>' : ''}
                             <div class="brand-name">${escapeHtml(brandName)}</div>
                             <span class="format-badge">${escapeHtml(formatLabel)}</span>
                             <div class="render-meta">Source: ${escapeHtml(sourceLabel)}</div>
                             ${dimensionsHtml}
                             <div class="render-meta">${escapeHtml(createdAt)}</div>
                             <div class="render-actions">
-                                <a href="/api/videos/download/${encodeURIComponent(outputFilename)}"
-                                   class="btn btn-secondary btn-small">Download</a>
+                                ${fileAvailable
+                                    ? `<a href="/api/videos/download/${encodeURIComponent(outputFilename)}" class="btn btn-secondary btn-small">Download</a>`
+                                    : `<button class="btn btn-secondary btn-small" disabled>Download</button>`
+                                }
                             </div>
                         `;
 
