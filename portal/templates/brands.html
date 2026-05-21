@@ -687,7 +687,7 @@
                 </div>
             </div>
 
-            <p class="bes-help">Scale controls how large your logo appears on rendered videos. The preview above shows shape, rotation, and opacity — not to-scale render size. Logo position is managed via the Position editor.</p>
+            <p class="bes-help">Scale controls how large your logo appears on rendered videos. The preview above shows shape, rotation, and opacity — not to-scale render size. Drag the logo on the overview preview to set its position.</p>
         </div>
 
         <!-- Watermark mode panel -->
@@ -725,7 +725,7 @@
                                 document.getElementById('besWmOpacityVal').textContent = this.value + '%';">
             </div>
 
-            <p class="bes-help">Scale and opacity are saved to this brand. Watermark position is managed via the Position editor.</p>
+            <p class="bes-help">Scale and opacity are saved to this brand. Drag the watermark on the overview preview to set its position.</p>
         </div>
 
         <!-- Sticky footer -->
@@ -2999,8 +2999,9 @@
     background: rgba(0,0,0,0.35);
     border-right: 1px solid rgba(255,255,255,0.06);
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
     padding: 16px;
 }
 .v2-ws-preview {
@@ -3020,7 +3021,7 @@
 .v2-ws-preview.fmt-landscape_16_9 { aspect-ratio: 16/9;  }
 .v2-ws-preview.fmt-original       { aspect-ratio: unset; } /* not render-real yet — no false 9:16 mapping */
 
-/* Read-only layout preview overlays */
+/* Layout preview overlays */
 .v2-preview-overlay {
     position: absolute;
     transform: translate(-50%, -50%);
@@ -3028,6 +3029,59 @@
     pointer-events: none;
     max-width: 95%;
 }
+/* Patch 45B: draggable overlay states */
+.v2-preview-overlay.layout-draggable {
+    pointer-events: auto;
+    cursor: default;
+}
+.v2-preview-overlay.layout-selected {
+    outline: 2px solid #F5A623;
+    outline-offset: 3px;
+    cursor: grab;
+    min-width: 44px;
+    min-height: 44px;
+}
+.v2-preview-overlay.layout-selected:active {
+    cursor: grabbing;
+}
+/* Patch 45B: layout controls strip below preview */
+.v2-layout-controls {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.v2-layout-layer-sel {
+    display: flex;
+    gap: 4px;
+}
+.v2-lc-btn {
+    flex: 1;
+    padding: 5px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px;
+    color: #aaa;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.v2-lc-btn:hover:not(:disabled) { background: rgba(255,255,255,0.13); color: #eee; }
+.v2-lc-btn.active { background: rgba(245,166,35,0.18); border-color: #F5A623; color: #F5A623; }
+.v2-lc-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.v2-layout-readout {
+    font-size: 10px;
+    color: #6b7280;
+    text-align: center;
+    font-family: monospace;
+    min-height: 14px;
+}
+.v2-layout-actions { display: flex; gap: 4px; }
+.v2-lc-reset  { flex: 0 0 auto; font-size: 11px; padding: 5px 10px; }
+.v2-lc-save   { flex: 1; font-size: 11px; padding: 5px 10px; }
+.v2-lc-save:disabled { opacity: 0.4; cursor: not-allowed; }
+.v2-layout-status { font-size: 10px; color: #9ca3af; text-align: center; min-height: 13px; }
 .v2-preview-text {
     position: absolute;
     left: 50%;
@@ -3273,7 +3327,7 @@
         border-bottom: 1px solid rgba(255,255,255,0.06);
         padding: 12px;
     }
-    .v2-ws-preview { max-height: 260px; width: auto; }
+    .v2-ws-preview { max-height: 340px; width: auto; }
     .v2-ws-panels { grid-template-columns: 1fr; }
     .v2-layer-list {
         border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -3722,20 +3776,43 @@ function renderWorkspace(brand) {
 
         <!-- Workspace body: preview + layer list + quick actions -->
         <div class="v2-ws-body">
-            <!-- Mini format preview -->
+            <!-- Mini format preview + layout controls (Patch 45B) -->
             <div class="v2-ws-preview-panel">
                 <div class="v2-ws-preview fmt-${selectedFormat}" id="v2WsPreview">
                     ${logoUrl ? `
                         <img src="${logoUrl}"
-                             class="v2-preview-overlay"
+                             id="v2LayoutLogoImg"
+                             class="v2-preview-overlay layout-draggable"
+                             data-layout-layer="logo"
                              style="left:${(brand.logo_x||0.5)*100}%;top:${(brand.logo_y||0.5)*100}%;width:${(brand.logo_scale||0.25)*100}%;opacity:${brand.logo_opacity!=null?brand.logo_opacity:1};border-radius:${brand.logo_shape==='circle'?'50%':'4px'}"
                              onerror="this.style.display='none'">
                         ${wmUrl ? `<img src="${wmUrl}"
-                             class="v2-preview-overlay"
+                             id="v2LayoutWmImg"
+                             class="v2-preview-overlay layout-draggable"
+                             data-layout-layer="watermark"
                              style="left:${(brand.wm_x||0.5)*100}%;top:${(brand.wm_y||0.5)*100}%;width:${(brand.wm_scale||0.25)*50}%;opacity:${brand.wm_opacity!=null?brand.wm_opacity:0.5}"
                              onerror="this.style.display='none'">` : ''}
                         ${hasText && brand.text_content ? `<div class="v2-preview-text" style="color:${brand.text_color||'#fff'};${brand.text_position==='top'?'top:8px':'bottom:8px'}">${_e(brand.text_content)}</div>` : ''}
                     ` : '<div class="v2-preview-empty">No logo<br>uploaded</div>'}
+                </div>
+                <!-- Layout controls strip -->
+                <div class="v2-layout-controls" id="v2LayoutControls">
+                    <div class="v2-layout-layer-sel">
+                        <button class="v2-lc-btn${logoUrl ? ' active' : ''}" id="v2LcLogoBtn"
+                                onclick="selectLayoutLayer('logo')"
+                                ${!logoUrl ? 'disabled' : ''}>Logo</button>
+                        <button class="v2-lc-btn" id="v2LcWmBtn"
+                                onclick="selectLayoutLayer('watermark')"
+                                ${!wmUrl ? 'disabled' : ''}>Watermark</button>
+                    </div>
+                    <div class="v2-layout-readout" id="v2LayoutReadout">Click overlay or select layer above</div>
+                    <div class="v2-layout-actions">
+                        <button class="btn btn-secondary v2-lc-reset" id="v2LayoutResetBtn"
+                                onclick="resetLayout()">Reset</button>
+                        <button class="btn btn-primary v2-lc-save" id="v2LayoutSaveBtn"
+                                onclick="saveLayout()" disabled>Save Layout</button>
+                    </div>
+                    <div class="v2-layout-status" id="v2LayoutStatus"></div>
                 </div>
             </div>
 
@@ -3786,6 +3863,21 @@ function renderWorkspace(brand) {
                     onclick="deleteBrand(${brand.id}, '${_e(brand.name)}')">Delete Brand</button>
             <a class="btn btn-primary v2-start-btn" href="${_e(brandVideoUrl)}">Start Branding →</a>
         </div>`;
+
+    // Patch 45B: sync draft position state for layout canvas drag
+    brandEditorDraft.brandId  = brand.id;
+    brandEditorDraft.wmPath   = brand.watermark_path || null;
+    brandEditorDraft.posLogoX = Math.round((brand.logo_x != null ? brand.logo_x : 0.85) * 200) / 2;
+    brandEditorDraft.posLogoY = Math.round((brand.logo_y != null ? brand.logo_y : 0.85) * 200) / 2;
+    brandEditorDraft.posWmX   = Math.round((brand.wm_x  != null ? brand.wm_x   : 0.50) * 200) / 2;
+    brandEditorDraft.posWmY   = Math.round((brand.wm_y  != null ? brand.wm_y   : 0.50) * 200) / 2;
+    _layoutDraftSaved = {
+        posLogoX: brandEditorDraft.posLogoX, posLogoY: brandEditorDraft.posLogoY,
+        posWmX:   brandEditorDraft.posWmX,   posWmY:   brandEditorDraft.posWmY
+    };
+    layoutDirty = false;
+    layoutSelectedLayer = null;
+    initLayoutDrag();
 }
 
 /** Show an empty state when the user has no brands. */
@@ -4731,10 +4823,7 @@ async function uploadWatermarkInShell(file) {
 }
 
 async function savePositionSettings() {
-    const saveBtnEl = document.getElementById('besPositionSaveBtn');
-    const statusEl  = document.getElementById('besStatus');
-    if (saveBtnEl) { saveBtnEl.disabled = true; saveBtnEl.textContent = 'Saving…'; }
-    if (statusEl)  statusEl.innerHTML = '<div class="status-msg info">Saving position…</div>';
+    // Patch 45B: BES position panel removed; this function is now a thin wrapper used by saveLayout
     const clamp = v => Math.max(0.05, Math.min(0.95, v));
     try {
         const payload = {
@@ -4752,15 +4841,150 @@ async function savePositionSettings() {
         });
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Save failed');
-        if (statusEl) statusEl.innerHTML = '<div class="status-msg success">✅ Position saved</div>';
         loadBrands();
-        setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 2500);
     } catch (err) {
-        if (statusEl) statusEl.innerHTML = `<div class="status-msg error">❌ ${_e(err.message)}</div>`;
-    } finally {
-        if (saveBtnEl) { saveBtnEl.disabled = false; saveBtnEl.textContent = 'Save Position'; }
+        console.error('[savePositionSettings]', err);
     }
 }
+
+// ========== LAYOUT CANVAS DRAG — Patch 45B ==========
+let layoutSelectedLayer = null;   // 'logo' | 'watermark' | null
+let layoutDirty = false;
+let _layoutDragActive = false;
+let _layoutDraftSaved = {};
+
+function selectLayoutLayer(layer) {
+    layoutSelectedLayer = layer;
+    const logoImg = document.getElementById('v2LayoutLogoImg');
+    const wmImg   = document.getElementById('v2LayoutWmImg');
+    if (logoImg) logoImg.classList.toggle('layout-selected', layer === 'logo');
+    if (wmImg)   wmImg.classList.toggle('layout-selected',   layer === 'watermark');
+    const logoBtn = document.getElementById('v2LcLogoBtn');
+    const wmBtn   = document.getElementById('v2LcWmBtn');
+    if (logoBtn) logoBtn.classList.toggle('active', layer === 'logo');
+    if (wmBtn)   wmBtn.classList.toggle('active',   layer === 'watermark');
+    _refreshReadout();
+}
+
+function _refreshReadout() {
+    const readout = document.getElementById('v2LayoutReadout');
+    if (!readout) return;
+    if (layoutSelectedLayer === 'logo') {
+        readout.textContent = `X: ${Math.round(brandEditorDraft.posLogoX)}%  Y: ${Math.round(brandEditorDraft.posLogoY)}%`;
+    } else if (layoutSelectedLayer === 'watermark') {
+        readout.textContent = `X: ${Math.round(brandEditorDraft.posWmX)}%  Y: ${Math.round(brandEditorDraft.posWmY)}%`;
+    } else {
+        readout.textContent = 'Click overlay or select layer above';
+    }
+}
+
+function _updateDragPos(e, previewEl) {
+    const rect = previewEl.getBoundingClientRect();
+    const clamp = v => Math.max(0.05, Math.min(0.95, v));
+    const fx = clamp((e.clientX - rect.left)  / rect.width);
+    const fy = clamp((e.clientY - rect.top)   / rect.height);
+    const px = fx * 100;
+    const py = fy * 100;
+    if (layoutSelectedLayer === 'logo') {
+        brandEditorDraft.posLogoX = px;
+        brandEditorDraft.posLogoY = py;
+        const img = document.getElementById('v2LayoutLogoImg');
+        if (img) { img.style.left = px + '%'; img.style.top = py + '%'; }
+    } else if (layoutSelectedLayer === 'watermark') {
+        brandEditorDraft.posWmX = px;
+        brandEditorDraft.posWmY = py;
+        const img = document.getElementById('v2LayoutWmImg');
+        if (img) { img.style.left = px + '%'; img.style.top = py + '%'; }
+    }
+    const readout = document.getElementById('v2LayoutReadout');
+    if (readout) readout.textContent = `X: ${Math.round(fx * 100)}%  Y: ${Math.round(fy * 100)}%`;
+}
+
+function initLayoutDrag() {
+    const preview = document.getElementById('v2WsPreview');
+    if (!preview) return;
+
+    function attachDragTarget(el, layer) {
+        if (!el) return;
+        el.addEventListener('pointerdown', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            selectLayoutLayer(layer);
+            _layoutDragActive = true;
+            el.setPointerCapture(e.pointerId);
+            _updateDragPos(e, preview);
+        });
+        el.addEventListener('pointermove', e => {
+            if (!_layoutDragActive) return;
+            _updateDragPos(e, preview);
+        });
+        el.addEventListener('pointerup', () => {
+            if (!_layoutDragActive) return;
+            _layoutDragActive = false;
+            layoutDirty = true;
+            const saveBtn = document.getElementById('v2LayoutSaveBtn');
+            if (saveBtn) saveBtn.disabled = false;
+        });
+        el.addEventListener('pointercancel', () => { _layoutDragActive = false; });
+    }
+
+    attachDragTarget(document.getElementById('v2LayoutLogoImg'), 'logo');
+    attachDragTarget(document.getElementById('v2LayoutWmImg'),   'watermark');
+}
+
+async function saveLayout() {
+    const saveBtn  = document.getElementById('v2LayoutSaveBtn');
+    const statusEl = document.getElementById('v2LayoutStatus');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+    const clamp = v => Math.max(0.05, Math.min(0.95, v));
+    const payload = {
+        logo_x: clamp(brandEditorDraft.posLogoX / 100),
+        logo_y: clamp(brandEditorDraft.posLogoY / 100)
+    };
+    if (brandEditorDraft.wmPath) {
+        payload.wm_x = clamp(brandEditorDraft.posWmX / 100);
+        payload.wm_y = clamp(brandEditorDraft.posWmY / 100);
+    }
+    try {
+        const res = await fetch(`${apiBase}/api/brands/${brandEditorDraft.brandId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Save failed');
+        layoutDirty = false;
+        _layoutDraftSaved = {
+            posLogoX: brandEditorDraft.posLogoX, posLogoY: brandEditorDraft.posLogoY,
+            posWmX:   brandEditorDraft.posWmX,   posWmY:   brandEditorDraft.posWmY
+        };
+        if (statusEl) statusEl.textContent = '✅ Layout saved';
+        if (saveBtn)  { saveBtn.disabled = true; saveBtn.textContent = 'Save Layout'; }
+        loadBrands();
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
+    } catch (err) {
+        if (statusEl) statusEl.textContent = '❌ ' + err.message;
+        if (saveBtn)  { saveBtn.disabled = false; saveBtn.textContent = 'Save Layout'; }
+    }
+}
+
+function resetLayout() {
+    brandEditorDraft.posLogoX = _layoutDraftSaved.posLogoX;
+    brandEditorDraft.posLogoY = _layoutDraftSaved.posLogoY;
+    brandEditorDraft.posWmX   = _layoutDraftSaved.posWmX;
+    brandEditorDraft.posWmY   = _layoutDraftSaved.posWmY;
+    const logoImg = document.getElementById('v2LayoutLogoImg');
+    const wmImg   = document.getElementById('v2LayoutWmImg');
+    if (logoImg) { logoImg.style.left = brandEditorDraft.posLogoX + '%'; logoImg.style.top = brandEditorDraft.posLogoY + '%'; }
+    if (wmImg)   { wmImg.style.left   = brandEditorDraft.posWmX   + '%'; wmImg.style.top   = brandEditorDraft.posWmY   + '%'; }
+    layoutDirty = false;
+    const saveBtn = document.getElementById('v2LayoutSaveBtn');
+    if (saveBtn) saveBtn.disabled = true;
+    const statusEl = document.getElementById('v2LayoutStatus');
+    if (statusEl) statusEl.textContent = '';
+    _refreshReadout();
+}
+// ========== END LAYOUT CANVAS DRAG ==========
 
 function updateBesLogoPreviewStyle() {
     const img = document.getElementById('besLogoPreviewImg');
