@@ -2246,7 +2246,7 @@
     
     <!-- Confirmation Summary — hidden; editor lives in the review cockpit only -->
     <div id="confirmationSummary" style="display:none; background: var(--accent-soft); border: 1px solid var(--accent-glow); border-radius: 8px; padding: 10px 12px; margin: 12px 0; font-size: 13px; line-height: 1.55;">
-        <div style="color: var(--accent); font-weight: 600; margin-bottom: 6px;">⚡ Included in this 9:16 run:</div>
+        <div style="color: var(--accent); font-weight: 600; margin-bottom: 6px;">⚡ Ready to brand:</div>
         <div id="summaryText" style="color: #ccc;"></div>
     </div>
     
@@ -2677,6 +2677,7 @@ function toggleOutputFormat(formatKey) {
     if (!OUTPUT_FORMAT_OPTIONS[formatKey]) return;
     selectedOutputFormats = [formatKey];
     updateOutputFormatUI();
+    updateConfirmationSummary();  // Patch 44: keep summary in sync when format changes
 }
 
 function toggleControlSection(sectionId) {
@@ -2777,11 +2778,20 @@ function renderReviewCompletionState() {
     const approved = processingQueue.filter(item => item.reviewDecision === 'approved' || item.status === 'done').length;
     const skipped = processingQueue.filter(item => item.status === 'skipped').length;
     const ready = Math.max(total - skipped, 0);
+    // Patch 44: output count formula for review-complete card
+    const _rcFormatKey   = selectedOutputFormats[0] || 'vertical_9_16';
+    const _rcFormatLabel = (OUTPUT_FORMAT_OPTIONS[_rcFormatKey] || {}).label || _rcFormatKey;
+    const _rcBrandWord   = ready === 1 ? 'brand'  : 'brands';
+    const _rcRenderWord  = ready === 1 ? 'render' : 'renders';
     result.innerHTML = `
         <div class="review-complete-card">
             <div class="review-complete-title">Review complete</div>
             <div class="review-complete-meta">${approved} approved • ${skipped} skipped • ${ready} ready</div>
             <div class="review-complete-sub">Ready to generate outputs.</div>
+            <div style="margin: 10px 0 2px; font-size: 13px; color: #e5e7eb;">
+                <strong>${ready} ${_rcRenderWord}</strong> &mdash; 1 source &times; ${ready} ${_rcBrandWord} &times; ${_rcFormatLabel}
+            </div>
+            <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px;">Outputs will appear in Library &rarr; Finished Renders.</div>
             <div class="review-complete-actions">
                 <button onclick="processAllBrands()" id="processAllBtnInline" style="flex:1; min-width:0;">Start branding</button>
                 <button onclick="goToLibrary()" style="flex:0 0 auto; width:auto; margin-top:0; padding:11px 14px; font-size:13px; background:transparent; border:1px solid #343948; color:#b6bfd3; border-radius:8px;">Open Library</button>
@@ -6001,21 +6011,14 @@ console.log('[JobItems] Recovered', jobItems.length, 'items, active index:', act
 function updateConfirmationSummary() {
     const summaryEl = document.getElementById('summaryText');
     const confirmBox = document.getElementById('confirmationSummary');
-    
+
     if (!summaryEl) return;
-    
-    const parts = [];
-    
-    // Video status
-    if (currentFile) {
-        const shortName = currentFile.length > 40 ? currentFile.substring(0, 40) + '...' : currentFile;
-        parts.push(`<strong>Video:</strong> ${shortName}`);
-    } else {
-        parts.push(`<strong>Video:</strong> <span style="color:#ff9800;">No video selected</span>`);
-    }
-    
-    // ========== JOB-ITEM MODEL (Commit 4: prefer canonical current selection/queue counts) ==========
+
+    // Show/hide based on whether we're in selection mode
     const inSelectionMode = document.getElementById('selectionModeActions').style.display !== 'none';
+    confirmBox.style.display = inSelectionMode ? 'block' : 'none';
+
+    // ========== JOB-ITEM MODEL (Commit 4: prefer canonical current selection/queue counts) ==========
     let itemCount = 0;
     let overrideCount = 0;
 
@@ -6028,25 +6031,47 @@ function updateConfirmationSummary() {
         itemCount = canonicalBrandIds.length;
         overrideCount = canonicalBrandIds.filter(id => !!brandOverrides[id]).length;
     }
-
-    if (itemCount > 0) {
-        parts.push(`<strong>${itemCount} brand${itemCount > 1 ? 's' : ''}</strong> &rarr; <strong>${itemCount} output${itemCount > 1 ? 's' : ''}</strong>`);
-        if (overrideCount > 0) {
-            parts.push(`<span style="color:#F5A623; font-size:11px;">${overrideCount} with overrides</span>`);
-        }
-    } else {
-        parts.push(`<span style="color:#ff9800;">Choose at least one brand to start review</span>`);
-    }
     // ========== END JOB-ITEM MODEL ==========
-    
-    const summaryCore = parts.join(' <span style="color:#444;">&middot;</span> ');
-    const summaryHint = itemCount > 0
-        ? '<div style="margin-top:6px; font-size:11px; color:#9ca3af;">Start review to check each brand one by one. Everything moves forward unless you skip it.</div>'
-        : '';
-    summaryEl.innerHTML = summaryCore + summaryHint;
-    
-    // Show/hide confirmation box based on whether we're in selection mode
-    confirmBox.style.display = inSelectionMode ? 'block' : 'none';
+
+    if (itemCount === 0) {
+        summaryEl.innerHTML = '<span style="color:#ff9800;">Choose at least one brand to start review</span>';
+        return;
+    }
+
+    // Patch 44: output count formula — 1 source × N brands × Format = N renders
+    const sourceCount = currentFile ? 1 : 0;  // Beta-v1: always 1 source
+    const formatKey = selectedOutputFormats[0] || 'vertical_9_16';
+    const formatLabel = (OUTPUT_FORMAT_OPTIONS[formatKey] || {}).label || formatKey;
+    const renderCount = sourceCount * itemCount;  // Beta-v1: variant always 1
+
+    const brandWord  = itemCount   === 1 ? 'brand'  : 'brands';
+    const renderWord = renderCount === 1 ? 'render' : 'renders';
+
+    let html = '';
+
+    // Formula line
+    html += `<div style="font-size:13px; color:#e5e7eb; margin-bottom:4px;">`;
+    html += `<strong>${renderCount} ${renderWord}</strong> &mdash; `;
+    html += `1 source &times; ${itemCount} ${brandWord} &times; ${formatLabel}`;
+    html += `</div>`;
+
+    // Override note
+    if (overrideCount > 0) {
+        html += `<div style="font-size:11px; color:#F5A623; margin-bottom:3px;">${overrideCount} brand${overrideCount !== 1 ? 's' : ''} with overrides</div>`;
+    }
+
+    // Destination note
+    html += `<div style="margin-top:5px; font-size:11px; color:#9ca3af;">Outputs will appear in Library &#8594; Finished Renders.</div>`;
+
+    // High-volume warning (>= 5 renders only)
+    if (renderCount >= 5) {
+        html += `<div style="margin-top:4px; font-size:11px; color:#6b7280;">Large batches may take longer to process.</div>`;
+    }
+
+    // Review hint
+    html += `<div style="margin-top:6px; font-size:11px; color:#9ca3af;">Start review to check each brand one by one. Everything moves forward unless you skip it.</div>`;
+
+    summaryEl.innerHTML = html;
 }
 
 // Check for file passed from downloader or show intake layer
