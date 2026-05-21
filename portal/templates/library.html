@@ -231,6 +231,58 @@
             font-size: 0.75rem;
         }
 
+        /* Renders toolbar */
+        .renders-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.25rem;
+            padding: 0.75rem 1rem;
+            background: #1e1e21;
+            border: 1px solid #2a2a2a;
+            border-radius: 6px;
+        }
+        .renders-sel-count {
+            font-size: 0.85rem;
+            color: #808080;
+            min-width: 80px;
+        }
+        .renders-cap-note {
+            font-size: 0.75rem;
+            color: #444;
+            margin-left: auto;
+        }
+        .renders-toolbar-error {
+            width: 100%;
+            font-size: 0.8rem;
+            color: #ef4444;
+            margin-top: 0.25rem;
+        }
+
+        /* Render card selection checkbox */
+        .render-select-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: #666;
+        }
+        .render-select-label:hover {
+            color: #EAEAEA;
+        }
+        .render-select-cb {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            accent-color: var(--accent);
+        }
+        .render-card.selected {
+            border-color: var(--accent);
+        }
+
         /* Render card specifics */
         .render-card .brand-name {
             font-weight: 600;
@@ -425,7 +477,101 @@
 
         // --- Finished Renders ---
 
+        let selectedRenderFiles = new Set();
+
+        function toggleRenderSelection(cb) {
+            const filename = cb.value;
+            if (cb.checked) {
+                selectedRenderFiles.add(filename);
+            } else {
+                selectedRenderFiles.delete(filename);
+            }
+            const card = cb.closest('.render-card');
+            if (card) card.classList.toggle('selected', cb.checked);
+            updateRendersToolbar();
+        }
+
+        function updateRendersToolbar() {
+            const count = selectedRenderFiles.size;
+            const countEl = document.getElementById('renders-sel-count');
+            const dlBtn = document.getElementById('renders-dl-btn');
+            if (countEl) countEl.textContent = count === 0 ? '0 selected' : `${count} selected`;
+            if (dlBtn) dlBtn.disabled = count === 0;
+            // Disable unchecked checkboxes once cap is reached
+            const cbs = document.querySelectorAll('.render-select-cb');
+            cbs.forEach(cb => { if (!cb.checked) cb.disabled = count >= 10; });
+            // Clear any leftover error text on state change
+            const errEl = document.getElementById('renders-toolbar-error');
+            if (errEl) errEl.textContent = '';
+        }
+
+        function clearRenderSelection() {
+            selectedRenderFiles.clear();
+            document.querySelectorAll('.render-select-cb').forEach(cb => {
+                cb.checked = false;
+                cb.disabled = false;
+            });
+            document.querySelectorAll('.render-card.selected').forEach(c => c.classList.remove('selected'));
+            updateRendersToolbar();
+        }
+
+        function buildRendersToolbar() {
+            const toolbar = document.createElement('div');
+            toolbar.className = 'renders-toolbar';
+            toolbar.id = 'renders-toolbar';
+            toolbar.innerHTML = `
+                <span class="renders-sel-count" id="renders-sel-count">0 selected</span>
+                <button class="btn btn-small" id="renders-dl-btn" disabled onclick="downloadSelectedRenders()">Download Selected</button>
+                <button class="btn btn-secondary btn-small" onclick="clearRenderSelection()">Clear</button>
+                <span class="renders-cap-note">Max 10 files</span>
+                <div class="renders-toolbar-error" id="renders-toolbar-error"></div>
+            `;
+            return toolbar;
+        }
+
+        async function downloadSelectedRenders() {
+            const files = [...selectedRenderFiles];
+            if (files.length === 0) return;
+            const dlBtn = document.getElementById('renders-dl-btn');
+            const errEl = document.getElementById('renders-toolbar-error');
+            if (dlBtn) { dlBtn.disabled = true; dlBtn.textContent = 'Preparing…'; }
+            if (errEl) errEl.textContent = '';
+            try {
+                const res = await fetch('/api/videos/download-zip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ files })
+                });
+                if (!res.ok) {
+                    let msg = `Download failed (${res.status})`;
+                    try { const err = await res.json(); msg = err.message || err.error || msg; } catch {}
+                    if (errEl) errEl.textContent = msg;
+                    return;
+                }
+                const disposition = res.headers.get('Content-Disposition') || '';
+                const match = disposition.match(/filename="?([^";]+)"?/);
+                const zipName = match ? match[1] : 'brandr_selected_outputs.zip';
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = zipName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                if (errEl) errEl.textContent = `Download failed: ${err.message}`;
+            } finally {
+                if (dlBtn) {
+                    dlBtn.disabled = selectedRenderFiles.size === 0;
+                    dlBtn.textContent = 'Download Selected';
+                }
+            }
+        }
+
         async function loadRenderedOutputs() {
+            selectedRenderFiles.clear();
             const container = document.getElementById('renders-content');
 
             try {
@@ -500,6 +646,10 @@
                         const outputFilename = output.output_filename || '';
 
                         card.innerHTML = `
+                            <label class="render-select-label">
+                                <input type="checkbox" class="render-select-cb" value="${escapeHtml(outputFilename)}" onchange="toggleRenderSelection(this)">
+                                Select
+                            </label>
                             <div class="brand-name">${escapeHtml(brandName)}</div>
                             <span class="format-badge">${escapeHtml(formatLabel)}</span>
                             <div class="render-meta">Source: ${escapeHtml(sourceLabel)}</div>
@@ -521,7 +671,9 @@
 
                 container.innerHTML = '';
                 container.appendChild(countText);
+                container.appendChild(buildRendersToolbar());
                 container.appendChild(wrapper);
+                updateRendersToolbar();
 
             } catch (error) {
                 container.innerHTML = `
