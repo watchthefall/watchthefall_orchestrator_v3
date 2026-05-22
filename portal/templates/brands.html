@@ -2994,7 +2994,7 @@
 
 /* Mini format preview panel */
 .v2-ws-preview-panel {
-    width: 220px;
+    width: 260px;
     flex-shrink: 0;
     background: rgba(0,0,0,0.35);
     border-right: 1px solid rgba(255,255,255,0.06);
@@ -3069,20 +3069,16 @@
 .v2-lc-btn:hover:not(:disabled) { background: rgba(255,255,255,0.13); color: #eee; }
 .v2-lc-btn.active { background: rgba(245,166,35,0.18); border-color: #F5A623; color: #F5A623; }
 .v2-lc-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-.v2-layout-readout {
-    font-size: 10px;
-    color: #6b7280;
-    text-align: center;
-    font-family: monospace;
-    min-height: 14px;
-}
+/* Patch 45D: footer row merges readout (left) and status (right) */
+.v2-layout-footer { display: flex; justify-content: space-between; align-items: center; gap: 6px; min-height: 14px; }
+.v2-layout-readout { font-size: 10px; color: #6b7280; font-family: monospace; }
+.v2-layout-status  { font-size: 10px; color: #9ca3af; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; }
 .v2-layout-actions { display: flex; gap: 4px; }
 .v2-lc-reset  { flex: 0 0 auto; font-size: 11px; padding: 5px 10px; }
 .v2-lc-save   { flex: 1; font-size: 11px; padding: 5px 10px; }
 .v2-lc-save:disabled { opacity: 0.4; cursor: not-allowed; }
 .v2-lc-centre { flex: 0 0 auto; font-size: 11px; padding: 5px 10px; }
 .v2-lc-centre:disabled { opacity: 0.3; cursor: not-allowed; }
-.v2-layout-status { font-size: 10px; color: #9ca3af; text-align: center; min-height: 13px; }
 .v2-preview-text {
     position: absolute;
     left: 50%;
@@ -3806,7 +3802,10 @@ function renderWorkspace(brand) {
                                 onclick="selectLayoutLayer('watermark')"
                                 ${!wmUrl ? 'disabled' : ''}>Watermark</button>
                     </div>
-                    <div class="v2-layout-readout" id="v2LayoutReadout">Click overlay or select layer above</div>
+                    <div class="v2-layout-footer">
+                        <div class="v2-layout-readout" id="v2LayoutReadout">Click overlay or select layer above</div>
+                        <div class="v2-layout-status" id="v2LayoutStatus"></div>
+                    </div>
                     <div class="v2-layout-actions">
                         <button class="btn btn-secondary v2-lc-reset" id="v2LayoutResetBtn"
                                 onclick="resetLayout()">Reset</button>
@@ -3815,7 +3814,6 @@ function renderWorkspace(brand) {
                         <button class="btn btn-primary v2-lc-save" id="v2LayoutSaveBtn"
                                 onclick="saveLayout()" disabled>Save Layout</button>
                     </div>
-                    <div class="v2-layout-status" id="v2LayoutStatus"></div>
                 </div>
             </div>
 
