@@ -699,20 +699,26 @@
                 <label class="bes-label">Current Watermark</label>
                 <div class="bes-logo-preview-wrap">
                     <img id="besWmPreviewImg" src="" alt="Brand watermark" class="bes-logo-preview" style="display:none;">
-                    <div id="besWmPlaceholder" class="bes-logo-placeholder">No watermark uploaded</div>
+                    <div id="besWmPlaceholder" class="bes-logo-placeholder"
+                         onclick="document.getElementById('besWmInput').click()" style="cursor:pointer;">
+                        <div class="bes-logo-placeholder-icon">⬆</div>
+                        <div>Add an optional watermark</div>
+                        <div class="bes-logo-placeholder-sub">A subtle overlay applied to branded videos. You can skip this — it is not required.</div>
+                        <div class="bes-logo-placeholder-hint">PNG, JPG, or WEBP recommended.</div>
+                    </div>
                 </div>
                 <div style="margin-top:10px;">
                     <input type="file" id="besWmInput" accept="image/png,image/jpeg,image/jpg,image/webp,image/*"
                            style="display:none;" onchange="uploadWatermarkInShell(this.files[0])">
-                    <button type="button" class="btn btn-secondary"
+                    <button type="button" id="besWmUploadBtn" class="btn btn-secondary"
                             style="font-size:13px; padding:8px 14px;"
-                            onclick="document.getElementById('besWmInput').click()">Replace Watermark</button>
+                            onclick="document.getElementById('besWmInput').click()">Upload Watermark</button>
                 </div>
             </div>
 
             <!-- Scale -->
             <div class="bes-field-group">
-                <label class="bes-label">Scale <span id="besWmScaleVal">50%</span></label>
+                <label class="bes-label">Scale — <span id="besWmScaleVal">50%</span> <span style="font-size:10px;font-weight:400;opacity:0.45;text-transform:none;letter-spacing:0;">of video width</span></label>
                 <input type="range" id="besWmScale" min="10" max="130" value="50"
                        oninput="brandEditorDraft.wmScaleUi = parseInt(this.value);
                                 document.getElementById('besWmScaleVal').textContent = this.value + '%';">
@@ -4593,6 +4599,9 @@ function openBrandEditor(brandId, mode) {
                     wmPlaceh.style.display  = '';
                 }
             }
+            // Patch 46D: set correct button label based on whether watermark exists
+            const wmUploadBtn = document.getElementById('besWmUploadBtn');
+            if (wmUploadBtn) wmUploadBtn.textContent = brandEditorDraft.wmPath ? 'Replace Watermark' : 'Upload Watermark';
 
             // Populate draft position state (used by savePositionSettings and overview preview)
             brandEditorDraft.posLogoX = Math.round((brand.logo_x != null ? brand.logo_x : 0.85) * 200) / 2;
@@ -4807,6 +4816,9 @@ async function uploadWatermarkInShell(file) {
             previewImg.style.display = '';
         }
         if (placeholder) placeholder.style.display = 'none';
+        // Patch 46D: update button label now that a watermark exists
+        const wmUploadBtnEl = document.getElementById('besWmUploadBtn');
+        if (wmUploadBtnEl) wmUploadBtnEl.textContent = 'Replace Watermark';
         if (wmInput)   wmInput.value = '';
         if (statusEl)  statusEl.innerHTML = '<div class="status-msg success">✅ Watermark uploaded</div>';
         if (saveBtnEl) saveBtnEl.disabled = false;
