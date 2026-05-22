@@ -759,37 +759,19 @@
         
         <div id="wizardStatus"></div>
         
-        <!-- STEP 1: Brand Basics (Name + Upload) -->
+        <!-- STEP 1: Brand Basics (Name only — Patch 46B) -->
         <div id="wizardStep1" class="wizard-step active">
             <div class="wizard-step-content">
                 <div class="step1-layout">
-                    <!-- Left: Name input -->
                     <div class="step1-form">
                         <h3>Name Your Brand</h3>
                         <div class="form-group">
                             <label>Brand Name *</label>
                             <input type="text" id="wizardDisplayName" placeholder="e.g., My Awesome Brand" required autocomplete="off">
                         </div>
+                        <p class="help-text" style="margin-top: 12px;">Name your brand. You'll add your logo next.</p>
                         <!-- Slug is auto-generated, hidden from MVP -->
                         <input type="hidden" id="wizardBrandSlug">
-                    </div>
-                    
-                    <!-- Right: Upload zone -->
-                    <div class="step1-upload">
-                        <h3>Upload Your Logo</h3>
-                        <p class="help-text" style="margin-bottom:8px;">Used as the primary brand mark on all rendered videos.</p>
-                        <div class="upload-zone-large" id="wizardLogoUploadZone" onclick="document.getElementById('wizardLogoInput').click()">
-                            <input type="file" id="wizardLogoInput" accept="image/*" hidden>
-                            <div class="upload-placeholder-large">
-                                <span class="upload-icon-large">🎨</span>
-                                <p>Drop your logo here or click to browse</p>
-                                <small>PNG, JPG, WEBP supported</small>
-                            </div>
-                            <div class="upload-preview" id="wizardLogoPreview" style="display:none;">
-                                <img id="wizardLogoPreviewImg" src="" alt="Brand preview">
-                                <button type="button" class="btn-text" onclick="event.stopPropagation(); clearWizardLogo()">Change</button>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -1039,13 +1021,14 @@
 /* ===== STEP 1: BRAND BASICS ===== */
 .step1-layout {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 32px;
-    padding: 24px;
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 32px 24px;
+    max-width: 440px;
+    margin: 0 auto;
 }
 
-.step1-form h3,
-.step1-upload h3 {
+.step1-form h3 {
     margin: 0 0 16px 0;
     font-size: 16px;
     font-weight: 600;
