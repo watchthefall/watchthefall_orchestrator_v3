@@ -3038,8 +3038,7 @@
     outline: 2px solid #F5A623;
     outline-offset: 3px;
     cursor: grab;
-    min-width: 44px;
-    min-height: 44px;
+    /* Patch 45C: min-width/min-height removed — distorted small logos visually */
 }
 .v2-preview-overlay.layout-selected:active {
     cursor: grabbing;
@@ -3081,6 +3080,8 @@
 .v2-lc-reset  { flex: 0 0 auto; font-size: 11px; padding: 5px 10px; }
 .v2-lc-save   { flex: 1; font-size: 11px; padding: 5px 10px; }
 .v2-lc-save:disabled { opacity: 0.4; cursor: not-allowed; }
+.v2-lc-centre { flex: 0 0 auto; font-size: 11px; padding: 5px 10px; }
+.v2-lc-centre:disabled { opacity: 0.3; cursor: not-allowed; }
 .v2-layout-status { font-size: 10px; color: #9ca3af; text-align: center; min-height: 13px; }
 .v2-preview-text {
     position: absolute;
@@ -3809,6 +3810,8 @@ function renderWorkspace(brand) {
                     <div class="v2-layout-actions">
                         <button class="btn btn-secondary v2-lc-reset" id="v2LayoutResetBtn"
                                 onclick="resetLayout()">Reset</button>
+                        <button class="btn btn-secondary v2-lc-centre" id="v2LayoutCentreBtn"
+                                onclick="centreLayout()" disabled>Centre</button>
                         <button class="btn btn-primary v2-lc-save" id="v2LayoutSaveBtn"
                                 onclick="saveLayout()" disabled>Save Layout</button>
                     </div>
@@ -4863,6 +4866,8 @@ function selectLayoutLayer(layer) {
     const wmBtn   = document.getElementById('v2LcWmBtn');
     if (logoBtn) logoBtn.classList.toggle('active', layer === 'logo');
     if (wmBtn)   wmBtn.classList.toggle('active',   layer === 'watermark');
+    const centreBtn = document.getElementById('v2LayoutCentreBtn');
+    if (centreBtn) centreBtn.disabled = false;
     _refreshReadout();
 }
 
@@ -4982,6 +4987,25 @@ function resetLayout() {
     if (saveBtn) saveBtn.disabled = true;
     const statusEl = document.getElementById('v2LayoutStatus');
     if (statusEl) statusEl.textContent = '';
+    _refreshReadout();
+}
+
+function centreLayout() {
+    if (!layoutSelectedLayer) return;
+    if (layoutSelectedLayer === 'logo') {
+        brandEditorDraft.posLogoX = 50;
+        brandEditorDraft.posLogoY = 50;
+        const img = document.getElementById('v2LayoutLogoImg');
+        if (img) { img.style.left = '50%'; img.style.top = '50%'; }
+    } else if (layoutSelectedLayer === 'watermark') {
+        brandEditorDraft.posWmX = 50;
+        brandEditorDraft.posWmY = 50;
+        const img = document.getElementById('v2LayoutWmImg');
+        if (img) { img.style.left = '50%'; img.style.top = '50%'; }
+    }
+    layoutDirty = true;
+    const saveBtn = document.getElementById('v2LayoutSaveBtn');
+    if (saveBtn) saveBtn.disabled = false;
     _refreshReadout();
 }
 // ========== END LAYOUT CANVAS DRAG ==========
