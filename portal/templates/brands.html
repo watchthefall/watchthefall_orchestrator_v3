@@ -3589,6 +3589,20 @@ window.onerror = function(msg, url, line, col, error) {
 };
 
 const apiBase = window.location.origin;
+
+// Patch 46E: timeout wrapper for Brand Settings saves/uploads only.
+// Do NOT use for long-running render/process/video/ZIP operations.
+function fetchWithTimeout(url, options, timeoutMs) {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    return fetch(url, { ...options, signal: ctrl.signal })
+        .finally(() => clearTimeout(timer))
+        .catch(err => {
+            if (err.name === 'AbortError') throw new Error('Request timed out. Please try again.');
+            throw err;
+        });
+}
+
 let editor = null;
 let logoRemoveBgMode = 'none';  // 'none', 'dark', 'light'
 let logoRemoveBgThreshold = 50;  // 20-150
@@ -4697,7 +4711,7 @@ async function saveLogoSettings() {
     if (saveBtnEl) { saveBtnEl.disabled = true; saveBtnEl.textContent = 'Saving…'; }
     if (statusEl)  statusEl.innerHTML = '<div class="status-msg info">Saving logo settings…</div>';
     try {
-        const res = await fetch(`${apiBase}/api/brands/${brandEditorDraft.brandId}`, {
+        const res = await fetchWithTimeout(`${apiBase}/api/brands/${brandEditorDraft.brandId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -4706,7 +4720,7 @@ async function saveLogoSettings() {
                 logo_shape:    brandEditorDraft.logoShape,
                 logo_rotation: brandEditorDraft.logoRotation
             })
-        });
+        }, 15000);
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Save failed');
         if (statusEl)  statusEl.innerHTML = '<div class="status-msg success">✅ Logo settings saved</div>';
@@ -4736,10 +4750,10 @@ async function uploadLogoInShell(file) {
             form.append('remove_bg', bgMode);
             form.append('bg_strength', document.getElementById('besLogoRemoveBgThreshold')?.value || '50');
         }
-        const res = await fetch(`${apiBase}/api/brands/${brandEditorDraft.brandId}/upload_logo`, {
+        const res = await fetchWithTimeout(`${apiBase}/api/brands/${brandEditorDraft.brandId}/upload_logo`, {
             method: 'POST',
             body: form
-        });
+        }, 25000);
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Upload failed');
         brandEditorDraft.logoPath = data.logo_path;
@@ -4771,7 +4785,7 @@ async function saveWatermarkSettings() {
     if (saveBtnEl) { saveBtnEl.disabled = true; saveBtnEl.textContent = 'Saving…'; }
     if (statusEl)  statusEl.innerHTML = '<div class="status-msg info">Saving watermark settings…</div>';
     try {
-        const res = await fetch(`${apiBase}/api/brands/${brandEditorDraft.brandId}`, {
+        const res = await fetchWithTimeout(`${apiBase}/api/brands/${brandEditorDraft.brandId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -4779,7 +4793,7 @@ async function saveWatermarkSettings() {
                 wm_opacity: brandEditorDraft.wmOpacity / 100,
                 wm_mode:    'positioned'
             })
-        });
+        }, 15000);
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Save failed');
         if (statusEl) statusEl.innerHTML = '<div class="status-msg success">✅ Watermark settings saved</div>';
@@ -4802,10 +4816,10 @@ async function uploadWatermarkInShell(file) {
     try {
         const form = new FormData();
         form.append('file', file);
-        const res = await fetch(`${apiBase}/api/brands/${brandEditorDraft.brandId}/upload_watermark`, {
+        const res = await fetchWithTimeout(`${apiBase}/api/brands/${brandEditorDraft.brandId}/upload_watermark`, {
             method: 'POST',
             body: form
-        });
+        }, 25000);
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Upload failed');
         brandEditorDraft.wmPath = data.watermark_path;
@@ -4956,11 +4970,11 @@ async function saveLayout() {
         payload.wm_y = clamp(brandEditorDraft.posWmY / 100);
     }
     try {
-        const res = await fetch(`${apiBase}/api/brands/${brandEditorDraft.brandId}`, {
+        const res = await fetchWithTimeout(`${apiBase}/api/brands/${brandEditorDraft.brandId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
-        });
+        }, 15000);
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Save failed');
         layoutDirty = false;
@@ -5078,7 +5092,7 @@ async function saveEditorText() {
     if (statusEl)  statusEl.innerHTML = '<div class="status-msg info">Saving text settings…</div>';
 
     try {
-        const res = await fetch(`${apiBase}/api/brands/${brandEditorDraft.brandId}`, {
+        const res = await fetchWithTimeout(`${apiBase}/api/brands/${brandEditorDraft.brandId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -5088,7 +5102,7 @@ async function saveEditorText() {
                 text_size:     brandEditorDraft.textSize,
                 text_color:    brandEditorDraft.textColor
             })
-        });
+        }, 15000);
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Save failed');
 
