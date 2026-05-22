@@ -3076,7 +3076,7 @@
 .v2-layout-actions { display: flex; gap: 4px; }
 .v2-lc-reset  { flex: 0 0 auto; font-size: 11px; padding: 5px 10px; }
 .v2-lc-save   { flex: 1; font-size: 11px; padding: 5px 10px; }
-.v2-lc-save:disabled { opacity: 0.4; cursor: not-allowed; }
+.v2-lc-save:disabled { opacity: 0.3; cursor: not-allowed; filter: brightness(0.75); }
 .v2-lc-centre { flex: 0 0 auto; font-size: 11px; padding: 5px 10px; }
 .v2-lc-centre:disabled { opacity: 0.3; cursor: not-allowed; }
 .v2-preview-text {
@@ -3711,6 +3711,11 @@ function renderBrands(brands, canCreate) {
 
 /** Select a brand: highlight its rail card and render the workspace. */
 function selectBrand(brandId) {
+    // Patch 45E: guard unsaved layout changes on brand switch
+    if (typeof layoutDirty !== 'undefined' && layoutDirty
+            && selectedBrandId !== null && brandId !== selectedBrandId) {
+        if (!confirm('You have unsaved layout changes.\n\nDiscard changes and switch brand?')) return;
+    }
     selectedBrandId = brandId;
     sessionStorage.setItem('brandr_selected_brand_id', String(brandId));
 
