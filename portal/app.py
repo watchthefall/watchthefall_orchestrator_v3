@@ -2996,9 +2996,27 @@ def get_brand_asset_preview(brand_id, asset_type):
         if not user_id:
             return jsonify({'error': 'Unauthorized'}), 401
         
-        # Get brand by ID with ownership verification
-        brand = get_brand(brand_id=brand_id, user_id=user_id)
-        
+        # Get brand by ID with ownership verification.
+        # Patch 46A: retry up to 3 times on transient sqlite3.OperationalError
+        # (disk I/O errors during preview bursts are often transient on Render).
+        # Read-only lookup — retrying is always safe; no write side-effects.
+        brand = None
+        _preview_exc = None
+        for _attempt in range(3):
+            try:
+                brand = get_brand(brand_id=brand_id, user_id=user_id)
+                break
+            except sqlite3.OperationalError as _e:
+                _preview_exc = _e
+                if _attempt < 2:
+                    _wait = 0.15 * (_attempt + 1)   # 0.15 s, 0.30 s
+                    print(f"[PREVIEW] get_brand #{brand_id} attempt {_attempt + 1}/3 failed "
+                          f"({_e}), retrying in {_wait}s")
+                    time.sleep(_wait)
+                else:
+                    print(f"[PREVIEW] get_brand #{brand_id} failed after 3 attempts: {_e}")
+                    return '', 503
+
         if not brand:
             print(f"[PREVIEW] Brand #{brand_id} not found or not owned by user #{user_id}")
             return jsonify({'error': 'Brand not found or access denied'}), 404
@@ -3034,8 +3052,8 @@ def get_brand_asset_preview(brand_id, asset_type):
         
     except Exception as e:
         import traceback
-        print(f"[PREVIEW ERROR] {traceback.format_exc()}")
-        return jsonify({'error': str(e)}), 500
+        print(f"[PREVIEW] brand-asset #{brand_id}/{asset_type} error: {traceback.format_exc()}")
+        return '', 503   # Patch 46A: empty body — browser <img> onerror handles gracefully
 
 # ============================================================================
 # API: BRANDS (Static JSON)

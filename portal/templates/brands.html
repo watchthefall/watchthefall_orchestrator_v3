@@ -3681,7 +3681,7 @@ function renderBrands(brands, canCreate) {
         card.innerHTML = `
             <div class="v2-rail-card-inner">
                 ${logoUrl
-                    ? `<img src="${logoUrl}" class="v2-rail-thumb" alt="${_e(brand.display_name)}">`
+                    ? `<img src="${logoUrl}" class="v2-rail-thumb" alt="${_e(brand.display_name)}" onerror="this.style.display='none'">`
                     : '<div class="v2-rail-thumb v2-rail-thumb-empty">🎨</div>'}
                 <div class="v2-rail-info">
                     <div class="v2-rail-name">${_e(brand.display_name)}</div>
