@@ -4068,25 +4068,34 @@ def upload_video():
 @app.route('/api/downloads/<int:download_id>/rename', methods=['PUT'])
 @login_required
 def rename_download(download_id):
-    """Rename a download's display_name (UI-only, doesn't change disk filename)"""
+    """Rename a download's display_name (UI-only, doesn't change disk filename).
+    Patch 47A: tightened validation — max 80 chars, no slash/backslash, no control chars."""
     from .database import update_display_name
-    
+
     data = request.get_json(force=True) or {}
-    display_name = data.get('display_name')
-    
-    if not display_name or not display_name.strip():
+    raw = data.get('display_name')
+
+    # Patch 47A validation
+    name = raw.strip() if raw else ''
+    if not name:
         return jsonify({'error': 'display_name is required'}), 400
-    
+    if len(name) > 80:
+        return jsonify({'error': 'display_name must be 80 characters or fewer'}), 400
+    if '/' in name or '\\' in name:
+        return jsonify({'error': 'display_name cannot contain / or \\'}), 400
+    if any(ord(c) < 32 or ord(c) == 127 for c in name):
+        return jsonify({'error': 'display_name contains invalid characters'}), 400
+
     user_id = session['user_id']
-    success = update_display_name(download_id, user_id, display_name.strip())
-    
+    success = update_display_name(download_id, user_id, name)
+
     if not success:
         return jsonify({'error': 'Download not found or access denied'}), 404
-    
+
     return jsonify({
         'success': True,
         'download_id': download_id,
-        'display_name': display_name.strip(),
+        'display_name': name,
         'message': 'Display name updated successfully'
     })
 

@@ -429,7 +429,18 @@
                     const downloadId = download.id;
 
                     card.innerHTML = `
-                        <div class="filename">${escapeHtml(filename)}</div>
+                        <div class="filename" id="fn-${downloadId}">${escapeHtml(filename)}</div>
+                        <div class="rename-area" id="ra-${downloadId}" style="display:none;">
+                            <input type="text" id="ri-${downloadId}" maxlength="80"
+                                   style="width:100%;box-sizing:border-box;margin-bottom:4px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;padding:6px 8px;font-size:13px;"
+                                   placeholder="Enter display name"
+                                   onkeydown="if(event.key==='Enter')saveRename(${downloadId});else if(event.key==='Escape')cancelRename(${downloadId});">
+                            <div style="display:flex;gap:6px;margin-bottom:4px;">
+                                <button class="btn btn-small" onclick="saveRename(${downloadId})">Save</button>
+                                <button class="btn btn-secondary btn-small" onclick="cancelRename(${downloadId})">Cancel</button>
+                            </div>
+                            <div id="re-${downloadId}" style="font-size:11px;color:#ff9800;display:none;margin-top:2px;"></div>
+                        </div>
                         <div class="source">${escapeHtml(truncatedUrl)}</div>
                         <div class="meta">${escapeHtml(createdAt)}</div>
                         <span class="status ${isAvailable ? 'available' : 'missing'}">${isAvailable ? 'Available' : 'File missing'}</span>
@@ -440,8 +451,9 @@
                             <button class="btn btn-small btn-bookmark-toggle" onclick="toggleLibraryBookmarkFull(${downloadId}, this)">
                                 ${isBookmarked ? 'Remove Bookmark' : 'Bookmark'}
                             </button>
-                            ${isAvailable ? `<button class="btn btn-small" onclick="useInCreate('${escapeHtml(filename)}')">Use in Create</button>` : ''}
+                            ${isAvailable ? `<button class="btn btn-small" onclick="useInCreate('${escapeHtml(download.filename || '')}')">Use in Create</button>` : ''}
                             ${download.file_path ? `<a href="/api/videos/download-original/${download.id}" class="btn btn-secondary btn-small">Download</a>` : ''}
+                            <button class="btn btn-secondary btn-small" id="rb-${downloadId}" onclick="startRename(${downloadId})">Rename</button>
                         </div>
                     `;
 
@@ -467,6 +479,90 @@
         function useInCreate(filename) {
             sessionStorage.setItem('lastDownloadFilename', filename);
             window.location.href = "{{ url_for('brand_video') }}";
+        }
+
+        // Patch 47A: Source video inline rename — display_name only, raw filename never changes.
+        function startRename(downloadId) {
+            const fnDiv = document.getElementById('fn-' + downloadId);
+            const ra    = document.getElementById('ra-' + downloadId);
+            const ri    = document.getElementById('ri-' + downloadId);
+            const rb    = document.getElementById('rb-' + downloadId);
+            const re    = document.getElementById('re-' + downloadId);
+            if (!fnDiv || !ra || !ri) return;
+            ri.value = fnDiv.textContent;
+            if (re) { re.style.display = 'none'; re.textContent = ''; }
+            fnDiv.style.display = 'none';
+            ra.style.display = 'block';
+            if (rb) rb.disabled = true;
+            ri.focus();
+            ri.select();
+        }
+
+        function cancelRename(downloadId) {
+            const fnDiv = document.getElementById('fn-' + downloadId);
+            const ra    = document.getElementById('ra-' + downloadId);
+            const rb    = document.getElementById('rb-' + downloadId);
+            if (fnDiv) fnDiv.style.display = '';
+            if (ra)    ra.style.display = 'none';
+            if (rb)    rb.disabled = false;
+        }
+
+        async function saveRename(downloadId) {
+            const ri      = document.getElementById('ri-' + downloadId);
+            const re      = document.getElementById('re-' + downloadId);
+            const fnDiv   = document.getElementById('fn-' + downloadId);
+            const area    = document.getElementById('ra-' + downloadId);
+            const saveBtn = area ? area.querySelector('button') : null;
+            if (!ri || !re || !fnDiv) return;
+
+            const name = ri.value.trim();
+
+            // Client-side validation (Patch 47A)
+            if (!name) {
+                re.textContent = 'Name cannot be empty.';
+                re.style.display = 'block';
+                return;
+            }
+            if (name.length > 80) {
+                re.textContent = 'Name must be 80 characters or fewer.';
+                re.style.display = 'block';
+                return;
+            }
+            if (/[/\\]/.test(name)) {
+                re.textContent = 'Name cannot contain / or \\.';
+                re.style.display = 'block';
+                return;
+            }
+            if (/[\x00-\x1f\x7f]/.test(name)) {
+                re.textContent = 'Name contains invalid characters.';
+                re.style.display = 'block';
+                return;
+            }
+
+            if (saveBtn) saveBtn.disabled = true;
+            re.style.display = 'none';
+
+            try {
+                const res = await fetch(`/api/downloads/${downloadId}/rename`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ display_name: name })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    re.textContent = data.error || 'Rename failed. Please try again.';
+                    re.style.display = 'block';
+                    if (saveBtn) saveBtn.disabled = false;
+                    return;
+                }
+                // Success: update card title in-place — no page reload needed
+                fnDiv.textContent = data.display_name || name;
+                cancelRename(downloadId);
+            } catch (err) {
+                re.textContent = 'Network error. Please try again.';
+                re.style.display = 'block';
+                if (saveBtn) saveBtn.disabled = false;
+            }
         }
 
         async function toggleLibraryBookmarkFull(downloadId, btn) {
