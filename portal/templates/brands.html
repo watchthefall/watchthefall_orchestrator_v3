@@ -3578,6 +3578,14 @@
 /* ================================================================
    END BRAND EDITOR SHELL
    ================================================================ */
+
+/* Patch 46F: Mobile body padding and header polish for Brand Settings.
+   Reduces wasted horizontal space on narrow phones (360–390px) and prevents
+   the h1 + Create Brand button row from wrapping on 360px devices. */
+@media (max-width: 560px) {
+    body { padding: 12px; }
+    header h1 { font-size: 22px; }
+}
 </style>
 
 <script src="{{ url_for('static', filename='js/brand_editor.js') }}"></script>
