@@ -4831,10 +4831,35 @@ async function processAllBrands() {
     // Reset accumulated outputs for this run
     completedOutputs = [];
 
+    // ========== JOB-ITEM MODEL (Commit 5: sync status to jobItems) ==========
+    const syncStatusToJobItem = (brandId, status) => {
+        if (currentFile && brandId) {
+            const jobItem = jobItems.find(item => item.filename === currentFile && item.brandId === brandId);
+            if (jobItem) {
+                jobItem.status = status;
+                persistJobItems();
+            }
+        }
+    };
+    // ========== END JOB-ITEM MODEL ==========
+
+    // Fix A: Reset stale 'processing' items left by a prior aborted render.
+    // Navigation/reload aborts in-flight fetches but does not clear localStorage;
+    // items stuck at status='processing' would be silently excluded from
+    // pendingBrands below. Reset them to 'pending' so this run picks them up.
+    // Only 'processing' is reset — skipped/done/failed are intentional states.
+    processingQueue.forEach(q => {
+        if (q.status === 'processing') {
+            q.status = 'pending';
+            syncStatusToJobItem(q.brand_id, 'pending');
+        }
+    });
+    persistJobItems();
+
     // Everything moves forward by default unless it was skipped.
     const pendingBrands = processingQueue.filter(q => q.status !== 'skipped' && q.status !== 'done' && q.status !== 'processing');
     const includedTotal = processingQueue.filter(q => q.status !== 'skipped').length;
-    
+
     if (pendingBrands.length === 0) {
         result.innerHTML = '<div class="status-msg info">Everything here is already running, finished, or skipped.</div>';
         return;
@@ -4850,21 +4875,10 @@ async function processAllBrands() {
         </div>
     `;
 
-    // ========== JOB-ITEM MODEL (Commit 5: sync status to jobItems) ==========
-    const syncStatusToJobItem = (brandId, status) => {
-        if (currentFile && brandId) {
-            const jobItem = jobItems.find(item => item.filename === currentFile && item.brandId === brandId);
-            if (jobItem) {
-                jobItem.status = status;
-                persistJobItems();
-            }
-        }
-    };
-    // ========== END JOB-ITEM MODEL ==========
-
     const progressEl = result.querySelector('.processing-state-meta');
     let successCount = 0;
     let failCount = 0;
+    let failMessages = [];
     let brandIndex = 0;
 
     // Process brands one at a time — parallel requests race on normalize_video
@@ -4915,7 +4929,13 @@ async function processAllBrands() {
                     openUpgradeModal('Limit reached', data.message || 'You have reached your plan limit.');
                     throw new Error(data.message || 'Plan limit reached');
                 }
-                throw new Error(data.error || data.details || 'Processing failed');
+                // Fix C: attach actionable fix guidance to the error object so the
+                // catch block can surface it in the completion panel without exposing
+                // internal file paths or raw technical strings to the user.
+                const _apiErr = new Error(data.error || data.details || 'Processing failed');
+                if (data.fix) _apiErr.fix = data.fix;
+                if (data.fix_url) _apiErr.fix_url = data.fix_url;
+                throw _apiErr;
             }
 
             item.status = 'done';
@@ -4936,11 +4956,15 @@ async function processAllBrands() {
             renderBrandPills();
             failCount++;
             console.error('[BRANDR] Brand failed:', item.brand_name, err.message);
+            // Fix C: collect per-brand fix guidance for the completion panel.
+            if (err.fix) {
+                failMessages.push({ brand_name: item.brand_name, fix: err.fix, fix_url: err.fix_url || null });
+            }
         }
     }
 
     try {
-        renderCompletionPanel(result, successCount, failCount, 0);
+        renderCompletionPanel(result, successCount, failCount, 0, failMessages);
     } catch (panelErr) {
         console.error('[BRANDR] renderCompletionPanel error:', panelErr);
         result.innerHTML = `<div class="status-msg success">🎉 Done! ${successCount} branded. <button onclick="goToLibrary()" style="margin-left:8px;background:transparent;border:1px solid #555;color:#b6bfd3;padding:4px 10px;border-radius:5px;cursor:pointer;">Open Library</button></div>`;
@@ -5027,7 +5051,9 @@ function _esc(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function renderCompletionPanel(el, done, failed, skipped) {
+function renderCompletionPanel(el, done, failed, skipped, failMessages) {
+    failMessages = failMessages || [];
+
     const headerHtml = failed === 0
         ? `<div class="status-msg success">\ud83c\udf89 Branding complete! ${done} version${done !== 1 ? 's' : ''} ready.</div>`
         : `<div class="status-msg warning">Branding done with issues. ${done} done, \u274c ${failed} failed${skipped ? ', ' + skipped + ' skipped' : ''}</div>`;
@@ -5047,8 +5073,23 @@ function renderCompletionPanel(el, done, failed, skipped) {
         outputsHtml = `<div style="margin-top:8px;font-size:12px;color:#888;">Auto-download may have been blocked. Check your Downloads folder or the Library.</div>`;
     }
 
+    // Fix C: surface actionable fix guidance for asset-missing / validation failures.
+    // Only shown when the server returned a structured 'fix' field.
+    // Raw technical error strings and internal paths are never shown here.
+    let fixHtml = '';
+    const actionableFailures = failMessages.filter(m => m.fix);
+    if (actionableFailures.length > 0) {
+        const fixRows = actionableFailures.map(m => {
+            const linkPart = m.fix_url
+                ? ` <a href="${_esc(m.fix_url)}" style="margin-left:6px;color:var(--accent);text-decoration:none;font-weight:600;white-space:nowrap;">Fix \u2192</a>`
+                : '';
+            return `<div style="margin-bottom:4px;font-size:12px;color:#e0a84e;">${_esc(m.fix)}${linkPart}</div>`;
+        });
+        fixHtml = `<div style="margin-top:10px;padding:10px 12px;background:#1e1e22;border-radius:6px;border-left:3px solid #e0a84e;">${fixRows.join('')}</div>`;
+    }
+
     const libraryBtn = `<button onclick="goToLibrary()" style="width:100%;margin-top:10px;padding:9px 14px;font-size:13px;background:transparent;border:1px solid #343948;color:#b6bfd3;border-radius:8px;cursor:pointer;">Open Library</button>`;
-    el.innerHTML = headerHtml + outputsHtml + libraryBtn;
+    el.innerHTML = headerHtml + outputsHtml + fixHtml + libraryBtn;
 }
 
 async function downloadAllCompletedOutputs() {
