@@ -6067,12 +6067,16 @@ function confirmBatchSourceSelection() {
 
     if (checkedFilenames.length === 0) return; // guard (button should be disabled)
 
-    // Set the canonical multi-source array BEFORE calling selectVideo so
-    // selectVideo's single-source path does not overwrite it.
-    selectedSources = checkedFilenames.slice();
+    // Patch 50A Bug Fix: selectVideo may call resetCreateReviewSession (when a video is
+    // already active), which clears selectedSources. Capture the array first and restore
+    // it after selectVideo so the multi-source selection survives the reset.
+    const savedSources = checkedFilenames.slice();
 
     // selectVideo sets currentFile + extracts preview frame for the first source.
     selectVideo(checkedFilenames[0]);
+
+    // Restore multi-source array after selectVideo (which may have reset it).
+    selectedSources = savedSources;
 
     console.log('[BRANDR] Batch source selection confirmed:', selectedSources);
 }
