@@ -1222,7 +1222,7 @@
     }
     #brandReviewLane.review-active #previewContainer {
         order: 3;
-        width: clamp(200px, 42vw, 300px);
+        width: clamp(260px, 42vw, 340px);
         aspect-ratio: 9 / 16;
         max-width: 100%;
         /* No max-height — aspect-ratio derives height from width, preserving 9:16 */
@@ -1981,7 +1981,7 @@
     <!-- ===== BRAND SELECTION (shown in selection mode) ===== -->
     <div id="outputFormatsSection" class="output-format-panel">
         <div class="output-format-title">Output format</div>
-        <p class="review-subcopy">Vertical 9:16 and Square 1:1 are Brandr's live output formats. Other formats are coming soon.</p>
+        <p class="review-subcopy">Choose which output formats to generate for this run.</p>
         <div class="output-format-grid" id="outputFormatGrid">
             <button type="button" class="output-format-pill active" data-format-key="vertical_9_16" onclick="toggleOutputFormat('vertical_9_16')">
                 <span class="output-format-pill-tag">9:16</span>
@@ -1993,18 +1993,8 @@
                 <span>Square 1:1</span>
                 <span class="output-format-state live">Live</span>
             </button>
-            <button type="button" class="output-format-pill" data-format-key="landscape_16_9" disabled>
-                <span class="output-format-pill-tag">16:9</span>
-                <span>Landscape 16:9</span>
-                <span class="output-format-state planned">Coming soon</span>
-            </button>
-            <button type="button" class="output-format-pill optional" data-format-key="auto_pack" disabled>
-                <span class="output-format-pill-tag">Auto</span>
-                <span>Auto platform pack</span>
-                <span class="output-format-state planned">Coming soon</span>
-            </button>
         </div>
-        <div class="output-format-note" id="outputFormatSummary">Vertical 9:16 and Square 1:1 are live. Landscape and Auto are coming soon.</div>
+        <div class="output-format-note" id="outputFormatSummary">Select one or both formats to include in this render.</div>
     </div>
 
     <div id="selectionModeHeader">
@@ -2094,13 +2084,6 @@
                     <span class="slider-value" id="wmOpacityVal">40%</span>
                 </div>
                 <input type="range" id="wmOpacity" min="10" max="80" value="40" oninput="document.getElementById('wmOpacityVal').textContent = this.value + '%'; updateCanvasPreview();">
-            </div>
-            <div class="toggle-row">
-                <span class="slider-label">Show bounds</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="showBounds">
-                    <span class="toggle-slider"></span>
-                </label>
             </div>
         </div>
     </div>
@@ -2269,7 +2252,7 @@
     </div>
     
     <p id="betaProcessingNotice" style="margin:8px 0 4px; font-size:11px; color:#6b7280; line-height:1.45; text-align:center;">
-        Processing in beta: Keep this tab open while Brandr creates your output. Longer clips may take 1–5 minutes depending on length and server load. Background processing is coming later.
+        Longer clips may take 1–5 minutes. Results save automatically — you can find them in the Library when done.
     </p>
     <div id="processResult" style="margin-top:6px;"></div>
     </div>
@@ -2669,19 +2652,17 @@ function updateOutputFormatUI() {
         const labels = selectedOutputFormats
             .map(k => OUTPUT_FORMAT_OPTIONS[k] ? OUTPUT_FORMAT_OPTIONS[k].label : k)
             .join(' + ');
-        summary.textContent = `Selected: ${labels}. Vertical 9:16 and Square 1:1 are live. Landscape and Auto are coming soon.`;
+        summary.textContent = labels ? `Selected: ${labels}` : 'Select at least one format.';
     }
 
     if (brandHelp) {
-        brandHelp.textContent = 'Pick the brands you want, then review the live 9:16 version before processing. Planned formats stay visible here for what comes next.';
+        brandHelp.textContent = 'Pick the brands you want, then review the preview before processing.';
     }
 }
 
 function toggleOutputFormat(formatKey) {
     if (!OUTPUT_FORMAT_OPTIONS[formatKey]) return;
     // Patch 49A: multi-select with min-1 guard.
-    // Disabled formats (landscape_16_9, auto_pack) are blocked by [disabled] in HTML
-    // so their onclick never fires, but we guard here too for safety.
     const idx = selectedOutputFormats.indexOf(formatKey);
     if (idx === -1) {
         // Format not currently selected — add it.
@@ -2887,7 +2868,6 @@ function setupReviewAutoSave() {
     const controlIds = [
         'wmScale',
         'wmOpacity',
-        'showBounds',
         'logoScale',
         'logoRotation',
         'textEnabled',
@@ -3535,26 +3515,9 @@ function drawOverlays() {
         canvas._textBounds = null;
     }
     
-    // Update watermark bounds outline
-    const showBounds = document.getElementById('showBounds').checked;
+    // Watermark bounds overlay removed (showBounds control removed in Patch 51H)
     const boundsEl = document.getElementById('watermarkBounds');
-    if (showBounds && watermarkImg) {
-        const scaledW = canvas.width * wmScale;
-        const scaledH = canvas.height * wmScale;
-        const offsetX = (scaledW - canvas.width) / 2;
-        const offsetY = (scaledH - canvas.height) / 2;
-        
-        // Calculate visible bounds within canvas
-        const container = document.getElementById('previewContainer');
-        const rect = container.getBoundingClientRect();
-        const scaleRatio = rect.width / canvas.width;
-        
-        boundsEl.style.left = `${-offsetX * scaleRatio}px`;
-        boundsEl.style.top = `${-offsetY * scaleRatio}px`;
-        boundsEl.style.width = `${scaledW * scaleRatio}px`;
-        boundsEl.style.height = `${scaledH * scaleRatio}px`;
-        boundsEl.classList.add('visible');
-    } else {
+    if (boundsEl) {
         boundsEl.classList.remove('visible');
     }
 }
@@ -3689,7 +3652,6 @@ document.getElementById('logoScale').addEventListener('input', (e) => {
     // Logo stays anchored to center - no position reset needed
     updateCanvasPreview();
 });
-document.getElementById('showBounds').addEventListener('change', updateCanvasPreview);
 setupReviewAutoSave();
 updateOutputFormatUI();
 
