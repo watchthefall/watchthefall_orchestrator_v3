@@ -2359,6 +2359,7 @@ let processingQueue = [];
 let currentQueueIndex = 0;
 let isReviewCompletionState = false;
 let selectedOutputFormats = ['vertical_9_16'];
+let selectedSources = [];   // Patch 50A: filenames of sources chosen for this render run
 let completedOutputs = []; // accumulates { brand_name, download_url } after each successful brand
 
 const OUTPUT_FORMAT_OPTIONS = {
@@ -2461,6 +2462,7 @@ function resetCreateReviewSession(reason) {
     currentQueueIndex = 0;
     activeItemIndex = -1;
     selectedBrandIds = [];
+    selectedSources = [];   // Patch 50A: clear multi-source selection on session reset
     activePreviewBrandId = null;
     brandOverrides = {};
 
@@ -2791,12 +2793,14 @@ function renderReviewCompletionState() {
     const approved = processingQueue.filter(item => item.reviewDecision === 'approved' || item.status === 'done').length;
     const skipped = processingQueue.filter(item => item.status === 'skipped').length;
     const ready = Math.max(total - skipped, 0);
-    // Patch 49A: output count formula for review-complete card (multi-format aware).
+    // Patch 50A: output count formula for review-complete card (multi-source + multi-format aware).
+    const _rcSrcCount    = selectedSources.length > 0 ? selectedSources.length : 1;
     const _rcFmtCount    = selectedOutputFormats.length;
     const _rcFormatLabel = _rcFmtCount === 1
         ? ((OUTPUT_FORMAT_OPTIONS[selectedOutputFormats[0]] || {}).label || selectedOutputFormats[0])
         : `${_rcFmtCount} formats`;
-    const _rcRenderTotal = ready * _rcFmtCount;
+    const _rcSourceLabel = _rcSrcCount === 1 ? '1 source' : `${_rcSrcCount} sources`;
+    const _rcRenderTotal = _rcSrcCount * ready * _rcFmtCount;
     const _rcBrandWord   = ready === 1 ? 'brand'  : 'brands';
     const _rcRenderWord  = _rcRenderTotal === 1 ? 'render' : 'renders';
     result.innerHTML = `
@@ -2805,7 +2809,7 @@ function renderReviewCompletionState() {
             <div class="review-complete-meta">${approved} approved • ${skipped} skipped • ${ready} ready</div>
             <div class="review-complete-sub">Ready to generate outputs.</div>
             <div style="margin: 10px 0 2px; font-size: 13px; color: #e5e7eb;">
-                <strong>${_rcRenderTotal} ${_rcRenderWord}</strong> &mdash; 1 source &times; ${ready} ${_rcBrandWord} &times; ${_rcFormatLabel}
+                <strong>${_rcRenderTotal} ${_rcRenderWord}</strong> &mdash; ${_rcSourceLabel} &times; ${ready} ${_rcBrandWord} &times; ${_rcFormatLabel}
             </div>
             <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px;">Outputs will appear in Library &rarr; Finished Renders.</div>
             <div class="review-complete-actions">
@@ -4896,113 +4900,141 @@ async function processAllBrands() {
     let failCount = 0;
     let failMessages = [];
 
-    // Patch 49A: snapshot selected formats at run-start so mid-run UI changes don't affect this run.
-    // Total steps = brands × formats; each (brand, format) pair is one sequential server request.
+    // Patch 50A: snapshot sources + formats at run-start.
+    // Loop order: source → brand → format (outermost to innermost).
+    // Each (source, brand, format) triple = one sequential server request.
+    const activeSources = selectedSources.length > 0 ? selectedSources.slice() : [currentFile];
     const activeFormats = selectedOutputFormats.slice();
-    const totalSteps    = pendingBrands.length * activeFormats.length;
+    const multiSource   = activeSources.length > 1;
     const multiFormat   = activeFormats.length > 1;
+    const totalSteps    = activeSources.length * pendingBrands.length * activeFormats.length;
     let stepIndex = 0;
 
-    // Process brands one at a time, and within each brand process every selected format.
-    // Sequential requests avoid racing on normalize_video and increment_branding_jobs.
-    for (const item of pendingBrands) {
-        item.status = 'processing';
-        syncStatusToJobItem(item.brand_id, 'processing');
-        renderBrandPills();
+    // Snapshot the approved/pending brand list BEFORE the source loop.
+    // pendingBrands is already filtered above; we re-use the same array.
+    // Track brands that fail on ANY (source, format) pair.
+    const brandFailedAnySource = new Set();
 
-        // Track per-brand outcome across all its formats.
-        let brandHadFailure = false;
+    for (const src of activeSources) {
+        // Raw filename for progress/output labels (no directory prefix).
+        const srcBasename = src ? src.split('/').pop() || src : '';
 
-        for (const fmt of activeFormats) {
-            stepIndex++;
-            const fmtLabel      = (OUTPUT_FORMAT_OPTIONS[fmt] || {}).label || fmt;
-            // Append format label to progress text only when multiple formats are selected.
-            const progressLabel = multiFormat ? `${item.brand_name} — ${fmtLabel}` : item.brand_name;
-            if (progressEl) progressEl.textContent = `Processing ${stepIndex} of ${totalSteps}: ${progressLabel}…`;
+        for (const item of pendingBrands) {
+            item.status = 'processing';
+            syncStatusToJobItem(item.brand_id, 'processing');
+            renderBrandPills();
 
-            try {
-                const res = await fetch(`${apiBase}/api/videos/process_brands`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        source_path: currentFile,
-                        brand_ids: [item.brand_id],
-                        brands: [item.brand_name],
-                        output_format: fmt,
-                        ...(item.userEdited ? {
-                            watermark_scale: item.overrides.watermark_scale,
-                            watermark_opacity: item.overrides.watermark_opacity,
-                            logo_scale: item.overrides.logo_scale,
-                            logo_x: item.overrides.logo_x,
-                            logo_y: item.overrides.logo_y,
-                            text_enabled: item.overrides.text_enabled,
-                            text_content: item.overrides.text_content,
-                            text_x: item.overrides.text_x,
-                            text_y: item.overrides.text_y,
-                            text_size: item.overrides.text_size,
-                            text_color: item.overrides.text_color,
-                            text_bg_enabled: item.overrides.text_bg_enabled,
-                            text_bg_opacity: item.overrides.text_bg_opacity
-                        } : {})
-                    })
-                });
+            // Track per-brand outcome across all its formats within this source pass.
+            let brandHadFailureThisPass = false;
 
-                let data;
+            for (const fmt of activeFormats) {
+                stepIndex++;
+                const fmtLabel = (OUTPUT_FORMAT_OPTIONS[fmt] || {}).label || fmt;
+
+                // Build progress label: include source prefix when multiple sources selected.
+                let progressLabel = item.brand_name;
+                if (multiFormat) progressLabel += ` — ${fmtLabel}`;
+                if (multiSource) progressLabel = `${srcBasename} — ${progressLabel}`;
+                if (progressEl) progressEl.textContent = `Processing ${stepIndex} of ${totalSteps}: ${progressLabel}…`;
+
                 try {
-                    data = await res.json();
-                } catch {
-                    throw new Error(`Server error ${res.status} — branding failed. Check server logs.`);
-                }
+                    const res = await fetch(`${apiBase}/api/videos/process_brands`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            source_path: src,
+                            brand_ids: [item.brand_id],
+                            brands: [item.brand_name],
+                            output_format: fmt,
+                            ...(item.userEdited ? {
+                                watermark_scale: item.overrides.watermark_scale,
+                                watermark_opacity: item.overrides.watermark_opacity,
+                                logo_scale: item.overrides.logo_scale,
+                                logo_x: item.overrides.logo_x,
+                                logo_y: item.overrides.logo_y,
+                                text_enabled: item.overrides.text_enabled,
+                                text_content: item.overrides.text_content,
+                                text_x: item.overrides.text_x,
+                                text_y: item.overrides.text_y,
+                                text_size: item.overrides.text_size,
+                                text_color: item.overrides.text_color,
+                                text_bg_enabled: item.overrides.text_bg_enabled,
+                                text_bg_opacity: item.overrides.text_bg_opacity
+                            } : {})
+                        })
+                    });
 
-                if (!data.success) {
-                    if (data.error === 'DAILY_LIMIT_REACHED' || data.error === 'BRANDS_PER_JOB_LIMIT') {
-                        openUpgradeModal('Limit reached', data.message || 'You have reached your plan limit.');
-                        throw new Error(data.message || 'Plan limit reached');
+                    let data;
+                    try {
+                        data = await res.json();
+                    } catch {
+                        throw new Error(`Server error ${res.status} — branding failed. Check server logs.`);
                     }
-                    // Fix C: attach actionable fix guidance to the error object so the
-                    // catch block can surface it in the completion panel without exposing
-                    // internal file paths or raw technical strings to the user.
-                    const _apiErr = new Error(data.error || data.details || 'Processing failed');
-                    if (data.fix) _apiErr.fix = data.fix;
-                    if (data.fix_url) _apiErr.fix_url = data.fix_url;
-                    throw _apiErr;
-                }
 
-                // This (brand, format) pair succeeded.
-                successCount++;
+                    if (!data.success) {
+                        if (data.error === 'DAILY_LIMIT_REACHED' || data.error === 'BRANDS_PER_JOB_LIMIT') {
+                            openUpgradeModal('Limit reached', data.message || 'You have reached your plan limit.');
+                            throw new Error(data.message || 'Plan limit reached');
+                        }
+                        // Fix C: attach actionable fix guidance to the error object so the
+                        // catch block can surface it in the completion panel without exposing
+                        // internal file paths or raw technical strings to the user.
+                        const _apiErr = new Error(data.error || data.details || 'Processing failed');
+                        if (data.fix) _apiErr.fix = data.fix;
+                        if (data.fix_url) _apiErr.fix_url = data.fix_url;
+                        throw _apiErr;
+                    }
 
-                if (data.outputs && data.outputs[0]) {
-                    const downloadUrl = data.outputs[0].download_url;
-                    // Label each output row with format suffix when multiple formats are active.
-                    const outputLabel = multiFormat ? `${item.brand_name} — ${fmtLabel}` : item.brand_name;
-                    console.log('[BRANDR] Download triggered:', downloadUrl);
-                    window.open(downloadUrl, '_blank');
-                    completedOutputs.push({ brand_name: outputLabel, download_url: downloadUrl });
-                }
+                    // This (source, brand, format) triple succeeded.
+                    successCount++;
 
-            } catch (err) {
-                brandHadFailure = true;
-                failCount++;
-                const fmtSuffix = multiFormat ? ` (${fmtLabel})` : '';
-                console.error('[BRANDR] Brand failed:', item.brand_name + fmtSuffix, err.message);
-                // Fix C: collect per-(brand, format) fix guidance for the completion panel.
-                if (err.fix) {
-                    failMessages.push({ brand_name: item.brand_name + fmtSuffix, fix: err.fix, fix_url: err.fix_url || null });
+                    if (data.outputs && data.outputs[0]) {
+                        const downloadUrl = data.outputs[0].download_url;
+                        // Build output label with source + format suffixes as needed.
+                        let outputLabel = item.brand_name;
+                        if (multiFormat) outputLabel += ` — ${fmtLabel}`;
+                        if (multiSource) outputLabel = `${srcBasename} — ${outputLabel}`;
+                        console.log('[BRANDR] Download triggered:', downloadUrl);
+                        window.open(downloadUrl, '_blank');
+                        completedOutputs.push({ brand_name: outputLabel, download_url: downloadUrl });
+                    }
+
+                } catch (err) {
+                    brandHadFailureThisPass = true;
+                    failCount++;
+                    // Build failure label with source + format context.
+                    let failLabel = item.brand_name;
+                    if (multiFormat) failLabel += ` (${fmtLabel})`;
+                    if (multiSource) failLabel = `${srcBasename} — ${failLabel}`;
+                    console.error('[BRANDR] Brand failed:', failLabel, err.message);
+                    // Fix C: collect per-(source, brand, format) fix guidance for the completion panel.
+                    if (err.fix) {
+                        failMessages.push({ brand_name: failLabel, fix: err.fix, fix_url: err.fix_url || null });
+                    }
                 }
+            } // end formats loop
+
+            // If this brand failed on any format within this source pass, record it.
+            if (brandHadFailureThisPass) {
+                brandFailedAnySource.add(item.brand_id);
             }
-        } // end formats loop
 
-        // Brand status: 'done' only if every selected format succeeded; 'failed' if any failed.
-        // Partial success (some formats ok, others not) counts as 'failed' for brand-pill state.
-        if (brandHadFailure) {
-            item.status = 'failed';
-            syncStatusToJobItem(item.brand_id, 'error');
-        } else {
-            item.status = 'done';
-            syncStatusToJobItem(item.brand_id, 'completed');
-        }
-        renderBrandPills();
-    } // end brands loop
+            // Update pill display with intermediate status for this source pass.
+            item.status = brandHadFailureThisPass ? 'failed' : 'done';
+            syncStatusToJobItem(item.brand_id, brandHadFailureThisPass ? 'error' : 'completed');
+            renderBrandPills();
+        } // end brands loop
+    } // end sources loop
+
+    // After all (source, brand, format) triples: set definitive brand status.
+    // 'done' only if that brand succeeded on every source×format combination.
+    // 'failed' if it failed on any source×format combination.
+    for (const item of pendingBrands) {
+        const everFailed = brandFailedAnySource.has(item.brand_id);
+        item.status = everFailed ? 'failed' : 'done';
+        syncStatusToJobItem(item.brand_id, everFailed ? 'error' : 'completed');
+    }
+    renderBrandPills();
 
     try {
         renderCompletionPanel(result, successCount, failCount, 0, failMessages);
@@ -5529,6 +5561,11 @@ function selectVideo(filename, meta) {
         resetCreateReviewSession('select-video');
     }
     currentFile = filename;
+    // Patch 50A: keep selectedSources if caller (confirmBatchSourceSelection) already set
+    // a multi-source array containing this filename; otherwise default to single-source.
+    if (!selectedSources.includes(filename)) {
+        selectedSources = [filename];
+    }
     createIntent = null;
     sessionStorage.setItem('lastDownloadFilename', filename);
 
@@ -5850,6 +5887,7 @@ function setLinkMode(mode) {
     if (downloadAllContainer) downloadAllContainer.style.display = 'none';
     // Clear tracked videos
     batchSuccessfulVideos = [];
+    selectedSources = [];   // Patch 50A: clear source selection when switching link modes
 }
 
 function batchFetchVideos() {
@@ -5934,7 +5972,11 @@ function batchFetchVideos() {
                 status.textContent = successes.length + ' of ' + results.length + ' succeeded. ' + failures.length + ' failed.';
             }
 
-            // Build results list with state badges
+            // Patch 50A: Build results list with checkboxes on successful rows.
+            // Each success row gets a checkbox (checked by default).
+            // Failed rows are read-only (no checkbox).
+            // A "Brand selected (N)" primary button replaces the per-row "Brand it" link
+            // when there are multiple successes; single-success still auto-selects.
             let html = '';
             results.forEach(function(r) {
                 const icon = getPlatformIcon(r.url || '');
@@ -5943,11 +5985,12 @@ function batchFetchVideos() {
                     const safeUrl = (r.url || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
                     const dlUrl = '/api/videos/download/' + encodeURIComponent(r.filename || '');
                     html += '<div id="batchItem_' + safeFilename + '" style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:rgba(134,237,165,0.08); border-radius:8px; margin-bottom:6px;">' +
+                        '<input type="checkbox" class="batch-source-cb" data-filename="' + safeFilename + '" checked' +
+                        ' onchange="updateBatchSelectionCount()" style="width:15px;height:15px;flex-shrink:0;cursor:pointer;accent-color:var(--accent);">' +
                         '<span style="font-size:18px;">' + icon + '</span>' +
                         '<span style="flex:1; font-size:13px; color:#ccc; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (r.filename || 'Unknown') + '</span>' +
-                        '<span class="batch-state-badge" style="background:#555; color:#fff; font-size:10px; padding:3px 8px; border-radius:4px; flex-shrink:0;">Raw</span>' +
+                        '<span class="batch-state-badge" style="background:#555; color:#fff; font-size:10px; padding:3px 8px; border-radius:4px; flex-shrink:0;">Ready</span>' +
                         '<a href="' + dlUrl + '" target="_blank" onclick="event.stopPropagation(); markBatchItemDone(\'' + safeFilename + '\')" style="color:#28a745; font-size:12px; flex-shrink:0; text-decoration:none; margin-right:6px;">Download</a>' +
-                        '<span style="color:var(--accent); font-size:12px; flex-shrink:0; cursor:pointer;" onclick="selectVideoFromBatch(\'' + safeFilename + '\', \'' + safeUrl + '\'); markBatchItemBranding(\'' + safeFilename + '\')">Brand it</span>' +
                         '</div>';
                 } else {
                     html += '<div style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:rgba(255,107,107,0.08); border-radius:8px; margin-bottom:6px;">' +
@@ -5957,6 +6000,14 @@ function batchFetchVideos() {
                         '</div>';
                 }
             });
+
+            // Selection footer: count + primary action button (shown when >1 success)
+            if (successes.length > 1) {
+                html += '<div id="batchSelectionFooter" style="margin-top:10px; display:flex; align-items:center; gap:10px;">' +
+                    '<span id="batchSelectionCount" style="font-size:12px; color:#9ca3af; flex:1;">Selected: ' + successes.length + ' source(s)</span>' +
+                    '<button id="brandSelectedBtn" onclick="confirmBatchSourceSelection()" style="padding:9px 16px; font-size:13px; font-weight:600; border-radius:8px; background:var(--accent); color:#121214; border:none; cursor:pointer;">Brand selected (' + successes.length + ')</button>' +
+                    '</div>';
+            }
 
             resultsArea.innerHTML = html;
             resultsArea.style.display = 'block';
@@ -5970,7 +6021,8 @@ function batchFetchVideos() {
                 downloadAllContainer.style.display = 'none';
             }
 
-            // If only 1 success, auto-select it
+            // Single success: auto-select (same as before). selectedSources set inside selectVideo().
+            // Multiple successes: user uses "Brand selected" button; no auto-select.
             if (successes.length === 1) {
                 selectVideo(successes[0].filename, { source_url: successes[0].url });
             }
@@ -5989,6 +6041,43 @@ function batchFetchVideos() {
 function selectVideoFromBatch(filename, sourceUrl) {
     selectVideo(filename, { source_url: sourceUrl });
 }
+
+// ========== Patch 50A: BATCH SOURCE SELECTION HELPERS ==========
+
+// Update the "Selected: N source(s)" counter and enable/disable the Brand selected button.
+function updateBatchSelectionCount() {
+    const checkboxes = document.querySelectorAll('.batch-source-cb');
+    const checked = Array.from(checkboxes).filter(cb => cb.checked);
+    const countEl = document.getElementById('batchSelectionCount');
+    const btn     = document.getElementById('brandSelectedBtn');
+    if (countEl) countEl.textContent = 'Selected: ' + checked.length + ' source(s)';
+    if (btn) {
+        btn.textContent = 'Brand selected (' + checked.length + ')';
+        btn.disabled    = checked.length === 0;
+        btn.style.opacity = checked.length === 0 ? '0.45' : '1';
+    }
+}
+
+// Confirm source selection: collect checked filenames → selectedSources → selectVideo(first).
+function confirmBatchSourceSelection() {
+    const checkboxes = document.querySelectorAll('.batch-source-cb');
+    const checkedFilenames = Array.from(checkboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.dataset.filename);
+
+    if (checkedFilenames.length === 0) return; // guard (button should be disabled)
+
+    // Set the canonical multi-source array BEFORE calling selectVideo so
+    // selectVideo's single-source path does not overwrite it.
+    selectedSources = checkedFilenames.slice();
+
+    // selectVideo sets currentFile + extracts preview frame for the first source.
+    selectVideo(checkedFilenames[0]);
+
+    console.log('[BRANDR] Batch source selection confirmed:', selectedSources);
+}
+
+// ========== END Patch 50A: BATCH SOURCE SELECTION HELPERS ==========
 
 // ========== BATCH ITEM STATE BADGES ==========
 // Session-only state tracking for batch fetch results
@@ -6070,6 +6159,7 @@ function clearVideo() {
     resetCreateReviewSession('clear-video');
     sessionStorage.removeItem('lastDownloadFilename');
     currentFile = null;
+    selectedSources = [];   // Patch 50A
     frameData = null;
     createIntent = null;
     document.getElementById('previewSection').style.display = 'none';
@@ -6120,12 +6210,13 @@ function updateConfirmationSummary() {
         return;
     }
 
-    // Patch 49A: output count formula — 1 source × N brands × M formats = N×M renders.
-    const sourceCount = currentFile ? 1 : 0;  // Beta-v1: always 1 source
+    // Patch 50A: output count formula — S sources × N brands × M formats = S×N×M renders.
+    const sourceCount = selectedSources.length > 0 ? selectedSources.length : (currentFile ? 1 : 0);
     const fmtCount    = selectedOutputFormats.length;
     const formatLabel = fmtCount === 1
         ? ((OUTPUT_FORMAT_OPTIONS[selectedOutputFormats[0]] || {}).label || selectedOutputFormats[0])
         : `${fmtCount} formats`;
+    const sourceLabel = sourceCount === 1 ? '1 source' : `${sourceCount} sources`;
     const renderCount = sourceCount * itemCount * fmtCount;
 
     const brandWord  = itemCount   === 1 ? 'brand'  : 'brands';
@@ -6136,12 +6227,17 @@ function updateConfirmationSummary() {
     // Formula line
     html += `<div style="font-size:13px; color:#e5e7eb; margin-bottom:4px;">`;
     html += `<strong>${renderCount} ${renderWord}</strong> &mdash; `;
-    html += `1 source &times; ${itemCount} ${brandWord} &times; ${formatLabel}`;
+    html += `${sourceLabel} &times; ${itemCount} ${brandWord} &times; ${formatLabel}`;
     html += `</div>`;
 
-    // Override note
+    // Override note (overrides from review apply to all selected sources equally)
     if (overrideCount > 0) {
         html += `<div style="font-size:11px; color:#F5A623; margin-bottom:3px;">${overrideCount} brand${overrideCount !== 1 ? 's' : ''} with overrides</div>`;
+    }
+
+    // Multi-source note
+    if (sourceCount > 1) {
+        html += `<div style="margin-top:3px; font-size:11px; color:#9ca3af;">Brand settings from review apply to all ${sourceCount} sources.</div>`;
     }
 
     // Destination note
@@ -6150,9 +6246,9 @@ function updateConfirmationSummary() {
     // High-volume warning (>= 5 renders only)
     if (renderCount >= 5) {
         html += `<div style="margin-top:4px; font-size:11px; color:#6b7280;">Large batches may take longer to process.</div>`;
-        // Quota note for multi-format runs: each brand×format pair burns one branding job.
-        if (fmtCount > 1) {
-            html += `<div style="margin-top:2px; font-size:11px; color:#9ca3af;">Each brand × format pair counts as one branding job toward your daily limit.</div>`;
+        // Quota note: each source x brand x format output counts as one branding job.
+        if (fmtCount > 1 || sourceCount > 1) {
+            html += `<div style="margin-top:2px; font-size:11px; color:#9ca3af;">Each source &times; brand &times; format output counts as one branding job toward your daily limit.</div>`;
         }
     }
 
