@@ -3105,7 +3105,7 @@ function updatePreviewTargetBar() {
     // ========== END JOB-ITEM MODEL ==========
     
     if (hasItems && activeBrandId) {
-        bar.style.display = 'block';
+        bar.style.display = 'none';  // Suppressed: carousel orphaned without preview panel; brand list lives in confirmationSummary chips instead
         const brand = brandDataCache[activeBrandId];
         document.getElementById('activePreviewName').textContent = brand ? brand.display_name : 'Brand #' + activeBrandId;
         
@@ -6435,6 +6435,30 @@ function updateConfirmationSummary() {
     html += `<strong>${renderCount} ${renderWord}</strong> &mdash; `;
     html += `${sourceLabel} &times; ${itemCount} ${brandWord} &times; ${formatLabel}`;
     html += `</div>`;
+
+    // Brand chips — replaces the carousel navigator; shows every queued brand at a glance
+    {
+        const chipIds = isQueueMode && processingQueue.length > 0
+            ? getReviewableQueueItems().map(item => item.brand_id)
+            : getCanonicalSelectedBrandIds();
+        if (chipIds.length > 0) {
+            html += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin:7px 0 4px;">`;
+            chipIds.forEach(brandId => {
+                const brand = brandDataCache[brandId];
+                const name  = brand ? brand.display_name : 'Brand';
+                const init  = name.charAt(0).toUpperCase();
+                const hasOv = (isQueueMode && processingQueue.length > 0)
+                    ? (() => { const qi = getReviewableQueueItems().find(i => i.brand_id === brandId); return qi ? Object.keys(qi.overrides || {}).length > 0 : false; })()
+                    : !!brandOverrides[brandId];
+                html += `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,${hasOv ? '0.28' : '0.1'});border-radius:20px;padding:2px 8px 2px 3px;font-size:11px;color:#d1d5db;max-width:160px;overflow:hidden;">`;
+                html += `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:rgba(245,166,35,0.2);color:#F5A623;font-size:9px;font-weight:700;flex-shrink:0;">${init}</span>`;
+                html += `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;">${name}</span>`;
+                if (hasOv) html += `<span title="has session overrides" style="color:#F5A623;font-size:9px;flex-shrink:0;margin-left:2px;">⚙</span>`;
+                html += `</span>`;
+            });
+            html += `</div>`;
+        }
+    }
 
     // Override note (overrides from review apply to all selected sources equally)
     if (overrideCount > 0) {
