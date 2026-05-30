@@ -2496,6 +2496,9 @@ function resetCreateReviewSession(reason) {
     const overrideControls = document.getElementById('overrideControls');
     if (overrideControls) overrideControls.style.display = 'none';
 
+    const previewContainer = document.getElementById('previewContainer');
+    if (previewContainer) previewContainer.style.display = 'none';
+
     const previewTargetBar = document.getElementById('previewTargetBar');
     if (previewTargetBar) previewTargetBar.style.display = 'none';
 
@@ -3887,17 +3890,13 @@ function selectBrand(brandId, btnEl, isReady) {
         }
     }
     
-    // Load brand assets and config for the active preview
+    // Load brand assets and config for the active preview.
+    // previewContainer is intentionally NOT shown in selection mode —
+    // it only appears after enterQueueMode(). One review surface, no pre-review canvas.
     if (activePreviewBrandId) {
         loadBrandAssets(activePreviewBrandId);
         // Load user overrides if they exist, otherwise brand defaults
         applyBrandToPreview(brandDataCache[activePreviewBrandId], brandOverrides[activePreviewBrandId]);
-
-        document.getElementById('previewContainer').style.display = 'block';
-        // overrideControls is intentionally not shown here — it is only visible inside
-        // the review cockpit (enterQueueMode). Selection mode shows brand defaults via preview only.
-    } else {
-        document.getElementById('previewContainer').style.display = 'none';
     }
     
     updatePreviewTargetBar();
