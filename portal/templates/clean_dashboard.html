@@ -2810,6 +2810,43 @@ function renderReviewCompletionState() {
     }, 80);
 }
 
+// Phase 17: streaming completion state — shown when last brand is approved.
+// No "Start branding" gate. Renders are already firing in the background.
+// checkQueueComplete() replaces this panel with renderCompletionPanel() when all done.
+function renderStreamingCompletionState() {
+    const result = document.getElementById('processResult');
+    if (!result) return;
+
+    // Collapse review chrome — same teardown as renderReviewCompletionState
+    const overrideControls = document.getElementById('overrideControls');
+    if (overrideControls) overrideControls.style.display = 'none';
+    const previewContainer = document.getElementById('previewContainer');
+    if (previewContainer) previewContainer.style.display = 'none';
+    const reviewLane = document.getElementById('brandReviewLane');
+    if (reviewLane) reviewLane.classList.remove('review-active');
+    const previewSection = document.getElementById('previewSection');
+    if (previewSection) previewSection.classList.remove('review-active');
+    document.body.classList.remove('review-cockpit-active');
+    const reviewActionsRow = document.querySelector('#queueModeActions .review-actions');
+    if (reviewActionsRow) reviewActionsRow.style.display = 'none';
+
+    updateReviewActionState();
+
+    const approved = processingQueue.filter(item => item.reviewDecision === 'approved').length;
+    const skipped  = processingQueue.filter(item => item.status === 'skipped').length;
+    const brandWord = approved !== 1 ? 'brands' : 'brand';
+
+    result.innerHTML = `
+        <div class="processing-state-card">
+            <div class="processing-state-title">⏳ Rendering in background…</div>
+            <div class="processing-state-meta">${approved} ${brandWord} approved${skipped ? ', ' + skipped + ' skipped' : ''}. Outputs will download here as they finish.</div>
+        </div>
+    `;
+    setTimeout(function() {
+        result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 80);
+}
+
 function enterProcessingState() {
     // Prevent syncReviewViewportState() from re-adding review-active during the
     // processing loop — renderBrandPills → updateReviewHeader fires each iteration
@@ -2840,10 +2877,15 @@ function approveAndNext() {
     renderBrandPills();
     updateReviewHeader();
 
+    // Phase 17: fire render immediately — non-blocking, continues in background
+    // while the user moves on to reviewing the next brand.
+    fireRenderForBrand(current);
+
     if (currentQueueIndex < processingQueue.length - 1) {
         switchToBrand(currentQueueIndex + 1);
     } else {
-        renderReviewCompletionState();
+        // All brands reviewed — renders already running. Show streaming state.
+        renderStreamingCompletionState();
     }
 }
 
@@ -4304,6 +4346,8 @@ function enterQueueMode() {
     // Hide preview target bar (queue mode has its own pills)
     const previewTargetBar = document.getElementById('previewTargetBar');
     if (previewTargetBar) previewTargetBar.style.display = 'none';
+    // Phase 17: reset completed outputs at session start so the panel is clean
+    completedOutputs = [];
     result.innerHTML = '';
 
     // Collapse non-essential control sections — user can expand on demand
@@ -4606,6 +4650,115 @@ function saveCurrentOverridesFromSliders() {
 async function confirmAndDownload() {
     // Legacy - redirect to processCurrentBrand
     await processCurrentBrand();
+}
+
+// Phase 17: fires a single brand render in the background.
+// Called from approveAndNext() — does NOT navigate or touch the main result div.
+// checkQueueComplete() handles the final completion panel when all renders land.
+async function fireRenderForBrand(item) {
+    // Guard: don't double-fire
+    if (item.status === 'processing' || item.status === 'done') {
+        console.warn('[FIRE] Skip', item.brand_name, '— already', item.status);
+        return;
+    }
+
+    item.status = 'processing';
+    // Sync to jobItems
+    if (currentFile && item.brand_id) {
+        const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
+        if (jobItem) { jobItem.status = 'processing'; persistJobItems(); }
+    }
+    renderBrandPills();
+
+    const _ctrl    = new AbortController();
+    const _timeout = setTimeout(() => {
+        console.error('[FIRE] Abort timeout for', item.brand_name);
+        _ctrl.abort();
+    }, 720000);
+
+    try {
+        console.log('[FIRE] Render started:', item.brand_name, currentFile);
+        const res = await fetch(`${apiBase}/api/videos/process_brands`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal:  _ctrl.signal,
+            body: JSON.stringify({
+                source_path:   currentFile,
+                brand_ids:     [item.brand_id],
+                brands:        [item.brand_name],
+                output_format: selectedOutputFormats[0] || 'vertical_9_16',
+                ...(item.userEdited ? {
+                    watermark_scale:           item.overrides.watermark_scale,
+                    watermark_opacity:         item.overrides.watermark_opacity,
+                    logo_scale:                item.overrides.logo_scale,
+                    logo_x:                    item.overrides.logo_x,
+                    logo_y:                    item.overrides.logo_y,
+                    text_enabled:              item.overrides.text_enabled,
+                    text_content:              item.overrides.text_content,
+                    text_x:                    item.overrides.text_x,
+                    text_y:                    item.overrides.text_y,
+                    text_size:                 item.overrides.text_size,
+                    text_color:                item.overrides.text_color,
+                    text_bg_enabled:           item.overrides.text_bg_enabled,
+                    text_bg_opacity:           item.overrides.text_bg_opacity,
+                    secondary_logo_enabled:    item.overrides.secondary_logo_enabled    || false,
+                    secondary_logo_brand_id:   item.overrides.secondary_logo_brand_id   || null,
+                    secondary_logo_scale:      item.overrides.secondary_logo_scale      || 0.12,
+                    secondary_logo_opacity:    item.overrides.secondary_logo_opacity    || 0.9,
+                    secondary_logo_rotation:   item.overrides.secondary_logo_rotation   || 0,
+                    secondary_logo_x:          item.overrides.secondary_logo_x          || 0,
+                    secondary_logo_y:          item.overrides.secondary_logo_y          || 0
+                } : {})
+            })
+        });
+
+        clearTimeout(_timeout);
+
+        let data;
+        try {
+            data = await res.json();
+        } catch {
+            throw new Error(`Server error ${res.status} — check server logs`);
+        }
+
+        if (!data.success) {
+            if (data.error === 'DAILY_LIMIT_REACHED' || data.error === 'BRANDS_PER_JOB_LIMIT') {
+                openUpgradeModal('Limit reached', data.message || 'You have reached your plan limit.');
+            }
+            throw new Error(data.error || data.details || 'Processing failed');
+        }
+
+        // Mark done
+        item.status = 'done';
+        if (currentFile && item.brand_id) {
+            const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
+            if (jobItem) { jobItem.status = 'completed'; persistJobItems(); }
+        }
+        renderBrandPills();
+        console.log('[FIRE] Done:', item.brand_name);
+
+        if (data.outputs && data.outputs[0]) {
+            const downloadUrl = data.outputs[0].download_url;
+            window.open(downloadUrl, '_blank');
+            completedOutputs.push({ brand_name: item.brand_name, download_url: downloadUrl });
+        }
+
+        checkQueueComplete();
+
+    } catch (err) {
+        clearTimeout(_timeout);
+        item.status = 'failed';
+        if (currentFile && item.brand_id) {
+            const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
+            if (jobItem) { jobItem.status = 'error'; persistJobItems(); }
+        }
+        renderBrandPills();
+        console.error('[FIRE] Failed:', item.brand_name, err.message);
+        // checkQueueComplete so we still render the panel if all others finished
+        checkQueueComplete();
+    } finally {
+        clearTimeout(_timeout);
+    }
 }
 
 async function processCurrentBrand() {
