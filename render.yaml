@@ -2,11 +2,7 @@ services:
   - type: web
     name: watchthefall-orchestrator-v3
     env: python
-    # IMPORTANT: Upgrade to a paid plan and add the `disk:` section below
-    # to get a persistent disk.  On the free plan the filesystem is ephemeral —
-    # the SQLite database and all uploaded assets are wiped on every redeploy,
-    # and the disk fills quickly with FFmpeg outputs causing "disk I/O error".
-    plan: free
+    plan: starter
     buildCommand: "pip install -r requirements.txt"
     startCommand: "gunicorn -c portal/gunicorn.conf.py portal.app:app"
     envVars:
@@ -21,21 +17,17 @@ services:
       # Remove once job state is persisted to SQLite/Redis.
       - key: WEB_CONCURRENCY
         value: "1"
-      # Set these env vars when you attach a persistent disk (paid plan).
-      # DB_PATH must point inside the mounted volume (e.g. /var/data).
-      # Without them the app falls back to the ephemeral local filesystem.
-      # - key: DB_PATH
-      #   value: /var/data/wtf_studio.db
-      # - key: STORAGE_ROOT
-      #   value: /var/data/storage
+      # Persistent disk — paths must be inside the mountPath below (/var/data).
+      - key: DB_PATH
+        value: /var/data/wtf_studio.db
+      - key: STORAGE_ROOT
+        value: /var/data/storage
     headers:
       - type: global
         forward:
           - Cf-Access-Jwt-Assertion
 
-# Persistent disk configuration (requires paid Render plan).
-# Uncomment and set plan above to "starter" or higher.
-# disk:
-#   name: brandr-data
-#   mountPath: /var/data
-#   sizeGB: 10
+disk:
+  name: brandr-data
+  mountPath: /var/data
+  sizeGB: 10
