@@ -2,7 +2,7 @@ services:
   - type: web
     name: watchthefall-orchestrator-v3
     env: python
-    plan: starter
+    plan: standard
     buildCommand: "pip install -r requirements.txt"
     startCommand: "gunicorn -c portal/gunicorn.conf.py portal.app:app"
     envVars:
@@ -30,4 +30,4 @@ services:
 disk:
   name: brandr-data
   mountPath: /var/data
-  sizeGB: 10
+  sizeGB: 1
