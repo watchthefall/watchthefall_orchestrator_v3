@@ -531,9 +531,16 @@
         <!-- Mode tabs: Text/CTA is the only real mode here.
              Logo / Watermark / Position route to existing working editors. -->
         <div class="bes-tabs" role="tablist">
-            <button class="bes-tab" data-mode="logo"      onclick="switchEditorMode('logo')">✏️ Logo</button>
-            <button class="bes-tab" data-mode="watermark" onclick="switchEditorMode('watermark')">💧 Watermark</button>
-            <button class="bes-tab active" data-mode="text" onclick="switchEditorMode('text')">T&nbsp; Text / CTA</button>
+            <button class="bes-tab" data-mode="logo"      onclick="switchEditorMode('logo')">✏️ Logo <span class="bes-tab-dot dot-off"></span></button>
+            <button class="bes-tab" data-mode="watermark" onclick="switchEditorMode('watermark')">💧 Watermark <span class="bes-tab-dot dot-off"></span></button>
+            <button class="bes-tab active" data-mode="text" onclick="switchEditorMode('text')">T&nbsp; Text / CTA <span class="bes-tab-dot dot-off"></span></button>
+        </div>
+
+        <!-- Day 4: Readiness chips — Logo / Text / Watermark status at a glance -->
+        <div id="besReadinessBar" class="bes-readiness-bar">
+            <span id="besChipLogo"      class="bes-ready-chip off">Logo –</span>
+            <span id="besChipText"      class="bes-ready-chip off">Text –</span>
+            <span id="besChipWatermark" class="bes-ready-chip off">Watermark –</span>
         </div>
 
         <!-- Status bar -->
@@ -546,7 +553,7 @@
             <div class="bes-field-group">
                 <label class="bes-toggle-label">
                     <input type="checkbox" id="besTextEnabled"
-                           onchange="brandEditorDraft.textEnabled = this.checked">
+                           onchange="brandEditorDraft.textEnabled = this.checked; updateBesReadiness();">
                     <span class="bes-toggle-text">Enable Text / CTA</span>
                 </label>
                 <p class="bes-help">Add a text overlay to this brand. When enabled, text renders on every video in the selected position.</p>
@@ -571,7 +578,8 @@
                 <input type="text" id="besTextContent" class="bes-input"
                        placeholder="Enter your text…"
                        oninput="brandEditorDraft.textContent = this.value;
-                                document.getElementById('besPreset').value = 'custom';">
+                                document.getElementById('besPreset').value = 'custom';
+                                updateBesReadiness();">
             </div>
 
             <!-- Position -->
@@ -742,13 +750,20 @@
 
         <!-- Sticky footer -->
         <div class="bes-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeBrandEditor()">Cancel</button>
-            <button type="button" class="btn btn-primary" id="besTextSaveBtn"
-                    onclick="saveEditorText()">Save Text Preset</button>
-            <button type="button" class="btn btn-primary" id="besLogoSaveBtn"
-                    style="display:none;" onclick="saveLogoSettings()">Save Logo Settings</button>
-            <button type="button" class="btn btn-primary" id="besWatermarkSaveBtn"
-                    style="display:none;" onclick="saveWatermarkSettings()">Save Watermark Settings</button>
+            <!-- Day 4: readiness summary above action buttons -->
+            <div id="besFooterReadiness" class="bes-footer-readiness incomplete">
+                <span class="bes-footer-dot"></span>
+                <span id="besFooterReadinessMsg">Add a logo or enable text to unlock rendering</span>
+            </div>
+            <div class="bes-footer-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeBrandEditor()">Cancel</button>
+                <button type="button" class="btn btn-primary" id="besTextSaveBtn"
+                        onclick="saveEditorText()">Save Text Preset</button>
+                <button type="button" class="btn btn-primary" id="besLogoSaveBtn"
+                        style="display:none;" onclick="saveLogoSettings()">Save Logo Settings</button>
+                <button type="button" class="btn btn-primary" id="besWatermarkSaveBtn"
+                        style="display:none;" onclick="saveWatermarkSettings()">Save Watermark Settings</button>
+            </div>
         </div>
     </div>
 </div>
@@ -3579,6 +3594,39 @@
     border-bottom-color: #d4af37;
 }
 
+/* Day 4: tab status dots */
+.bes-tab-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-left: 5px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+.bes-tab-dot.dot-on  { background: #6dbb8a; }
+.bes-tab-dot.dot-off { background: rgba(255,255,255,0.18); }
+
+/* Day 4: readiness chip bar */
+.bes-readiness-bar {
+    display: flex;
+    gap: 8px;
+    padding: 8px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+.bes-ready-chip {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 20px;
+    letter-spacing: 0.02em;
+    transition: background 0.2s, color 0.2s;
+}
+.bes-ready-chip.on  { background: rgba(109,187,138,0.14); color: #6dbb8a; }
+.bes-ready-chip.off { background: rgba(255,255,255,0.05); color: #555; }
+
 .bes-status-bar { padding: 0 20px; flex-shrink: 0; min-height: 0; }
 .bes-status-bar:not(:empty) { padding: 8px 20px 0; }
 
@@ -3732,12 +3780,39 @@
 
 .bes-footer {
     display: flex;
-    gap: 10px;
-    padding: 14px 20px;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
     border-top: 1px solid rgba(255,255,255,0.08);
     flex-shrink: 0;
 }
-.bes-footer .btn { flex: 1; }
+
+/* Day 4: footer readiness summary line */
+.bes-footer-readiness {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 20px;
+    font-size: 11px;
+    font-weight: 500;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: color 0.25s;
+}
+.bes-footer-readiness.ready    { color: #6dbb8a; }
+.bes-footer-readiness.incomplete { color: #666; }
+.bes-footer-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: currentColor;
+}
+.bes-footer-actions {
+    display: flex;
+    gap: 10px;
+    padding: 14px 20px;
+}
+.bes-footer-actions .btn { flex: 1; }
 
 @media (max-width: 560px) {
     #brandEditorShell .bes-content {
@@ -3797,6 +3872,63 @@ let selectedFormat = 'vertical_9_16';
 
 // Day 2: post-save state
 let _brandEditorSaved = false;  // set true on any save success in the editor shell
+
+// ── Day 4: Editor Readiness ──────────────────────────────────────────────────
+
+/** Derive current readiness from draft state.
+ *  logo     = logo uploaded (logoPath set)
+ *  text     = text enabled AND non-empty content
+ *  watermark = watermark uploaded (wmPath set)
+ *  isReady  = logo OR text  (matches backend is_ready rule)
+ */
+function _besReadiness() {
+    return {
+        logo:      !!brandEditorDraft.logoPath,
+        text:      !!(brandEditorDraft.textEnabled &&
+                      brandEditorDraft.textContent &&
+                      brandEditorDraft.textContent.trim()),
+        watermark: !!brandEditorDraft.wmPath,
+    };
+}
+
+/** Refresh readiness chips, tab dots, and footer status line from current draft. */
+function updateBesReadiness() {
+    const r = _besReadiness();
+    const isReady = r.logo || r.text;
+
+    // Chips
+    function _setChip(id, on, labelOn, labelOff) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.className = 'bes-ready-chip ' + (on ? 'on' : 'off');
+        el.textContent = on ? labelOn : labelOff;
+    }
+    _setChip('besChipLogo',      r.logo,      'Logo ✓',      'Logo –');
+    _setChip('besChipText',      r.text,      'Text ✓',      'Text –');
+    _setChip('besChipWatermark', r.watermark, 'Watermark ✓', 'Watermark –');
+
+    // Tab dots
+    document.querySelectorAll('.bes-tab').forEach(tab => {
+        const dot = tab.querySelector('.bes-tab-dot');
+        if (!dot) return;
+        const mode = tab.dataset.mode;
+        const on = mode === 'logo' ? r.logo
+                 : mode === 'watermark' ? r.watermark
+                 : mode === 'text' ? r.text
+                 : false;
+        dot.className = 'bes-tab-dot ' + (on ? 'dot-on' : 'dot-off');
+    });
+
+    // Footer readiness line
+    const footerEl  = document.getElementById('besFooterReadiness');
+    const msgEl     = document.getElementById('besFooterReadinessMsg');
+    if (footerEl)  footerEl.className = 'bes-footer-readiness ' + (isReady ? 'ready' : 'incomplete');
+    if (msgEl)     msgEl.textContent  = isReady
+        ? 'Brand ready to render'
+        : 'Add a logo or enable text to unlock rendering';
+}
+
+// ── End Day 4 ────────────────────────────────────────────────────────────────
 
 /** Minimal HTML-escape for template literal interpolation. */
 function _e(s) {
@@ -4837,6 +4969,8 @@ function openBrandEditor(brandId, mode) {
 
             // Apply mode-specific layout then open shell
             _applyEditorMode(mode);
+            // Day 4: sync readiness chips / dots / footer before shell opens
+            updateBesReadiness();
             // Add active first so the modal is display:flex before scrollTop reset.
             // scrollTop = 0 is ignored on display:none subtrees; must be set after layout exists.
             document.getElementById('brandEditorShell').classList.add('active');
@@ -4949,6 +5083,7 @@ function switchEditorMode(mode) {
     // Text, Logo, Watermark, and Position all live inside the shell — switch in-place
     if (mode === 'text' || mode === 'logo' || mode === 'watermark') {
         _applyEditorMode(mode);
+        updateBesReadiness();   // Day 4: keep chips/dots in sync
         return;
     }
 }
@@ -5032,6 +5167,7 @@ async function uploadLogoInShell(file) {
         if (statusEl)  statusEl.innerHTML = '<div class="status-msg success">✅ Logo uploaded</div>';
         if (saveBtnEl) saveBtnEl.disabled = false;
         _brandEditorSaved = true;
+        updateBesReadiness();   // Day 4: logo just uploaded — refresh chips
         loadBrands();
         setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 2500);
     } catch (err) {
@@ -5098,6 +5234,8 @@ async function uploadWatermarkInShell(file) {
         if (wmInput)   wmInput.value = '';
         if (statusEl)  statusEl.innerHTML = '<div class="status-msg success">✅ Watermark uploaded</div>';
         if (saveBtnEl) saveBtnEl.disabled = false;
+        _brandEditorSaved = true;
+        updateBesReadiness();   // Day 4: watermark just uploaded — refresh chips
         loadBrands();
         setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 2500);
     } catch (err) {
@@ -5382,6 +5520,7 @@ async function saveEditorText() {
         if (statusEl)  statusEl.innerHTML = _statusMsg;
         if (saveBtnEl) { saveBtnEl.disabled = false; saveBtnEl.textContent = 'Save Text Preset'; }
         _brandEditorSaved = true;
+        updateBesReadiness();   // Day 4: text state just changed — refresh chips
         // Refresh brand rail — sessionStorage preserves selected brand
         loadBrands();
 
