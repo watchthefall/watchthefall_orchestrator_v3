@@ -2702,8 +2702,8 @@ function updateReviewHeader() {
 
     if (!current || total === 0) {
         title.textContent = 'Reviewing: Vertical 9:16';
-        meta.textContent = '0 remaining';
-        summary.textContent = 'Version 0 of 0';
+        meta.textContent = '';
+        summary.textContent = 'Brand 0 of 0';
         queueSummary.textContent = '';
         stateBadge.textContent = 'Default';
         stateBadge.className = 'review-state-badge default';
@@ -2713,9 +2713,14 @@ function updateReviewHeader() {
 
     const activeBrandName = brandDataCache[current.brand_id] ? brandDataCache[current.brand_id].display_name : current.brand_name;
     title.textContent = `Reviewing: ${activeBrandName} · Vertical 9:16`;
-    meta.textContent = remaining > 0 ? `${remaining} remaining` : 'Last version';
-    summary.textContent = `Version ${currentQueueIndex + 1} of ${total}`;
-    queueSummary.textContent = skipped > 0 ? `${reviewed} reviewed • ${skipped} skipped` : `${reviewed} reviewed`;
+    // Phase 17: primary position label — "Brand X of Y" is unambiguous.
+    // "remaining" is dropped (redundant with position). Reviewed count only shown
+    // once at least one brand has been actioned so brand-1 header is clean.
+    meta.textContent = reviewed > 0
+        ? (skipped > 0 ? `${reviewed} approved · ${skipped} skipped` : `${reviewed} approved`)
+        : '';
+    summary.textContent = `Brand ${currentQueueIndex + 1} of ${total}`;
+    queueSummary.textContent = '';
 
     let badgeClass = 'default';
     let badgeLabel = 'Default';
@@ -2735,16 +2740,11 @@ function updateReviewHeader() {
 }
 
 function updateReviewActionState() {
+    // Phase 17: renders fire on approve — the "Start branding" gate button is
+    // permanently hidden during the review cockpit. processAllBrands() is still
+    // available as a retry path but is not surfaced here.
     const processBtn = document.getElementById('processAllBtn');
-    if (!processBtn) return;
-    const total = processingQueue.length;
-    const reviewed = processingQueue.filter(item => item.reviewDecision === 'approved' || item.status === 'skipped').length;
-    const allReviewed = total > 0 && reviewed >= total;
-
-    processBtn.disabled = !allReviewed;
-    processBtn.classList.toggle('review-global-pending', !allReviewed);
-    processBtn.style.display = allReviewed ? 'none' : 'inline-flex';
-    processBtn.title = allReviewed ? 'Generate outputs for the reviewed versions.' : 'Finish the review flow before starting branding.';
+    if (processBtn) processBtn.style.display = 'none';
 }
 
 function reviewPrevious() {
