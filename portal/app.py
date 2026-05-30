@@ -9,6 +9,7 @@ import uuid
 import time
 import zipfile
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash as _wz_check
 import subprocess
 import tempfile
 import threading
@@ -99,8 +100,29 @@ from .database import (
 # Authentication functions
 
 def hash_password(password):
-    """Hash a password using SHA256"""
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Hash a password using werkzeug (bcrypt-style pbkdf2).
+    Replaces the old SHA-256 implementation — new registrations and password
+    changes always produce a werkzeug hash.  Legacy SHA-256 hashes in existing
+    accounts are detected and upgraded on first successful login."""
+    return generate_password_hash(password)
+
+
+def _is_legacy_sha256_hash(h):
+    """Return True if h looks like a raw SHA-256 hex digest (64 hex chars)."""
+    return bool(h and len(h) == 64 and all(c in '0123456789abcdef' for c in h.lower()))
+
+
+def _verify_password(password, stored_hash):
+    """Verify a password against either a werkzeug hash or a legacy SHA-256 hash.
+    Returns (is_valid, needs_upgrade).  needs_upgrade is True when the stored hash
+    is legacy and the caller should re-hash with werkzeug and persist it."""
+    if _is_legacy_sha256_hash(stored_hash):
+        legacy = hashlib.sha256(password.encode()).hexdigest()
+        if legacy == stored_hash:
+            return True, True   # correct legacy hash → needs upgrade
+        return False, False
+    # Modern werkzeug hash
+    return _wz_check(stored_hash, password), False
 
 
 def init_users_db():
@@ -143,12 +165,28 @@ def authenticate_user(email, password):
         stored_hash = result['password_hash']
         account_status = result['account_status']
         must_change = result['must_change_password']
-        
+
         if account_status == 'deactivated':
             return None, 'deactivated'
         if account_status == 'suspended':
             return None, 'suspended'
-        if stored_hash == hash_password(password):
+
+        is_valid, needs_upgrade = _verify_password(password, stored_hash)
+        if is_valid:
+            if needs_upgrade:
+                # Silently upgrade legacy SHA-256 hash to werkzeug on successful login
+                try:
+                    from .database import get_connection as _gc
+                    new_hash = generate_password_hash(password)
+                    with _gc() as _conn:
+                        _conn.execute(
+                            'UPDATE users SET password_hash = ? WHERE id = ?',
+                            (new_hash, user_id)
+                        )
+                        _conn.commit()
+                    print(f"[AUTH] Upgraded legacy SHA-256 hash for user_id={user_id}", flush=True)
+                except Exception as _ue:
+                    print(f"[AUTH] Warning: hash upgrade failed for user_id={user_id}: {_ue}", flush=True)
             if must_change:
                 return user_id, 'must_change_password'
             return user_id, None

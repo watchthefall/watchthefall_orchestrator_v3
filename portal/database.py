@@ -1030,9 +1030,15 @@ def get_all_brands(user_id=None, include_system=True):
         rows = c.fetchall()
     
     brands = [dict(row) for row in rows]
-    # Add readiness flag to all brands
+    # Add readiness flag to all brands.
+    # Ready = has logo OR has watermark OR has text enabled with non-empty content.
+    # Must stay in sync with the frontend D4 rule in brands.html (isReady = hasLogo || hasText).
     for brand in brands:
-        brand['is_ready'] = bool(brand.get('logo_path') or brand.get('watermark_path'))
+        brand['is_ready'] = bool(
+            brand.get('logo_path') or
+            brand.get('watermark_path') or
+            (brand.get('text_enabled') and brand.get('text_content', '').strip())
+        )
     
     return brands
 
