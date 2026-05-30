@@ -2947,6 +2947,73 @@
     margin-top: 16px;
 }
 
+/* ---- Day 2: post-save toast ---- */
+.brand-saved-toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(12px);
+    background: #1e1e22;
+    color: #e0e0e0;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 9999;
+    white-space: nowrap;
+    pointer-events: none;
+}
+.brand-saved-toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* ---- Day 2: post-save next-step banner ---- */
+.post-save-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(184,142,61,0.08);
+    border: 1px solid rgba(184,142,61,0.25);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin: 0 0 14px;
+    flex-wrap: wrap;
+}
+.post-save-msg {
+    flex: 1;
+    font-size: 13px;
+    color: #ccc;
+    min-width: 0;
+}
+.post-save-cta { flex-shrink: 0; }
+.post-save-dismiss {
+    background: none;
+    border: none;
+    color: #555;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+    flex-shrink: 0;
+    transition: color 0.15s;
+}
+.post-save-dismiss:hover { color: #aaa; }
+
+/* ---- Day 2: newly saved card pulse ---- */
+@keyframes brandCardPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(184,142,61,0.5); }
+    60%  { box-shadow: 0 0 0 6px rgba(184,142,61,0); }
+    100% { box-shadow: 0 0 0 0 rgba(184,142,61,0); }
+}
+.brand-card-pulse {
+    animation: brandCardPulse 0.7s ease-out 2;
+}
+
 /* Workspace header */
 .v2-ws-header {
     padding: 20px 24px 16px;
@@ -3678,6 +3745,9 @@ let logoRemoveBgThreshold = 50;  // 20-150
 let allBrands = [];
 let selectedBrandId = null;
 let selectedFormat = 'vertical_9_16';
+
+// Day 2: post-save state
+let _brandEditorSaved = false;  // set true on any save success in the editor shell
 
 /** Minimal HTML-escape for template literal interpolation. */
 function _e(s) {
@@ -4764,6 +4834,50 @@ function _applyEditorMode(mode) {
 
 function closeBrandEditor() {
     document.getElementById('brandEditorShell').classList.remove('active');
+    // Day 2: post-save toast + next-step banner + card pulse
+    if (_brandEditorSaved) {
+        _brandEditorSaved = false;
+        showBrandSavedToast();
+        showPostSaveBanner();
+        const savedId = brandEditorDraft.brandId;
+        if (savedId) {
+            const card = document.querySelector(`.v2-rail-card[data-brand-id="${savedId}"]`);
+            if (card) {
+                card.classList.add('brand-card-pulse');
+                setTimeout(() => card.classList.remove('brand-card-pulse'), 2000);
+            }
+        }
+    }
+}
+
+/** Day 2: toast shown when brand editor closes after a save. */
+function showBrandSavedToast() {
+    document.getElementById('brandSavedToast')?.remove();
+    const toast = document.createElement('div');
+    toast.id = 'brandSavedToast';
+    toast.className = 'brand-saved-toast';
+    toast.textContent = 'Brand preset saved. Apply it when rendering your next video.';
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('visible'));
+    setTimeout(() => {
+        toast.classList.remove('visible');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+/** Day 2: next-step CTA banner shown above the brand grid after save. */
+function showPostSaveBanner() {
+    document.getElementById('postSaveBanner')?.remove();
+    const createUrl = document.getElementById('v2Container')?.dataset?.brandVideoUrl || '/portal/create';
+    const banner = document.createElement('div');
+    banner.id = 'postSaveBanner';
+    banner.className = 'post-save-banner';
+    banner.innerHTML = `
+        <span class="post-save-msg">Your brand is ready — render a video to use it.</span>
+        <a href="${createUrl}" class="btn btn-primary btn-sm post-save-cta">Render a Video</a>
+        <button class="post-save-dismiss" onclick="document.getElementById('postSaveBanner').remove()" title="Dismiss">×</button>`;
+    const layout = document.querySelector('.v2-layout');
+    if (layout) layout.parentElement.insertBefore(banner, layout);
 }
 
 function switchEditorMode(mode) {
@@ -4802,6 +4916,7 @@ async function saveLogoSettings() {
         if (!data.success) throw new Error(data.error || 'Save failed');
         if (statusEl)  statusEl.innerHTML = '<div class="status-msg success">✅ Logo settings saved</div>';
         if (saveBtnEl) { saveBtnEl.disabled = false; saveBtnEl.textContent = 'Save Logo Settings'; }
+        _brandEditorSaved = true;
         loadBrands();
         setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 2500);
     } catch (err) {
@@ -4851,6 +4966,7 @@ async function uploadLogoInShell(file) {
         if (uploadBtnEl) uploadBtnEl.textContent = 'Replace Logo';
         if (statusEl)  statusEl.innerHTML = '<div class="status-msg success">✅ Logo uploaded</div>';
         if (saveBtnEl) saveBtnEl.disabled = false;
+        _brandEditorSaved = true;
         loadBrands();
         setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 2500);
     } catch (err) {
@@ -4877,6 +4993,7 @@ async function saveWatermarkSettings() {
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Save failed');
         if (statusEl) statusEl.innerHTML = '<div class="status-msg success">✅ Watermark settings saved</div>';
+        _brandEditorSaved = true;
         loadBrands();
         setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 2500);
     } catch (err) {
@@ -5199,7 +5316,7 @@ async function saveEditorText() {
         }
         if (statusEl)  statusEl.innerHTML = _statusMsg;
         if (saveBtnEl) { saveBtnEl.disabled = false; saveBtnEl.textContent = 'Save Text Preset'; }
-
+        _brandEditorSaved = true;
         // Refresh brand rail — sessionStorage preserves selected brand
         loadBrands();
 
