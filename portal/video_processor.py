@@ -560,7 +560,14 @@ class VideoProcessor:
             # Build drawtext filter
             drawtext_filter = f"drawtext=text='{escaped_text}':fontsize={text_size}:fontcolor=0x{text_color_hex}:x={text_x_px}-text_w/2:y={text_y_px}-text_h/2:box=1:boxcolor=0x000000@0.6:boxborderw=10"
             
-            next_label = 'v3' if current_input in ['v1', 'v2'] else ('v2' if current_input == '0:v' else f'v{int(current_input[1:]) + 1}' if current_input.startswith('v') and current_input[1:].isdigit() else 'v4')
+            # L7: derive next label by incrementing current rather than hardcoding
+            # — prevents collision when secondary logo already occupied v3 or v4
+            if current_input == '0:v':
+                next_label = 'v1'
+            elif current_input.startswith('v') and current_input[1:].isdigit():
+                next_label = f'v{int(current_input[1:]) + 1}'
+            else:
+                next_label = 'v1'
             filters.append(f"[{current_input}]{drawtext_filter}[{next_label}]")
             current_input = next_label
         
@@ -675,8 +682,13 @@ class VideoProcessor:
             else:
                 drawtext_filter = f"drawtext=text='{escaped_text}':fontsize={font_size}:fontcolor=0x{text_color}:x=(w-text_w)/2:y={y_pos}"
             
-            # Determine next label
-            next_label = 'v3' if current_input in ['v1', 'v2'] else 'v2'
+            # L7: incremental label — same fix as build_filter_complex_visual
+            if current_input == '0:v':
+                next_label = 'v1'
+            elif current_input.startswith('v') and current_input[1:].isdigit():
+                next_label = f'v{int(current_input[1:]) + 1}'
+            else:
+                next_label = 'v1'
             filters.append(f"[{current_input}]{drawtext_filter}[{next_label}]")
             current_input = next_label
             print(f"[DEBUG] Text layer added (position={self.TEXT_POSITION}, size={font_size}, bg={self.TEXT_BG_ENABLED})")

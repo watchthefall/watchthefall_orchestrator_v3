@@ -648,6 +648,9 @@
                 <p style="font-size:11px; color:#888; margin-top:6px;">Applies when you replace/upload a logo.</p>
             </div>
 
+            <!-- L4: composition controls hidden until a logo is uploaded -->
+            <div id="besLogoCompositionControls" style="display:none;">
+
             <!-- Scale -->
             <div class="bes-field-group">
                 <label class="bes-label">Scale — <span id="besLogoScaleVal">25%</span> <span style="font-size:10px;font-weight:400;opacity:0.45;text-transform:none;letter-spacing:0;">of video width</span></label>
@@ -689,6 +692,8 @@
             </div>
 
             <p class="bes-help">Scale controls how large your logo appears on rendered videos. The preview above shows shape, rotation, and opacity — not to-scale render size. Drag the logo on the overview preview to set its position.</p>
+
+            </div><!-- /besLogoCompositionControls -->
         </div>
 
         <!-- Watermark mode panel -->
@@ -3300,6 +3305,7 @@
         gap: 10px;
         padding-bottom: 6px;
         scrollbar-width: none;
+        order: -1; /* L5: float rail above workspace on mobile */
     }
     .v2-rail::-webkit-scrollbar { display: none; }
     .v2-rail-card { flex-shrink: 0; width: 200px; }
@@ -4585,6 +4591,11 @@ function openBrandEditor(brandId, mode) {
                     logoPlaceh.style.display  = '';
                 }
             }
+            // L4: show/hide composition controls based on logo existence
+            const logoCompositionControls = document.getElementById('besLogoCompositionControls');
+            if (logoCompositionControls) {
+                logoCompositionControls.style.display = brandEditorDraft.logoPath ? '' : 'none';
+            }
             // Dynamic upload button label: "Upload Logo" when empty, "Replace Logo" when set
             const logoUploadBtn = document.getElementById('besLogoUploadBtn');
             if (logoUploadBtn) {
@@ -4774,6 +4785,9 @@ async function uploadLogoInShell(file) {
         }
         if (placeholder) placeholder.style.display = 'none';
         if (logoInput)   logoInput.value = '';
+        // L4: reveal composition controls now that a logo exists
+        const compControls = document.getElementById('besLogoCompositionControls');
+        if (compControls) compControls.style.display = '';
         // Update button label now that a logo exists
         const uploadBtnEl = document.getElementById('besLogoUploadBtn');
         if (uploadBtnEl) uploadBtnEl.textContent = 'Replace Logo';
