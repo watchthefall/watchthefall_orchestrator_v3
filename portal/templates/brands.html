@@ -518,9 +518,12 @@
     <div class="bes-content">
         <!-- Header -->
         <div class="bes-header">
-            <div class="bes-header-inner">
-                <h2 id="besTitle">Text / CTA</h2>
-                <span id="besBrandChip" class="bes-brand-chip"></span>
+            <div class="bes-header-left">
+                <button class="bes-back-btn" onclick="closeBrandEditor()" title="Back to Brands">← Brands</button>
+                <div class="bes-header-inner">
+                    <h2 id="besTitle">Text / CTA</h2>
+                    <span id="besBrandChip" class="bes-brand-chip"></span>
+                </div>
             </div>
             <button class="modal-close" onclick="closeBrandEditor()">×</button>
         </div>
@@ -755,7 +758,7 @@
     <div class="wizard-content">
         <!-- Wizard Header -->
         <div class="wizard-header">
-            <h2 id="wizardTitle">Create New Brand</h2>
+            <h2 id="wizardTitle">Create a brand preset</h2>
             <button class="modal-close" onclick="closeBrandWizard()">×</button>
         </div>
         
@@ -773,21 +776,21 @@
             <div class="wizard-step-content">
                 <div class="step1-layout">
                     <div class="step1-form">
-                        <h3>Name Your Brand</h3>
+                        <p class="wizard-step1-helper">Brand presets let you reuse the same logo, text, and watermark across multiple videos.</p>
                         <div class="form-group">
-                            <label>Brand Name *</label>
-                            <input type="text" id="wizardDisplayName" placeholder="e.g., My Awesome Brand" required autocomplete="off">
+                            <label>Brand name</label>
+                            <input type="text" id="wizardDisplayName" placeholder="e.g. YouTube Main, Client A, Instagram Stories" required autocomplete="off">
                         </div>
-                        <p class="help-text" style="margin-top: 12px;">Name your brand. You'll add your logo next.</p>
+                        <p class="help-text wizard-step1-sub" style="margin-top: 10px;">You can change everything later.</p>
                         <!-- Slug is auto-generated, hidden from MVP -->
                         <input type="hidden" id="wizardBrandSlug">
                     </div>
                 </div>
             </div>
-            
+
             <div class="wizard-actions">
                 <button type="button" class="btn btn-secondary" onclick="closeBrandWizard()">Cancel</button>
-                <button type="button" class="btn btn-primary" id="step1ContinueBtn" onclick="createBrandDirect()" disabled>Create Brand</button>
+                <button type="button" class="btn btn-primary" id="step1ContinueBtn" onclick="createBrandDirect()" disabled>Continue to Brand Editor</button>
             </div>
         </div>
         
@@ -1041,6 +1044,16 @@
     margin: 0 0 16px 0;
     font-size: 16px;
     font-weight: 600;
+}
+.wizard-step1-helper {
+    font-size: 13px;
+    color: #aaa;
+    line-height: 1.55;
+    margin: 0 0 20px;
+}
+.wizard-step1-sub {
+    font-size: 12px;
+    color: #666;
 }
 
 .upload-zone-large {
@@ -2888,8 +2901,50 @@
     color: #555;
 }
 .v2-ws-empty {
-    padding: 80px 24px;
+    padding: 60px 32px;
     text-align: center;
+    max-width: 520px;
+    margin: 0 auto;
+}
+.v2-ws-empty h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #f0f0f0;
+    margin-bottom: 12px;
+}
+.v2-ws-empty p {
+    font-size: 14px;
+    color: #aaa;
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+.v2-ws-empty-bullets {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 28px;
+    text-align: left;
+    display: inline-block;
+}
+.v2-ws-empty-bullets li {
+    font-size: 14px;
+    color: #ccc;
+    padding: 5px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.v2-ws-empty-bullets li::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent, #b88e3d);
+    flex-shrink: 0;
+}
+.v2-ws-empty-hint {
+    font-size: 12px;
+    color: #666;
+    margin-top: 16px;
 }
 
 /* Workspace header */
@@ -3334,6 +3389,24 @@
     border-bottom: 1px solid rgba(255,255,255,0.1);
     flex-shrink: 0;
 }
+.bes-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.bes-back-btn {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0;
+    text-align: left;
+    letter-spacing: 0.02em;
+    transition: color 0.15s;
+}
+.bes-back-btn:hover { color: #aaa; }
 
 .bes-header-inner {
     display: flex;
@@ -3896,10 +3969,15 @@ function showEmptyWorkspace() {
     if (!ws) return;
     ws.innerHTML = `
         <div class="v2-ws-empty">
-            <div style="font-size:48px;margin-bottom:16px;">🎨</div>
-            <h2 style="margin-bottom:12px;">No Brands Yet</h2>
-            <p style="color:#aaa;margin-bottom:24px;">Create your first brand to get started</p>
-            <button class="btn btn-primary" onclick="openBrandWizard()">✨ Create Your First Brand</button>
+            <h2>Create your first brand preset</h2>
+            <p>A brand preset saves your logo, text, watermark, and colors so you can apply them to every video you render.</p>
+            <ul class="v2-ws-empty-bullets">
+                <li>Upload your logo</li>
+                <li>Set your text and watermark</li>
+                <li>Render videos in vertical or square formats</li>
+            </ul>
+            <button class="btn btn-primary" onclick="openBrandWizard()">Create Brand Preset</button>
+            <p class="v2-ws-empty-hint">You can make separate presets for different campaigns, clients, or channels.</p>
         </div>`;
 }
 
