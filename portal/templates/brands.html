@@ -370,12 +370,9 @@
     <!-- Format selector — session-only, no canvas redraw. Vertical 9:16 and Square 1:1 are render-real. -->
     <div class="v2-format-tabs" id="v2FormatTabs">
         <button class="v2-format-tab active" data-format="vertical_9_16" onclick="switchFormat('vertical_9_16')">Vertical 9:16</button>
-        <button class="v2-format-tab" data-format="portrait_4_5"   disabled>Portrait 4:5 <span class="format-badge-planned">Planned</span></button>
         <button class="v2-format-tab" data-format="square_1_1"     onclick="switchFormat('square_1_1')">Square 1:1 <span class="format-badge-live">Live</span></button>
-        <button class="v2-format-tab" data-format="landscape_16_9" disabled>Landscape 16:9 <span class="format-badge-planned">Planned</span></button>
-        <button class="v2-format-tab" data-format="original"       disabled>Original <span class="format-badge-planned">Planned</span></button>
     </div>
-    <p class="v2-format-sub">Vertical 9:16 and Square 1:1 render live. Other formats are coming soon.</p>
+    <p class="v2-format-sub">Choose a format for your brand preview and render.</p>
 
     <!-- V2 two-column layout: selected brand workspace + compact brand rail -->
     <div class="v2-layout">
@@ -2849,24 +2846,7 @@
     border-bottom-color: var(--accent);
     font-weight: 600;
 }
-.v2-format-tab[disabled] {
-    opacity: 0.42;
-    cursor: not-allowed;
-    pointer-events: none;
-}
-.v2-format-tab[disabled]:hover { color: #777; }
-.format-badge-planned {
-    display: inline-block;
-    margin-left: 5px;
-    padding: 1px 5px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.07);
-    color: #7a8299;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    vertical-align: middle;
-}
+/* L6: disabled-tab and planned-badge styles removed — tabs removed from HTML */
 .format-badge-live {
     display: inline-block;
     margin-left: 5px;

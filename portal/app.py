@@ -405,8 +405,8 @@ def register():
             session['user_id'] = user_id
             session['email'] = email
             flash('Welcome to Brandr! Your account is ready.', 'success')
-            print("[REGISTER] redirecting to brand_video", flush=True)
-            return redirect(url_for('brand_video'))
+            print("[REGISTER] redirecting to brands_page", flush=True)
+            return redirect(url_for('brands_page'))
         else:
             flash('An account with this email already exists.', 'error')
 
