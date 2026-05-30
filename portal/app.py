@@ -1056,6 +1056,112 @@ def debug_storage():
         'storage': storage_info
     })
 
+
+@app.route('/admin/storage-health')
+@admin_required
+def admin_storage_health():
+    """Storage health check — confirms persistent disk is mounted and writable.
+    Returns paths, file counts, sizes, disk usage, and an overall pass/fail status.
+    Use this to verify /var/data is correctly attached after deploys and restarts."""
+    import shutil
+    import os
+    import time
+    from .config import DB_PATH, STORAGE_ROOT, RAW_DIR, OUTPUT_DIR, BRANDS_DIR
+
+    issues = []
+
+    # ── Path configuration ────────────────────────────────────────────────────
+    on_persistent_disk = (
+        DB_PATH.startswith('/var/data') and
+        STORAGE_ROOT.startswith('/var/data')
+    )
+    if not on_persistent_disk:
+        issues.append(f'Paths NOT on /var/data — DB_PATH={DB_PATH}, STORAGE_ROOT={STORAGE_ROOT}')
+
+    # ── DB file ───────────────────────────────────────────────────────────────
+    db_exists   = os.path.isfile(DB_PATH)
+    db_size     = os.path.getsize(DB_PATH) if db_exists else 0
+    db_writable = os.access(os.path.dirname(DB_PATH), os.W_OK)
+    if not db_exists:
+        issues.append(f'DB file missing: {DB_PATH}')
+    if not db_writable:
+        issues.append(f'DB directory not writable: {os.path.dirname(DB_PATH)}')
+
+    # ── Write test ────────────────────────────────────────────────────────────
+    write_test_path = os.path.join(STORAGE_ROOT, '.health_write_test')
+    try:
+        with open(write_test_path, 'w') as f:
+            f.write(str(time.time()))
+        os.remove(write_test_path)
+        disk_writable = True
+    except Exception as wt_err:
+        disk_writable = False
+        issues.append(f'Disk write test failed: {wt_err}')
+
+    # ── Directory checks ──────────────────────────────────────────────────────
+    def _dir_info(path):
+        if not os.path.isdir(path):
+            return {'path': path, 'exists': False, 'file_count': 0, 'size_bytes': 0, 'writable': False}
+        try:
+            size  = sum(os.path.getsize(os.path.join(dp, fn))
+                        for dp, _, fns in os.walk(path) for fn in fns)
+            count = sum(len(fns) for _, _, fns in os.walk(path))
+            return {'path': path, 'exists': True, 'file_count': count,
+                    'size_bytes': size, 'writable': os.access(path, os.W_OK)}
+        except Exception as e:
+            return {'path': path, 'exists': True, 'error': str(e)}
+
+    dirs = {
+        'brands_dir':  _dir_info(BRANDS_DIR),
+        'output_dir':  _dir_info(OUTPUT_DIR),
+        'raw_dir':     _dir_info(RAW_DIR),
+        'storage_root': _dir_info(STORAGE_ROOT),
+    }
+    for k, v in dirs.items():
+        if not v.get('exists'):
+            issues.append(f'{k} missing: {v["path"]}')
+
+    # ── Disk usage ────────────────────────────────────────────────────────────
+    try:
+        du = shutil.disk_usage(STORAGE_ROOT)
+        disk_usage = {
+            'total_bytes': du.total,
+            'used_bytes':  du.used,
+            'free_bytes':  du.free,
+            'used_pct':    round(du.used / du.total * 100, 1) if du.total else 0,
+        }
+        if du.free < 50 * 1024 * 1024:   # warn if < 50 MB free
+            issues.append(f'Low disk space: {du.free // (1024*1024)} MB free')
+    except Exception as du_err:
+        disk_usage = {'error': str(du_err)}
+
+    # ── Overall status ────────────────────────────────────────────────────────
+    overall = 'fail' if issues else 'ok'
+
+    return jsonify({
+        'overall': overall,
+        'issues': issues,
+        'config': {
+            'db_path':      DB_PATH,
+            'storage_root': STORAGE_ROOT,
+            'brands_dir':   BRANDS_DIR,
+            'output_dir':   OUTPUT_DIR,
+            'raw_dir':      RAW_DIR,
+            'on_persistent_disk': on_persistent_disk,
+        },
+        'db': {
+            'path':     DB_PATH,
+            'exists':   db_exists,
+            'size_bytes': db_size,
+            'dir_writable': db_writable,
+        },
+        'disk_writable': disk_writable,
+        'dirs': dirs,
+        'disk_usage': disk_usage,
+        'checked_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+    })
+
+
 @app.route("/__debug_brands")
 @admin_required
 def debug_brands():
