@@ -4758,13 +4758,45 @@ async function fireRenderForBrand(item) {
         pollCount++;
 
         let pollData;
+        let pollRes;
         try {
-            const pollRes = await fetch(`${apiBase}/api/videos/brand-job/${job_id}`);
+            pollRes = await fetch(`${apiBase}/api/videos/brand-job/${job_id}`);
             pollData = await pollRes.json();
         } catch (netErr) {
-            // Transient network error — keep polling
+            // Transient network error (DNS, connection refused) — keep polling
             console.warn('[FIRE] Poll network error, retrying:', netErr.message);
             setTimeout(poll, POLL_INTERVAL_MS);
+            return;
+        }
+
+        // CASE 1: job disappeared (server restart / memory loss) — fail fast, no retry
+        if (pollRes.status === 404 || pollData.error) {
+            item.status = 'failed';
+            item.error = 'Render job lost after server restart. Please retry this brand.';
+            if (currentFile && item.brand_id) {
+                const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
+                if (jobItem) { jobItem.status = 'error'; persistJobItems(); }
+            }
+            renderBrandPills();
+            console.warn('[Brand Render] Job lost:', item.jobId, pollData);
+            checkQueueComplete();
+            return;
+        }
+
+        // CASE 2: temporary server/network problem — retry up to MAX_POLLS
+        if (!pollRes.ok) {
+            if (pollCount < MAX_POLLS) {
+                setTimeout(poll, POLL_INTERVAL_MS);
+            } else {
+                item.status = 'failed';
+                item.error = 'Polling timed out.';
+                if (currentFile && item.brand_id) {
+                    const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
+                    if (jobItem) { jobItem.status = 'error'; persistJobItems(); }
+                }
+                renderBrandPills();
+                checkQueueComplete();
+            }
             return;
         }
 
