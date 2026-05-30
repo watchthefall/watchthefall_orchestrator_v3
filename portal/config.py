@@ -362,11 +362,15 @@ for directory in [STORAGE_ROOT, RAW_DIR, OUTPUT_DIR, BRANDS_DIR, UPLOAD_DIR, TEM
     os.makedirs(directory, exist_ok=True)
 
 # Log resolved paths (helps debug persistence issues)
+# Storage verification: these lines confirm disk is mounted at /var/data on Render.
+# Any path pointing to /opt/render/project/src means the persistent disk is NOT mounted.
 print(f"[CONFIG] DB_PATH: {DB_PATH}")
 print(f"[CONFIG] STORAGE_ROOT: {STORAGE_ROOT}")
 print(f"[CONFIG] RAW_DIR: {RAW_DIR}")
 print(f"[CONFIG] OUTPUT_DIR: {OUTPUT_DIR}")
 print(f"[CONFIG] BRANDS_DIR: {BRANDS_DIR}")
+print(f"[CONFIG] DB_EXISTS: {os.path.exists(DB_PATH)}")
+print(f"[CONFIG] BRANDS_DIR_EXISTS: {os.path.isdir(BRANDS_DIR)}")
 
 # Cookie configuration - supports Render env var bootstrap
 COOKIE_DIR = os.path.join(PORTAL_ROOT, 'data')
