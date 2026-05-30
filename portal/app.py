@@ -911,6 +911,7 @@ def debug_alive():
     return "alive", 200
 
 @app.route("/__debug_routes")
+@admin_required
 def debug_routes():
     """List all registered routes"""
     routes = []
@@ -926,6 +927,7 @@ def debug_routes():
     })
 
 @app.route("/__debug_env")
+@admin_required
 def debug_env():
     """Show environment variables"""
     import os
@@ -943,6 +945,7 @@ def debug_env():
     })
 
 @app.route("/__debug_ffmpeg")
+@admin_required
 def debug_ffmpeg():
     """Show FFmpeg configuration"""
     from .config import FFMPEG_BIN, FFPROBE_BIN
@@ -969,6 +972,7 @@ def debug_ffmpeg():
     })
 
 @app.route("/__debug_storage")
+@admin_required
 def debug_storage():
     """Show storage information"""
     import os
@@ -1015,6 +1019,7 @@ def debug_storage():
     })
 
 @app.route("/__debug_brands")
+@admin_required
 def debug_brands():
     """Show brand information"""
     from .brand_loader import get_available_brands
@@ -1039,6 +1044,7 @@ def debug_brands():
     })
 
 @app.route("/__debug_health")
+@admin_required
 def debug_health():
     """Deep health check — admin/debug use only, not called by Render health checks.
     Includes PRAGMA integrity_check (full DB page scan — can take seconds on large DBs)
