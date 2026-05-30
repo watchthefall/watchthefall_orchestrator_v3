@@ -95,12 +95,12 @@
             color: #121214;
         }
         .badge-ready {
-            background: #28a745;
-            color: #fff;
+            background: rgba(80,200,120,0.12);
+            color: #6dbb8a;
         }
         .badge-incomplete {
-            background: #ff9800;
-            color: #fff;
+            background: rgba(255,255,255,0.05);
+            color: #666;
         }
         .badge-warning {
             display: block;
@@ -3328,10 +3328,23 @@
     border-color: var(--accent);
     background: rgba(134,237,165,0.035);
 }
+/* Day 3: card inner is now a column */
 .v2-rail-card-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+.v2-rail-card-top {
     display: flex;
     align-items: center;
     gap: 10px;
+}
+.v2-rail-card-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
 }
 .v2-rail-thumb {
     width: 38px;
@@ -3348,7 +3361,12 @@
     justify-content: center;
     font-size: 16px;
 }
-.v2-rail-info { flex: 1; min-width: 0; }
+.v2-rail-initials {
+    font-size: 15px;
+    font-weight: 700;
+    color: #888;
+    font-style: normal;
+}
 .v2-rail-name {
     font-size: 13px;
     font-weight: 600;
@@ -3357,20 +3375,51 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.v2-rail-meta { margin-top: 3px; }
 .v2-rail-badge {
     display: inline-block;
     font-size: 10px;
     font-weight: 600;
     padding: 2px 7px;
     border-radius: 10px;
+    align-self: flex-start;
 }
-.v2-rail-updated { font-size: 11px; color: #444; margin-top: 3px; }
 .v2-rail-edit-btn {
     flex-shrink: 0;
     font-size: 11px;
     padding: 5px 10px;
 }
+/* Day 3: stat chips */
+.v2-rail-card-stats {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+.v2-stat {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+    letter-spacing: 0.01em;
+}
+.v2-stat-on {
+    background: rgba(255,255,255,0.07);
+    color: #bbb;
+}
+.v2-stat-off {
+    background: transparent;
+    color: #3a3a3e;
+    border: 1px solid #2a2a2e;
+}
+/* Day 3: CTA text preview */
+.v2-rail-text-preview {
+    font-size: 11px;
+    color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-style: italic;
+}
+.v2-rail-updated { font-size: 11px; color: #444; }
 
 /* Create Brand card */
 .v2-rail-create {
@@ -3818,7 +3867,17 @@ function renderBrands(brands, canCreate) {
         const logoUrl = brand.logo_path
             ? `${apiBase}/api/preview/brand-asset/${brand.id}/logo?t=${Date.now()}`
             : null;
-        const isReady = brand.is_ready || false;
+
+        // D4: Ready = logo uploaded OR at least one text/CTA field filled in
+        const hasLogo = !!brand.logo_path;
+        const hasText = !!(brand.text_enabled && brand.text_content && brand.text_content.trim());
+        const hasWm   = !!(brand.watermark_path || brand.watermark_vertical);
+        const isReady = hasLogo || hasText;
+
+        // Text preview: first 28 chars of CTA content
+        const textPreview = hasText
+            ? _e(brand.text_content.trim().slice(0, 28) + (brand.text_content.trim().length > 28 ? '…' : ''))
+            : null;
 
         const card = document.createElement('div');
         card.className = 'v2-rail-card';
@@ -3827,20 +3886,26 @@ function renderBrands(brands, canCreate) {
 
         card.innerHTML = `
             <div class="v2-rail-card-inner">
-                ${logoUrl
-                    ? `<img src="${logoUrl}" class="v2-rail-thumb" alt="${_e(brand.display_name)}" onerror="this.style.display='none'">`
-                    : '<div class="v2-rail-thumb v2-rail-thumb-empty">🎨</div>'}
-                <div class="v2-rail-info">
-                    <div class="v2-rail-name">${_e(brand.display_name)}</div>
-                    <div class="v2-rail-meta">
+                <div class="v2-rail-card-top">
+                    ${logoUrl
+                        ? `<img src="${logoUrl}" class="v2-rail-thumb" alt="${_e(brand.display_name)}" onerror="this.style.display='none'">`
+                        : `<div class="v2-rail-thumb v2-rail-thumb-empty v2-rail-initials">${_e(brand.display_name.charAt(0).toUpperCase())}</div>`}
+                    <div class="v2-rail-card-main">
+                        <div class="v2-rail-name">${_e(brand.display_name)}</div>
                         <span class="v2-rail-badge ${isReady ? 'badge-ready' : 'badge-incomplete'}">
-                            ${isReady ? '✅ Ready' : '⚠️ Incomplete'}
+                            ${isReady ? 'Ready to render' : 'Needs setup'}
                         </span>
                     </div>
-                    <div class="v2-rail-updated">${_e(_timeAgo(brand.updated_at))}</div>
+                    <button class="btn btn-secondary btn-sm v2-rail-edit-btn"
+                            onclick="event.stopPropagation(); editBrand(${brand.id})">Edit</button>
                 </div>
-                <button class="btn btn-secondary btn-sm v2-rail-edit-btn"
-                        onclick="event.stopPropagation(); editBrand(${brand.id})">Edit</button>
+                <div class="v2-rail-card-stats">
+                    <span class="v2-stat ${hasLogo ? 'v2-stat-on' : 'v2-stat-off'}">Logo ${hasLogo ? '✓' : '–'}</span>
+                    <span class="v2-stat ${hasText ? 'v2-stat-on' : 'v2-stat-off'}">Text ${hasText ? '✓' : '–'}</span>
+                    <span class="v2-stat ${hasWm   ? 'v2-stat-on' : 'v2-stat-off'}">Watermark ${hasWm ? '✓' : '–'}</span>
+                </div>
+                ${textPreview ? `<div class="v2-rail-text-preview">"${textPreview}"</div>` : ''}
+                <div class="v2-rail-updated">${_e(_timeAgo(brand.updated_at))}</div>
             </div>`;
 
         rail.appendChild(card);
