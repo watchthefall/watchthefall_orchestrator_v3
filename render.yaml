@@ -16,6 +16,11 @@ services:
         value: "true"
       - key: ENV
         value: production
+      # Phase 18: in-memory brand_render_jobs dict requires single worker.
+      # Multiple workers = job_ids 404 across workers on poll.
+      # Remove once job state is persisted to SQLite/Redis.
+      - key: WEB_CONCURRENCY
+        value: "1"
       # Set these env vars when you attach a persistent disk (paid plan).
       # DB_PATH must point inside the mounted volume (e.g. /var/data).
       # Without them the app falls back to the ephemeral local filesystem.

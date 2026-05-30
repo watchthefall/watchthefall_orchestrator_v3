@@ -15,17 +15,21 @@ print(f"[GUNICORN CONFIG] Binding to: {bind_address}", file=sys.stderr)
 bind = bind_address
 
 # Number of worker processes.
-# 2 workers: one can be occupied by a long FFmpeg render while the other
-# continues to serve page loads, health checks, and API calls.
-# Memory budget on Render free (512 MB):
-#   - preload_app=True means the second worker is a COW fork of the master.
-#   - Flask app resident set ≈ 80–120 MB per worker at idle (shared pages
-#     stay shared until modified).
-#   - FFmpeg spawns as a subprocess outside the worker's heap, so its
-#     memory is not charged against the worker RSS during processing.
-#   - Two workers at idle ≈ 160–220 MB resident — well within 512 MB.
-#   - Do not raise above 2 on the free plan without benchmarking memory.
-workers = 2
+# MUST stay at 1 — Phase 18 stores async render jobs in brand_render_jobs,
+# an in-process dict. Multiple workers = separate memory spaces = job_ids
+# created in worker A are invisible to worker B → instant 404 on poll.
+# When job state moves to SQLite/Redis this constraint can be relaxed.
+# WEB_CONCURRENCY env var is ignored intentionally — hardcoded here to
+# prevent accidental bumps via Render dashboard or platform defaults.
+_requested = int(os.environ.get('WEB_CONCURRENCY', 1))
+if _requested > 1:
+    print(
+        f"[GUNICORN CONFIG] WARNING: WEB_CONCURRENCY={_requested} requested "
+        "but overriding to workers=1 — in-memory brand_render_jobs dict "
+        "requires a single worker (Phase 18). Move job state to DB first.",
+        file=sys.stderr,
+    )
+workers = 1
 
 # Per-worker timeout (seconds)
 # FFmpeg on long videos (60-120s clips) can take 5-15 min on shared CPU.
