@@ -4655,6 +4655,9 @@ async function confirmAndDownload() {
 // Phase 17: fires a single brand render in the background.
 // Called from approveAndNext() — does NOT navigate or touch the main result div.
 // checkQueueComplete() handles the final completion panel when all renders land.
+// Phase 18: fire-and-forget render. POST returns a job_id immediately (~50ms).
+// Server runs FFmpeg in a background thread — browser tab can close without
+// killing the render. We poll every 5s until completed/failed/timeout (15 min).
 async function fireRenderForBrand(item) {
     // Guard: don't double-fire
     if (item.status === 'processing' || item.status === 'done') {
@@ -4663,25 +4666,19 @@ async function fireRenderForBrand(item) {
     }
 
     item.status = 'processing';
-    // Sync to jobItems
     if (currentFile && item.brand_id) {
         const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
         if (jobItem) { jobItem.status = 'processing'; persistJobItems(); }
     }
     renderBrandPills();
 
-    const _ctrl    = new AbortController();
-    const _timeout = setTimeout(() => {
-        console.error('[FIRE] Abort timeout for', item.brand_name);
-        _ctrl.abort();
-    }, 720000);
-
+    // ── Step 1: POST to queue the job — expect { success, job_id } back fast ──
+    let job_id;
     try {
-        console.log('[FIRE] Render started:', item.brand_name, currentFile);
-        const res = await fetch(`${apiBase}/api/videos/process_brands`, {
+        console.log('[FIRE] Queuing render:', item.brand_name, currentFile);
+        const postRes = await fetch(`${apiBase}/api/videos/process_brands`, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            signal:  _ctrl.signal,
             body: JSON.stringify({
                 source_path:   currentFile,
                 brand_ids:     [item.brand_id],
@@ -4712,53 +4709,100 @@ async function fireRenderForBrand(item) {
             })
         });
 
-        clearTimeout(_timeout);
+        let postData;
+        try { postData = await postRes.json(); }
+        catch { throw new Error(`Server error ${postRes.status} — check server logs`); }
 
-        let data;
-        try {
-            data = await res.json();
-        } catch {
-            throw new Error(`Server error ${res.status} — check server logs`);
-        }
-
-        if (!data.success) {
-            if (data.error === 'DAILY_LIMIT_REACHED' || data.error === 'BRANDS_PER_JOB_LIMIT') {
-                openUpgradeModal('Limit reached', data.message || 'You have reached your plan limit.');
+        // Validation failures (tier limit, brand not found, etc.) come back synchronously
+        if (!postData.success) {
+            if (postData.error === 'DAILY_LIMIT_REACHED' || postData.error === 'BRANDS_PER_JOB_LIMIT') {
+                openUpgradeModal('Limit reached', postData.message || 'You have reached your plan limit.');
             }
-            throw new Error(data.error || data.details || 'Processing failed');
+            throw new Error(postData.error || postData.details || 'Render could not be queued');
         }
 
-        // Mark done
-        item.status = 'done';
-        if (currentFile && item.brand_id) {
-            const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
-            if (jobItem) { jobItem.status = 'completed'; persistJobItems(); }
-        }
-        renderBrandPills();
-        console.log('[FIRE] Done:', item.brand_name);
+        job_id     = postData.job_id;
+        item.jobId = job_id;   // persist on item so retry/recovery can resume polling
+        console.log('[FIRE] Job queued:', job_id, '—', item.brand_name);
 
-        if (data.outputs && data.outputs[0]) {
-            const downloadUrl = data.outputs[0].download_url;
-            window.open(downloadUrl, '_blank');
-            completedOutputs.push({ brand_name: item.brand_name, download_url: downloadUrl });
-        }
-
-        checkQueueComplete();
-
-    } catch (err) {
-        clearTimeout(_timeout);
+    } catch (postErr) {
+        // POST itself failed (network error or sync validation rejection)
         item.status = 'failed';
         if (currentFile && item.brand_id) {
             const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
             if (jobItem) { jobItem.status = 'error'; persistJobItems(); }
         }
         renderBrandPills();
-        console.error('[FIRE] Failed:', item.brand_name, err.message);
-        // checkQueueComplete so we still render the panel if all others finished
+        console.error('[FIRE] Queue POST failed:', item.brand_name, postErr.message);
         checkQueueComplete();
-    } finally {
-        clearTimeout(_timeout);
+        return;
     }
+
+    // ── Step 2: Poll until completed / failed / timeout (15 min = 180 × 5s) ──
+    const POLL_INTERVAL_MS = 5000;
+    const MAX_POLLS        = 180;   // 15 minutes
+    let   pollCount        = 0;
+
+    const poll = async () => {
+        if (pollCount >= MAX_POLLS) {
+            console.error('[FIRE] Poll timeout for', item.brand_name, job_id);
+            item.status = 'failed';
+            if (currentFile && item.brand_id) {
+                const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
+                if (jobItem) { jobItem.status = 'error'; persistJobItems(); }
+            }
+            renderBrandPills();
+            checkQueueComplete();
+            return;
+        }
+        pollCount++;
+
+        let pollData;
+        try {
+            const pollRes = await fetch(`${apiBase}/api/videos/brand-job/${job_id}`);
+            pollData = await pollRes.json();
+        } catch (netErr) {
+            // Transient network error — keep polling
+            console.warn('[FIRE] Poll network error, retrying:', netErr.message);
+            setTimeout(poll, POLL_INTERVAL_MS);
+            return;
+        }
+
+        if (pollData.status === 'completed') {
+            // ── Render done — same handling as old synchronous path ──
+            item.status = 'done';
+            if (currentFile && item.brand_id) {
+                const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
+                if (jobItem) { jobItem.status = 'completed'; persistJobItems(); }
+            }
+            renderBrandPills();
+            console.log('[FIRE] Done:', item.brand_name, 'polls:', pollCount);
+
+            if (pollData.outputs && pollData.outputs[0]) {
+                const downloadUrl = pollData.outputs[0].download_url;
+                window.open(downloadUrl, '_blank');
+                completedOutputs.push({ brand_name: item.brand_name, download_url: downloadUrl });
+            }
+            checkQueueComplete();
+
+        } else if (pollData.status === 'failed') {
+            item.status = 'failed';
+            if (currentFile && item.brand_id) {
+                const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
+                if (jobItem) { jobItem.status = 'error'; persistJobItems(); }
+            }
+            renderBrandPills();
+            console.error('[FIRE] Server-side render failed:', item.brand_name, pollData.error);
+            checkQueueComplete();
+
+        } else {
+            // queued or processing — keep polling
+            setTimeout(poll, POLL_INTERVAL_MS);
+        }
+    };
+
+    // First poll after a short delay to let the server thread get started
+    setTimeout(poll, POLL_INTERVAL_MS);
 }
 
 async function processCurrentBrand() {

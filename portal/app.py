@@ -1078,6 +1078,18 @@ conversion_in_progress = {'active': False, 'start_time': None}
 # Job status dictionary for async watermark conversions
 watermark_jobs = {}
 
+# Job status dictionary for async brand render jobs (Phase 18)
+# Keyed by job_id (uuid). Each entry:
+#   status:       'queued'|'processing'|'completed'|'failed'
+#   user_id:      int   — ownership check on poll
+#   brand_name:   str   — label for the frontend pill
+#   created_at:   float
+#   started_at:   float|None
+#   completed_at: float|None
+#   outputs:      list|None — same shape as old synchronous response['outputs']
+#   error:        str|None
+brand_render_jobs = {}
+
 # ============================================================================
 
 @app.route('/')
@@ -1651,6 +1663,181 @@ def downloader_dashboard():
 # API: VIDEO PROCESSING
 # ============================================================================
 
+def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
+                     data, user_id, output_format, sec_logo_resolved_path, video_id):
+    """Background thread: run FFmpeg render for one or more brands.
+    Updates brand_render_jobs[job_id] in place. No Flask request context.
+    Phase 18 — called from process_branded_videos() after all validation passes.
+    """
+    from .config import STORAGE_ROOT
+    job = brand_render_jobs[job_id]
+    job['status']     = 'processing'
+    job['started_at'] = time.time()
+
+    try:
+        # Normalize video (fixes corrupted timestamps, enforces output dimensions)
+        print(f"[RENDER-ASYNC] {job_id[:8]} normalizing video: {video_filepath}")
+        normalized_video_path = normalize_video(video_filepath, output_format=output_format)
+        print(f"[RENDER-ASYNC] {job_id[:8]} using normalized: {normalized_video_path}")
+
+        processor    = VideoProcessor(normalized_video_path, OUTPUT_DIR)
+        output_paths = []
+        output_metadata = {}
+        _bo_save_warnings = []
+        total_brands = len(resolved_brands)
+
+        for i, db_brand in enumerate(resolved_brands, 1):
+            brand_id   = db_brand.get('id')
+            brand_name = db_brand.get('display_name') or db_brand.get('name')
+            print(f"[RENDER-ASYNC] {job_id[:8]} brand {i}/{total_brands}: #{brand_id} ({brand_name})")
+
+            # Merge overrides (identical logic to synchronous path)
+            merged_config = db_brand.copy()
+
+            # Canonical wm_* normalization
+            if merged_config.get('wm_mode') is None:
+                merged_config['wm_mode'] = merged_config.get('watermark_mode', 'positioned')
+            if merged_config.get('wm_mode') != 'positioned':
+                merged_config['wm_mode'] = 'positioned'
+            if merged_config.get('wm_scale') is None:
+                legacy_scale = merged_config.get('watermark_scale')
+                if legacy_scale is not None:
+                    merged_config['wm_scale'] = legacy_scale
+            if merged_config.get('wm_opacity') is None:
+                legacy_opacity = merged_config.get('watermark_opacity')
+                if legacy_opacity is not None:
+                    merged_config['wm_opacity'] = legacy_opacity
+
+            # Apply request overrides
+            _override_fields = [
+                ('watermark_scale',   'wm_scale'),
+                ('watermark_opacity', 'wm_opacity'),
+                ('logo_scale',        'logo_scale'),
+                ('logo_padding',      'logo_padding'),
+            ]
+            for req_key, cfg_key in _override_fields:
+                if req_key in data:
+                    merged_config[cfg_key] = data[req_key]
+            for _fld in ('logo_x', 'logo_y'):
+                if _fld in data:
+                    merged_config[_fld] = float(data[_fld])
+            if 'text_enabled' in data:
+                merged_config['text_enabled'] = 1 if data['text_enabled'] else 0
+            for _fld in ('text_content', 'text_color', 'text_position'):
+                if _fld in data:
+                    merged_config[_fld] = str(data[_fld])
+            if 'text_size' in data:
+                merged_config['text_size'] = int(data['text_size'])
+            if 'text_bg_enabled' in data:
+                merged_config['text_bg_enabled'] = 1 if data['text_bg_enabled'] else 0
+            if 'text_bg_opacity' in data:
+                merged_config['text_bg_opacity'] = float(data['text_bg_opacity'])
+
+            # Secondary logo (already resolved and tier-gated before thread spawn)
+            if sec_logo_resolved_path:
+                merged_config['secondary_logo_enabled']       = True
+                merged_config['secondary_logo_resolved_path'] = sec_logo_resolved_path
+                merged_config['secondary_logo_scale']    = max(0.03, min(0.5, float(data.get('secondary_logo_scale', 0.12))))
+                merged_config['secondary_logo_opacity']  = max(0.1, min(1.0, float(data.get('secondary_logo_opacity', 0.9))))
+                merged_config['secondary_logo_x']        = max(0.0, min(1.0, float(data.get('secondary_logo_x', 0.15))))
+                merged_config['secondary_logo_y']        = max(0.0, min(1.0, float(data.get('secondary_logo_y', 0.15))))
+                merged_config['secondary_logo_rotation'] = float(data.get('secondary_logo_rotation', 0)) % 360
+
+            try:
+                import time as _rt
+                _t0 = _rt.time()
+                output_path = processor.process_brand(merged_config, video_id=video_id, output_format=output_format)
+                print(f"[RENDER-ASYNC] {job_id[:8]} brand '{brand_name}' done in {_rt.time()-_t0:.1f}s")
+                output_paths.append(output_path)
+                output_metadata[output_path] = {'brand_id': brand_id, 'brand_name': brand_name}
+
+                # Best-effort: persist branded output record
+                try:
+                    if output_format == 'vertical_9_16':
+                        _bw, _bh, _bar = 720, 1280, 0.5625
+                    elif output_format == 'square_1_1':
+                        _bw, _bh, _bar = 720, 720, 1.0
+                    else:
+                        _bw, _bh, _bar = None, None, None
+                    save_branded_output(
+                        user_id=user_id,
+                        source_filename=os.path.basename(video_filepath),
+                        output_filename=os.path.basename(output_path),
+                        file_path=output_path,
+                        brand_id=brand_id,
+                        brand_name=brand_name,
+                        output_format=output_format,
+                        width=_bw, height=_bh, aspect_ratio=_bar,
+                    )
+                except Exception as _bo_e:
+                    _bo_save_warnings.append(str(_bo_e))
+                    print(f"[RENDER-ASYNC] branded_output save failed: {_bo_e}")
+
+            except Exception as render_err:
+                print(f"[RENDER-ASYNC] {job_id[:8]} brand '{brand_name}' FAILED: {render_err}")
+                import traceback; traceback.print_exc()
+                job['status'] = 'failed'
+                job['error']  = f'{brand_name}: {str(render_err)}'
+                job['completed_at'] = time.time()
+                return
+
+        # Build download_urls (same shape as synchronous path)
+        if output_format == 'vertical_9_16':
+            _fmt = {'width': 720, 'height': 1280, 'aspect_ratio': 0.5625}
+        elif output_format == 'square_1_1':
+            _fmt = {'width': 720, 'height': 720, 'aspect_ratio': 1.0}
+        else:
+            _fmt = {}
+
+        download_urls = []
+        for op in output_paths:
+            fname = os.path.basename(op)
+            _m    = output_metadata.get(op, {})
+            download_urls.append({
+                'brand':         _m.get('brand_name', 'unknown'),
+                'filename':      fname,
+                'download_url':  f'/api/videos/download/{fname}',
+                'output_format': output_format,
+                **_fmt
+            })
+
+        # Clean up downloaded source (not local files)
+        if url_was_remote:
+            try:
+                os.remove(video_filepath)
+            except Exception as _e:
+                print(f"[RENDER-ASYNC] Could not remove source: {_e}")
+
+        # Increment daily usage counter (best-effort)
+        try:
+            increment_branding_jobs(user_id)
+        except Exception as _e:
+            print(f"[RENDER-ASYNC] Usage increment failed: {_e}")
+
+        try:
+            log_event('info', None, f'Async branding job {job_id[:8]} completed: {len(output_paths)} output(s) user={user_id}')
+        except Exception:
+            pass
+
+        job['status']       = 'completed'
+        job['outputs']      = download_urls
+        job['completed_at'] = time.time()
+        if _bo_save_warnings:
+            job['warnings'] = _bo_save_warnings
+        print(f"[RENDER-ASYNC] {job_id[:8]} ALL DONE — {len(download_urls)} output(s)")
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        job['status']       = 'failed'
+        job['error']        = str(e)
+        job['completed_at'] = time.time()
+        print(f"[RENDER-ASYNC] {job_id[:8]} EXCEPTION: {e}")
+        try:
+            log_event('error', None, f'Async branding job {job_id[:8]} exception: {str(e)}')
+        except Exception:
+            pass
+
+
 @app.route('/api/videos/process_brands', methods=['POST'])
 @login_required
 def process_branded_videos():
@@ -2078,8 +2265,8 @@ def process_branded_videos():
                 'all_errors': validation_errors
             }), 400
         
-        print(f"[PROCESS BRANDS] Processing {len(resolved_brands)} brands sequentially")
-        
+        print(f"[PROCESS BRANDS] Validation passed — {len(resolved_brands)} brand(s) queued for async render")
+
         # --- Dual-Logo Composition: resolve secondary logo (Platinum+ only) ---
         sec_logo_resolved_path = None
         if data.get('secondary_logo_enabled'):
@@ -2105,248 +2292,47 @@ def process_branded_videos():
             else:
                 print(f"[PROCESS BRANDS] Dual-logo composition not available for tier: {tier}")
         
-        # Normalize video timestamps to fix corrupted Instagram videos,
-        # and enforce target output format dimensions before VideoProcessor probes.
-        print(f"[PROCESS BRANDS] Normalizing video (output_format={output_format}): {video_filepath}")
-        normalized_video_path = normalize_video(video_filepath, output_format=output_format)
-        print(f"[PROCESS BRANDS] Using normalized video: {normalized_video_path}")
-        
-        # 3. Process video with selected brands ONE AT A TIME
-        processor = VideoProcessor(normalized_video_path, OUTPUT_DIR)
-
-        output_paths = []
-        output_metadata = {}    # Structured brand metadata keyed by output_path (format-suffix-safe)
-        _bo_save_warnings = []  # Collect best-effort branded_outputs insert failures
-        
-        total_brands = len(resolved_brands)
-        for i, db_brand in enumerate(resolved_brands, 1):
-            brand_id = db_brand.get('id')
-            brand_name = db_brand.get('display_name') or db_brand.get('name')
-            print(f"[PROCESS BRANDS] PROCESSING BRAND {i} of {total_brands}: #{brand_id} ({brand_name})")
-            
-            # Use DB brand config (resolved_brands are already DB records)
-            print(f"[PROCESS BRANDS] Using brand config from database (brand_id: {brand_id})")
-            
-            # Merge temporary overrides from sliders (DO NOT save to database)
-            # These are per-video adjustments that should NOT affect the brand's default config
-            merged_config = db_brand.copy()  # Make a copy to avoid modifying DB record
-            
-            # CANONICAL NORMALIZATION: Ensure wm_* fields are populated
-            # Prefer canonical wm_* fields, fallback to legacy watermark_* for backward compat.
-            # wm_mode is always 'positioned' — normalize any stale 'fullscreen' values.
-            if merged_config.get('wm_mode') is None:
-                merged_config['wm_mode'] = merged_config.get('watermark_mode', 'positioned')
-            if merged_config.get('wm_mode') != 'positioned':
-                merged_config['wm_mode'] = 'positioned'
-            if merged_config.get('wm_scale') is None:
-                legacy_scale = merged_config.get('watermark_scale')
-                if legacy_scale is not None:
-                    merged_config['wm_scale'] = legacy_scale
-            if merged_config.get('wm_opacity') is None:
-                legacy_opacity = merged_config.get('watermark_opacity')
-                if legacy_opacity is not None:
-                    merged_config['wm_opacity'] = legacy_opacity
-            
-            # Log normalized values for debugging
-            print(f"[PROCESS BRANDS] Normalized wm_mode={merged_config.get('wm_mode')}, wm_scale={merged_config.get('wm_scale')}, wm_opacity={merged_config.get('wm_opacity')}")
-            print(f"[WM API] brand={merged_config.get('name','?')} wm_mode={merged_config.get('wm_mode')} wm_x={merged_config.get('wm_x')} wm_y={merged_config.get('wm_y')} wm_scale={merged_config.get('wm_scale')} wm_opacity={merged_config.get('wm_opacity')}")
-            
-            # Apply overrides if provided in the request
-            override_applied = False
-            if 'watermark_scale' in data:
-                merged_config['wm_scale'] = data['watermark_scale']
-                override_applied = True
-                print(f"[PROCESS BRANDS] Override: watermark_scale = {data['watermark_scale']} (DB default: {db_brand.get('wm_scale')})")
-            if 'watermark_opacity' in data:
-                merged_config['wm_opacity'] = data['watermark_opacity']
-                override_applied = True
-                print(f"[PROCESS BRANDS] Override: watermark_opacity = {data['watermark_opacity']} (DB default: {db_brand.get('wm_opacity')})")
-            if 'logo_scale' in data:
-                merged_config['logo_scale'] = data['logo_scale']
-                override_applied = True
-                print(f"[PROCESS BRANDS] Override: logo_scale = {data['logo_scale']} (DB default: {db_brand.get('logo_scale')})")
-            if 'logo_x' in data:
-                merged_config['logo_x'] = float(data['logo_x'])
-                override_applied = True
-                print(f"[PROCESS BRANDS] Override: logo_x = {data['logo_x']} (DB default: {db_brand.get('logo_x')})")
-            if 'logo_y' in data:
-                merged_config['logo_y'] = float(data['logo_y'])
-                override_applied = True
-                print(f"[PROCESS BRANDS] Override: logo_y = {data['logo_y']} (DB default: {db_brand.get('logo_y')})")
-            if 'logo_padding' in data:
-                merged_config['logo_padding'] = data['logo_padding']
-                override_applied = True
-                print(f"[PROCESS BRANDS] Override: logo_padding = {data['logo_padding']} (DB default: {db_brand.get('logo_padding')})")
-            if 'text_enabled' in data:
-                merged_config['text_enabled'] = 1 if data['text_enabled'] else 0
-                override_applied = True
-                print(f"[PROCESS BRANDS] Override: text_enabled = {data['text_enabled']} (DB default: {db_brand.get('text_enabled')})")
-            if 'text_content' in data:
-                merged_config['text_content'] = str(data['text_content'])
-                override_applied = True
-                print(f"[PROCESS BRANDS] Override: text_content = '{str(data['text_content'])[:30]}' (DB default: '{str(db_brand.get('text_content',''))[:30]}')")
-            if 'text_size' in data:
-                merged_config['text_size'] = int(data['text_size'])
-                override_applied = True
-                print(f"[PROCESS BRANDS] Override: text_size = {data['text_size']} (DB default: {db_brand.get('text_size')})")
-            if 'text_color' in data:
-                merged_config['text_color'] = str(data['text_color'])
-                override_applied = True
-                print(f"[PROCESS BRANDS] Override: text_color = {data['text_color']} (DB default: {db_brand.get('text_color')})")
-            if 'text_position' in data:
-                merged_config['text_position'] = str(data['text_position'])
-                override_applied = True
-                print(f"[PROCESS BRANDS] Override: text_position = {data['text_position']} (DB default: {db_brand.get('text_position')})")
-
-            # Merge secondary logo composition fields (already tier-gated above)
-            if sec_logo_resolved_path:
-                merged_config['secondary_logo_enabled'] = True
-                merged_config['secondary_logo_resolved_path'] = sec_logo_resolved_path
-                merged_config['secondary_logo_scale'] = max(0.03, min(0.5, float(data.get('secondary_logo_scale', 0.12))))
-                merged_config['secondary_logo_opacity'] = max(0.1, min(1.0, float(data.get('secondary_logo_opacity', 0.9))))
-                merged_config['secondary_logo_x'] = max(0.0, min(1.0, float(data.get('secondary_logo_x', 0.15))))
-                merged_config['secondary_logo_y'] = max(0.0, min(1.0, float(data.get('secondary_logo_y', 0.15))))
-                merged_config['secondary_logo_rotation'] = float(data.get('secondary_logo_rotation', 0)) % 360
-                override_applied = True
-                print(f"[PROCESS BRANDS] Override: secondary logo from brand #{data.get('secondary_logo_brand_id')}")
-            
-            if override_applied:
-                print(f"[PROCESS BRANDS] ⚠️  Using TEMPORARY overrides for this video only (not saved to brand config)")
-            else:
-                print(f"[PROCESS BRANDS] Using brand defaults (no overrides)")
-            
-            try:
-                import time as _render_time
-                _render_start = _render_time.time()
-                print(f"[RENDER] process_brand start: brand='{brand_name}' id={brand_id} video='{video_id}'")
-                output_path = processor.process_brand(merged_config, video_id=video_id, output_format=output_format)
-                _render_elapsed = _render_time.time() - _render_start
-                print(f"[RENDER] process_brand done:  brand='{brand_name}' elapsed={_render_elapsed:.1f}s output='{output_path}'")
-                output_paths.append(output_path)
-                output_metadata[output_path] = {'brand_id': brand_id, 'brand_name': brand_name}
-                # Best-effort: persist branded output record for structured ownership.
-                # Failure here must never block the render response.
-                try:
-                    if output_format == 'vertical_9_16':
-                        _bo_width, _bo_height, _bo_ar = 720, 1280, 0.5625
-                    elif output_format == 'square_1_1':
-                        _bo_width, _bo_height, _bo_ar = 720, 720, 1.0
-                    else:
-                        _bo_width, _bo_height, _bo_ar = None, None, None
-                    save_branded_output(
-                        user_id=user_id,
-                        source_filename=os.path.basename(video_filepath),
-                        output_filename=os.path.basename(output_path),
-                        file_path=output_path,
-                        brand_id=brand_id,
-                        brand_name=brand_name,
-                        output_format=output_format,
-                        width=_bo_width,
-                        height=_bo_height,
-                        aspect_ratio=_bo_ar,
-                    )
-                    print(f"[BRANDED OUTPUT] Saved metadata for {os.path.basename(output_path)}")
-                except Exception as _bo_e:
-                    print(f"[BRANDED OUTPUT] Failed to save metadata for {output_path}: {_bo_e}")
-                    _bo_save_warnings.append(
-                        "Branded output metadata could not be saved — "
-                        "download authorization may fail. Re-render if download is unavailable."
-                    )
-                print(f"[PROCESS BRANDS] FINISHED BRAND {i}: {brand_name}")
-            except Exception as e:
-                error_message = str(e)
-                print(f"[RENDER ERROR] process_brand raised for brand='{brand_name}': {error_message}")
-                if "audio-only" in error_message or "no valid video stream" in error_message:
-                    # Handle audio-only video error specifically
-                    print(f"[PROCESS BRANDS] AUDIO-ONLY VIDEO DETECTED FOR BRAND {i}: {brand_name}")
-                    return jsonify({
-                        'success': False,
-                        'error': 'The downloaded file contains no video stream (audio-only). Instagram served audio-only content. Try again or use a different video.',
-                        'details': error_message
-                    }), 400
-                else:
-                    print(f"[PROCESS BRANDS] FAILED BRAND {i}: {brand_name} - {str(e)}")
-                    import traceback
-                    traceback.print_exc()
-                    return jsonify({
-                        'success': False,
-                        'error': f'{brand_name}: processing failed — check server logs',
-                        'details': str(e)
-                    }), 500
-
-        print(f"[PROCESS BRANDS] ALL BRANDS COMPLETED: {len(output_paths)} successful")
-        
-        # 4. Generate download URLs
-        if output_format == 'vertical_9_16':
-            _fmt_meta = {'width': 720, 'height': 1280, 'aspect_ratio': 0.5625}
-        elif output_format == 'square_1_1':
-            _fmt_meta = {'width': 720, 'height': 720, 'aspect_ratio': 1.0}
-        else:
-            _fmt_meta = {}
-
-        download_urls = []
-        for output_path in output_paths:
-            filename = os.path.basename(output_path)
-            _meta = output_metadata.get(output_path, {})
-            brand_name = _meta.get('brand_name', 'unknown')
-            download_urls.append({
-                'brand': brand_name,
-                'filename': filename,
-                'download_url': f'/api/videos/download/{filename}',
-                'output_format': output_format,
-                **_fmt_meta
-            })
-        
-        # Clean up original video (only if we downloaded it, not if it was local)
-        if url.startswith('http'):
-            try:
-                os.remove(video_filepath)
-            except Exception as e:
-                print(f"[PROCESS BRANDS] Warning: Could not remove original video: {e}")
-        
-        print(f"[PROCESS BRANDS] ========== RESPONSE ==========")
-        print(f"[PROCESS BRANDS] Success: True")
-        print(f"[PROCESS BRANDS] Output count: {len(output_paths)}")
-        print(f"[PROCESS BRANDS] Output files:")
-        for i, dl in enumerate(download_urls, 1):
-            print(f"[PROCESS BRANDS]   {i}. {dl['filename']} (brand: {dl['brand']})")
-        print(f"[PROCESS BRANDS] ========================================")
-
-        # -----------------------------------------------------------------------
-        # POST-RENDER ACCOUNTING — non-critical.
-        # Any failure here MUST NOT turn a successful render into a failed job.
-        # Render output already exists on disk; the user must be able to download it.
-        # -----------------------------------------------------------------------
-        _warnings = []
-        _warnings.extend(_bo_save_warnings)
-
-        # Increment daily branding job counter (best-effort)
-        try:
-            increment_branding_jobs(user_id)
-        except sqlite3.OperationalError as _e:
-            _warnings.append("Usage counter could not be updated (DB temporarily locked)")
-            print(f"[USAGE WARNING] Failed to increment branding_jobs for user={user_id}: {_e}")
-        except Exception as _e:
-            _warnings.append("Usage counter could not be updated")
-            print(f"[USAGE WARNING] Unexpected error incrementing branding_jobs for user={user_id}: {_e}")
-
-        # Best-effort success event log (log_event already swallows its own errors,
-        # but make explicit so the outer handler never catches this path)
-        try:
-            log_event('info', None, f'Branding job completed: {len(output_paths)} output(s) for user={user_id}')
-        except Exception:
-            pass
-
-        response_body = {
-            'success': True,
-            'message': f'Successfully processed video for {len(output_paths)} brands',
-            'outputs': download_urls,
+        # Phase 18: validation complete — spawn background render thread, return job_id immediately.
+        # The browser connection is released; the render continues on the server regardless of
+        # whether the client tab stays open.
+        single_brand_name = resolved_brands[0].get('display_name') or resolved_brands[0].get('name') if resolved_brands else ''
+        job_id = str(uuid.uuid4())
+        brand_render_jobs[job_id] = {
+            'status':       'queued',
+            'user_id':      user_id,
+            'brand_name':   single_brand_name,
+            'brand_id':     resolved_brands[0].get('id') if resolved_brands else None,
+            'created_at':   time.time(),
+            'started_at':   None,
+            'completed_at': None,
+            'outputs':      None,
+            'error':        None,
         }
-        if _warnings:
-            response_body['warnings'] = _warnings
-            print(f"[PROCESS BRANDS] Completed with {len(_warnings)} warning(s): {_warnings}")
 
-        return jsonify(response_body)
+        threading.Thread(
+            target=_do_brand_render,
+            args=(
+                job_id,
+                video_filepath,
+                url.startswith('http'),   # url_was_remote
+                resolved_brands,
+                data,
+                user_id,
+                output_format,
+                sec_logo_resolved_path,
+                video_id,
+            ),
+            daemon=True
+        ).start()
+
+        print(f"[PROCESS BRANDS] Job {job_id[:8]} queued — returning immediately")
+        return jsonify({
+            'success':    True,
+            'job_id':     job_id,
+            'status':     'queued',
+            'brand_name': single_brand_name,
+            'message':    f'Render queued for {single_brand_name}. Poll /api/videos/brand-job/{job_id} for status.',
+        })
 
     except Exception as e:
         import traceback
@@ -3859,6 +3845,44 @@ def get_conversion_status(job_id):
             response['exit_code'] = job['exit_code']
     
     return jsonify(response)
+
+@app.route('/api/videos/brand-job/<job_id>', methods=['GET'])
+@login_required
+def get_brand_job_status(job_id):
+    """Poll async brand render job status (Phase 18).
+    Mirrors /api/videos/convert-status/<job_id> for the render pipeline.
+    """
+    if job_id not in brand_render_jobs:
+        return jsonify({
+            'error':   'Job not found',
+            'job_id':  job_id,
+            'message': 'Invalid job ID or job expired.',
+        }), 404
+
+    job = brand_render_jobs[job_id]
+
+    # Ownership check — users can only poll their own jobs
+    if job.get('user_id') != session.get('user_id'):
+        return jsonify({'error': 'Access denied'}), 403
+
+    response = {
+        'job_id':     job_id,
+        'status':     job['status'],           # queued|processing|completed|failed
+        'brand_name': job.get('brand_name', ''),
+        'message':    job.get('message', ''),
+    }
+
+    if job['status'] == 'completed':
+        response['success'] = True
+        response['outputs'] = job['outputs']   # same shape as old synchronous response
+        if job.get('warnings'):
+            response['warnings'] = job['warnings']
+    elif job['status'] == 'failed':
+        response['success'] = False
+        response['error']   = job.get('error', 'Unknown error')
+
+    return jsonify(response)
+
 
 # Stub endpoints removed - focus on core watermarking functionality
 
