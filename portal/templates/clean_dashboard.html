@@ -2830,6 +2830,13 @@ function renderStreamingCompletionState() {
     const reviewActionsRow = document.querySelector('#queueModeActions .review-actions');
     if (reviewActionsRow) reviewActionsRow.style.display = 'none';
 
+    // Collapse pre-render selection UI — no longer actionable once rendering starts.
+    // Leaving these visible while "Rendering in background..." is shown below is confusing.
+    ['outputFormatsSection', 'queueModeHeader', 'createIntentFork', 'confirmationSummary'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
     updateReviewActionState();
 
     const approved = processingQueue.filter(item => item.reviewDecision === 'approved').length;
@@ -2853,8 +2860,13 @@ function enterProcessingState() {
     // and would recompute reviewActive=true while isQueueMode+'review' are still set.
     createIntent = 'processing';
 
-    // Hide all review-phase chrome so it can't block the completion panel
-    ['queueModeActions', 'overrideControls', 'previewContainer', 'queueModeHeader'].forEach(id => {
+    // Hide all review-phase chrome so it can't block the completion panel.
+    // outputFormatsSection / createIntentFork / confirmationSummary are pre-render
+    // selection UI — not actionable once rendering is underway.
+    [
+        'queueModeActions', 'overrideControls', 'previewContainer', 'queueModeHeader',
+        'outputFormatsSection', 'createIntentFork', 'confirmationSummary',
+    ].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
