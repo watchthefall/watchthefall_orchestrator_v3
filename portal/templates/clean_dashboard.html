@@ -2837,6 +2837,15 @@ function renderStreamingCompletionState() {
         if (el) el.style.display = 'none';
     });
 
+    // Patch 48: clear brand selection state — brands are committed, renders are firing.
+    // Without this, selectedBrandIds + .selected classes persist on the visible brand grid,
+    // causing new brand clicks to append to the stale selection rather than start fresh.
+    selectedBrandIds = [];
+    brandOverrides = {};
+    activePreviewBrandId = null;
+    document.querySelectorAll('.brand-btn.selected').forEach(btn => btn.classList.remove('selected'));
+    document.querySelectorAll('.brand-btn.active-preview').forEach(btn => btn.classList.remove('active-preview'));
+
     updateReviewActionState();
 
     const approved = processingQueue.filter(item => item.reviewDecision === 'approved').length;
@@ -2870,6 +2879,14 @@ function enterProcessingState() {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
+
+    // Patch 48: clear brand selection state — brands are committed, render is underway.
+    selectedBrandIds = [];
+    brandOverrides = {};
+    activePreviewBrandId = null;
+    document.querySelectorAll('.brand-btn.selected').forEach(btn => btn.classList.remove('selected'));
+    document.querySelectorAll('.brand-btn.active-preview').forEach(btn => btn.classList.remove('active-preview'));
+
     // Remove the review-active CSS layout that floats the preview over the results
     const reviewLane = document.getElementById('brandReviewLane');
     if (reviewLane) reviewLane.classList.remove('review-active');
