@@ -786,17 +786,28 @@
         
         <div id="wizardStatus"></div>
         
-        <!-- STEP 1: Brand Basics (Name only — Patch 46B) -->
+        <!-- STEP 1: Brand Basics (Patch 50: branded hero redesign) -->
         <div id="wizardStep1" class="wizard-step active">
             <div class="wizard-step-content">
                 <div class="step1-layout">
                     <div class="step1-form">
-                        <p class="wizard-step1-helper">Brand presets let you reuse the same logo, text, and watermark across multiple videos.</p>
+                        <!-- Hero: shown in create mode, hidden in edit mode via JS -->
+                        <div class="wz-create-hero" id="wzCreateHero">
+                            <div class="wz-brand-lockup">
+                                <span class="wz-brand-wordmark">BRANDR</span>
+                                <span class="wz-tier-badge" id="wzTierBadge" style="display:none"></span>
+                            </div>
+                            <h2 class="wz-create-title">Create a Brand Preset</h2>
+                            <p class="wz-create-copy">A cohesive brand identity begins here. Name your preset to reuse logos, watermarks, and styles effortlessly across all your content.</p>
+                        </div>
                         <div class="form-group">
                             <label>Brand name</label>
-                            <input type="text" id="wizardDisplayName" placeholder="e.g. YouTube Main, Client A, Instagram Stories" required autocomplete="off">
+                            <input type="text" id="wizardDisplayName"
+                                   placeholder="e.g., ScotlandWTF, Client A, TikTok Main"
+                                   maxlength="32" required autocomplete="off"
+                                   oninput="updateWizardNameCounter(this.value)">
+                            <div class="wz-char-count" id="wizardNameCharCount">Characters: [0/32]</div>
                         </div>
-                        <p class="help-text wizard-step1-sub" style="margin-top: 10px;">You can change everything later.</p>
                         <!-- Slug is auto-generated, hidden from MVP -->
                         <input type="hidden" id="wizardBrandSlug">
                     </div>
@@ -1070,6 +1081,16 @@
     font-size: 12px;
     color: #666;
 }
+/* Patch 50: branded hero block for create-mode Step 1 */
+.wz-create-hero { text-align: center; padding: 4px 0 20px; }
+.wz-brand-lockup { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 14px; }
+.wz-brand-wordmark { font-size: 22px; font-weight: 900; letter-spacing: 0.14em; color: #fff; line-height: 1; }
+.wz-tier-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.22em; color: #F5A623; border-top: 1px solid rgba(245,166,35,0.6); padding-top: 3px; margin-top: 2px; width: 100%; text-align: center; }
+.wz-create-title { font-size: 16px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; margin: 0 0 10px; }
+.wz-create-copy { font-size: 13px; color: #9ca3af; line-height: 1.55; max-width: 340px; margin: 0 auto; }
+.wz-char-count { font-size: 11px; color: #6b7280; text-align: right; margin-top: 5px; font-family: monospace; transition: color 0.15s; }
+.wz-char-count.near-limit { color: #F5A623; }
+.wz-char-count.at-limit { color: #ef4444; font-weight: 600; }
 
 .upload-zone-large {
     border: 2px dashed rgba(255,255,255,0.2);
@@ -4802,7 +4823,8 @@ function editBrand(brandId, options = {}) {
             const step1ContinueBtn = document.getElementById('step1ContinueBtn');
             if (step1ContinueBtn) step1ContinueBtn.disabled = false;
             
-            // Update wizard title for edit mode
+            // Update wizard title for edit mode (Patch 50: hide hero, show plain title)
+            _setWizardCreateHeroVisible(false);
             const title = document.getElementById('wizardTitle');
             if (title) title.textContent = 'Edit Brand';
             
@@ -5778,6 +5800,33 @@ function resetWizardSaveButton() {
 // State and configuration are now defined in the Step 4 section below to ensure v2 logic is used.
 // ========== END STEP 4 ==========
 
+// Patch 50: character counter for brand name input
+function updateWizardNameCounter(value) {
+    const len = value.length;
+    const el  = document.getElementById('wizardNameCharCount');
+    if (!el) return;
+    el.textContent = `Characters: [${len}/32]`;
+    el.className = 'wz-char-count' + (len >= 32 ? ' at-limit' : len >= 26 ? ' near-limit' : '');
+}
+
+// Patch 50: show/hide the branded hero + wizardTitle based on create vs edit mode
+function _setWizardCreateHeroVisible(visible) {
+    const hero    = document.getElementById('wzCreateHero');
+    const title   = document.getElementById('wizardTitle');
+    const tierBdg = document.getElementById('wzTierBadge');
+    if (hero)  hero.style.display  = visible ? '' : 'none';
+    if (title) title.style.display = visible ? 'none' : '';
+    if (visible && tierBdg) {
+        const tier = document.querySelector('html').getAttribute('data-tier') || '';
+        if (tier && tier.toLowerCase() !== 'explorer') {
+            tierBdg.textContent = tier.toUpperCase();
+            tierBdg.style.display = '';
+        } else {
+            tierBdg.style.display = 'none';
+        }
+    }
+}
+
 function openBrandWizard() {
     console.log('[Brand Wizard] Opening wizard (MVP 2-step)...');
     
@@ -5839,6 +5888,8 @@ function openBrandWizard() {
     if (wizardBrandSlug) wizardBrandSlug.value = '';
     if (wizardLogoInput) wizardLogoInput.value = '';
     if (step1ContinueBtn) step1ContinueBtn.disabled = true;
+    updateWizardNameCounter('');          // Patch 50: reset char counter
+    _setWizardCreateHeroVisible(true);    // Patch 50: show branded hero, hide plain title
     
     // Reset Step 1 upload UI
     const logoUploadZone = document.getElementById('wizardLogoUploadZone');
@@ -5959,11 +6010,17 @@ async function showWizardStep(step) {
     }
     
     // Update wizard title (preserve "Edit Brand" in edit mode)
+    // Patch 50: hero block replaces plain title for create Step 1; restore title for step 2+
     const title = document.getElementById('wizardTitle');
-    if (title && !wizardState.editMode) {
-        title.textContent = step === 1 ? 'Create New Brand' : 'Position Your Brand';
-    } else if (title && wizardState.editMode) {
-        title.textContent = step === 1 ? 'Edit Brand' : 'Edit Brand Position';
+    if (!wizardState.editMode && step === 1) {
+        _setWizardCreateHeroVisible(true);
+    } else {
+        _setWizardCreateHeroVisible(false);
+        if (title && !wizardState.editMode) {
+            title.textContent = 'Position Your Brand';
+        } else if (title && wizardState.editMode) {
+            title.textContent = step === 1 ? 'Edit Brand' : 'Edit Brand Position';
+        }
     }
     
     // Hide all steps
