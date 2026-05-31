@@ -798,7 +798,13 @@
                                 <span class="wz-tier-badge" id="wzTierBadge" style="display:none"></span>
                             </div>
                             <h2 class="wz-create-title">Create a Brand Preset</h2>
-                            <p class="wz-create-copy">A cohesive brand identity begins here. Name your preset to reuse logos, watermarks, and styles effortlessly across all your content.</p>
+                            <p class="wz-create-copy">Build a reusable identity for your content.</p>
+                            <ul class="wz-feature-list">
+                                <li class="wz-feature-item"><span class="wz-feature-check">✓</span> Logo &amp; Background Removal</li>
+                                <li class="wz-feature-item"><span class="wz-feature-check">✓</span> Watermarks</li>
+                                <li class="wz-feature-item"><span class="wz-feature-check">✓</span> Text &amp; CTA</li>
+                                <li class="wz-feature-item"><span class="wz-feature-check">✓</span> Layout &amp; Positioning</li>
+                            </ul>
                         </div>
                         <div class="form-group">
                             <label>Brand name</label>
@@ -807,6 +813,14 @@
                                    maxlength="32" required autocomplete="off"
                                    oninput="updateWizardNameCounter(this.value)">
                             <div class="wz-char-count" id="wizardNameCharCount">Characters: [0/32]</div>
+                            <div class="wz-examples">
+                                <span class="wz-examples-label">Examples:</span>
+                                <span class="wz-examples-item">ScotlandWTF</span>
+                                <span class="wz-examples-sep">•</span>
+                                <span class="wz-examples-item">TikTok Main</span>
+                                <span class="wz-examples-sep">•</span>
+                                <span class="wz-examples-item">Client A</span>
+                            </div>
                         </div>
                         <!-- Slug is auto-generated, hidden from MVP -->
                         <input type="hidden" id="wizardBrandSlug">
@@ -1081,13 +1095,24 @@
     font-size: 12px;
     color: #666;
 }
-/* Patch 50: branded hero block for create-mode Step 1 */
-.wz-create-hero { text-align: center; padding: 4px 0 20px; }
-.wz-brand-lockup { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 14px; }
-.wz-brand-wordmark { font-size: 22px; font-weight: 900; letter-spacing: 0.14em; color: #fff; line-height: 1; }
-.wz-tier-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.22em; color: #F5A623; border-top: 1px solid rgba(245,166,35,0.6); padding-top: 3px; margin-top: 2px; width: 100%; text-align: center; }
-.wz-create-title { font-size: 16px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; margin: 0 0 10px; }
-.wz-create-copy { font-size: 13px; color: #9ca3af; line-height: 1.55; max-width: 340px; margin: 0 auto; }
+/* Patch 50/51: branded hero block for create-mode Step 1 */
+.wz-create-hero { text-align: center; padding: 4px 0 16px; }
+.wz-brand-lockup { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 12px; }
+.wz-brand-wordmark { font-size: 17px; font-weight: 900; letter-spacing: 0.14em; color: #fff; line-height: 1; }
+.wz-tier-badge { font-size: 8px; font-weight: 700; letter-spacing: 0.22em; color: #F5A623; border-top: 1px solid rgba(245,166,35,0.6); padding-top: 3px; margin-top: 2px; width: 100%; text-align: center; }
+.wz-create-title { font-size: 15px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; margin: 0 0 8px; }
+.wz-create-copy { font-size: 12px; color: #9ca3af; line-height: 1.5; margin: 0 auto 14px; }
+/* Patch 51: feature checklist */
+.wz-feature-list { list-style: none; margin: 0 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; text-align: left; }
+.wz-feature-item { font-size: 12px; color: #9ca3af; display: flex; align-items: center; gap: 5px; }
+.wz-feature-check { color: #F5A623; font-weight: 700; font-size: 11px; flex-shrink: 0; }
+/* Patch 51: examples row */
+.wz-examples { font-size: 11px; color: #6b7280; margin-top: 10px; line-height: 1.6; }
+.wz-examples-label { color: #4b5563; font-weight: 600; margin-right: 4px; }
+.wz-examples-item { color: #9ca3af; }
+.wz-examples-sep { color: #374151; margin: 0 4px; }
+/* Patch 51: narrow modal width when Step 1 is active */
+.wizard-content.step-1-narrow { max-width: 460px !important; min-height: auto !important; }
 .wz-char-count { font-size: 11px; color: #6b7280; text-align: right; margin-top: 5px; font-family: monospace; transition: color 0.15s; }
 .wz-char-count.near-limit { color: #F5A623; }
 .wz-char-count.at-limit { color: #ef4444; font-weight: 600; }
@@ -5809,13 +5834,23 @@ function updateWizardNameCounter(value) {
     el.className = 'wz-char-count' + (len >= 32 ? ' at-limit' : len >= 26 ? ' near-limit' : '');
 }
 
-// Patch 50: show/hide the branded hero + wizardTitle based on create vs edit mode
+// Patch 50/51: show/hide the branded hero + wizardTitle based on create vs edit mode
+// Also adds/removes step-1-narrow on .wizard-content to keep modal compact on Step 1.
 function _setWizardCreateHeroVisible(visible) {
     const hero    = document.getElementById('wzCreateHero');
     const title   = document.getElementById('wizardTitle');
     const tierBdg = document.getElementById('wzTierBadge');
+    const wc      = document.querySelector('.wizard-content');
     if (hero)  hero.style.display  = visible ? '' : 'none';
     if (title) title.style.display = visible ? 'none' : '';
+    // Patch 51: narrow modal on create Step 1 only
+    if (wc) {
+        if (visible) {
+            wc.classList.add('step-1-narrow');
+        } else {
+            wc.classList.remove('step-1-narrow');
+        }
+    }
     if (visible && tierBdg) {
         const tier = document.querySelector('html').getAttribute('data-tier') || '';
         if (tier && tier.toLowerCase() !== 'explorer') {
