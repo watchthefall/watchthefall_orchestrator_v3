@@ -1,4 +1,5 @@
 flask
+flask-limiter>=3.0,<4.0
 yt-dlp
 pillow
 numpy

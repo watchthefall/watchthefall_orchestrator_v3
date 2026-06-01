@@ -2,6 +2,8 @@
 Brandr - Flask Application
 """
 from flask import Flask, request, jsonify, render_template, render_template_string, send_from_directory, send_file, redirect, url_for, session, flash, Response
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import os
 import io
 import json
@@ -362,6 +364,23 @@ app = Flask(__name__,
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE
 
+# P1 fix: rate limiter — in-memory storage safe because WEB_CONCURRENCY=1
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=[],          # no global limit; only apply where decorated
+    storage_uri='memory://',
+)
+
+# P1 fix: startup warning if running with the insecure default secret key
+if SECRET_KEY == 'dev-secret-key-change-in-production':
+    import warnings
+    warnings.warn(
+        '[SECURITY] WTF_SECRET_KEY is set to the default dev value. '
+        'Set WTF_SECRET_KEY in your environment before exposing to users.',
+        stacklevel=2,
+    )
+
 # Initialize databases
 from .database import init_db
 init_db()
@@ -389,6 +408,7 @@ def inject_global_context():
 
 # Authentication routes
 @app.route('/portal/register', methods=['GET', 'POST'])
+@limiter.limit('5 per minute')
 def register():
     if request.method == 'POST':
         print("[REGISTER] POST received", flush=True)
@@ -451,6 +471,7 @@ def register():
     return render_template('register.html')
 
 @app.route('/portal/login', methods=['GET', 'POST'])
+@limiter.limit('10 per minute')
 def login():
     if request.method == 'POST':
         email = request.form['email']
@@ -1251,6 +1272,7 @@ def index():
 
 
 @app.route('/beta')
+@app.route('/waitlist')
 def beta_page():
     """Public beta waitlist landing page.
     Logged-in users are redirected to Create."""
@@ -2988,13 +3010,15 @@ def extract_frame():
         video_path = next((p for p in search_paths if os.path.exists(p)), None)
 
         # Last resort: authoritative file_path from the downloads DB record
+        # P1 fix: filter by user_id so users cannot extract frames from other users' files
         if video_path is None:
             try:
+                req_user_id = session.get('user_id')
                 with get_connection() as conn:
                     c = conn.cursor()
                     c.execute(
-                        'SELECT file_path FROM downloads WHERE filename = ? ORDER BY created_at DESC LIMIT 1',
-                        (filename,)
+                        'SELECT file_path FROM downloads WHERE filename = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1',
+                        (filename, req_user_id)
                     )
                     row = c.fetchone()
                     if row and row['file_path'] and os.path.exists(row['file_path']):
@@ -3812,13 +3836,15 @@ def convert_watermark():
         output_path = os.path.join(OUTPUT_DIR, mp4_filename)
         
         # Initialize job status
+        # P1 fix: store user_id so ownership can be verified on status poll
         watermark_jobs[job_id] = {
             'status': 'queued',
             'filename': mp4_filename,
             'webm_path': temp_webm,
             'output_path': output_path,
             'created_at': time.time(),
-            'message': 'Waiting for conversion worker...'
+            'message': 'Waiting for conversion worker...',
+            'user_id': session.get('user_id'),
         }
         
         print(f"[CONVERT] Job {job_id[:8]} queued: {webm_filename} → {mp4_filename}")
@@ -3972,8 +3998,12 @@ def get_conversion_status(job_id):
             'job_id': job_id,
             'message': 'Invalid job ID or job expired.'
         }), 404
-    
+
     job = watermark_jobs[job_id]
+
+    # P1 fix: verify the job belongs to the requesting user
+    if job.get('user_id') != session.get('user_id'):
+        return jsonify({'error': 'Unauthorized'}), 403
     
     # Build response based on status
     response = {
@@ -4041,6 +4071,7 @@ def get_brand_job_status(job_id):
 # DEBUG ENDPOINT: BRAND INTEGRITY CHECK
 # ================================================================
 @app.route('/api/debug/brand-integrity', methods=['GET'])
+@login_required
 def debug_brand_integrity():
     import os
     base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "imports", "brands")
@@ -4072,6 +4103,7 @@ def debug_brand_integrity():
 # DEBUG ENDPOINT: FFmpeg FILTER COMPLEX DRY-RUN
 # ================================================================
 @app.route('/api/debug/build-filter/<brand_name>', methods=['GET'])
+@login_required
 def debug_build_filter(brand_name):
     from .video_processor import VideoProcessor
     from .brand_loader import get_available_brands
