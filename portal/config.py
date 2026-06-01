@@ -65,7 +65,8 @@ TIER_CONFIG = {
     },
     'Creator': {
         'label': 'Creator',
-        'price': 9,
+        'price': 15,              # full price
+        'founding_price': 9,      # founding member rate (first 100, locked 12 months)
         'color': '#A855F7',       # purple
         'accent': '#A855F7',
         'badge_image': 'badges/creator.png',
@@ -79,7 +80,8 @@ TIER_CONFIG = {
     },
     'Studio': {
         'label': 'Studio',
-        'price': 19,
+        'price': 35,              # full price
+        'founding_price': 19,     # founding member rate (first 100, locked 12 months)
         'color': '#F5A623',       # orange
         'accent': '#F5A623',
         'badge_image': 'badges/studio.png',
@@ -95,7 +97,8 @@ TIER_CONFIG = {
     # Platinum: professional tier — power features, dual-logo composition, priority
     'Platinum': {
         'label': 'Platinum',
-        'price': 49,
+        'price': 89,              # full price
+        'founding_price': 49,     # founding member rate (first 100, locked 12 months)
         'color': '#C0CFFF',       # icy chrome blue (matches logo)
         'accent': '#C0CFFF',
         'badge_image': 'badges/platinum.png',
@@ -253,11 +256,30 @@ ADMIN_EMAILS = [
     'jamiemg96@gmail.com',
 ]
 
-# PayPal payment links (no-code checkout)
+# ============================================================================
+# FOUNDING MEMBER PROGRAMME
+# ============================================================================
+# First MAX_SLOTS_PER_TIER paying users per tier lock in FOUNDING_PRICE for
+# LOCK_MONTHS. After slots fill, new users pay the full TIER_CONFIG price.
+FOUNDING_MEMBER_CONFIG = {
+    'max_slots_per_tier': 100,
+    'lock_months': 12,
+    'eligible_tiers': ['Creator', 'Studio', 'Platinum'],
+}
+
+# PayPal payment links — regular price (shown when founding slots exhausted)
+# TODO: Create new PayPal no-code products at the prices below and paste links here
 PAYMENT_LINKS = {
-    'Creator': 'https://www.paypal.com/ncp/payment/DJY4Q8DPKDULU',
-    'Studio': '',  # TODO: Add Studio PayPal link when ready
-    'Platinum': '',  # TODO: Add Platinum PayPal link when ready
+    'Creator':  '',   # TODO: $15/mo regular price
+    'Studio':   '',   # TODO: $35/mo regular price
+    'Platinum': '',   # TODO: $89/mo regular price
+}
+
+# PayPal payment links — founding member price (shown while slots remain)
+FOUNDING_PAYMENT_LINKS = {
+    'Creator':  'https://www.paypal.com/ncp/payment/DJY4Q8DPKDULU',  # $9/mo
+    'Studio':   '',   # TODO: $19/mo founding price — create PayPal link
+    'Platinum': '',   # TODO: $49/mo founding price — create PayPal link
 }
 
 
@@ -353,8 +375,12 @@ def get_badge_info(tier_name, special_status=None):
     return result
 
 
-def get_payment_link(tier_name):
-    """Return PayPal payment link for a tier. Returns empty string if none."""
+def get_payment_link(tier_name, founding=False):
+    """Return PayPal payment link for a tier.
+    Pass founding=True to get the founding member rate link (if configured).
+    Returns empty string if no link is set."""
+    if founding:
+        return FOUNDING_PAYMENT_LINKS.get(tier_name, '')
     return PAYMENT_LINKS.get(tier_name, '')
 
 # Ensure directories exist

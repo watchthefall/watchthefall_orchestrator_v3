@@ -555,6 +555,96 @@ def _run_migrations():
     finally:
         conn.close()
 
+# ========== FOUNDING MEMBER SLOTS ==========
+
+def init_founding_slots():
+    """Create founding_slots table and seed one row per eligible tier."""
+    from .config import FOUNDING_MEMBER_CONFIG
+    eligible = FOUNDING_MEMBER_CONFIG.get('eligible_tiers', [])
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS founding_slots (
+                    tier TEXT PRIMARY KEY,
+                    slots_used INTEGER DEFAULT 0
+                )
+            ''')
+            for tier in eligible:
+                c.execute(
+                    'INSERT OR IGNORE INTO founding_slots (tier, slots_used) VALUES (?, 0)',
+                    (tier,)
+                )
+            conn.commit()
+    except Exception as e:
+        print(f'[DATABASE] init_founding_slots error: {e}')
+
+
+def get_founding_slots_used(tier):
+    """Return number of founding slots used for a tier. Returns 0 on error."""
+    try:
+        with get_connection() as conn:
+            row = conn.execute(
+                'SELECT slots_used FROM founding_slots WHERE tier = ?', (tier,)
+            ).fetchone()
+            return row['slots_used'] if row else 0
+    except Exception:
+        return 0
+
+
+def get_all_founding_slots():
+    """Return dict of {tier: slots_used} for all tracked tiers."""
+    from .config import FOUNDING_MEMBER_CONFIG
+    result = {t: 0 for t in FOUNDING_MEMBER_CONFIG.get('eligible_tiers', [])}
+    try:
+        with get_connection() as conn:
+            rows = conn.execute('SELECT tier, slots_used FROM founding_slots').fetchall()
+            for row in rows:
+                result[row['tier']] = row['slots_used']
+    except Exception:
+        pass
+    return result
+
+
+def claim_founding_slot(tier, user_id):
+    """Mark user as a founding member for tier and increment the slot counter.
+    Safe to call even if the user already has founding_status — idempotent.
+    Returns the expires_at ISO string."""
+    from .config import FOUNDING_MEMBER_CONFIG, TIER_CONFIG
+    from datetime import datetime, timedelta
+    lock_months = FOUNDING_MEMBER_CONFIG.get('lock_months', 12)
+    expires_at = (datetime.utcnow() + timedelta(days=lock_months * 30)).isoformat()
+    now = datetime.utcnow().isoformat()
+    # Calculate discount percent for record-keeping
+    tier_cfg = TIER_CONFIG.get(tier, {})
+    full_price = tier_cfg.get('price', 0)
+    founding_price = tier_cfg.get('founding_price', full_price)
+    discount_pct = round((1 - founding_price / full_price) * 100, 1) if full_price else 0
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute(
+                '''UPDATE users
+                   SET founding_status = 1,
+                       founding_status_granted_at = ?,
+                       founding_discount_percent = ?,
+                       bonus_tier_until = ?
+                   WHERE id = ? AND founding_status = 0''',
+                (now, discount_pct, expires_at, user_id)
+            )
+            if c.rowcount > 0:
+                # Only increment counter when a new founding member is created
+                c.execute(
+                    '''INSERT INTO founding_slots (tier, slots_used) VALUES (?, 1)
+                       ON CONFLICT(tier) DO UPDATE SET slots_used = slots_used + 1''',
+                    (tier,)
+                )
+            conn.commit()
+    except Exception as e:
+        print(f'[DATABASE] claim_founding_slot error user={user_id} tier={tier}: {e}')
+    return expires_at
+
+
 # ========== BETA ACCESS / WAITLIST ==========
 
 def create_waitlist_entry(email, creator_name, main_platform, creator_type,

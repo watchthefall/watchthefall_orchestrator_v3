@@ -382,18 +382,29 @@ if SECRET_KEY == 'dev-secret-key-change-in-production':
     )
 
 # Initialize databases
-from .database import init_db
+from .database import init_db, init_founding_slots
 init_db()
 init_users_db()
+init_founding_slots()
 
 
 @app.context_processor
 def inject_global_context():
-    """Inject admin flag, tier, badge info, and feature gates into all templates."""
+    """Inject admin flag, tier, badge info, feature gates, and founding slots into all templates."""
+    from .database import get_all_founding_slots
+    from .config import FOUNDING_MEMBER_CONFIG, FOUNDING_PAYMENT_LINKS as _fpl
+    max_slots = FOUNDING_MEMBER_CONFIG.get('max_slots_per_tier', 100)
+    slots_used = get_all_founding_slots()
+    founding_slots_remaining = {t: max(0, max_slots - slots_used.get(t, 0))
+                                 for t in FOUNDING_MEMBER_CONFIG.get('eligible_tiers', [])}
     ctx = {'is_admin_user': is_admin(), 'tier': DEFAULT_TIER,
            'tier_features': get_tier_features(DEFAULT_TIER),
            'all_tier_features': TIER_FEATURES,
-           'all_tier_config': TIER_CONFIG}
+           'all_tier_config': TIER_CONFIG,
+           'founding_slots_remaining': founding_slots_remaining,
+           'founding_max_slots': max_slots,
+           'founding_payment_links': _fpl,
+           }
     user_id = session.get('user_id')
     if user_id:
         tier = get_user_tier(user_id)
@@ -1552,8 +1563,20 @@ def admin_set_tier():
         if c.rowcount == 0:
             return jsonify({'success': False, 'error': 'User not found'}), 404
 
-    print(f"[ADMIN] Set user {user_id} to tier={new_tier} status={new_status} by {session.get('email')}")
-    return jsonify({'success': True, 'user_id': user_id, 'tier': new_tier, 'special_status': new_status})
+    # Auto-grant founding member status if slots are available for this paid tier
+    from .database import get_founding_slots_used, claim_founding_slot
+    from .config import FOUNDING_MEMBER_CONFIG
+    founding_granted = False
+    eligible = FOUNDING_MEMBER_CONFIG.get('eligible_tiers', [])
+    max_slots = FOUNDING_MEMBER_CONFIG.get('max_slots_per_tier', 100)
+    if new_tier in eligible and get_founding_slots_used(new_tier) < max_slots:
+        claim_founding_slot(new_tier, user_id)
+        founding_granted = True
+        print(f"[ADMIN] Founding member slot claimed: user={user_id} tier={new_tier}")
+
+    print(f"[ADMIN] Set user {user_id} to tier={new_tier} status={new_status} founding={founding_granted} by {session.get('email')}")
+    return jsonify({'success': True, 'user_id': user_id, 'tier': new_tier,
+                    'special_status': new_status, 'founding_granted': founding_granted})
 
 
 @app.route('/api/admin/disk-cleanup', methods=['POST'])
@@ -1759,11 +1782,30 @@ def health_check():
 @app.route('/api/upgrade-link/<tier_name>')
 @login_required
 def upgrade_link(tier_name):
-    """Return the PayPal payment link for a given tier."""
+    """Return the best available PayPal payment link for a tier.
+    Prefers the founding member rate while slots remain; falls back to regular price."""
+    from .database import get_founding_slots_used
+    from .config import FOUNDING_MEMBER_CONFIG, FOUNDING_PAYMENT_LINKS
+    max_slots = FOUNDING_MEMBER_CONFIG.get('max_slots_per_tier', 100)
+    eligible = FOUNDING_MEMBER_CONFIG.get('eligible_tiers', [])
+    # Try founding link first if slots available
+    if tier_name in eligible:
+        slots_used = get_founding_slots_used(tier_name)
+        if slots_used < max_slots:
+            founding_link = FOUNDING_PAYMENT_LINKS.get(tier_name, '')
+            if founding_link:
+                return jsonify({
+                    'success': True,
+                    'url': founding_link,
+                    'tier': tier_name,
+                    'founding': True,
+                    'slots_remaining': max_slots - slots_used,
+                })
+    # Fall back to regular price
     link = get_payment_link(tier_name)
     if not link:
         return jsonify({'success': False, 'error': f'No payment link available for {tier_name}'}), 404
-    return jsonify({'success': True, 'url': link, 'tier': tier_name})
+    return jsonify({'success': True, 'url': link, 'tier': tier_name, 'founding': False})
 
 
 @app.route('/api/usage')
