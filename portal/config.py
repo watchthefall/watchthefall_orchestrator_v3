@@ -65,7 +65,7 @@ TIER_CONFIG = {
     },
     'Creator': {
         'label': 'Creator',
-        'price': 15,              # full price
+        'price': 12,              # full price (post-founding)
         'founding_price': 9,      # founding member rate (first 100, locked 12 months)
         'color': '#A855F7',       # purple
         'accent': '#A855F7',
@@ -80,7 +80,7 @@ TIER_CONFIG = {
     },
     'Studio': {
         'label': 'Studio',
-        'price': 35,              # full price
+        'price': 25,              # full price (post-founding)
         'founding_price': 19,     # founding member rate (first 100, locked 12 months)
         'color': '#F5A623',       # orange
         'accent': '#F5A623',
@@ -97,7 +97,7 @@ TIER_CONFIG = {
     # Platinum: professional tier — power features, dual-logo composition, priority
     'Platinum': {
         'label': 'Platinum',
-        'price': 89,              # full price
+        'price': 59,              # full price (post-founding)
         'founding_price': 49,     # founding member rate (first 100, locked 12 months)
         'color': '#C0CFFF',       # icy chrome blue (matches logo)
         'accent': '#C0CFFF',
