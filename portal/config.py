@@ -262,7 +262,7 @@ ADMIN_EMAILS = [
 # First MAX_SLOTS_PER_TIER paying users per tier lock in FOUNDING_PRICE for
 # LOCK_MONTHS. After slots fill, new users pay the full TIER_CONFIG price.
 FOUNDING_MEMBER_CONFIG = {
-    'max_slots_per_tier': 100,
+    'max_slots_per_tier': 20,
     'lock_months': 12,
     'eligible_tiers': ['Creator', 'Studio', 'Platinum'],
 }
