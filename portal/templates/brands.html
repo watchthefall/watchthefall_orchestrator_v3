@@ -656,35 +656,9 @@
                 <p style="font-size:11px; color:#888; margin-top:6px;">Applies when you replace/upload a logo.</p>
             </div>
 
-            <!-- L4: composition controls hidden until a logo is uploaded -->
+            <!-- L4: shape control hidden until a logo is uploaded -->
+            <!-- Patch 52: scale/opacity/rotation moved to Composition tab -->
             <div id="besLogoCompositionControls" style="display:none;">
-
-            <!-- Scale -->
-            <div class="bes-field-group">
-                <label class="bes-label">Scale — <span id="besLogoScaleVal">25%</span> <span style="font-size:10px;font-weight:400;opacity:0.45;text-transform:none;letter-spacing:0;">of video width</span></label>
-                <input type="range" id="besLogoScale" min="5" max="60" value="25"
-                       oninput="brandEditorDraft.logoScale = parseInt(this.value) / 100;
-                                document.getElementById('besLogoScaleVal').textContent = this.value + '%';
-                                updateBesLogoPreviewStyle();">
-            </div>
-
-            <!-- Opacity -->
-            <div class="bes-field-group">
-                <label class="bes-label">Opacity <span id="besLogoOpacityVal">100%</span></label>
-                <input type="range" id="besLogoOpacity" min="0" max="100" value="100"
-                       oninput="brandEditorDraft.logoOpacity = parseInt(this.value) / 100;
-                                document.getElementById('besLogoOpacityVal').textContent = this.value + '%';
-                                updateBesLogoPreviewStyle();">
-            </div>
-
-            <!-- Rotation -->
-            <div class="bes-field-group">
-                <label class="bes-label">Rotation <span id="besLogoRotationVal">0°</span></label>
-                <input type="range" id="besLogoRotation" min="0" max="360" value="0"
-                       oninput="brandEditorDraft.logoRotation = parseInt(this.value);
-                                document.getElementById('besLogoRotationVal').textContent = this.value + '°';
-                                updateBesLogoPreviewStyle();">
-            </div>
 
             <!-- Shape -->
             <div class="bes-field-group">
@@ -699,7 +673,7 @@
                 </div>
             </div>
 
-            <p class="bes-help">Scale controls how large your logo appears on rendered videos. The preview above shows shape, rotation, and opacity — not to-scale render size. Drag the logo on the overview preview to set its position.</p>
+            <p class="bes-help">Clip your logo to a shape here. Scale, opacity, and rotation are in the <strong>Composition</strong> tab — drag the logo on the preview to reposition it.</p>
 
             </div><!-- /besLogoCompositionControls -->
         </div>
@@ -4181,7 +4155,7 @@ function renderWorkspace(brand) {
                              id="v2LayoutLogoImg"
                              class="v2-preview-overlay layout-draggable"
                              data-layout-layer="logo"
-                             style="left:${(brand.logo_x||0.5)*100}%;top:${(brand.logo_y||0.5)*100}%;width:${(brand.logo_scale||0.25)*100}%;opacity:${brand.logo_opacity!=null?brand.logo_opacity:1};border-radius:${brand.logo_shape==='circle'?'50%':'4px'}"
+                             style="left:${(brand.logo_x||0.5)*100}%;top:${(brand.logo_y||0.5)*100}%;width:${(brand.logo_scale||0.25)*100}%;opacity:${brand.logo_opacity!=null?brand.logo_opacity:1};transform:${brand.logo_rotation?`rotate(${brand.logo_rotation}deg)`:'none'};border-radius:${brand.logo_shape==='circle'?'50%':'4px'}"
                              onerror="this.style.display='none'">
                         ${wmUrl ? `<img src="${wmUrl}"
                              id="v2LayoutWmImg"
@@ -4211,6 +4185,18 @@ function renderWorkspace(brand) {
                         <label class="v2-lc-scale-label">Scale <span id="v2LayoutScaleVal">25%</span></label>
                         <input type="range" class="v2-lc-scale-slider" id="v2LayoutScaleSlider"
                                min="5" max="100" value="25" oninput="onLayoutScaleInput(this.value)">
+                    </div>
+                    <!-- Patch 52: opacity slider — logo layer only -->
+                    <div class="v2-layout-scale-row" id="v2LayoutOpacityRow" style="display:none">
+                        <label class="v2-lc-scale-label">Opacity <span id="v2LayoutOpacityVal">100%</span></label>
+                        <input type="range" class="v2-lc-scale-slider" id="v2LayoutOpacitySlider"
+                               min="0" max="100" value="100" oninput="onLayoutOpacityInput(this.value)">
+                    </div>
+                    <!-- Patch 52: rotation slider — logo layer only -->
+                    <div class="v2-layout-scale-row" id="v2LayoutRotationRow" style="display:none">
+                        <label class="v2-lc-scale-label">Rotation <span id="v2LayoutRotationVal">0°</span></label>
+                        <input type="range" class="v2-lc-scale-slider" id="v2LayoutRotationSlider"
+                               min="0" max="360" value="0" oninput="onLayoutRotationInput(this.value)">
                     </div>
                     <div class="v2-layout-actions">
                         <button class="btn btn-secondary v2-lc-reset" id="v2LayoutResetBtn"
@@ -4279,13 +4265,18 @@ function renderWorkspace(brand) {
     brandEditorDraft.posWmX   = Math.round((brand.wm_x  != null ? brand.wm_x   : 0.50) * 200) / 2;
     brandEditorDraft.posWmY   = Math.round((brand.wm_y  != null ? brand.wm_y   : 0.50) * 200) / 2;
     // Patch 49: seed scale into draft so overview slider has correct initial values
-    brandEditorDraft.logoScale = brand.logo_scale != null ? brand.logo_scale : 0.25;
-    brandEditorDraft.wmScaleUi = renderScaleToWatermarkUi(brand.wm_scale != null ? brand.wm_scale : 0.25);
+    // Patch 52: also seed opacity and rotation
+    brandEditorDraft.logoScale    = brand.logo_scale    != null ? brand.logo_scale    : 0.25;
+    brandEditorDraft.logoOpacity  = brand.logo_opacity  != null ? brand.logo_opacity  : 1.0;
+    brandEditorDraft.logoRotation = brand.logo_rotation != null ? brand.logo_rotation : 0.0;
+    brandEditorDraft.wmScaleUi    = renderScaleToWatermarkUi(brand.wm_scale != null ? brand.wm_scale : 0.25);
     _layoutDraftSaved = {
-        posLogoX: brandEditorDraft.posLogoX, posLogoY: brandEditorDraft.posLogoY,
-        posWmX:   brandEditorDraft.posWmX,   posWmY:   brandEditorDraft.posWmY,
-        logoScale: brandEditorDraft.logoScale,
-        wmScaleUi: brandEditorDraft.wmScaleUi
+        posLogoX:    brandEditorDraft.posLogoX,   posLogoY: brandEditorDraft.posLogoY,
+        posWmX:      brandEditorDraft.posWmX,     posWmY:   brandEditorDraft.posWmY,
+        logoScale:   brandEditorDraft.logoScale,
+        logoOpacity: brandEditorDraft.logoOpacity,   // Patch 52
+        logoRotation:brandEditorDraft.logoRotation,  // Patch 52
+        wmScaleUi:   brandEditorDraft.wmScaleUi
     };
     layoutDirty = false;
     layoutSelectedLayer = null;
@@ -4949,25 +4940,11 @@ function openBrandEditor(brandId, mode) {
             });
 
             // Populate logo UI controls
-            const logoScaleEl  = document.getElementById('besLogoScale');
-            const logoScaleVal = document.getElementById('besLogoScaleVal');
-            const logoOpacEl   = document.getElementById('besLogoOpacity');
-            const logoOpacVal  = document.getElementById('besLogoOpacityVal');
-            const logoRotEl    = document.getElementById('besLogoRotation');
-            const logoRotVal   = document.getElementById('besLogoRotationVal');
+            // Patch 52: besLogoScale/Opacity/Rotation removed from Logo Shell — no DOM sync needed here.
+            // brandEditorDraft.logoScale/Opacity/Rotation are already seeded above (lines 4920-4923).
+            // The Composition Shell sliders are synced via _refreshCompositionControls() on layer select.
             const logoPreview  = document.getElementById('besLogoPreviewImg');
             const logoPlaceh   = document.getElementById('besLogoPlaceholder');
-
-            const scalePct = Math.round(brandEditorDraft.logoScale * 100);
-            const opacPct  = Math.round(brandEditorDraft.logoOpacity * 100);
-            const rotDeg   = Math.round(brandEditorDraft.logoRotation);
-
-            if (logoScaleEl)  logoScaleEl.value       = scalePct;
-            if (logoScaleVal) logoScaleVal.textContent = scalePct + '%';
-            if (logoOpacEl)   logoOpacEl.value         = opacPct;
-            if (logoOpacVal)  logoOpacVal.textContent  = opacPct + '%';
-            if (logoRotEl)    logoRotEl.value           = rotDeg;
-            if (logoRotVal)   logoRotVal.textContent    = rotDeg + '°';
 
             if (logoPreview && logoPlaceh) {
                 if (brandEditorDraft.logoPath) {
@@ -5354,23 +5331,51 @@ function selectLayoutLayer(layer) {
     _refreshScaleSlider();
 }
 
-// Patch 49: show/update the scale slider when a layer is active
-function _refreshScaleSlider() {
-    const row    = document.getElementById('v2LayoutScaleRow');
-    const slider = document.getElementById('v2LayoutScaleSlider');
-    const valEl  = document.getElementById('v2LayoutScaleVal');
-    if (!row) return;
-    if (!layoutSelectedLayer) { row.style.display = 'none'; return; }
-    row.style.display = '';
-    let pct;
-    if (layoutSelectedLayer === 'logo') {
-        pct = Math.round((brandEditorDraft.logoScale != null ? brandEditorDraft.logoScale : 0.25) * 100);
-    } else {
-        pct = Math.round(brandEditorDraft.wmScaleUi != null ? brandEditorDraft.wmScaleUi : 25);
+// Patch 52: show/update composition sliders (scale + opacity + rotation) when a layer is active
+// Replaces Patch 49's _refreshScaleSlider — scale still shown for both layers;
+// opacity and rotation shown for logo layer only.
+function _refreshCompositionControls() {
+    const scaleRow    = document.getElementById('v2LayoutScaleRow');
+    const scaleSlider = document.getElementById('v2LayoutScaleSlider');
+    const scaleVal    = document.getElementById('v2LayoutScaleVal');
+    const opacRow     = document.getElementById('v2LayoutOpacityRow');
+    const opacSlider  = document.getElementById('v2LayoutOpacitySlider');
+    const opacVal     = document.getElementById('v2LayoutOpacityVal');
+    const rotRow      = document.getElementById('v2LayoutRotationRow');
+    const rotSlider   = document.getElementById('v2LayoutRotationSlider');
+    const rotVal      = document.getElementById('v2LayoutRotationVal');
+    if (!scaleRow) return;
+
+    if (!layoutSelectedLayer) {
+        scaleRow.style.display = 'none';
+        if (opacRow) opacRow.style.display = 'none';
+        if (rotRow)  rotRow.style.display  = 'none';
+        return;
     }
-    if (slider) slider.value = pct;
-    if (valEl)  valEl.textContent = pct + '%';
+
+    // Scale — all layers
+    scaleRow.style.display = '';
+    const scalePct = layoutSelectedLayer === 'logo'
+        ? Math.round((brandEditorDraft.logoScale != null ? brandEditorDraft.logoScale : 0.25) * 100)
+        : Math.round(brandEditorDraft.wmScaleUi  != null ? brandEditorDraft.wmScaleUi  : 25);
+    if (scaleSlider) scaleSlider.value = scalePct;
+    if (scaleVal)    scaleVal.textContent = scalePct + '%';
+
+    // Opacity + Rotation — logo layer only
+    const isLogo = layoutSelectedLayer === 'logo';
+    if (opacRow) opacRow.style.display = isLogo ? '' : 'none';
+    if (rotRow)  rotRow.style.display  = isLogo ? '' : 'none';
+    if (isLogo) {
+        const opacPct = Math.round((brandEditorDraft.logoOpacity  != null ? brandEditorDraft.logoOpacity  : 1) * 100);
+        const rotDeg  = Math.round(brandEditorDraft.logoRotation != null ? brandEditorDraft.logoRotation : 0);
+        if (opacSlider) opacSlider.value = opacPct;
+        if (opacVal)    opacVal.textContent = opacPct + '%';
+        if (rotSlider)  rotSlider.value = rotDeg;
+        if (rotVal)     rotVal.textContent  = rotDeg + '°';
+    }
 }
+// Keep old name as alias so any stale references don't crash
+function _refreshScaleSlider() { _refreshCompositionControls(); }
 
 // Patch 49: live-update scale from the overview slider
 function onLayoutScaleInput(value) {
@@ -5387,6 +5392,32 @@ function onLayoutScaleInput(value) {
         const img = document.getElementById('v2LayoutWmImg');
         if (img) img.style.width = (renderScale * 50) + '%';
     }
+    layoutDirty = true;
+    const saveBtn = document.getElementById('v2LayoutSaveBtn');
+    if (saveBtn) saveBtn.disabled = false;
+}
+
+// Patch 52: live-update opacity from the overview slider (logo only)
+function onLayoutOpacityInput(value) {
+    const pct   = parseInt(value);
+    const valEl = document.getElementById('v2LayoutOpacityVal');
+    if (valEl) valEl.textContent = pct + '%';
+    brandEditorDraft.logoOpacity = pct / 100;
+    const img = document.getElementById('v2LayoutLogoImg');
+    if (img) img.style.opacity = pct / 100;
+    layoutDirty = true;
+    const saveBtn = document.getElementById('v2LayoutSaveBtn');
+    if (saveBtn) saveBtn.disabled = false;
+}
+
+// Patch 52: live-update rotation from the overview slider (logo only)
+function onLayoutRotationInput(value) {
+    const deg   = parseInt(value);
+    const valEl = document.getElementById('v2LayoutRotationVal');
+    if (valEl) valEl.textContent = deg + '°';
+    brandEditorDraft.logoRotation = deg;
+    const img = document.getElementById('v2LayoutLogoImg');
+    if (img) img.style.transform = deg ? `rotate(${deg}deg)` : 'none';
     layoutDirty = true;
     const saveBtn = document.getElementById('v2LayoutSaveBtn');
     if (saveBtn) saveBtn.disabled = false;
@@ -5464,9 +5495,11 @@ async function saveLayout() {
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
     const clamp = v => Math.max(0.05, Math.min(0.95, v));
     const payload = {
-        logo_x:     clamp(brandEditorDraft.posLogoX / 100),
-        logo_y:     clamp(brandEditorDraft.posLogoY / 100),
-        logo_scale: brandEditorDraft.logoScale != null ? brandEditorDraft.logoScale : 0.25  // Patch 49
+        logo_x:        clamp(brandEditorDraft.posLogoX / 100),
+        logo_y:        clamp(brandEditorDraft.posLogoY / 100),
+        logo_scale:    brandEditorDraft.logoScale    != null ? brandEditorDraft.logoScale    : 0.25,  // Patch 49
+        logo_opacity:  brandEditorDraft.logoOpacity  != null ? brandEditorDraft.logoOpacity  : 1.0,   // Patch 52
+        logo_rotation: brandEditorDraft.logoRotation != null ? brandEditorDraft.logoRotation : 0.0    // Patch 52
     };
     if (brandEditorDraft.wmPath) {
         payload.wm_x     = clamp(brandEditorDraft.posWmX / 100);
@@ -5483,10 +5516,12 @@ async function saveLayout() {
         if (!data.success) throw new Error(data.error || 'Save failed');
         layoutDirty = false;
         _layoutDraftSaved = {
-            posLogoX: brandEditorDraft.posLogoX, posLogoY: brandEditorDraft.posLogoY,
-            posWmX:   brandEditorDraft.posWmX,   posWmY:   brandEditorDraft.posWmY,
-            logoScale: brandEditorDraft.logoScale,   // Patch 49
-            wmScaleUi: brandEditorDraft.wmScaleUi    // Patch 49
+            posLogoX:    brandEditorDraft.posLogoX,   posLogoY: brandEditorDraft.posLogoY,
+            posWmX:      brandEditorDraft.posWmX,     posWmY:   brandEditorDraft.posWmY,
+            logoScale:   brandEditorDraft.logoScale,   // Patch 49
+            logoOpacity: brandEditorDraft.logoOpacity, // Patch 52
+            logoRotation:brandEditorDraft.logoRotation,// Patch 52
+            wmScaleUi:   brandEditorDraft.wmScaleUi    // Patch 49
         };
         if (statusEl) statusEl.textContent = '✅ Layout saved';
         if (saveBtn)  { saveBtn.disabled = true; saveBtn.textContent = 'Save Layout'; }
@@ -5516,13 +5551,22 @@ function resetLayout() {
         brandEditorDraft.wmScaleUi = _layoutDraftSaved.wmScaleUi;
         if (wmImg) wmImg.style.width = (watermarkUiToRenderScale(_layoutDraftSaved.wmScaleUi) * 50) + '%';
     }
+    // Patch 52: restore opacity + rotation
+    if (_layoutDraftSaved.logoOpacity != null) {
+        brandEditorDraft.logoOpacity = _layoutDraftSaved.logoOpacity;
+        if (logoImg) logoImg.style.opacity = _layoutDraftSaved.logoOpacity;
+    }
+    if (_layoutDraftSaved.logoRotation != null) {
+        brandEditorDraft.logoRotation = _layoutDraftSaved.logoRotation;
+        if (logoImg) logoImg.style.transform = _layoutDraftSaved.logoRotation ? `rotate(${_layoutDraftSaved.logoRotation}deg)` : 'none';
+    }
     layoutDirty = false;
     const saveBtn = document.getElementById('v2LayoutSaveBtn');
     if (saveBtn) saveBtn.disabled = true;
     const statusEl = document.getElementById('v2LayoutStatus');
     if (statusEl) statusEl.textContent = '';
     _refreshReadout();
-    _refreshScaleSlider();
+    _refreshCompositionControls();
 }
 
 function centreLayout() {
@@ -5542,7 +5586,7 @@ function centreLayout() {
     const saveBtn = document.getElementById('v2LayoutSaveBtn');
     if (saveBtn) saveBtn.disabled = false;
     _refreshReadout();
-    _refreshScaleSlider();
+    _refreshCompositionControls();
 }
 // ========== END LAYOUT CANVAS DRAG ==========
 
