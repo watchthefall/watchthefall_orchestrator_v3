@@ -3296,6 +3296,31 @@
 .v2-layer-name { font-size: 13px; font-weight: 600; color: #EAEAEA; }
 .v2-layer-status { font-size: 11px; color: #555; margin-top: 2px; }
 .v2-layer-eye { font-size: 13px; color: #444; flex-shrink: 0; }
+/* Patch 53: selected state (active composition layer) */
+.v2-layer-selected {
+    background: rgba(255,168,0,0.07) !important;
+    border-left: 3px solid var(--accent, #FFB300);
+    padding-left: 7px;
+}
+/* Patch 53: Edit button replacing the eye icon on logo/watermark rows */
+.v2-layer-edit-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #666;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s, border-color 0.15s;
+    letter-spacing: 0.02em;
+    line-height: 1.4;
+}
+.v2-layer-edit-btn:hover {
+    color: #EAEAEA;
+    border-color: rgba(255,255,255,0.32);
+}
 
 /* Quick Actions */
 .v2-quick-actions { padding: 18px; }
@@ -4215,35 +4240,45 @@ function renderWorkspace(brand) {
                 <div class="v2-layer-list">
                     <h4 class="v2-panel-title">Layer List</h4>
 
-                    <div class="v2-layer ${logoUrl ? 'v2-layer-active' : 'v2-layer-missing'}" onclick="editBrandLogo(${brand.id})">
+                    <!-- Patch 53: row click → select canvas layer; Edit btn → open shell -->
+                    <div class="v2-layer ${logoUrl ? 'v2-layer-active' : 'v2-layer-missing'}"
+                         data-layer="logo"
+                         onclick="v2LayerRowClick('logo', ${brand.id})">
                         ${logoUrl
                             ? `<img src="${logoUrl}" class="v2-layer-thumb" alt="Logo">`
                             : '<div class="v2-layer-thumb v2-layer-thumb-empty">🎨</div>'}
                         <div class="v2-layer-info">
                             <div class="v2-layer-name">Main Logo</div>
-                            <div class="v2-layer-status">Required</div>
+                            <div class="v2-layer-status">${logoUrl ? 'Select to adjust' : 'Required'}</div>
                         </div>
-                        <span class="v2-layer-eye" style="pointer-events:none">👁</span>
+                        <button class="v2-layer-edit-btn"
+                                onclick="event.stopPropagation(); editBrandLogo(${brand.id})"
+                                title="Logo settings">Edit</button>
                     </div>
 
-                    <div class="v2-layer ${hasWm ? 'v2-layer-active' : 'v2-layer-optional'}" onclick="editBrandWatermark(${brand.id})">
+                    <div class="v2-layer ${hasWm ? 'v2-layer-active' : 'v2-layer-optional'}"
+                         data-layer="watermark"
+                         onclick="v2LayerRowClick('watermark', ${brand.id})">
                         ${wmUrl
                             ? `<img src="${wmUrl}" class="v2-layer-thumb" alt="Watermark">`
                             : '<div class="v2-layer-thumb v2-layer-thumb-empty" style="font-size:14px;">💧</div>'}
                         <div class="v2-layer-info">
                             <div class="v2-layer-name">Watermark</div>
-                            <div class="v2-layer-status">${hasWm ? 'Enabled' : 'Optional'}</div>
+                            <div class="v2-layer-status">${hasWm ? 'Select to adjust' : 'Optional'}</div>
                         </div>
-                        <span class="v2-layer-eye" style="opacity:${hasWm ? 1 : 0.35};pointer-events:none">👁</span>
+                        <button class="v2-layer-edit-btn"
+                                onclick="event.stopPropagation(); editBrandWatermark(${brand.id})"
+                                title="Watermark settings">Edit</button>
                     </div>
 
-                    <div class="v2-layer ${hasText ? 'v2-layer-active' : 'v2-layer-optional'}" onclick="openBrandEditor(${brand.id}, 'text')">
+                    <div class="v2-layer ${hasText ? 'v2-layer-active' : 'v2-layer-optional'}"
+                         onclick="openBrandEditor(${brand.id}, 'text')">
                         <div class="v2-layer-thumb v2-layer-thumb-empty" style="font-size:15px;font-weight:700;color:var(--accent);">T</div>
                         <div class="v2-layer-info">
                             <div class="v2-layer-name">Text / CTA</div>
                             <div class="v2-layer-status">${hasText ? 'Enabled' : 'Optional'}</div>
                         </div>
-                        <span class="v2-layer-eye" style="opacity:${hasText ? 1 : 0.35};pointer-events:none">👁</span>
+                        <span class="v2-layer-eye" style="opacity:${hasText ? 1 : 0.35};pointer-events:none">✏</span>
                     </div>
 
                 </div>
@@ -5327,8 +5362,29 @@ function selectLayoutLayer(layer) {
     if (wmBtn)   wmBtn.classList.toggle('active',   layer === 'watermark');
     const centreBtn = document.getElementById('v2LayoutCentreBtn');
     if (centreBtn) centreBtn.disabled = false;
+    // Patch 53: sync selected highlight on layer list rows
+    document.querySelectorAll('.v2-layer[data-layer]').forEach(row => {
+        row.classList.toggle('v2-layer-selected', row.dataset.layer === layer);
+    });
     _refreshReadout();
-    _refreshScaleSlider();
+    _refreshCompositionControls();
+}
+
+// Patch 53: Layer List row click — select for composition if asset loaded, else open shell
+function v2LayerRowClick(layer, brandId) {
+    if (layer === 'logo') {
+        if (document.getElementById('v2LayoutLogoImg')) {
+            selectLayoutLayer('logo');
+        } else {
+            editBrandLogo(brandId);
+        }
+    } else if (layer === 'watermark') {
+        if (document.getElementById('v2LayoutWmImg')) {
+            selectLayoutLayer('watermark');
+        } else {
+            editBrandWatermark(brandId);
+        }
+    }
 }
 
 // Patch 52: show/update composition sliders (scale + opacity + rotation) when a layer is active
