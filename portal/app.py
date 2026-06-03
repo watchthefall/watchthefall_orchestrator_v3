@@ -1908,6 +1908,20 @@ def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
             # Merge overrides (identical logic to synchronous path)
             merged_config = db_brand.copy()
 
+            # Patch 54: apply per-format position/scale overrides before any other merging
+            if merged_config.get('format_overrides') and output_format != 'vertical_9_16':
+                try:
+                    import json as _json
+                    _fov_all = _json.loads(merged_config['format_overrides'])
+                    _fov = _fov_all.get(output_format, {})
+                    for _fov_key in ('logo_x', 'logo_y', 'logo_scale', 'wm_x', 'wm_y', 'wm_scale'):
+                        if _fov_key in _fov:
+                            merged_config[_fov_key] = _fov[_fov_key]
+                    if _fov:
+                        print(f"[RENDER-ASYNC] {job_id[:8]} applied format override '{output_format}' for brand #{brand_id}")
+                except (ValueError, TypeError, KeyError):
+                    pass
+
             # Canonical wm_* normalization
             if merged_config.get('wm_mode') is None:
                 merged_config['wm_mode'] = merged_config.get('watermark_mode', 'positioned')
@@ -3316,7 +3330,9 @@ def list_brands():
             'text_size': brand.get('text_size', 48),
             'text_color': brand.get('text_color', '#FFFFFF'),
             'text_bg_enabled': brand.get('text_bg_enabled', True),
-            'text_bg_opacity': brand.get('text_bg_opacity', 0.6)
+            'text_bg_opacity': brand.get('text_bg_opacity', 0.6),
+            # Patch 54: per-format position overrides
+            'format_overrides': brand.get('format_overrides')  # raw JSON string; parsed client-side
         } for brand in brands]
         
         return jsonify({
@@ -3605,9 +3621,26 @@ def update_brand_api(brand_id):
             return jsonify({'success': False, 'error': 'This brand is locked and cannot be modified'}), 403
         
         data = request.get_json(force=True) or {}
-        
+
         print(f"[BRANDS] Updating brand #{brand_id} ({brand['name']}) with fields: {list(data.keys())}")
-        
+
+        # Patch 54: if a format key is present and it's not the base format,
+        # save position/scale fields into format_overrides JSON instead of base columns.
+        # logo_opacity and logo_rotation are always saved to base columns (global, not per-format).
+        format_key = data.pop('format', None)
+        _per_format_fields = ('logo_x', 'logo_y', 'logo_scale', 'wm_x', 'wm_y', 'wm_scale')
+        if format_key and format_key != 'vertical_9_16':
+            import json as _json
+            _fov_payload = {k: data.pop(k) for k in _per_format_fields if k in data}
+            if _fov_payload:
+                try:
+                    _existing = json.loads(brand.get('format_overrides') or '{}')
+                except (ValueError, TypeError):
+                    _existing = {}
+                _existing[format_key] = _fov_payload
+                data['format_overrides'] = json.dumps(_existing)
+                print(f"[BRANDS] Saving format override for '{format_key}': {_fov_payload}")
+
         # Update brand
         update_brand(brand_id, **data)
         

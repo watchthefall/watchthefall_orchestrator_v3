@@ -3208,6 +3208,14 @@
 .v2-layout-actions { display: flex; gap: 4px; }
 /* Patch 49: inline scale slider, shown only when a layer is active */
 .v2-layout-scale-row { display: flex; align-items: center; gap: 8px; }
+/* Patch 54: per-format layout indicator */
+.v2-format-layout-ind {
+    font-size: 10px;
+    color: #6b7280;
+    font-style: italic;
+    padding: 2px 0 0;
+    line-height: 1.4;
+}
 .v2-lc-scale-label { font-size: 10px; color: #9ca3af; white-space: nowrap; flex-shrink: 0; }
 .v2-lc-scale-label span { color: #F5A623; font-weight: 600; }
 .v2-lc-scale-slider { flex: 1; height: 3px; accent-color: #F5A623; cursor: pointer; min-width: 0; }
@@ -4205,6 +4213,8 @@ function renderWorkspace(brand) {
                         <div class="v2-layout-readout" id="v2LayoutReadout">Click overlay or select layer above</div>
                         <div class="v2-layout-status" id="v2LayoutStatus"></div>
                     </div>
+                    <!-- Patch 54: per-format layout indicator -->
+                    <div class="v2-format-layout-ind" id="v2FormatLayoutInd" style="display:none"></div>
                     <!-- Patch 49: scale slider — hidden until a layer is selected -->
                     <div class="v2-layout-scale-row" id="v2LayoutScaleRow" style="display:none">
                         <label class="v2-lc-scale-label">Scale <span id="v2LayoutScaleVal">25%</span></label>
@@ -4299,20 +4309,39 @@ function renderWorkspace(brand) {
     brandEditorDraft.posLogoY = Math.round((brand.logo_y != null ? brand.logo_y : 0.85) * 200) / 2;
     brandEditorDraft.posWmX   = Math.round((brand.wm_x  != null ? brand.wm_x   : 0.50) * 200) / 2;
     brandEditorDraft.posWmY   = Math.round((brand.wm_y  != null ? brand.wm_y   : 0.50) * 200) / 2;
-    // Patch 49: seed scale into draft so overview slider has correct initial values
-    // Patch 52: also seed opacity and rotation
+    // Patch 49/52: seed scale, opacity, rotation
     brandEditorDraft.logoScale    = brand.logo_scale    != null ? brand.logo_scale    : 0.25;
     brandEditorDraft.logoOpacity  = brand.logo_opacity  != null ? brand.logo_opacity  : 1.0;
     brandEditorDraft.logoRotation = brand.logo_rotation != null ? brand.logo_rotation : 0.0;
     brandEditorDraft.wmScaleUi    = renderScaleToWatermarkUi(brand.wm_scale != null ? brand.wm_scale : 0.25);
-    _layoutDraftSaved = {
-        posLogoX:    brandEditorDraft.posLogoX,   posLogoY: brandEditorDraft.posLogoY,
-        posWmX:      brandEditorDraft.posWmX,     posWmY:   brandEditorDraft.posWmY,
-        logoScale:   brandEditorDraft.logoScale,
-        logoOpacity: brandEditorDraft.logoOpacity,   // Patch 52
-        logoRotation:brandEditorDraft.logoRotation,  // Patch 52
-        wmScaleUi:   brandEditorDraft.wmScaleUi
+
+    // Patch 54: store base (9:16) layout and parse per-format overrides
+    brandEditorDraft._baseLayout = {
+        posLogoX:  brandEditorDraft.posLogoX,  posLogoY: brandEditorDraft.posLogoY,
+        posWmX:    brandEditorDraft.posWmX,    posWmY:   brandEditorDraft.posWmY,
+        logoScale: brandEditorDraft.logoScale,
+        wmScaleUi: brandEditorDraft.wmScaleUi
     };
+    brandEditorDraft.formatOverrides = {};
+    if (brand.format_overrides) {
+        try {
+            const _raw = JSON.parse(brand.format_overrides);
+            for (const [fmt, d] of Object.entries(_raw)) {
+                brandEditorDraft.formatOverrides[fmt] = {
+                    posLogoX:  (d.logo_x  != null ? d.logo_x  : 0.85) * 100,
+                    posLogoY:  (d.logo_y  != null ? d.logo_y  : 0.85) * 100,
+                    logoScale:  d.logo_scale != null ? d.logo_scale : 0.25,
+                    posWmX:    (d.wm_x    != null ? d.wm_x    : 0.50) * 100,
+                    posWmY:    (d.wm_y    != null ? d.wm_y    : 0.50) * 100,
+                    wmScaleUi: renderScaleToWatermarkUi(d.wm_scale != null ? d.wm_scale : 0.25)
+                };
+            }
+        } catch(e) {}
+    }
+
+    // Apply current format's positions (may differ from base if on a non-9:16 tab)
+    _applyFormatLayout(selectedFormat, /*init=*/true);
+
     layoutDirty = false;
     layoutSelectedLayer = null;
     initLayoutDrag();
@@ -4364,7 +4393,7 @@ function initFormatTabs() {
     });
 }
 
-/** Switch the active format tab. Updates session state and workspace label/preview class only — no canvas redraw. */
+/** Switch the active format tab. Updates session state, preview aspect ratio, and canvas positions. */
 function switchFormat(format) {
     selectedFormat = format;
     sessionStorage.setItem('brandr_selected_format', format);
@@ -4381,6 +4410,79 @@ function switchFormat(format) {
     const viewingEl = document.getElementById('v2FormatViewing');
     if (viewingEl) {
         viewingEl.textContent = 'Viewing: ' + _formatLabel(format);
+    }
+
+    // Patch 54: swap canvas overlay positions to this format's saved layout (or base 9:16)
+    _applyFormatLayout(format);
+}
+
+/**
+ * Patch 54: Apply the saved layout for the given format to the canvas overlays and draft state.
+ * Falls back to base (9:16) layout when no override exists for the format.
+ * Pass init=true during workspace build to skip moving non-existent canvas elements.
+ */
+function _applyFormatLayout(format, init) {
+    const base = brandEditorDraft._baseLayout;
+    if (!base) return; // Workspace not open yet
+
+    const ov = (format !== 'vertical_9_16') ? brandEditorDraft.formatOverrides?.[format] : null;
+    const pos = ov || base;
+
+    // Sync draft
+    brandEditorDraft.posLogoX  = pos.posLogoX;
+    brandEditorDraft.posLogoY  = pos.posLogoY;
+    brandEditorDraft.logoScale = pos.logoScale;
+    brandEditorDraft.posWmX    = pos.posWmX;
+    brandEditorDraft.posWmY    = pos.posWmY;
+    brandEditorDraft.wmScaleUi = pos.wmScaleUi;
+
+    // Move canvas overlays (skip during initial workspace build — elements rendered from draft above)
+    if (!init) {
+        const logoImg = document.getElementById('v2LayoutLogoImg');
+        const wmImg   = document.getElementById('v2LayoutWmImg');
+        if (logoImg) {
+            logoImg.style.left  = pos.posLogoX + '%';
+            logoImg.style.top   = pos.posLogoY + '%';
+            logoImg.style.width = Math.round(pos.logoScale * 100) + '%';
+        }
+        if (wmImg) {
+            wmImg.style.left  = pos.posWmX + '%';
+            wmImg.style.top   = pos.posWmY + '%';
+            wmImg.style.width = (watermarkUiToRenderScale(pos.wmScaleUi) * 50) + '%';
+        }
+    }
+
+    // Reset dirty state and update saved snapshot for Reset button
+    _layoutDraftSaved = {
+        posLogoX:    pos.posLogoX,   posLogoY: pos.posLogoY,
+        posWmX:      pos.posWmX,     posWmY:   pos.posWmY,
+        logoScale:   pos.logoScale,
+        logoOpacity: brandEditorDraft.logoOpacity,
+        logoRotation:brandEditorDraft.logoRotation,
+        wmScaleUi:   pos.wmScaleUi
+    };
+    layoutDirty = false;
+    layoutSelectedLayer = null;
+    const saveBtn = document.getElementById('v2LayoutSaveBtn');
+    if (saveBtn) saveBtn.disabled = true;
+
+    // Update format override indicator
+    const indEl = document.getElementById('v2FormatLayoutInd');
+    if (indEl) {
+        if (ov) {
+            indEl.textContent = 'Custom layout saved for this format';
+            indEl.style.display = '';
+        } else if (format !== 'vertical_9_16') {
+            indEl.textContent = 'Using 9:16 base layout — drag & save to customise';
+            indEl.style.display = '';
+        } else {
+            indEl.style.display = 'none';
+        }
+    }
+
+    if (!init) {
+        _refreshReadout();
+        _refreshCompositionControls();
     }
 }
 
@@ -5550,17 +5652,19 @@ async function saveLayout() {
     const statusEl = document.getElementById('v2LayoutStatus');
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
     const clamp = v => Math.max(0.05, Math.min(0.95, v));
+    // Patch 54: include format so the API can route position fields to the right store
     const payload = {
+        format:        selectedFormat,
         logo_x:        clamp(brandEditorDraft.posLogoX / 100),
         logo_y:        clamp(brandEditorDraft.posLogoY / 100),
-        logo_scale:    brandEditorDraft.logoScale    != null ? brandEditorDraft.logoScale    : 0.25,  // Patch 49
-        logo_opacity:  brandEditorDraft.logoOpacity  != null ? brandEditorDraft.logoOpacity  : 1.0,   // Patch 52
-        logo_rotation: brandEditorDraft.logoRotation != null ? brandEditorDraft.logoRotation : 0.0    // Patch 52
+        logo_scale:    brandEditorDraft.logoScale    != null ? brandEditorDraft.logoScale    : 0.25,
+        logo_opacity:  brandEditorDraft.logoOpacity  != null ? brandEditorDraft.logoOpacity  : 1.0,   // always base
+        logo_rotation: brandEditorDraft.logoRotation != null ? brandEditorDraft.logoRotation : 0.0    // always base
     };
     if (brandEditorDraft.wmPath) {
         payload.wm_x     = clamp(brandEditorDraft.posWmX / 100);
         payload.wm_y     = clamp(brandEditorDraft.posWmY / 100);
-        payload.wm_scale = watermarkUiToRenderScale(brandEditorDraft.wmScaleUi != null ? brandEditorDraft.wmScaleUi : 25);  // Patch 49
+        payload.wm_scale = watermarkUiToRenderScale(brandEditorDraft.wmScaleUi != null ? brandEditorDraft.wmScaleUi : 25);
     }
     try {
         const res = await fetchWithTimeout(`${apiBase}/api/brands/${brandEditorDraft.brandId}`, {
@@ -5574,11 +5678,26 @@ async function saveLayout() {
         _layoutDraftSaved = {
             posLogoX:    brandEditorDraft.posLogoX,   posLogoY: brandEditorDraft.posLogoY,
             posWmX:      brandEditorDraft.posWmX,     posWmY:   brandEditorDraft.posWmY,
-            logoScale:   brandEditorDraft.logoScale,   // Patch 49
-            logoOpacity: brandEditorDraft.logoOpacity, // Patch 52
-            logoRotation:brandEditorDraft.logoRotation,// Patch 52
-            wmScaleUi:   brandEditorDraft.wmScaleUi    // Patch 49
+            logoScale:   brandEditorDraft.logoScale,
+            logoOpacity: brandEditorDraft.logoOpacity,
+            logoRotation:brandEditorDraft.logoRotation,
+            wmScaleUi:   brandEditorDraft.wmScaleUi
         };
+        // Patch 54: keep in-memory layout stores in sync after save
+        const _savedPos = {
+            posLogoX: brandEditorDraft.posLogoX, posLogoY: brandEditorDraft.posLogoY,
+            logoScale: brandEditorDraft.logoScale,
+            posWmX:   brandEditorDraft.posWmX,   posWmY:   brandEditorDraft.posWmY,
+            wmScaleUi: brandEditorDraft.wmScaleUi
+        };
+        if (selectedFormat === 'vertical_9_16') {
+            brandEditorDraft._baseLayout = { ..._savedPos };
+        } else {
+            if (!brandEditorDraft.formatOverrides) brandEditorDraft.formatOverrides = {};
+            brandEditorDraft.formatOverrides[selectedFormat] = { ..._savedPos };
+        }
+        // Refresh indicator
+        _applyFormatLayout(selectedFormat, /*init=*/true);
         if (statusEl) statusEl.textContent = '✅ Layout saved';
         if (saveBtn)  { saveBtn.disabled = true; saveBtn.textContent = 'Save Layout'; }
         loadBrands();

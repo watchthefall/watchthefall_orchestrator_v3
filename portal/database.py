@@ -451,6 +451,15 @@ def _run_migrations():
             c.execute("ALTER TABLE brands ADD COLUMN logo_rotation REAL DEFAULT 0.0")
             conn.commit()
             print("[DATABASE] Migration completed: logo_rotation added")
+
+        # Migration: Add format_overrides for per-format position/scale overrides (Patch 54)
+        try:
+            c.execute("SELECT format_overrides FROM brands LIMIT 1")
+        except sqlite3.OperationalError:
+            print("[DATABASE] Running migration: Adding format_overrides column")
+            c.execute("ALTER TABLE brands ADD COLUMN format_overrides TEXT DEFAULT NULL")
+            conn.commit()
+            print("[DATABASE] Migration completed: format_overrides added")
         
         # Migration: Add display_name to downloads table
         try:
@@ -1236,7 +1245,9 @@ def update_brand(brand_id, **updates):
         # Visual positioning fields
         'logo_x', 'logo_y', 'logo_opacity', 'logo_shape', 'logo_rotation',
         'wm_mode', 'wm_x', 'wm_y', 'wm_scale', 'wm_opacity',
-        'text_x_percent', 'text_y_percent'
+        'text_x_percent', 'text_y_percent',
+        # Patch 54: per-format position overrides (JSON blob)
+        'format_overrides'
     ]
     
     set_clauses = []
