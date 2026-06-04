@@ -4340,7 +4340,9 @@ function renderWorkspace(brand) {
     }
 
     // Apply current format's positions (may differ from base if on a non-9:16 tab)
-    _applyFormatLayout(selectedFormat, /*init=*/true);
+    // Patch 54 fix: do NOT pass init=true — canvas elements are already in the DOM
+    // at this point so we need the full DOM-move path to match saved overrides.
+    _applyFormatLayout(selectedFormat);
 
     layoutDirty = false;
     layoutSelectedLayer = null;
