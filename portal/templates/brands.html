@@ -7085,6 +7085,14 @@ function onComposerWheel(e) {
 
 async function wizardNextStep() {
     if (wizardState.step === 1) {
+        // Create mode must save the brand basics before any editor/composer controls appear.
+        // Older mobile/fallback bindings can still call wizardNextStep(), so route them
+        // through the direct create path instead of showing Step 2 pre-save.
+        if (!wizardState.editMode) {
+            await createBrandDirect();
+            return;
+        }
+
         // Validate step 1
         const displayName = document.getElementById('wizardDisplayName').value.trim();
         if (!displayName) {
