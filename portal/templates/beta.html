@@ -462,7 +462,7 @@
       </div>
 
       <div class="login-nudge">
-        Already approved? <a href="{{ url_for('login') }}">Log in here</a>
+        Approved? <a href="{{ url_for('register') }}">Create your account</a> or <a href="{{ url_for('login') }}">log in</a>.
       </div>
     </div><!-- /#form-state -->
 
@@ -473,6 +473,7 @@
         <h2>You're on the list.</h2>
         <p id="success-msg">
           You'll be notified when your access is approved.<br>
+          If approved, register using the same email address.<br>
           Join the Discord for beta updates, feature previews, and early creator rewards.
         </p>
         <a href="https://discord.gg/UeMfn4AmF" target="_blank" rel="noopener" class="btn-discord">
@@ -480,7 +481,7 @@
         </a>
       </div>
       <div class="login-nudge" style="margin-top:16px;">
-        Already approved? <a href="{{ url_for('login') }}">Log in here</a>
+        Approved? <a href="{{ url_for('register') }}">Create your account</a> or <a href="{{ url_for('login') }}">log in</a>.
       </div>
     </div>
 
@@ -535,8 +536,8 @@
 
         if (json.success) {
           const msg = json.created === false
-            ? "You're already on the Brandr beta list. We'll let you know when your access is approved."
-            : "You'll be notified when your access is approved.\nJoin the Discord for beta updates, feature previews, and early creator rewards.";
+            ? "You're already on the Brandr beta list. We'll let you know when your access is approved.\nIf approved, register using the same email address."
+            : "You'll be notified when your access is approved.\nIf approved, register using the same email address.\nJoin the Discord for beta updates, feature previews, and early creator rewards.";
           document.getElementById('success-msg').textContent = msg;
           document.getElementById('form-state').style.display = 'none';
           document.getElementById('success-state').style.display = 'block';
