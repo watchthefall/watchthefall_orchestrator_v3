@@ -4193,7 +4193,7 @@ function renderWorkspace(brand) {
                              id="v2LayoutLogoImg"
                              class="v2-preview-overlay layout-draggable"
                              data-layout-layer="logo"
-                             style="left:${(brand.logo_x||0.5)*100}%;top:${(brand.logo_y||0.5)*100}%;width:${(brand.logo_scale||0.25)*100}%;opacity:${brand.logo_opacity!=null?brand.logo_opacity:1};transform:${brand.logo_rotation?`rotate(${brand.logo_rotation}deg)`:'none'};border-radius:${brand.logo_shape==='circle'?'50%':'4px'}"
+                             style="left:${(brand.logo_x||0.5)*100}%;top:${(brand.logo_y||0.5)*100}%;width:${(brand.logo_scale||0.25)*100}%;opacity:${brand.logo_opacity!=null?brand.logo_opacity:1};transform:translate(-50%, -50%)${brand.logo_rotation?` rotate(${brand.logo_rotation}deg)`:''};border-radius:${brand.logo_shape==='circle'?'50%':'4px'}"
                              onerror="this.style.display='none'">
                         ${wmUrl ? `<img src="${wmUrl}"
                              id="v2LayoutWmImg"
@@ -5582,7 +5582,7 @@ function onLayoutRotationInput(value) {
     if (valEl) valEl.textContent = deg + '°';
     brandEditorDraft.logoRotation = deg;
     const img = document.getElementById('v2LayoutLogoImg');
-    if (img) img.style.transform = deg ? `rotate(${deg}deg)` : 'none';
+    if (img) img.style.transform = `translate(-50%, -50%)${deg ? ` rotate(${deg}deg)` : ''}`;
     layoutDirty = true;
     const saveBtn = document.getElementById('v2LayoutSaveBtn');
     if (saveBtn) saveBtn.disabled = false;
