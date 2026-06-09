@@ -1994,9 +1994,12 @@
     .wizard-step {
         flex: 1;
         min-height: 0;
-        display: flex;
         flex-direction: column;
         overflow: hidden; /* PATCH A: Content scrolls, not step */
+    }
+
+    .wizard-step:not(.active) {
+        display: none;
     }
 
     .wizard-step.active {
