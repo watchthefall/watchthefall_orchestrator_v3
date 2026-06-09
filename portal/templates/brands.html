@@ -3148,6 +3148,7 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    touch-action: none;
 }
 /* Aspect ratios — CSS only, no canvas redraw. Only vertical_9_16 is render-real. */
 .v2-ws-preview.fmt-vertical_9_16  { aspect-ratio: 9/16;  }
@@ -3168,6 +3169,7 @@
 .v2-preview-overlay.layout-draggable {
     pointer-events: auto;
     cursor: default;
+    touch-action: none;
 }
 .v2-preview-overlay.layout-selected {
     outline: 2px solid #F5A623;
@@ -5636,6 +5638,8 @@ function initLayoutDrag() {
         });
         el.addEventListener('pointermove', e => {
             if (!_layoutDragActive) return;
+            e.preventDefault();
+            e.stopPropagation();
             _updateDragPos(e, preview);
         });
         el.addEventListener('pointerup', () => {
