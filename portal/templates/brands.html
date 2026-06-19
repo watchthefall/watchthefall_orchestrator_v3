@@ -4307,8 +4307,14 @@ function renderWorkspace(brand) {
             <a class="btn btn-primary v2-start-btn" href="${_e(brandVideoUrl)}">Start Branding →</a>
         </div>`;
 
-    // Patch 45B: sync draft position state for layout canvas drag
-    brandEditorDraft.brandId  = brand.id;
+    // Patch 45B: sync draft position state for layout canvas drag.
+    // Guard: if the brand editor shell is currently open, do NOT overwrite brandEditorDraft.brandId —
+    // loadBrands() fires after every in-editor save/upload and would reset it to the rail's
+    // auto-selected brand (alphabetically first), causing saves to hit the wrong brand.
+    const _editorShellOpen = document.getElementById('brandEditorShell')?.classList.contains('active');
+    if (!_editorShellOpen) {
+        brandEditorDraft.brandId = brand.id;
+    }
     brandEditorDraft.wmPath   = brand.watermark_path || null;
     brandEditorDraft.posLogoX = Math.round((brand.logo_x != null ? brand.logo_x : 0.85) * 200) / 2;
     brandEditorDraft.posLogoY = Math.round((brand.logo_y != null ? brand.logo_y : 0.85) * 200) / 2;
