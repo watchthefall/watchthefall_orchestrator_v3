@@ -1549,12 +1549,14 @@ def admin_console():
 @app.route('/api/admin/set-tier', methods=['POST'])
 @admin_required
 def admin_set_tier():
-    """Set a user's tier and/or special_status (admin only)"""
+    """Set a user's tier and/or special_status (admin only).
+    Founding status is NEVER granted automatically — requires explicit grant_founder=True."""
     from .database import get_connection
     data = request.get_json(force=True) or {}
     user_id = data.get('user_id')
     new_tier = data.get('tier')
     new_status = data.get('special_status')  # '' or None means clear
+    grant_founder = bool(data.get('grant_founder', False))
 
     if not user_id or not new_tier:
         return jsonify({'success': False, 'error': 'user_id and tier required'}), 400
@@ -1563,7 +1565,6 @@ def admin_set_tier():
     if new_status and new_status not in SPECIAL_STATUSES:
         return jsonify({'success': False, 'error': f'Invalid status: {new_status}'}), 400
 
-    # Normalize empty string to None
     new_status = new_status if new_status else None
 
     with get_connection() as conn:
@@ -1573,20 +1574,79 @@ def admin_set_tier():
         if c.rowcount == 0:
             return jsonify({'success': False, 'error': 'User not found'}), 404
 
-    # Auto-grant founding member status if slots are available for this paid tier
+    # Only grant founding status when explicitly requested by the admin
     from .database import get_founding_slots_used, claim_founding_slot
     from .config import FOUNDING_MEMBER_CONFIG
     founding_granted = False
     eligible = FOUNDING_MEMBER_CONFIG.get('eligible_tiers', [])
     max_slots = FOUNDING_MEMBER_CONFIG.get('max_slots_per_tier', 100)
-    if new_tier in eligible and get_founding_slots_used(new_tier) < max_slots:
+
+    if grant_founder:
+        if new_tier not in eligible:
+            return jsonify({'success': False,
+                            'error': f'{new_tier} is not eligible for Founder Status (Explorer and Elite are excluded).'}), 400
+        slots_used = get_founding_slots_used(new_tier)
+        if slots_used >= max_slots:
+            return jsonify({'success': False,
+                            'error': f'No founding slots remaining for {new_tier} ({slots_used}/{max_slots} used).'}), 400
         claim_founding_slot(new_tier, user_id)
         founding_granted = True
-        print(f"[ADMIN] Founding member slot claimed: user={user_id} tier={new_tier}")
 
-    print(f"[ADMIN] Set user {user_id} to tier={new_tier} status={new_status} founding={founding_granted} by {session.get('email')}")
+    admin_email = session.get('email', 'unknown')
+    founder_note = ' + Founder Status granted' if founding_granted else ''
+    with get_connection() as conn:
+        try:
+            conn.execute(
+                '''INSERT INTO audit_log (admin_user_id, admin_email, action_type, target_user_id, target_email, details)
+                   SELECT ?, ?, 'set_tier', ?, email,
+                          'Tier → ' || ? || CASE WHEN ? THEN ' + special_status → ' || COALESCE(?, 'cleared') ELSE '' END || ?
+                   FROM users WHERE id = ?''',
+                (session.get('user_id'), admin_email, user_id,
+                 new_tier, bool(new_status), new_status, founder_note, user_id)
+            )
+            conn.commit()
+        except Exception:
+            pass  # audit log is best-effort
+
+    print(f"[ADMIN] set-tier user={user_id} tier={new_tier} status={new_status} founder_granted={founding_granted} by {admin_email}")
     return jsonify({'success': True, 'user_id': user_id, 'tier': new_tier,
                     'special_status': new_status, 'founding_granted': founding_granted})
+
+
+@app.route('/api/admin/revoke-founder', methods=['POST'])
+@admin_required
+def admin_revoke_founder():
+    """Remove founding status from a user and return one slot to the pool."""
+    from .database import get_connection, revoke_founding_status
+    data = request.get_json(force=True) or {}
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'error': 'user_id required'}), 400
+
+    with get_connection() as conn:
+        row = conn.execute('SELECT tier, email FROM users WHERE id = ?', (user_id,)).fetchone()
+    if not row:
+        return jsonify({'success': False, 'error': 'User not found'}), 404
+
+    tier = row['tier']
+    target_email = row['email']
+    revoked = revoke_founding_status(user_id, tier)
+
+    admin_email = session.get('email', 'unknown')
+    with get_connection() as conn:
+        try:
+            conn.execute(
+                '''INSERT INTO audit_log (admin_user_id, admin_email, action_type, target_user_id, target_email, details)
+                   VALUES (?, ?, 'revoke_founder', ?, ?, ?)''',
+                (session.get('user_id'), admin_email, user_id, target_email,
+                 f'Founder Status revoked (was on {tier} tier)' if revoked else 'Revoke attempted — user was not a founder')
+            )
+            conn.commit()
+        except Exception:
+            pass
+
+    print(f"[ADMIN] revoke-founder user={user_id} tier={tier} revoked={revoked} by {admin_email}")
+    return jsonify({'success': True, 'revoked': revoked})
 
 
 @app.route('/api/admin/disk-cleanup', methods=['POST'])

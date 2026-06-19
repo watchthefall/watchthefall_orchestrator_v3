@@ -654,6 +654,35 @@ def claim_founding_slot(tier, user_id):
     return expires_at
 
 
+def revoke_founding_status(user_id, tier):
+    """Remove founding status from user and safely decrement slot counter.
+    Idempotent — safe to call even if user is not a founding member.
+    Returns True if status was actually revoked, False if user wasn't a founder."""
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute(
+                '''UPDATE users
+                   SET founding_status = 0,
+                       founding_status_granted_at = NULL,
+                       founding_discount_percent = NULL,
+                       bonus_tier_until = NULL
+                   WHERE id = ? AND founding_status = 1''',
+                (user_id,)
+            )
+            if c.rowcount > 0:
+                # Safely decrement — MAX(0,...) prevents going negative
+                c.execute(
+                    'UPDATE founding_slots SET slots_used = MAX(0, slots_used - 1) WHERE tier = ?',
+                    (tier,)
+                )
+            conn.commit()
+            return c.rowcount > 0
+    except Exception as e:
+        print(f'[DATABASE] revoke_founding_status error user={user_id} tier={tier}: {e}')
+        return False
+
+
 # ========== BETA ACCESS / WAITLIST ==========
 
 def create_waitlist_entry(email, creator_name, main_platform, creator_type,
