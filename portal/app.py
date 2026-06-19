@@ -3584,13 +3584,23 @@ def create_brand_api():
         deleted_brand = find_inactive_brand(name, user_id)
         if deleted_brand:
             deleted_id = deleted_brand['id']
-            print(f"[BRANDS] Found soft-deleted brand '{name}' (id={deleted_id}) — reactivating")
+            print(f"[BRANDS] Found soft-deleted brand '{name}' (id={deleted_id}) — reactivating as clean slate")
             update_brand(
                 deleted_id,
                 is_active=1,
                 display_name=display_name,
-                # Reset visual defaults so the reactivated brand behaves like a fresh one
-                wm_mode='positioned',
+                # Wipe all asset paths and positions so the user gets a genuinely fresh brand,
+                # not the previous brand's logo/watermark/layout.
+                logo_path=None,
+                watermark_path=None,
+                watermark_vertical=None,
+                watermark_square=None,
+                watermark_landscape=None,
+                logo_x=None, logo_y=None, logo_scale=0, logo_opacity=1.0, logo_rotation=0,
+                logo_padding=40,
+                wm_x=None, wm_y=None, wm_scale=1.0, wm_opacity=0.4, wm_mode='positioned',
+                watermark_scale=1.15, watermark_opacity=0.4,
+                text_enabled=0, text_content='',
             )
             print(f"[BRANDS] Reactivated brand: {name} (id={deleted_id})")
             return jsonify({
