@@ -363,6 +363,9 @@ app = Flask(__name__,
             static_url_path='/static')
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_HTTPONLY'] = True
 
 # P1 fix: rate limiter — in-memory storage safe because WEB_CONCURRENCY=1
 limiter = Limiter(
