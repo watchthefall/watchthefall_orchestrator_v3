@@ -474,6 +474,16 @@ function onTierChange(selectEl) {
     btn.classList.toggle('visible', changed);
     var msg = document.getElementById('save-msg-' + userId);
     msg.classList.remove('show');
+
+    var eliteWarn = row.querySelector('.elite-warn');
+    if (!eliteWarn) {
+        eliteWarn = document.createElement('div');
+        eliteWarn.className = 'elite-warn';
+        eliteWarn.style.cssText = 'font-size:11px;color:#D4A017;margin-top:4px;display:none;';
+        eliteWarn.textContent = '⚠ Elite is internal/VIP only — do not assign to paying users.';
+        tierSel.parentNode.appendChild(eliteWarn);
+    }
+    eliteWarn.style.display = tierSel.value === 'Elite' ? '' : 'none';
 }
 
 function saveTier(btn) {
