@@ -4274,11 +4274,23 @@ def save_video_download():
         return jsonify({'error': 'source_url, filename, and file_path are required'}), 400
     
     user_id = session['user_id']
-    
+
+    # P1 fix: reject file_path values that point outside allowed storage dirs.
+    # Prevents a logged-in user from registering an arbitrary server path
+    # (e.g. the SQLite DB) and then downloading it via download-original.
+    from .config import RAW_DIR, OUTPUT_DIR
+    allowed_roots = (
+        os.path.realpath(RAW_DIR),
+        os.path.realpath(OUTPUT_DIR),
+    )
+    real_file_path = os.path.realpath(file_path)
+    if not any(real_file_path.startswith(root) for root in allowed_roots):
+        return jsonify({'error': 'Invalid file path'}), 400
+
     # Verify file exists
     if not os.path.exists(file_path):
         return jsonify({'error': 'File does not exist at specified path'}), 400
-    
+
     download_id = save_download(user_id, source_url, filename, file_path, display_name)
     
     return jsonify({
@@ -4481,6 +4493,7 @@ def api_detect_platform():
 
 
 @app.route('/api/download', methods=['POST'])
+@login_required
 def api_download_video():
     """Download a single video."""
     try:
@@ -4519,6 +4532,7 @@ def api_download_video():
 
 
 @app.route('/api/download/batch', methods=['POST'])
+@login_required
 def api_download_batch():
     """Download multiple videos."""
     try:
