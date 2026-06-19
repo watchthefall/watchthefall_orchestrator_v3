@@ -4681,9 +4681,8 @@ async function confirmAndDownload() {
 // Phase 17: fires a single brand render in the background.
 // Called from approveAndNext() — does NOT navigate or touch the main result div.
 // checkQueueComplete() handles the final completion panel when all renders land.
-// Phase 18: fire-and-forget render. POST returns a job_id immediately (~50ms).
-// Server runs FFmpeg in a background thread — browser tab can close without
-// killing the render. We poll every 5s until completed/failed/timeout (15 min).
+// Fires one POST per selected output format; polls all in parallel.
+// Item status becomes 'done' only when every format render settles.
 async function fireRenderForBrand(item) {
     // Guard: don't double-fire
     if (item.status === 'processing' || item.status === 'done') {
@@ -4698,169 +4697,153 @@ async function fireRenderForBrand(item) {
     }
     renderBrandPills();
 
-    // ── Step 1: POST to queue the job — expect { success, job_id } back fast ──
-    let job_id;
-    try {
-        console.log('[FIRE] Queuing render:', item.brand_name, currentFile);
-        const postRes = await fetch(`${apiBase}/api/videos/process_brands`, {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                source_path:   currentFile,
-                brand_ids:     [item.brand_id],
-                brands:        [item.brand_name],
-                output_format: selectedOutputFormats[0] || 'vertical_9_16',
-                ...(item.userEdited ? {
-                    watermark_scale:           item.overrides.watermark_scale,
-                    watermark_opacity:         item.overrides.watermark_opacity,
-                    logo_scale:                item.overrides.logo_scale,
-                    logo_x:                    item.overrides.logo_x,
-                    logo_y:                    item.overrides.logo_y,
-                    text_enabled:              item.overrides.text_enabled,
-                    text_content:              item.overrides.text_content,
-                    text_x:                    item.overrides.text_x,
-                    text_y:                    item.overrides.text_y,
-                    text_size:                 item.overrides.text_size,
-                    text_color:                item.overrides.text_color,
-                    text_bg_enabled:           item.overrides.text_bg_enabled,
-                    text_bg_opacity:           item.overrides.text_bg_opacity,
-                    secondary_logo_enabled:    item.overrides.secondary_logo_enabled    || false,
-                    secondary_logo_brand_id:   item.overrides.secondary_logo_brand_id   || null,
-                    secondary_logo_scale:      item.overrides.secondary_logo_scale      || 0.12,
-                    secondary_logo_opacity:    item.overrides.secondary_logo_opacity    || 0.9,
-                    secondary_logo_rotation:   item.overrides.secondary_logo_rotation   || 0,
-                    secondary_logo_x:          item.overrides.secondary_logo_x          || 0,
-                    secondary_logo_y:          item.overrides.secondary_logo_y          || 0
-                } : {})
-            })
-        });
+    const formats = selectedOutputFormats.length > 0 ? [...selectedOutputFormats] : ['vertical_9_16'];
 
-        let postData;
-        try { postData = await postRes.json(); }
-        catch { throw new Error(`Server error ${postRes.status} — check server logs`); }
+    const buildPayload = (fmt) => ({
+        source_path:   currentFile,
+        brand_ids:     [item.brand_id],
+        brands:        [item.brand_name],
+        output_format: fmt,
+        ...(item.userEdited ? {
+            watermark_scale:           item.overrides.watermark_scale,
+            watermark_opacity:         item.overrides.watermark_opacity,
+            logo_scale:                item.overrides.logo_scale,
+            logo_x:                    item.overrides.logo_x,
+            logo_y:                    item.overrides.logo_y,
+            text_enabled:              item.overrides.text_enabled,
+            text_content:              item.overrides.text_content,
+            text_x:                    item.overrides.text_x,
+            text_y:                    item.overrides.text_y,
+            text_size:                 item.overrides.text_size,
+            text_color:                item.overrides.text_color,
+            text_bg_enabled:           item.overrides.text_bg_enabled,
+            text_bg_opacity:           item.overrides.text_bg_opacity,
+            secondary_logo_enabled:    item.overrides.secondary_logo_enabled    || false,
+            secondary_logo_brand_id:   item.overrides.secondary_logo_brand_id   || null,
+            secondary_logo_scale:      item.overrides.secondary_logo_scale      || 0.12,
+            secondary_logo_opacity:    item.overrides.secondary_logo_opacity    || 0.9,
+            secondary_logo_rotation:   item.overrides.secondary_logo_rotation   || 0,
+            secondary_logo_x:          item.overrides.secondary_logo_x          || 0,
+            secondary_logo_y:          item.overrides.secondary_logo_y          || 0
+        } : {})
+    });
 
-        // Validation failures (tier limit, brand not found, etc.) come back synchronously
-        if (!postData.success) {
-            if (postData.error === 'DAILY_LIMIT_REACHED' || postData.error === 'BRANDS_PER_JOB_LIMIT') {
-                openUpgradeModal('Limit reached', postData.message || 'You have reached your plan limit.');
+    // ── Queue all format jobs upfront ──
+    const queuedJobs = []; // [{ job_id, format } | { format, failed: true }]
+    for (const fmt of formats) {
+        try {
+            const postRes = await fetch(`${apiBase}/api/videos/process_brands`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(buildPayload(fmt))
+            });
+            let postData;
+            try { postData = await postRes.json(); }
+            catch { throw new Error(`Server error ${postRes.status} — check server logs`); }
+
+            if (!postData.success) {
+                if (postData.error === 'DAILY_LIMIT_REACHED' || postData.error === 'BRANDS_PER_JOB_LIMIT') {
+                    openUpgradeModal('Limit reached', postData.message || 'You have reached your plan limit.');
+                }
+                throw new Error(postData.error || postData.details || 'Render could not be queued');
             }
-            throw new Error(postData.error || postData.details || 'Render could not be queued');
+            queuedJobs.push({ job_id: postData.job_id, format: fmt });
+            console.log('[FIRE] Queued', fmt, 'as job', postData.job_id, '—', item.brand_name);
+        } catch (postErr) {
+            console.error('[FIRE] Queue POST failed for format', fmt, ':', item.brand_name, postErr.message);
+            queuedJobs.push({ format: fmt, failed: true });
         }
+    }
 
-        job_id     = postData.job_id;
-        item.jobId = job_id;   // persist on item so retry/recovery can resume polling
-        console.log('[FIRE] Job queued:', job_id, '—', item.brand_name);
-
-    } catch (postErr) {
-        // POST itself failed (network error or sync validation rejection)
+    const firstSuccess = queuedJobs.find(j => !j.failed);
+    if (!firstSuccess) {
         item.status = 'failed';
         if (currentFile && item.brand_id) {
             const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
             if (jobItem) { jobItem.status = 'error'; persistJobItems(); }
         }
         renderBrandPills();
-        console.error('[FIRE] Queue POST failed:', item.brand_name, postErr.message);
         checkQueueComplete();
         return;
     }
+    item.jobId = firstSuccess.job_id;
 
-    // ── Step 2: Poll until completed / failed / timeout (15 min = 180 × 5s) ──
+    // ── Poll each job independently; finalise item when all settle ──
     const POLL_INTERVAL_MS = 5000;
-    const MAX_POLLS        = 180;   // 15 minutes
-    let   pollCount        = 0;
+    const MAX_POLLS        = 180;
+    let doneCount   = 0;
+    let failedCount = queuedJobs.filter(j => j.failed).length; // pre-count POST failures
+    const total     = queuedJobs.length;
 
-    const poll = async () => {
-        if (pollCount >= MAX_POLLS) {
-            console.error('[FIRE] Poll timeout for', item.brand_name, job_id);
-            item.status = 'failed';
-            if (currentFile && item.brand_id) {
-                const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
-                if (jobItem) { jobItem.status = 'error'; persistJobItems(); }
+    function onFormatSettled() {
+        if (doneCount + failedCount < total) return; // still waiting on other formats
+        item.status = failedCount === total ? 'failed' : 'done';
+        if (currentFile && item.brand_id) {
+            const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
+            if (jobItem) { jobItem.status = item.status === 'done' ? 'completed' : 'error'; persistJobItems(); }
+        }
+        renderBrandPills();
+        console.log('[FIRE] All formats settled for', item.brand_name, '— done:', doneCount, 'failed:', failedCount);
+        checkQueueComplete();
+    }
+
+    for (const { job_id, format, failed } of queuedJobs) {
+        if (failed) continue; // already counted in failedCount above
+
+        let pollCount = 0;
+        const poll = async () => {
+            if (pollCount >= MAX_POLLS) {
+                console.error('[FIRE] Poll timeout for', item.brand_name, format, job_id);
+                failedCount++;
+                onFormatSettled();
+                return;
             }
-            renderBrandPills();
-            checkQueueComplete();
-            return;
-        }
-        pollCount++;
+            pollCount++;
 
-        let pollData;
-        let pollRes;
-        try {
-            pollRes = await fetch(`${apiBase}/api/videos/brand-job/${job_id}`);
-            pollData = await pollRes.json();
-        } catch (netErr) {
-            // Transient network error (DNS, connection refused) — keep polling
-            console.warn('[FIRE] Poll network error, retrying:', netErr.message);
-            setTimeout(poll, POLL_INTERVAL_MS);
-            return;
-        }
-
-        // CASE 1: job disappeared (server restart / memory loss) — fail fast, no retry
-        if (pollRes.status === 404 || pollData.error) {
-            item.status = 'failed';
-            item.error = 'Render job lost after server restart. Please retry this brand.';
-            if (currentFile && item.brand_id) {
-                const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
-                if (jobItem) { jobItem.status = 'error'; persistJobItems(); }
-            }
-            renderBrandPills();
-            console.warn('[Brand Render] Job lost:', item.jobId, pollData);
-            checkQueueComplete();
-            return;
-        }
-
-        // CASE 2: temporary server/network problem — retry up to MAX_POLLS
-        if (!pollRes.ok) {
-            if (pollCount < MAX_POLLS) {
+            let pollData, pollRes;
+            try {
+                pollRes = await fetch(`${apiBase}/api/videos/brand-job/${job_id}`);
+                pollData = await pollRes.json();
+            } catch (netErr) {
+                console.warn('[FIRE] Poll network error, retrying:', netErr.message);
                 setTimeout(poll, POLL_INTERVAL_MS);
-            } else {
-                item.status = 'failed';
-                item.error = 'Polling timed out.';
-                if (currentFile && item.brand_id) {
-                    const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
-                    if (jobItem) { jobItem.status = 'error'; persistJobItems(); }
+                return;
+            }
+
+            // Job disappeared (server restart / memory loss) — fail fast
+            if (pollRes.status === 404 || pollData.error) {
+                if (!item.error) item.error = 'Render job lost after server restart. Please retry this brand.';
+                console.warn('[FIRE] Job lost:', job_id, format);
+                failedCount++;
+                onFormatSettled();
+                return;
+            }
+
+            if (!pollRes.ok) {
+                setTimeout(poll, POLL_INTERVAL_MS);
+                return;
+            }
+
+            if (pollData.status === 'completed') {
+                if (pollData.outputs && pollData.outputs[0]) {
+                    const downloadUrl = pollData.outputs[0].download_url;
+                    window.open(downloadUrl, '_blank');
+                    completedOutputs.push({ brand_name: item.brand_name, download_url: downloadUrl });
                 }
-                renderBrandPills();
-                checkQueueComplete();
+                doneCount++;
+                console.log('[FIRE] Done:', item.brand_name, format, 'polls:', pollCount);
+                onFormatSettled();
+            } else if (pollData.status === 'failed') {
+                console.error('[FIRE] Server-side render failed:', item.brand_name, format, pollData.error);
+                failedCount++;
+                onFormatSettled();
+            } else {
+                // queued or processing — keep polling
+                setTimeout(poll, POLL_INTERVAL_MS);
             }
-            return;
-        }
-
-        if (pollData.status === 'completed') {
-            // ── Render done — same handling as old synchronous path ──
-            item.status = 'done';
-            if (currentFile && item.brand_id) {
-                const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
-                if (jobItem) { jobItem.status = 'completed'; persistJobItems(); }
-            }
-            renderBrandPills();
-            console.log('[FIRE] Done:', item.brand_name, 'polls:', pollCount);
-
-            if (pollData.outputs && pollData.outputs[0]) {
-                const downloadUrl = pollData.outputs[0].download_url;
-                window.open(downloadUrl, '_blank');
-                completedOutputs.push({ brand_name: item.brand_name, download_url: downloadUrl });
-            }
-            checkQueueComplete();
-
-        } else if (pollData.status === 'failed') {
-            item.status = 'failed';
-            if (currentFile && item.brand_id) {
-                const jobItem = jobItems.find(j => j.filename === currentFile && j.brandId === item.brand_id);
-                if (jobItem) { jobItem.status = 'error'; persistJobItems(); }
-            }
-            renderBrandPills();
-            console.error('[FIRE] Server-side render failed:', item.brand_name, pollData.error);
-            checkQueueComplete();
-
-        } else {
-            // queued or processing — keep polling
-            setTimeout(poll, POLL_INTERVAL_MS);
-        }
-    };
-
-    // First poll after a short delay to let the server thread get started
-    setTimeout(poll, POLL_INTERVAL_MS);
+        };
+        setTimeout(poll, POLL_INTERVAL_MS);
+    }
 }
 
 async function processCurrentBrand() {
