@@ -216,6 +216,7 @@ def init_db():
                 source_filename TEXT NOT NULL,
                 source_download_id INTEGER,
                 output_filename TEXT NOT NULL,
+                bookmarked INTEGER DEFAULT 0,
                 file_path TEXT NOT NULL,
                 brand_id INTEGER,
                 brand_name TEXT,
@@ -234,7 +235,14 @@ def init_db():
             conn.commit()
         except Exception:
             pass  # Column already exists
-        
+
+        # Add bookmarked column to branded_outputs if it doesn't exist
+        try:
+            c.execute('ALTER TABLE branded_outputs ADD COLUMN bookmarked INTEGER DEFAULT 0')
+            conn.commit()
+        except Exception:
+            pass  # Column already exists
+
         # Daily usage tracking table
         c.execute('''
             CREATE TABLE IF NOT EXISTS daily_usage (
@@ -1466,7 +1474,7 @@ def get_branded_outputs_for_user(user_id, limit=50):
         c.execute('''
             SELECT bo.id, bo.output_filename, bo.brand_name, bo.output_format,
                    bo.source_filename, bo.width, bo.height, bo.aspect_ratio, bo.created_at,
-                   bo.file_path,
+                   bo.file_path, bo.bookmarked,
                    COALESCE(d.display_name, bo.source_filename) AS source_display_name
             FROM branded_outputs bo
             JOIN (
@@ -1548,6 +1556,68 @@ def get_user_bookmark_count(user_id):
         row = c.fetchone()
         return row['count'] if row else 0
 
+def toggle_branded_output_bookmark(output_id, user_id):
+    """Toggle bookmark on a branded_outputs row. Returns new state (0/1) or None if not found."""
+    def _do_toggle(conn):
+        c = conn.cursor()
+        c.execute('SELECT bookmarked FROM branded_outputs WHERE id = ? AND user_id = ?', (output_id, user_id))
+        row = c.fetchone()
+        if not row:
+            return None
+        new_state = 0 if row['bookmarked'] else 1
+        c.execute('UPDATE branded_outputs SET bookmarked = ? WHERE id = ? AND user_id = ?',
+                  (new_state, output_id, user_id))
+        conn.commit()
+        return new_state
+    return _retry_write(_do_toggle)
+
+def get_user_render_bookmark_count(user_id):
+    """Count bookmarked branded outputs for tier limit enforcement."""
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT COUNT(*) as count FROM branded_outputs WHERE user_id = ? AND bookmarked = 1', (user_id,))
+        row = c.fetchone()
+        return row['count'] if row else 0
+
+def cleanup_old_branded_outputs(max_age_hours=24):
+    """Delete branded_outputs rows older than max_age_hours where bookmarked=0,
+    and remove the corresponding files from disk."""
+    from datetime import datetime, timedelta
+    import os
+
+    cutoff_time = datetime.utcnow() - timedelta(hours=max_age_hours)
+    cutoff_iso = cutoff_time.isoformat()
+    deleted_count = 0
+
+    def _do_cleanup(conn):
+        c = conn.cursor()
+        c.execute(
+            'SELECT id, file_path FROM branded_outputs WHERE created_at < ? AND (bookmarked IS NULL OR bookmarked = 0)',
+            (cutoff_iso,)
+        )
+        rows = c.fetchall()
+        ids = [r['id'] for r in rows]
+        paths = [r['file_path'] for r in rows if r['file_path']]
+        if ids:
+            placeholders = ','.join('?' * len(ids))
+            c.execute(f'DELETE FROM branded_outputs WHERE id IN ({placeholders})', ids)
+            conn.commit()
+        return paths, len(ids)
+
+    try:
+        file_paths, count = _retry_write(_do_cleanup) or ([], 0)
+        deleted_count = count
+        for fp in file_paths:
+            try:
+                if fp and os.path.exists(fp):
+                    os.remove(fp)
+            except OSError as e:
+                print(f"[CLEANUP] Could not delete output file {fp}: {e}")
+    except sqlite3.OperationalError as e:
+        print(f"[CLEANUP] DB locked during branded_output cleanup (will retry next cycle): {e}")
+
+    return deleted_count
+
 def get_download(download_id, user_id):
     """Get a specific download for a user"""
     with get_connection() as conn:
@@ -1575,7 +1645,7 @@ def cleanup_old_downloads(max_age_hours=24):
 
     def _do_cleanup(conn):
         c = conn.cursor()
-        c.execute('DELETE FROM downloads WHERE created_at < ?', (cutoff_iso,))
+        c.execute('DELETE FROM downloads WHERE created_at < ? AND (bookmarked IS NULL OR bookmarked = 0)', (cutoff_iso,))
         count = c.rowcount
         conn.commit()
         return count

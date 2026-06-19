@@ -589,6 +589,35 @@
             }
         }
 
+        async function toggleRenderBookmark(outputId, btn) {
+            if (btn) btn.disabled = true;
+            try {
+                const res = await fetch(`/api/outputs/${outputId}/bookmark`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    alert(data.error || 'Could not save render.');
+                    if (btn) btn.disabled = false;
+                    return;
+                }
+                const isNowBookmarked = data.bookmarked === 1;
+                if (btn) {
+                    btn.textContent = isNowBookmarked ? 'Unsave' : 'Save';
+                    btn.disabled = false;
+                }
+                const label = document.getElementById(`bm-label-${outputId}`);
+                if (label) {
+                    label.textContent = isNowBookmarked ? '★ Saved — won\'t expire' : '☆ Expires in 24h';
+                    label.className = `bookmark-indicator${isNowBookmarked ? ' bookmarked' : ''}`;
+                }
+            } catch (err) {
+                console.error('[RenderBookmark] Error:', err);
+                if (btn) { btn.disabled = false; btn.textContent += ' ⚠'; }
+            }
+        }
+
         // --- Finished Renders ---
 
         let selectedRenderFiles = new Set();
@@ -759,6 +788,8 @@
                             : '';
                         const outputFilename = output.output_filename || '';
                         const fileAvailable = output.file_available !== false;
+                        const isBookmarked = output.bookmarked === 1;
+                        const outputId = output.id;
 
                         card.innerHTML = `
                             <label class="render-select-label">
@@ -774,11 +805,18 @@
                             <div class="render-meta">Source: ${escapeHtml(sourceLabel)}</div>
                             ${dimensionsHtml}
                             <div class="render-meta">${escapeHtml(createdAt)}</div>
+                            <div class="bookmark-indicator ${isBookmarked ? 'bookmarked' : ''}" id="bm-label-${outputId}">
+                                ${isBookmarked ? '★ Saved — won\'t expire' : '☆ Expires in 24h'}
+                            </div>
                             <div class="render-actions">
                                 ${fileAvailable
                                     ? `<a href="/api/videos/download/${encodeURIComponent(outputFilename)}" class="btn btn-secondary btn-small">Download</a>`
                                     : `<button class="btn btn-secondary btn-small" disabled>Download</button>`
                                 }
+                                <button class="btn btn-small btn-bookmark-toggle" id="bm-btn-${outputId}"
+                                        onclick="toggleRenderBookmark(${outputId}, this)">
+                                    ${isBookmarked ? 'Unsave' : 'Save'}
+                                </button>
                             </div>
                         `;
 

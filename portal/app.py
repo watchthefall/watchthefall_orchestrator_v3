@@ -4549,6 +4549,48 @@ def toggle_download_bookmark_api(download_id):
     })
 
 
+@app.route('/api/outputs/<int:output_id>/bookmark', methods=['POST'])
+@login_required
+def toggle_render_bookmark_api(output_id):
+    """Toggle bookmark on a finished render. Enforces per-tier bookmark limits."""
+    from .database import toggle_branded_output_bookmark, get_user_render_bookmark_count
+    from .config import TIER_CONFIG, DEFAULT_TIER
+
+    user_id = session['user_id']
+    tier = session.get('tier', DEFAULT_TIER)
+    tier_cfg = TIER_CONFIG.get(tier, TIER_CONFIG[DEFAULT_TIER])
+    max_bookmarks = tier_cfg.get('max_render_bookmarks', 5)
+
+    # Check limit only when bookmarking (not unbookmarking)
+    current_count = get_user_render_bookmark_count(user_id)
+    # Peek at current state to know if this is a bookmark or unbookmark
+    from .database import get_connection
+    with get_connection() as _conn:
+        _row = _conn.execute(
+            'SELECT bookmarked FROM branded_outputs WHERE id = ? AND user_id = ?',
+            (output_id, user_id)
+        ).fetchone()
+    if _row is None:
+        return jsonify({'success': False, 'error': 'Render not found'}), 404
+    is_currently_bookmarked = bool(_row['bookmarked'])
+
+    if not is_currently_bookmarked and max_bookmarks != -1 and current_count >= max_bookmarks:
+        return jsonify({
+            'success': False,
+            'error': f'Bookmark limit reached ({max_bookmarks} for {tier}). Upgrade to save more renders.',
+            'limit_reached': True,
+            'max_bookmarks': max_bookmarks,
+        }), 403
+
+    new_state = toggle_branded_output_bookmark(output_id, user_id)
+    return jsonify({
+        'success': True,
+        'bookmarked': new_state,
+        'bookmark_count': get_user_render_bookmark_count(user_id),
+        'max_bookmarks': max_bookmarks,
+    })
+
+
 @app.route('/api/downloads/cleanup', methods=['POST'])
 @login_required
 def cleanup_downloads():
@@ -4750,18 +4792,18 @@ def schedule_cleanup():
     """Schedule periodic cleanup of old files"""
     import time
     import threading
-    from .database import cleanup_old_downloads
-    
+    from .database import cleanup_old_downloads, cleanup_old_branded_outputs
+
     def cleanup_worker():
         while True:
             try:
-                # Run cleanup every 6 hours
-                deleted_count = cleanup_old_downloads(24)  # Delete files older than 24 hours
-                print(f"[CLEANUP] Deleted {deleted_count} old downloads and files")
+                dl_count = cleanup_old_downloads(24)
+                render_count = cleanup_old_branded_outputs(24)
+                print(f"[CLEANUP] Deleted {dl_count} old downloads and {render_count} expired renders")
                 time.sleep(6 * 60 * 60)  # 6 hours
             except Exception as e:
                 print(f"[CLEANUP] Error during cleanup: {e}")
-                time.sleep(60 * 60)  # Wait 1 hour before trying again
+                time.sleep(60 * 60)
     
     # Start cleanup thread
     cleanup_thread = threading.Thread(target=cleanup_worker, daemon=True)

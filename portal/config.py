@@ -62,6 +62,7 @@ TIER_CONFIG = {
         'max_outputs_per_job': 1,  # Explorer has 1 brand config, so max 1 brand per job
         'max_brand_configs': 1,
         'concurrent_jobs': 1,
+        'max_render_bookmarks': 5,   # renders saved from 24h expiry
     },
     'Creator': {
         'label': 'Creator',
@@ -77,6 +78,7 @@ TIER_CONFIG = {
         'max_outputs_per_job': 20,  # Beta-v1 aligned
         'max_brand_configs': 5,
         'concurrent_jobs': 3,
+        'max_render_bookmarks': 25,
     },
     'Studio': {
         'label': 'Studio',
@@ -93,6 +95,7 @@ TIER_CONFIG = {
         'max_brand_configs': -1,  # unlimited
         'concurrent_jobs': 5,
         'priority_processing': True,
+        'max_render_bookmarks': 50,
     },
     # Platinum: professional tier — power features, dual-logo composition, priority
     'Platinum': {
@@ -110,6 +113,7 @@ TIER_CONFIG = {
         'max_brand_configs': -1,
         'concurrent_jobs': 10,
         'priority_processing': True,
+        'max_render_bookmarks': -1,  # unlimited
     },
     # Elite: invitation-only gold tier — hidden from all public surfaces
     'Elite': {
@@ -127,6 +131,7 @@ TIER_CONFIG = {
         'concurrent_jobs': 20,
         'priority_processing': True,
         'hidden': True,           # NOT shown in upgrade modal
+        'max_render_bookmarks': -1,  # unlimited
     },
 }
 
@@ -149,6 +154,7 @@ TIER_FEATURES = {
         'max_brands_per_job': 1,
         'max_brand_configs_total': 1,
         'max_concurrent_jobs': 1,
+        'max_render_bookmarks': 5,
         'result_preview_strip_enabled': False,
         'favourite_brand_as_pfp_enabled': False,
         'advanced_queue_ui_enabled': False,
@@ -163,6 +169,7 @@ TIER_FEATURES = {
         'max_brands_per_job': 8,
         'max_brand_configs_total': 5,
         'max_concurrent_jobs': 3,
+        'max_render_bookmarks': 25,
         'result_preview_strip_enabled': True,
         'favourite_brand_as_pfp_enabled': True,
         'advanced_queue_ui_enabled': False,
@@ -177,6 +184,7 @@ TIER_FEATURES = {
         'max_brands_per_job': 20,
         'max_brand_configs_total': -1,
         'max_concurrent_jobs': 5,
+        'max_render_bookmarks': 50,
         'result_preview_strip_enabled': True,
         'favourite_brand_as_pfp_enabled': True,
         'advanced_queue_ui_enabled': True,
@@ -191,6 +199,7 @@ TIER_FEATURES = {
         'max_brands_per_job': 50,
         'max_brand_configs_total': -1,
         'max_concurrent_jobs': 10,
+        'max_render_bookmarks': -1,
         'result_preview_strip_enabled': True,
         'favourite_brand_as_pfp_enabled': True,
         'advanced_queue_ui_enabled': True,
@@ -205,6 +214,7 @@ TIER_FEATURES = {
         'max_brands_per_job': 100,
         'max_brand_configs_total': -1,
         'max_concurrent_jobs': 20,
+        'max_render_bookmarks': -1,
         'result_preview_strip_enabled': True,
         'favourite_brand_as_pfp_enabled': True,
         'advanced_queue_ui_enabled': True,
