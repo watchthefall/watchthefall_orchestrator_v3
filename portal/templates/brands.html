@@ -5652,6 +5652,10 @@ function initLayoutDrag() {
 async function saveLayout() {
     const saveBtn  = document.getElementById('v2LayoutSaveBtn');
     const statusEl = document.getElementById('v2LayoutStatus');
+    if (!brandEditorDraft.brandId) {
+        if (statusEl) statusEl.textContent = '❌ No brand selected — click a brand first';
+        return;
+    }
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
     const clamp = v => Math.max(0.05, Math.min(0.95, v));
     // Patch 54: include format so the API can route position fields to the right store
