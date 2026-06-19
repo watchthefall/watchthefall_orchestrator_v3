@@ -1449,9 +1449,9 @@ def profile_page():
         # Get user info from database
         with get_connection() as conn:
             c = conn.cursor()
-            c.execute('SELECT created_at, tier FROM users WHERE id = ?', (user_id,))
+            c.execute('SELECT created_at, tier, COALESCE(founding_status, 0) as founding_status FROM users WHERE id = ?', (user_id,))
             user = c.fetchone()
-        
+
         # Format created date
         created_at = 'Recently'
         if user and user['created_at']:
@@ -1460,17 +1460,19 @@ def profile_page():
                 created_at = created_dt.strftime('%B %Y')
             except:
                 pass
-        
+
+        founding_status = user['founding_status'] if user else 0
+
         # Get tier from database via helper
         tier = get_user_tier(user_id)
         special_status = get_user_special_status(user_id)
         limits = get_effective_limits(tier, special_status)
         usage = get_daily_usage(user_id)
-        
+
         # Get actual brand count
         user_brands = get_all_brands(user_id=user_id, include_system=False)
         brand_configs = len(user_brands)
-        
+
         return render_template('profile.html',
             email=email,
             created_at=created_at,
@@ -1478,6 +1480,7 @@ def profile_page():
             limits=limits,
             usage=usage,
             brand_configs=brand_configs,
+            founding_status=founding_status,
         )
     except Exception as e:
         print(f"[PROFILE ERROR] Failed to load profile page: {e}")
