@@ -1,6 +1,172 @@
 <!-- Shared Upgrade Modal — include on any page that needs upgrade conversion -->
 <!-- Requires context: tier, all_tier_features, all_tier_config, founding_slots_remaining, founding_max_slots -->
 {% if tier not in ('Elite',) and user_special_status != 'beta_tester' %}
+
+<style>
+.upgrade-modal-overlay.wide .upgrade-modal {
+    max-width: 820px;
+    width: 96vw;
+}
+.upgrade-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0 10px;
+}
+.upgrade-card {
+    background: #1a1a1e;
+    border: 1px solid #2a2a2e;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: border-color 0.15s;
+}
+.upgrade-card.current-plan {
+    border-color: var(--accent, #A855F7);
+}
+.upgrade-card-banner {
+    width: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: center top;
+    height: 120px;
+    background: #111;
+}
+.upgrade-card-inner {
+    padding: 14px 16px 16px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.upgrade-card-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.upgrade-card-price {
+    color: #888;
+    font-size: 13px;
+    font-weight: 400;
+}
+.upgrade-card-price s {
+    color: #555;
+    margin-right: 2px;
+}
+.upgrade-founding-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #86EDA5;
+    background: rgba(134, 237, 165, 0.08);
+    border: 1px solid rgba(134, 237, 165, 0.2);
+    border-radius: 4px;
+    padding: 3px 7px;
+    margin: 6px 0 8px;
+    width: fit-content;
+}
+.upgrade-card-headline {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 10px;
+}
+.upgrade-card-features {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 14px;
+    font-size: 12px;
+    color: #888;
+    flex: 1;
+}
+.upgrade-card-features li {
+    padding: 3px 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.upgrade-card-features li::before {
+    content: '·';
+    color: #444;
+    font-size: 16px;
+    line-height: 1;
+}
+.upgrade-card-features li.highlight {
+    color: #EAEAEA;
+}
+.upgrade-card-features li.highlight::before {
+    content: '✓';
+    color: #86EDA5;
+    font-size: 11px;
+}
+.upgrade-card-actions {
+    margin-top: auto;
+}
+.upgrade-card-btn {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    background: var(--accent, #A855F7);
+    color: #fff;
+    transition: opacity 0.15s;
+}
+.upgrade-card-btn:hover { opacity: 0.85; }
+.upgrade-card-btn.current {
+    background: #2a2a2e;
+    color: #666;
+    cursor: default;
+}
+.upgrade-card-btn.current:hover { opacity: 1; }
+.upgrade-founding-note {
+    font-size: 12px;
+    color: #555;
+    text-align: center;
+    margin-top: 10px;
+}
+
+/* Mobile: horizontal snap carousel */
+@media (max-width: 600px) {
+    .upgrade-options {
+        display: flex;
+        flex-direction: row;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 10px;
+        padding-bottom: 8px;
+        margin-left: -4px;
+        margin-right: -4px;
+        padding-left: 4px;
+        padding-right: 4px;
+    }
+    .upgrade-options::-webkit-scrollbar { display: none; }
+    .upgrade-card {
+        flex: 0 0 80vw;
+        max-width: 280px;
+        scroll-snap-align: start;
+    }
+    .upgrade-swipe-hint {
+        display: block;
+        text-align: center;
+        font-size: 11px;
+        color: #444;
+        margin-top: 4px;
+    }
+}
+@media (min-width: 601px) {
+    .upgrade-swipe-hint { display: none; }
+}
+</style>
+
 <div class="upgrade-modal-overlay wide" id="upgradeModal">
     <div class="upgrade-modal">
         <h2 id="upgradeModalTitle">Unlock More From Brandr</h2>
@@ -10,23 +176,24 @@
 
             {# Explorer (Free) #}
             <div class="upgrade-card {% if tier == 'Explorer' %}current-plan{% endif %}">
-                <div class="upgrade-card-info">
-                    <h3>
+                <img class="upgrade-card-banner" src="{{ url_for('static', filename='images/tiers/tier-explorer.png') }}" alt="Explorer" />
+                <div class="upgrade-card-inner">
+                    <div class="upgrade-card-title">
                         <span style="color:#86EDA5;">Explorer</span>
-                        <span style="color:#888;font-size:13px;font-weight:400;">Free</span>
-                    </h3>
+                        <span class="upgrade-card-price">Free</span>
+                    </div>
                     <div class="upgrade-card-headline">Get started with branded video</div>
                     <ul class="upgrade-card-features">
-                        <li>{{ all_tier_features.Explorer.max_brands_per_job }} brands per job</li>
+                        <li>{{ all_tier_features.Explorer.max_brands_per_job }} brand per job</li>
                         <li>{{ all_tier_features.Explorer.max_brand_configs_total }} brand config</li>
                         <li>{{ all_tier_features.Explorer.max_branding_jobs_per_day }} jobs/day</li>
                         <li>{{ all_tier_features.Explorer.max_downloads_per_day }} downloads/day</li>
                     </ul>
-                </div>
-                <div class="upgrade-card-actions">
-                    {% if tier == 'Explorer' %}
-                    <button class="upgrade-card-btn current">Current Plan</button>
-                    {% endif %}
+                    <div class="upgrade-card-actions">
+                        {% if tier == 'Explorer' %}
+                        <button class="upgrade-card-btn current">Current Plan</button>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
 
@@ -34,20 +201,19 @@
             {% set cr_slots = founding_slots_remaining.get('Creator', 0) %}
             {% set cr_founding = cr_slots > 0 %}
             {% set cr_price = all_tier_config.Creator.founding_price if cr_founding else all_tier_config.Creator.price %}
+            {% set cr_full_price = all_tier_config.Creator.price %}
             <div class="upgrade-card {% if tier == 'Creator' %}current-plan{% endif %}">
-                <div class="upgrade-card-info">
-                    <h3>
+                <img class="upgrade-card-banner" src="{{ url_for('static', filename='images/tiers/tier-creator.png') }}" alt="Creator" />
+                <div class="upgrade-card-inner">
+                    <div class="upgrade-card-title">
                         <span style="color:#A855F7;">Creator</span>
-                        <span style="color:#888;font-size:13px;font-weight:400;">
-                            ${{ cr_price }}/mo
-                            {% if cr_founding %}
-                            <span style="color:#86EDA5;font-size:11px;margin-left:4px;">★ Founding</span>
-                            {% endif %}
+                        <span class="upgrade-card-price">
+                            {% if cr_founding %}<s>£{{ cr_full_price }}/mo</s> £{{ cr_price }}/mo{% else %}£{{ cr_price }}/mo{% endif %}
                         </span>
-                    </h3>
+                    </div>
                     {% if cr_founding %}
                     <div class="upgrade-founding-badge">
-                        {{ cr_slots }}/{{ founding_max_slots }} founding slots left — locks in for 12 months
+                        ★ Founding Member Access — {{ cr_slots }} slots left
                     </div>
                     {% endif %}
                     <div class="upgrade-card-headline">Scale your brand presence</div>
@@ -59,13 +225,13 @@
                         <li class="highlight">Result preview strip</li>
                         <li class="highlight">Brand as profile image</li>
                     </ul>
-                </div>
-                <div class="upgrade-card-actions">
-                    {% if tier == 'Creator' %}
-                    <button class="upgrade-card-btn current">Current Plan</button>
-                    {% elif tier == 'Explorer' %}
-                    <button class="upgrade-card-btn" onclick="handleUpgrade('Creator')">Upgrade to Creator</button>
-                    {% endif %}
+                    <div class="upgrade-card-actions">
+                        {% if tier == 'Creator' %}
+                        <button class="upgrade-card-btn current">Current Plan</button>
+                        {% elif tier == 'Explorer' %}
+                        <button class="upgrade-card-btn" onclick="handleUpgrade('Creator')">Upgrade to Creator</button>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
 
@@ -73,20 +239,19 @@
             {% set st_slots = founding_slots_remaining.get('Studio', 0) %}
             {% set st_founding = st_slots > 0 %}
             {% set st_price = all_tier_config.Studio.founding_price if st_founding else all_tier_config.Studio.price %}
+            {% set st_full_price = all_tier_config.Studio.price %}
             <div class="upgrade-card {% if tier == 'Studio' %}current-plan{% endif %}">
-                <div class="upgrade-card-info">
-                    <h3>
+                <img class="upgrade-card-banner" src="{{ url_for('static', filename='images/tiers/tier-studio.png') }}" alt="Studio" />
+                <div class="upgrade-card-inner">
+                    <div class="upgrade-card-title">
                         <span style="color:#F5A623;">Studio</span>
-                        <span style="color:#888;font-size:13px;font-weight:400;">
-                            ${{ st_price }}/mo
-                            {% if st_founding %}
-                            <span style="color:#86EDA5;font-size:11px;margin-left:4px;">★ Founding</span>
-                            {% endif %}
+                        <span class="upgrade-card-price">
+                            {% if st_founding %}<s>£{{ st_full_price }}/mo</s> £{{ st_price }}/mo{% else %}£{{ st_price }}/mo{% endif %}
                         </span>
-                    </h3>
+                    </div>
                     {% if st_founding %}
                     <div class="upgrade-founding-badge">
-                        {{ st_slots }}/{{ founding_max_slots }} founding slots left — locks in for 12 months
+                        ★ Founding Member Access — {{ st_slots }} slots left
                     </div>
                     {% endif %}
                     <div class="upgrade-card-headline">Built for multi-page operators</div>
@@ -99,13 +264,13 @@
                         <li class="highlight">Advanced queue controls</li>
                         <li class="highlight">Batch templates</li>
                     </ul>
-                </div>
-                <div class="upgrade-card-actions">
-                    {% if tier == 'Studio' %}
-                    <button class="upgrade-card-btn current">Current Plan</button>
-                    {% elif tier in ('Explorer', 'Creator') %}
-                    <button class="upgrade-card-btn" onclick="handleUpgrade('Studio')">Upgrade to Studio</button>
-                    {% endif %}
+                    <div class="upgrade-card-actions">
+                        {% if tier == 'Studio' %}
+                        <button class="upgrade-card-btn current">Current Plan</button>
+                        {% elif tier in ('Explorer', 'Creator') %}
+                        <button class="upgrade-card-btn" onclick="handleUpgrade('Studio')">Upgrade to Studio</button>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
 
@@ -113,20 +278,19 @@
             {% set pl_slots = founding_slots_remaining.get('Platinum', 0) %}
             {% set pl_founding = pl_slots > 0 %}
             {% set pl_price = all_tier_config.Platinum.founding_price if pl_founding else all_tier_config.Platinum.price %}
+            {% set pl_full_price = all_tier_config.Platinum.price %}
             <div class="upgrade-card {% if tier == 'Platinum' %}current-plan{% endif %}">
-                <div class="upgrade-card-info">
-                    <h3>
+                <img class="upgrade-card-banner" src="{{ url_for('static', filename='images/tiers/tier-platinum.png') }}" alt="Platinum" />
+                <div class="upgrade-card-inner">
+                    <div class="upgrade-card-title">
                         <span style="color:#C0CFFF;">Platinum</span>
-                        <span style="color:#888;font-size:13px;font-weight:400;">
-                            ${{ pl_price }}/mo
-                            {% if pl_founding %}
-                            <span style="color:#86EDA5;font-size:11px;margin-left:4px;">★ Founding</span>
-                            {% endif %}
+                        <span class="upgrade-card-price">
+                            {% if pl_founding %}<s>£{{ pl_full_price }}/mo</s> £{{ pl_price }}/mo{% else %}£{{ pl_price }}/mo{% endif %}
                         </span>
-                    </h3>
+                    </div>
                     {% if pl_founding %}
                     <div class="upgrade-founding-badge">
-                        {{ pl_slots }}/{{ founding_max_slots }} founding slots left — locks in for 12 months
+                        ★ Founding Member Access — {{ pl_slots }} slots left
                     </div>
                     {% endif %}
                     <div class="upgrade-card-headline">Professional-grade composition</div>
@@ -139,20 +303,21 @@
                         <li class="highlight">{{ all_tier_features.Platinum.max_concurrent_jobs }} concurrent jobs</li>
                         <li>Everything in Studio</li>
                     </ul>
-                </div>
-                <div class="upgrade-card-actions">
-                    {% if tier == 'Platinum' %}
-                    <button class="upgrade-card-btn current">Current Plan</button>
-                    {% elif tier in ('Explorer', 'Creator', 'Studio') %}
-                    <button class="upgrade-card-btn" onclick="handleUpgrade('Platinum')">Upgrade to Platinum</button>
-                    {% endif %}
+                    <div class="upgrade-card-actions">
+                        {% if tier == 'Platinum' %}
+                        <button class="upgrade-card-btn current">Current Plan</button>
+                        {% elif tier in ('Explorer', 'Creator', 'Studio') %}
+                        <button class="upgrade-card-btn" onclick="handleUpgrade('Platinum')">Upgrade to Platinum</button>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
 
         </div><!-- /.upgrade-options -->
+        <span class="upgrade-swipe-hint">← swipe to see all plans →</span>
 
         <p class="upgrade-founding-note">
-            ★ Founding member rate locks in for 12 months. You're helping build Brandr — this is your reward.
+            ★ Founding Member Access locks your price for 12 months. You're helping build Brandr — this is your reward.
         </p>
 
         <button class="modal-dismiss" onclick="closeUpgradeModal()">Not now</button>
