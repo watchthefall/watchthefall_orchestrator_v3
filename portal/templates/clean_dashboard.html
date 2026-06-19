@@ -3349,7 +3349,6 @@ function selectSecondaryLogo(brandId) {
 
 function loadSecondaryLogoImage(brandId) {
     secondaryLogoImg = new Image();
-    secondaryLogoImg.crossOrigin = 'anonymous';
     secondaryLogoImg.onload = function() { updateCanvasPreview(); };
     secondaryLogoImg.onerror = function() {
         console.warn('[COMP] Secondary logo load failed for brand #' + brandId);
@@ -4214,7 +4213,6 @@ async function loadBrandAssets(brandId) {
 
     // Load watermark
     watermarkImg = new Image();
-    watermarkImg.crossOrigin = 'anonymous';
     watermarkImg.onload = updateCanvasPreview;
     watermarkImg.onerror = () => {
         console.warn(`[BRANDR] Watermark load failed for brand #${brandId}`);
@@ -4226,7 +4224,6 @@ async function loadBrandAssets(brandId) {
     console.log(`[BRANDR] loadBrandAssets logo — brand #${brandId} "${brandData.display_name || brandData.name}" logo_path=${brandData.logo_path || 'NONE'} url=${brandData.logo_path ? logoUrl : 'SKIP'}`);
     if (brandData.logo_path) {
         logoImg = new Image();
-        logoImg.crossOrigin = 'anonymous';
         logoImg.onload = () => {
             console.log(`[BRANDR] Logo loaded OK — brand #${brandId} naturalSize=${logoImg.naturalWidth}×${logoImg.naturalHeight} url=${logoUrl}`);
             if (logoImg.naturalWidth === 0 || logoImg.naturalHeight === 0) {
