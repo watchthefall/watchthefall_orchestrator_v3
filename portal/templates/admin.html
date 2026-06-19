@@ -14,250 +14,290 @@
             min-height: 100vh;
         }
         .container {
-            max-width: 1100px;
+            max-width: 1200px;
             margin: 32px auto;
             padding: 0 20px;
         }
-        h1 {
-            font-size: 1.8rem;
-            margin-bottom: 8px;
-            color: #fff;
-        }
-        .subtitle {
-            color: #888;
-            font-size: 14px;
-            margin-bottom: 30px;
-        }
-        .admin-card {
-            background: #202024;
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 20px;
-        }
+        h1 { font-size: 1.6rem; margin-bottom: 4px; color: #fff; }
+        .subtitle { color: #555; font-size: 13px; margin-bottom: 20px; }
+
+        /* ── Stat strip ── */
         .stat-row {
             display: flex;
-            gap: 16px;
-            margin-bottom: 24px;
+            gap: 10px;
+            margin-bottom: 20px;
             flex-wrap: wrap;
         }
         .stat-box {
-            background: #121214;
+            background: #1a1a1e;
             border: 1px solid #2a2a2e;
             border-radius: 8px;
-            padding: 16px 20px;
+            padding: 14px 18px;
             flex: 1;
-            min-width: 100px;
+            min-width: 90px;
         }
         .stat-box .stat-label {
-            font-size: 11px;
-            color: #888;
+            font-size: 10px;
+            color: #555;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 4px;
         }
         .stat-box .stat-value {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 700;
             color: #EAEAEA;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
+        .stat-box.tier-explorer .stat-value { color: #86EDA5; }
+        .stat-box.tier-creator  .stat-value { color: #A855F7; }
+        .stat-box.tier-studio   .stat-value { color: #F5A623; }
+        .stat-box.tier-platinum .stat-value { color: #C0CFFF; }
+        .stat-box.tier-founder  .stat-value { color: #86EDA5; }
+
+        /* ── Table card ── */
+        .admin-card {
+            background: #1a1a1e;
+            border: 1px solid #2a2a2e;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
         }
-        th {
-            text-align: left;
-            padding: 10px 8px;
-            font-size: 11px;
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            gap: 12px;
+        }
+        .card-title {
+            font-size: 13px;
+            font-weight: 600;
             color: #888;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            border-bottom: 1px solid #333;
+        }
+        .search-box {
+            flex: 1;
+            max-width: 280px;
+            background: #121214;
+            border: 1px solid #2a2a2e;
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: #EAEAEA;
+            font-size: 13px;
+        }
+        .search-box:focus { outline: none; border-color: var(--accent); }
+        .search-box::placeholder { color: #444; }
+
+        /* ── Table ── */
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            text-align: left;
+            padding: 8px 10px;
+            font-size: 10px;
+            color: #444;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #2a2a2e;
             white-space: nowrap;
         }
         td {
-            padding: 10px 8px;
-            border-bottom: 1px solid #2a2a2e;
+            padding: 11px 10px;
+            border-bottom: 1px solid #1e1e22;
             font-size: 13px;
+            vertical-align: middle;
         }
-        tr:hover {
-            background: rgba(255,255,255,0.02);
-        }
-        tr.deactivated-row {
-            opacity: 0.45;
-        }
+        tr:last-child td { border-bottom: none; }
+        tr.user-row:hover td { background: rgba(255,255,255,0.015); }
+        tr.deactivated-row { opacity: 0.35; }
+        tr.new-user-row td:first-child { border-left: 2px solid #86EDA5; }
+
+        /* ── Email cell ── */
         .email-cell {
             font-weight: 500;
             color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
         }
-        .date-cell {
-            color: #888;
-            font-size: 12px;
-            white-space: nowrap;
+        .badge-new {
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 5px;
+            border-radius: 3px;
+            background: rgba(134,237,165,0.15);
+            color: #86EDA5;
+            border: 1px solid rgba(134,237,165,0.25);
+            letter-spacing: 0.3px;
         }
-        .insight-cell {
-            color: #888;
-            font-size: 12px;
+        .badge-founder {
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 5px;
+            border-radius: 3px;
+            background: rgba(199,165,60,0.12);
+            color: #C7A53C;
+            border: 1px solid rgba(199,165,60,0.2);
+            letter-spacing: 0.3px;
+        }
+
+        /* ── Tier cell ── */
+        .tier-cell { display: flex; align-items: center; gap: 6px; }
+        .tier-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
         }
         select.tier-select {
             background: #121214;
             color: #EAEAEA;
-            border: 1px solid #444;
-            border-radius: 6px;
-            padding: 5px 8px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 4px 6px;
             font-size: 12px;
             cursor: pointer;
+            max-width: 100px;
         }
-        select.tier-select:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
+        select.tier-select:focus { outline: none; border-color: var(--accent); }
+
         .save-btn {
             background: var(--accent);
             color: #121214;
             border: none;
-            padding: 5px 12px;
-            border-radius: 6px;
-            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 5px;
+            font-weight: 700;
             font-size: 11px;
             cursor: pointer;
             display: none;
+            white-space: nowrap;
         }
-        .save-btn:hover { background: var(--accent-hover); }
         .save-btn.visible { display: inline-block; }
+        .save-btn:hover { opacity: 0.85; }
         .saved-msg {
-            color: var(--accent);
             font-size: 11px;
-            margin-left: 6px;
+            margin-left: 4px;
             opacity: 0;
             transition: opacity 0.3s;
         }
         .saved-msg.show { opacity: 1; }
-        .search-box {
-            width: 100%;
-            background: #121214;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 10px 14px;
-            color: #EAEAEA;
-            font-size: 14px;
-            margin-bottom: 16px;
-        }
-        .search-box:focus { outline: none; border-color: var(--accent); }
-        .search-box::placeholder { color: #666; }
 
-        /* Account status badges */
+        /* ── Status badges ── */
         .acct-status {
             display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
+            padding: 2px 7px;
+            border-radius: 3px;
             font-size: 10px;
-            font-weight: 600;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.3px;
         }
-        .acct-status.active { color: #86EDA5; background: rgba(134,237,165,0.1); }
-        .acct-status.suspended { color: #ff9800; background: rgba(255,152,0,0.1); }
-        .acct-status.pending_reset { color: #C0CFFF; background: rgba(192,207,255,0.1); }
-        .acct-status.deactivated { color: #e05252; background: rgba(224,82,82,0.1); }
+        .acct-status.active        { color: #86EDA5; background: rgba(134,237,165,0.08); }
+        .acct-status.suspended     { color: #ff9800; background: rgba(255,152,0,0.08); }
+        .acct-status.pending_reset { color: #C0CFFF; background: rgba(192,207,255,0.08); }
+        .acct-status.deactivated   { color: #e05252; background: rgba(224,82,82,0.08); }
 
-        /* Action buttons */
-        .actions-cell {
-            display: flex;
-            gap: 4px;
-            align-items: center;
-            flex-wrap: nowrap;
-        }
+        /* ── Action buttons ── */
+        .actions-cell { display: flex; gap: 4px; align-items: center; flex-wrap: nowrap; }
         .action-btn {
-            padding: 4px 10px;
-            border: 1px solid #444;
+            padding: 4px 9px;
+            border: 1px solid #2a2a2e;
             border-radius: 4px;
             background: transparent;
-            color: #ccc;
+            color: #666;
             font-size: 11px;
             cursor: pointer;
             white-space: nowrap;
-            transition: all 0.2s;
+            transition: all 0.15s;
         }
-        .action-btn:hover { background: #2a2a2e; color: #fff; }
-        .action-btn.danger { border-color: rgba(224,82,82,0.3); color: #e05252; }
-        .action-btn.danger:hover { background: rgba(224,82,82,0.1); color: #ff6b6b; }
+        .action-btn:hover { background: #252528; color: #EAEAEA; border-color: #444; }
+        .action-btn.warn  { color: #ff9800; border-color: rgba(255,152,0,0.2); }
+        .action-btn.warn:hover  { background: rgba(255,152,0,0.08); color: #ffb74d; }
+        .action-btn.danger { color: #e05252; border-color: rgba(224,82,82,0.2); }
+        .action-btn.danger:hover { background: rgba(224,82,82,0.08); color: #ff6b6b; }
+        .action-btn.ok { color: #86EDA5; border-color: rgba(134,237,165,0.2); }
+        .action-btn.ok:hover { background: rgba(134,237,165,0.08); }
 
-        /* Modal overlay */
+        /* ── Misc ── */
+        .date-cell { color: #555; font-size: 12px; white-space: nowrap; }
+        .num-cell  { color: #888; font-size: 12px; text-align: right; }
+
+        /* ── Modal ── */
         .admin-modal-overlay {
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.75);
             z-index: 9999;
             align-items: center;
             justify-content: center;
         }
         .admin-modal-overlay.active { display: flex; }
         .admin-modal {
-            background: #202024;
-            border: 1px solid #333;
+            background: #1e1e22;
+            border: 1px solid #2a2a2e;
             border-radius: 12px;
-            padding: 32px 28px;
+            padding: 28px 24px;
             max-width: 420px;
             width: 90%;
         }
-        .admin-modal h3 {
-            font-size: 18px;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 12px;
-        }
-        .admin-modal p {
-            font-size: 14px;
-            color: #888;
-            line-height: 1.6;
-            margin-bottom: 16px;
-        }
+        .admin-modal h3 { font-size: 17px; font-weight: 700; color: #fff; margin-bottom: 10px; }
+        .admin-modal p  { font-size: 13px; color: #888; line-height: 1.6; margin-bottom: 12px; }
         .admin-modal .modal-actions {
-            display: flex;
-            gap: 8px;
-            justify-content: flex-end;
-            margin-top: 20px;
+            display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px;
         }
         .admin-modal .temp-pw-display {
             background: #121214;
-            border: 1px solid var(--accent-border);
+            border: 1px solid var(--accent-border, #333);
             border-radius: 8px;
-            padding: 14px 16px;
+            padding: 12px 16px;
             font-family: monospace;
             font-size: 18px;
             font-weight: 700;
             color: var(--accent);
             text-align: center;
             letter-spacing: 1px;
-            margin: 12px 0;
+            margin: 10px 0;
             user-select: all;
         }
-        .admin-modal .warning-text {
-            font-size: 12px;
-            color: #ff9800;
-        }
+        .admin-modal .warning-text { font-size: 12px; color: #ff9800; }
         .admin-modal input.confirm-input {
             width: 100%;
-            padding: 10px 12px;
+            padding: 9px 12px;
             background: #121214;
-            border: 1px solid #444;
-            border-radius: 8px;
+            border: 1px solid #333;
+            border-radius: 7px;
             color: #EAEAEA;
-            font-size: 14px;
+            font-size: 13px;
             margin-top: 8px;
         }
         .admin-modal input.confirm-input:focus { outline: none; border-color: var(--accent); }
         .admin-modal .delete-preview {
             background: #121214;
             border: 1px solid #2a2a2e;
-            border-radius: 8px;
-            padding: 12px 14px;
+            border-radius: 7px;
+            padding: 10px 14px;
             font-size: 13px;
             color: #888;
             margin: 8px 0;
         }
         .admin-modal .delete-preview strong { color: #EAEAEA; }
+
+        /* ── Audit log ── */
+        .audit-row td { font-size: 12px; }
+        .action-tag {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            background: rgba(255,255,255,0.05);
+            color: #888;
+        }
     </style>
 </head>
 <body>
@@ -267,46 +307,68 @@
     <div class="container">
         <h1>Admin Console</h1>
         <p class="subtitle">Manage users, tiers, and account status.</p>
-        <a href="/portal/admin/waitlist"
-           style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;
-                  padding:7px 16px;background:#1e1e22;border:1px solid #2a2a30;
-                  border-radius:6px;color:#C7A53C;font-size:0.85rem;font-weight:600;
-                  text-decoration:none;transition:background .2s,border-color .2s;"
-           onmouseover="this.style.background='#252528';this.style.borderColor='#C7A53C'"
-           onmouseout="this.style.background='#1e1e22';this.style.borderColor='#2a2a30'">
-          📋 Beta Waitlist
-        </a>
 
+        <!-- Quick links -->
+        <div style="margin-bottom: 20px;">
+            <a href="/portal/admin/waitlist"
+               style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;
+                      background:#1a1a1e;border:1px solid #2a2a2e;border-radius:6px;
+                      color:#C7A53C;font-size:12px;font-weight:600;text-decoration:none;">
+              📋 Beta Waitlist
+            </a>
+        </div>
+
+        <!-- Stats -->
+        {% set founder_count = users | selectattr('founding_status', 'equalto', 1) | list | length %}
         <div class="stat-row">
             <div class="stat-box">
-                <div class="stat-label">Total Users</div>
+                <div class="stat-label">Total</div>
                 <div class="stat-value">{{ users | length }}</div>
             </div>
             <div class="stat-box">
                 <div class="stat-label">Active</div>
                 <div class="stat-value">{{ users | selectattr('account_status', 'equalto', 'active') | list | length }}</div>
             </div>
-            {% for t in ['Explorer', 'Creator', 'Studio', 'Platinum'] %}
-            <div class="stat-box">
-                <div class="stat-label">{{ t }}</div>
-                <div class="stat-value">{{ users | selectattr('tier', 'equalto', t) | list | length }}</div>
+            <div class="stat-box tier-explorer">
+                <div class="stat-label">Explorer</div>
+                <div class="stat-value">{{ users | selectattr('tier', 'equalto', 'Explorer') | list | length }}</div>
             </div>
-            {% endfor %}
+            <div class="stat-box tier-creator">
+                <div class="stat-label">Creator</div>
+                <div class="stat-value">{{ users | selectattr('tier', 'equalto', 'Creator') | list | length }}</div>
+            </div>
+            <div class="stat-box tier-studio">
+                <div class="stat-label">Studio</div>
+                <div class="stat-value">{{ users | selectattr('tier', 'equalto', 'Studio') | list | length }}</div>
+            </div>
+            <div class="stat-box tier-platinum">
+                <div class="stat-label">Platinum</div>
+                <div class="stat-value">{{ users | selectattr('tier', 'equalto', 'Platinum') | list | length }}</div>
+            </div>
+            <div class="stat-box tier-founder">
+                <div class="stat-label">Founders</div>
+                <div class="stat-value">{{ founder_count }}</div>
+            </div>
         </div>
 
+        <!-- User table -->
         <div class="admin-card">
-            <input type="text" class="search-box" id="searchInput" placeholder="Search by email..." oninput="filterUsers()">
+            <div class="card-header">
+                <span class="card-title">Users</span>
+                <input type="text" class="search-box" id="searchInput" placeholder="Search by email…" oninput="filterUsers()">
+            </div>
 
             <div style="overflow-x:auto;">
             <table>
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <th>#</th>
                         <th>Email</th>
                         <th>Tier</th>
                         <th>Special</th>
                         <th>Status</th>
-                        <th>Brands</th>
+                        <th style="text-align:right;">Brands</th>
+                        <th style="text-align:right;">Today</th>
                         <th>Joined</th>
                         <th></th>
                         <th>Actions</th>
@@ -314,43 +376,60 @@
                 </thead>
                 <tbody id="userTableBody">
                     {% for user in users %}
-                    <tr class="user-row{% if user.account_status == 'deactivated' %} deactivated-row{% endif %}" data-email="{{ user.email | lower }}">
-                        <td>{{ user.id }}</td>
-                        <td class="email-cell">{{ user.email }}</td>
+                    {% set days_old = ((now | default('2099-01-01')) if false else 999) %}
+                    {% set is_new = user.created_at and (user.created_at[:10] >= (now_date | default('1970-01-01'))) %}
+                    <tr class="user-row{% if user.account_status == 'deactivated' %} deactivated-row{% endif %}{% if user.created_at and user.created_at[:10] >= new_cutoff %} new-user-row{% endif %}"
+                        data-email="{{ user.email | lower }}">
+                        <td class="date-cell">{{ user.id }}</td>
                         <td>
-                            <select class="tier-select" data-user-id="{{ user.id }}" data-original="{{ user.tier }}" onchange="onTierChange(this)">
-                                {% for t in tiers %}
-                                <option value="{{ t }}" {% if t == user.tier %}selected{% endif %}>{{ t }}</option>
-                                {% endfor %}
-                            </select>
+                            <div class="email-cell">
+                                <span>{{ user.email }}</span>
+                                {% if user.founding_status %}
+                                <span class="badge-founder">★ Founder</span>
+                                {% endif %}
+                                {% if user.created_at and user.created_at[:10] >= new_cutoff %}
+                                <span class="badge-new">NEW</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="tier-cell">
+                                <span class="tier-dot" style="background:{{ tier_colors[user.tier] | default('#555') }};"></span>
+                                <select class="tier-select" data-user-id="{{ user.id }}" data-original="{{ user.tier }}" onchange="onTierChange(this)">
+                                    {% for t in tiers %}
+                                    <option value="{{ t }}" {% if t == user.tier %}selected{% endif %}>{{ t }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                         </td>
                         <td>
                             <select class="tier-select status-select" data-user-id="{{ user.id }}" data-original="{{ user.special_status or '' }}" onchange="onTierChange(this)">
                                 {% for s in statuses %}
-                                <option value="{{ s }}" {% if s == (user.special_status or '') %}selected{% endif %}>{{ s if s else '---' }}</option>
+                                <option value="{{ s }}" {% if s == (user.special_status or '') %}selected{% endif %}>{{ s if s else '—' }}</option>
                                 {% endfor %}
                             </select>
                         </td>
                         <td><span class="acct-status {{ user.account_status }}">{{ user.account_status | replace('_', ' ') }}</span></td>
-                        <td class="insight-cell">{{ user.brand_count or 0 }}</td>
-                        <td class="date-cell">{{ user.created_at[:10] if user.created_at else '---' }}</td>
-                        <td>
+                        <td class="num-cell">{{ user.brand_count or 0 }}</td>
+                        <td class="num-cell">{{ user.jobs_today or 0 }}</td>
+                        <td class="date-cell">{{ user.created_at[:10] if user.created_at else '—' }}</td>
+                        <td style="white-space:nowrap;">
                             <button class="save-btn" onclick="saveTier(this)" data-user-id="{{ user.id }}">Save</button>
-                            <span class="saved-msg">Saved</span>
+                            <span class="saved-msg"></span>
                         </td>
                         <td>
                             <div class="actions-cell">
                                 <button class="action-btn" onclick="openResetModal({{ user.id }}, '{{ user.email }}')">Reset PW</button>
                                 {% if user.account_status == 'suspended' %}
-                                <button class="action-btn" onclick="setAccountStatus({{ user.id }}, 'active', this)">Unsuspend</button>
+                                <button class="action-btn ok" onclick="setAccountStatus({{ user.id }}, 'active', this)">Unsuspend</button>
                                 {% elif user.account_status != 'deactivated' %}
-                                <button class="action-btn" onclick="setAccountStatus({{ user.id }}, 'suspended', this)">Suspend</button>
+                                <button class="action-btn warn" onclick="setAccountStatus({{ user.id }}, 'suspended', this)">Suspend</button>
                                 {% endif %}
                                 {% if user.account_status != 'deactivated' %}
                                 <button class="action-btn danger" onclick="openDeactivateModal({{ user.id }}, '{{ user.email }}')">Deactivate</button>
-                                <button class="action-btn danger" onclick="openResetAccountModal({{ user.id }}, '{{ user.email }}')" style="border-color: rgba(255,152,0,0.4); color: #ff9800;">Reset Account</button>
+                                <button class="action-btn warn" onclick="openResetAccountModal({{ user.id }}, '{{ user.email }}')">Reset</button>
                                 {% else %}
-                                <button class="action-btn" onclick="setAccountStatus({{ user.id }}, 'active', this)" style="color: #86EDA5;">Reactivate</button>
+                                <button class="action-btn ok" onclick="setAccountStatus({{ user.id }}, 'active', this)">Reactivate</button>
                                 {% endif %}
                             </div>
                         </td>
@@ -361,11 +440,14 @@
             </div>
         </div>
 
+        <!-- Audit log -->
         {% if recent_actions %}
         <div class="admin-card">
-            <h3 style="font-size: 16px; margin-bottom: 16px; color: #888;">Recent Admin Actions</h3>
+            <div class="card-header">
+                <span class="card-title">Recent Admin Actions</span>
+            </div>
             <div style="overflow-x:auto;">
-            <table style="font-size: 12px;">
+            <table>
                 <thead>
                     <tr>
                         <th>Time</th>
@@ -377,12 +459,12 @@
                 </thead>
                 <tbody>
                     {% for action in recent_actions %}
-                    <tr>
-                        <td class="date-cell">{{ action.created_at[:16] if action.created_at else '---' }}</td>
-                        <td>{{ action.admin_email }}</td>
-                        <td><span class="acct-status {{ action.action_type }}">{{ action.action_type | replace('_', ' ') }}</span></td>
-                        <td>{{ action.target_email or '---' }}</td>
-                        <td style="color: #888; max-width: 300px; overflow: hidden; text-overflow: ellipsis;">{{ action.details or '---' }}</td>
+                    <tr class="audit-row">
+                        <td class="date-cell">{{ action.created_at[:16] if action.created_at else '—' }}</td>
+                        <td class="date-cell">{{ action.admin_email }}</td>
+                        <td><span class="action-tag">{{ action.action_type | replace('_', ' ') }}</span></td>
+                        <td class="date-cell">{{ action.target_email or '—' }}</td>
+                        <td style="color:#555; font-size:12px; max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ action.details or '—' }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -415,7 +497,7 @@
     <div class="admin-modal">
         <h3>Deactivate User</h3>
         <p>This will deactivate <strong id="deactivateEmail"></strong> and disable all their brands. The account will be locked from login.</p>
-        <div class="delete-preview" id="deactivatePreview">Loading...</div>
+        <div class="delete-preview" id="deactivatePreview">Loading…</div>
         <p>Type <strong>DEACTIVATE</strong> to confirm:</p>
         <input type="text" class="confirm-input" id="deactivateConfirmInput" placeholder="Type DEACTIVATE here" autocomplete="off">
         <div class="modal-actions">
@@ -428,18 +510,15 @@
 <!-- Reset Account Modal -->
 <div class="admin-modal-overlay" id="resetAccountModal">
     <div class="admin-modal">
-        <h3 style="color: #ff9800;">⚠ Reset Account Data</h3>
+        <h3 style="color:#ff9800;">⚠ Reset Account Data</h3>
         <p>This will <strong>wipe all data</strong> for <strong id="resetAccountEmail"></strong> and permanently disable the account.</p>
-        <p class="warning-text" style="color: #e05252; font-weight: 600;">This action CANNOT be undone. The email will remain reserved.</p>
-        
-        <div class="delete-preview" id="resetAccountPreview">Loading...</div>
-        
-        <p style="margin-top: 16px;">To confirm, type exactly: <strong id="resetAccountConfirmText" style="font-family: monospace; color: #fff;"></strong></p>
+        <p class="warning-text" style="color:#e05252;font-weight:600;">This action CANNOT be undone. The email will remain reserved.</p>
+        <div class="delete-preview" id="resetAccountPreview">Loading…</div>
+        <p style="margin-top:14px;">To confirm, type exactly: <strong id="resetAccountConfirmText" style="font-family:monospace;color:#fff;"></strong></p>
         <input type="text" class="confirm-input" id="resetAccountConfirmInput" placeholder="Type confirmation text here" autocomplete="off" oninput="checkResetAccountConfirmation()">
-        
         <div class="modal-actions">
             <button class="btn btn-secondary" onclick="closeResetAccountModal()">Cancel</button>
-            <button class="btn btn-danger" id="resetAccountConfirmBtn" onclick="confirmResetAccount()" disabled style="opacity: 0.5;">Reset Account</button>
+            <button class="btn btn-danger" id="resetAccountConfirmBtn" onclick="confirmResetAccount()" disabled style="opacity:0.5;">Reset Account</button>
         </div>
     </div>
 </div>
@@ -447,11 +526,13 @@
 <script>
 var _resetUserId = null;
 var _deactivateUserId = null;
+var _resetAccountUserId = null;
+var _resetAccountEmail = null;
 
 function filterUsers() {
-    var query = document.getElementById('searchInput').value.toLowerCase();
+    var q = document.getElementById('searchInput').value.toLowerCase();
     document.querySelectorAll('.user-row').forEach(function(row) {
-        row.style.display = row.getAttribute('data-email').indexOf(query) !== -1 ? '' : 'none';
+        row.style.display = row.getAttribute('data-email').indexOf(q) !== -1 ? '' : 'none';
     });
 }
 
@@ -472,7 +553,7 @@ function saveTier(btn) {
     var tierSel = row.querySelector('.tier-select:not(.status-select)');
     var statusSel = row.querySelector('.status-select');
     var msg = row.querySelector('.saved-msg');
-    btn.disabled = true; btn.textContent = '...';
+    btn.disabled = true; btn.textContent = '…';
 
     fetch('/api/admin/set-tier', {
         method: 'POST',
@@ -485,12 +566,18 @@ function saveTier(btn) {
             tierSel.setAttribute('data-original', tierSel.value);
             statusSel.setAttribute('data-original', statusSel.value);
             btn.classList.remove('visible');
-            msg.textContent = 'Saved'; msg.style.color = 'var(--accent)';
+            // Update tier dot color
+            var dot = row.querySelector('.tier-dot');
+            var colors = {Explorer:'#86EDA5',Creator:'#A855F7',Studio:'#F5A623',Platinum:'#C0CFFF',Elite:'#D4A017'};
+            if (dot) dot.style.background = colors[tierSel.value] || '#555';
+            msg.textContent = data.founding_granted ? '✓ Saved + Founder' : '✓ Saved';
+            msg.style.color = data.founding_granted ? '#C7A53C' : '#86EDA5';
         } else {
-            msg.textContent = data.error || 'Error'; msg.style.color = '#ff6b6b';
+            msg.textContent = data.error || 'Error';
+            msg.style.color = '#ff6b6b';
         }
         msg.classList.add('show');
-        setTimeout(function() { msg.classList.remove('show'); }, 2500);
+        setTimeout(function() { msg.classList.remove('show'); }, 3000);
     })
     .catch(function() { msg.textContent = 'Network error'; msg.style.color = '#ff6b6b'; msg.classList.add('show'); })
     .finally(function() { btn.disabled = false; btn.textContent = 'Save'; });
@@ -510,8 +597,7 @@ function closeResetModal() {
 }
 function confirmResetPassword() {
     var btn = document.getElementById('resetConfirmBtn');
-    btn.disabled = true; btn.textContent = 'Resetting...';
-
+    btn.disabled = true; btn.textContent = 'Resetting…';
     fetch('/api/admin/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -523,7 +609,6 @@ function confirmResetPassword() {
             document.getElementById('tempPwDisplay').textContent = data.temp_password;
             document.getElementById('resetResult').style.display = 'block';
             btn.style.display = 'none';
-            // Update status badge in row
             updateRowStatus(_resetUserId, 'pending_reset');
         } else {
             alert('Error: ' + (data.error || 'Unknown'));
@@ -533,7 +618,7 @@ function confirmResetPassword() {
     .catch(function() { alert('Network error'); btn.disabled = false; btn.textContent = 'Reset Password'; });
 }
 
-/* ── Deactivate User ── */
+/* ── Deactivate ── */
 function openDeactivateModal(userId, email) {
     _deactivateUserId = userId;
     document.getElementById('deactivateEmail').textContent = email;
@@ -541,18 +626,14 @@ function openDeactivateModal(userId, email) {
     document.getElementById('deactivateConfirmBtn').disabled = false;
     document.getElementById('deactivateConfirmBtn').textContent = 'Deactivate User';
     var preview = document.getElementById('deactivatePreview');
-    preview.innerHTML = 'Loading...';
+    preview.innerHTML = 'Loading…';
     document.getElementById('deactivateModal').classList.add('active');
-
     fetch('/api/admin/user-info/' + userId)
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.success) {
-            preview.innerHTML = '<strong>' + data.email + '</strong> (' + data.tier + ')<br>' +
-                'Brands: ' + data.brand_count + ' | Downloads: ' + data.download_count;
-        } else {
-            preview.textContent = 'Could not load user info.';
-        }
+            preview.innerHTML = '<strong>' + data.email + '</strong> (' + data.tier + ')<br>Brands: ' + data.brand_count + ' | Downloads: ' + data.download_count;
+        } else { preview.textContent = 'Could not load user info.'; }
     })
     .catch(function() { preview.textContent = 'Error loading user info.'; });
 }
@@ -561,14 +642,11 @@ function closeDeactivateModal() {
     _deactivateUserId = null;
 }
 function confirmDeactivateUser() {
-    var input = document.getElementById('deactivateConfirmInput').value.trim();
-    if (input !== 'DEACTIVATE') {
-        alert('You must type DEACTIVATE to confirm.');
-        return;
+    if (document.getElementById('deactivateConfirmInput').value.trim() !== 'DEACTIVATE') {
+        alert('You must type DEACTIVATE to confirm.'); return;
     }
     var btn = document.getElementById('deactivateConfirmBtn');
-    btn.disabled = true; btn.textContent = 'Deactivating...';
-
+    btn.disabled = true; btn.textContent = 'Deactivating…';
     fetch('/api/admin/delete-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -576,13 +654,8 @@ function confirmDeactivateUser() {
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
-        if (data.success) {
-            updateRowStatus(_deactivateUserId, 'deactivated');
-            closeDeactivateModal();
-        } else {
-            alert('Error: ' + (data.error || 'Unknown'));
-            btn.disabled = false; btn.textContent = 'Deactivate User';
-        }
+        if (data.success) { updateRowStatus(_deactivateUserId, 'deactivated'); closeDeactivateModal(); }
+        else { alert('Error: ' + (data.error || 'Unknown')); btn.disabled = false; btn.textContent = 'Deactivate User'; }
     })
     .catch(function() { alert('Network error'); btn.disabled = false; btn.textContent = 'Deactivate User'; });
 }
@@ -597,20 +670,13 @@ function setAccountStatus(userId, newStatus, btn) {
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert('Error: ' + (data.error || 'Unknown'));
-            btn.disabled = false;
-        }
+        if (data.success) { location.reload(); }
+        else { alert('Error: ' + (data.error || 'Unknown')); btn.disabled = false; }
     })
     .catch(function() { alert('Network error'); btn.disabled = false; });
 }
 
 /* ── Reset Account ── */
-var _resetAccountUserId = null;
-var _resetAccountEmail = null;
-
 function openResetAccountModal(userId, email) {
     _resetAccountUserId = userId;
     _resetAccountEmail = email;
@@ -620,55 +686,33 @@ function openResetAccountModal(userId, email) {
     document.getElementById('resetAccountConfirmBtn').disabled = true;
     document.getElementById('resetAccountConfirmBtn').style.opacity = '0.5';
     var preview = document.getElementById('resetAccountPreview');
-    preview.innerHTML = 'Loading...';
+    preview.innerHTML = 'Loading…';
     document.getElementById('resetAccountModal').classList.add('active');
-    
-    // Fetch preview data
     fetch('/api/admin/user-info/' + userId)
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.success) {
-            preview.innerHTML = '<strong>' + data.email + '</strong> (' + data.tier + ')<br>' +
-                'Active Brands: <strong>' + data.brand_count + '</strong><br>' +
-                'Downloads: <strong>' + data.download_count + '</strong>';
-        } else {
-            preview.textContent = 'Could not load user info.';
-        }
+            preview.innerHTML = '<strong>' + data.email + '</strong> (' + data.tier + ')<br>Active Brands: <strong>' + data.brand_count + '</strong><br>Downloads: <strong>' + data.download_count + '</strong>';
+        } else { preview.textContent = 'Could not load user info.'; }
     })
     .catch(function() { preview.textContent = 'Error loading user info.'; });
 }
-
 function closeResetAccountModal() {
     document.getElementById('resetAccountModal').classList.remove('active');
-    _resetAccountUserId = null;
-    _resetAccountEmail = null;
+    _resetAccountUserId = null; _resetAccountEmail = null;
 }
-
 function checkResetAccountConfirmation() {
     var input = document.getElementById('resetAccountConfirmInput').value.trim();
-    var expected = 'RESET ' + _resetAccountEmail;
     var btn = document.getElementById('resetAccountConfirmBtn');
-    if (input === expected) {
-        btn.disabled = false;
-        btn.style.opacity = '1';
-    } else {
-        btn.disabled = true;
-        btn.style.opacity = '0.5';
-    }
+    var ok = input === 'RESET ' + _resetAccountEmail;
+    btn.disabled = !ok;
+    btn.style.opacity = ok ? '1' : '0.5';
 }
-
 function confirmResetAccount() {
     var input = document.getElementById('resetAccountConfirmInput').value.trim();
-    var expected = 'RESET ' + _resetAccountEmail;
-    if (input !== expected) {
-        alert('You must type exactly: ' + expected);
-        return;
-    }
-    
+    if (input !== 'RESET ' + _resetAccountEmail) { alert('You must type exactly: RESET ' + _resetAccountEmail); return; }
     var btn = document.getElementById('resetAccountConfirmBtn');
-    btn.disabled = true;
-    btn.textContent = 'Resetting...';
-    
+    btn.disabled = true; btn.textContent = 'Resetting…';
     fetch('/api/admin/reset-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -677,35 +721,21 @@ function confirmResetAccount() {
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.success) {
-            alert('Account reset complete.\n\nRemoved:\n- ' + data.brands_disabled + ' brands\n- ' + data.downloads_deleted + ' downloads\n- ' + data.usage_records_cleared + ' usage records\n\nAccount is now deactivated.');
+            alert('Account reset.\n\nRemoved:\n- ' + data.brands_disabled + ' brands\n- ' + data.downloads_deleted + ' downloads\n- ' + data.usage_records_cleared + ' usage records');
             location.reload();
-        } else {
-            alert('Error: ' + (data.error || 'Unknown'));
-            btn.disabled = false;
-            btn.textContent = 'Reset Account';
-        }
+        } else { alert('Error: ' + (data.error || 'Unknown')); btn.disabled = false; btn.textContent = 'Reset Account'; }
     })
-    .catch(function() { 
-        alert('Network error'); 
-        btn.disabled = false; 
-        btn.textContent = 'Reset Account'; 
-    });
+    .catch(function() { alert('Network error'); btn.disabled = false; btn.textContent = 'Reset Account'; });
 }
 
 /* ── Helpers ── */
 function updateRowStatus(userId, newStatus) {
-    var rows = document.querySelectorAll('.user-row');
-    rows.forEach(function(row) {
+    document.querySelectorAll('.user-row').forEach(function(row) {
         var saveBtn = row.querySelector('.save-btn');
         if (saveBtn && parseInt(saveBtn.getAttribute('data-user-id')) === userId) {
             var badge = row.querySelector('.acct-status');
-            if (badge) {
-                badge.className = 'acct-status ' + newStatus;
-                badge.textContent = newStatus.replace('_', ' ');
-            }
-            if (newStatus === 'deactivated') {
-                row.classList.add('deactivated-row');
-            }
+            if (badge) { badge.className = 'acct-status ' + newStatus; badge.textContent = newStatus.replace('_', ' '); }
+            if (newStatus === 'deactivated') row.classList.add('deactivated-row');
         }
     });
 }

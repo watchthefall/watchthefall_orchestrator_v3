@@ -1515,6 +1515,9 @@ def admin_console():
         c.execute('''SELECT u.id, u.email, u.tier, u.special_status, u.created_at,
                             COALESCE(u.account_status, 'active') as account_status,
                             COALESCE(u.must_change_password, 0) as must_change_password,
+                            COALESCE(u.founding_status, 0) as founding_status,
+                            u.founding_status_granted_at,
+                            u.bonus_tier_until,
                             (SELECT COUNT(*) FROM brands b WHERE b.user_id = u.id AND b.is_active = 1) as brand_count,
                             (SELECT COUNT(*) FROM daily_usage du WHERE du.user_id = u.id AND du.usage_date = date('now')) as jobs_today
                      FROM users u ORDER BY u.created_at DESC''')
@@ -1531,9 +1534,13 @@ def admin_console():
             # audit_log table might not exist yet
             recent_actions = []
     
+    from datetime import datetime, timedelta
     tiers = list(TIER_CONFIG.keys())
     statuses = [''] + list(SPECIAL_STATUSES.keys())
-    return render_template('admin.html', users=users, tiers=tiers, statuses=statuses, recent_actions=recent_actions)
+    tier_colors = {k: v.get('color', '#555') for k, v in TIER_CONFIG.items()}
+    new_cutoff = (datetime.utcnow() - timedelta(days=7)).strftime('%Y-%m-%d')
+    return render_template('admin.html', users=users, tiers=tiers, statuses=statuses,
+                           recent_actions=recent_actions, tier_colors=tier_colors, new_cutoff=new_cutoff)
 
 
 @app.route('/api/admin/set-tier', methods=['POST'])
