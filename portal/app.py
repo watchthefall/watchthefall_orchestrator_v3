@@ -502,7 +502,7 @@ def login():
             session['user_id'] = user_id
             session['email'] = email
             flash('Login successful!', 'success')
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('brands_page'))
         else:
             flash('Invalid email or password', 'error')
     
