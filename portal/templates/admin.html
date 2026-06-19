@@ -263,7 +263,6 @@
                 </thead>
                 <tbody id="userTableBody">
                 {% for user in users %}
-                {% set eligible_tiers = ['Creator', 'Studio', 'Platinum'] %}
                 <tr class="user-row{% if user.account_status == 'deactivated' %} deactivated-row{% endif %}"
                     data-email="{{ user.email | lower }}">
 
@@ -299,7 +298,7 @@
                                 <span class="founder-granted-label">★ Founding Member</span>
                                 <button class="revoke-btn" onclick="revokeFounder({{ user.id }}, '{{ user.email }}')">revoke</button>
                             </div>
-                            {% elif user.tier in eligible_tiers %}
+                            {% elif user.tier in eligible_founding_tiers %}
                             <!-- Eligible tier, not yet founder — show grant checkbox -->
                             <label class="founder-check-wrap">
                                 <input type="checkbox" class="founder-check" data-user-id="{{ user.id }}" onchange="onTierChange(this.closest('tr').querySelector('.tier-select'))">

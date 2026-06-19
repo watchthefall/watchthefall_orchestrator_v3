@@ -1538,12 +1538,15 @@ def admin_console():
             recent_actions = []
     
     from datetime import datetime, timedelta
+    from .config import FOUNDING_MEMBER_CONFIG
     tiers = list(TIER_CONFIG.keys())
     statuses = [''] + list(SPECIAL_STATUSES.keys())
     tier_colors = {k: v.get('color', '#555') for k, v in TIER_CONFIG.items()}
     new_cutoff = (datetime.utcnow() - timedelta(days=7)).strftime('%Y-%m-%d')
+    eligible_founding_tiers = FOUNDING_MEMBER_CONFIG.get('eligible_tiers', [])
     return render_template('admin.html', users=users, tiers=tiers, statuses=statuses,
-                           recent_actions=recent_actions, tier_colors=tier_colors, new_cutoff=new_cutoff)
+                           recent_actions=recent_actions, tier_colors=tier_colors,
+                           new_cutoff=new_cutoff, eligible_founding_tiers=eligible_founding_tiers)
 
 
 @app.route('/api/admin/set-tier', methods=['POST'])
