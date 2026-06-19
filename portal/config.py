@@ -268,11 +268,10 @@ FOUNDING_MEMBER_CONFIG = {
 }
 
 # PayPal payment links — regular price (shown when founding slots exhausted)
-# TODO: Create new PayPal no-code products at the prices below and paste links here
 PAYMENT_LINKS = {
-    'Creator':  '',   # TODO: create PayPal link at £12/mo regular price
-    'Studio':   '',   # TODO: create PayPal link at £25/mo regular price
-    'Platinum': '',   # TODO: create PayPal link at £59/mo regular price
+    'Creator':  'https://www.paypal.com/ncp/payment/JFUJNWN5AJJCJ',   # £12/mo
+    'Studio':   'https://www.paypal.com/ncp/payment/QTKFXDEZX7BHS',   # £25/mo
+    'Platinum': 'https://www.paypal.com/ncp/payment/J2U2GXSFGRZQN',   # £59/mo
 }
 
 # PayPal payment links — founding member price (shown while slots remain)
