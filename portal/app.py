@@ -2324,8 +2324,7 @@ def process_branded_videos():
                             traceback.print_exc()
                             return {
                                 'error': _strip_ansi(str(download_error)),
-                                'success': False,
-                                'details': _strip_ansi(traceback.format_exc())
+                                'success': False
                             }
                     
                     # Ensure .mp4 extension
@@ -2365,8 +2364,7 @@ def process_branded_videos():
                         error_details += f"; reason: {e.reason}"
                     return {
                         'error': error_details,
-                        'success': False,
-                        'details': traceback.format_exc()
+                        'success': False
                     }
             # Download the video
             download_result = download_video(url)
@@ -2793,8 +2791,7 @@ def fetch_videos_from_urls():
                         return {
                             'url': url_input,
                             'error': _strip_ansi(str(download_error)),
-                            'success': False,
-                            'details': _strip_ansi(traceback.format_exc())
+                            'success': False
                         }
                 
                 # Ensure .mp4 extension
@@ -2859,8 +2856,7 @@ def fetch_videos_from_urls():
                 return {
                     'url': url_input,
                     'error': error_details,
-                    'success': False,
-                    'details': traceback.format_exc()
+                    'success': False
                 }
         
         # Download sequentially to keep memory low
@@ -4064,7 +4060,7 @@ def _watermark_conversion_worker(job_id, temp_webm, output_path, mp4_filename):
             '-c:v', 'libx264',
             '-preset', 'ultrafast',          # FASTEST preset (was veryfast)
             '-tune', 'fastdecode',           # Optimize for fast decode
-            '-threads', '0',                 # Use all available threads (was 1)
+            '-threads', '1',                 # Single-threaded — prevents OOM on 512MB Render instance
             '-crf', '28',                    # Higher = lower quality but MUCH faster (was 23)
             '-profile:v', 'baseline',
             '-level', '3.0',

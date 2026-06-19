@@ -58,8 +58,8 @@ TIER_CONFIG = {
         'fetches_per_day': 25,
         'ig_per_hour': 3,
         'branding_jobs_per_day': 15,
-        'max_brands_per_job': 3,
-        'max_outputs_per_job': 3,  # Beta-v1: sources=1, variants=1, so outputs = brands
+        'max_brands_per_job': 1,
+        'max_outputs_per_job': 1,  # Explorer has 1 brand config, so max 1 brand per job
         'max_brand_configs': 1,
         'concurrent_jobs': 1,
     },
@@ -146,7 +146,7 @@ TIER_FEATURES = {
         'max_instagram_per_hour': 3,
         'max_downloads_per_day': 25,
         'max_branding_jobs_per_day': 15,
-        'max_brands_per_job': 3,
+        'max_brands_per_job': 1,
         'max_brand_configs_total': 1,
         'max_concurrent_jobs': 1,
         'result_preview_strip_enabled': False,
