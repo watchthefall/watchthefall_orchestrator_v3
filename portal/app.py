@@ -3154,6 +3154,7 @@ def extract_frame():
 
 
 @app.route('/api/preview/watermark/<brand_name>')
+@login_required
 def get_watermark_preview(brand_name):
     """Serve watermark PNG for canvas preview"""
     from .video_processor import VideoProcessor
@@ -3183,6 +3184,7 @@ def get_watermark_preview(brand_name):
 
 
 @app.route('/api/preview/logo/<brand_name>')
+@login_required
 def get_logo_preview(brand_name):
     """Serve logo PNG for canvas preview"""
     from .video_processor import VideoProcessor
@@ -3894,10 +3896,15 @@ def convert_watermark():
         
         if file.filename == '':
             return jsonify({'error': 'Empty filename', 'reason': 'empty_filename'}), 400
-        
+
+        # Validate file type before writing to disk
+        _wm_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        if _wm_ext not in {'webm', 'mp4', 'mov', 'avi'}:
+            return jsonify({'error': 'Invalid file type. Allowed: webm, mp4, mov, avi', 'reason': 'invalid_type'}), 400
+
         # Generate job ID
         job_id = uuid.uuid4().hex
-        
+
         # Save WebM file temporarily
         webm_filename = secure_filename(file.filename)
         temp_webm = os.path.join(tempfile.gettempdir(), f"{job_id}_{webm_filename}")
@@ -4476,6 +4483,7 @@ def cleanup_downloads():
     })
 
 @app.route('/api/detect-platform', methods=['POST'])
+@login_required
 def api_detect_platform():
     """Detect the platform from a URL."""
     try:
