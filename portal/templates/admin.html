@@ -494,6 +494,11 @@ function saveTier(btn) {
     var grantFounder = founderCk ? founderCk.checked : false;
     var msg = document.getElementById('save-msg-' + userId);
 
+    // Capture values at click time — not at response time — to avoid race condition
+    // if the user changes the dropdown while the fetch is in flight.
+    var savedTier   = tierSel.value;
+    var savedStatus = statusSel.value;
+
     btn.disabled = true; btn.textContent = '…';
 
     fetch('/api/admin/set-tier', {
@@ -501,20 +506,19 @@ function saveTier(btn) {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
             user_id: parseInt(userId),
-            tier: tierSel.value,
-            special_status: statusSel.value,
+            tier: savedTier,
+            special_status: savedStatus,
             grant_founder: grantFounder
         })
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.success) {
-            tierSel.dataset.original   = tierSel.value;
-            statusSel.dataset.original = statusSel.value;
-            btn.classList.remove('visible');
+            tierSel.dataset.original   = savedTier;
+            statusSel.dataset.original = savedStatus;
             // Update tier dot
             var dot = row.querySelector('.tier-dot');
-            if (dot) dot.style.background = TIER_COLORS[tierSel.value] || '#555';
+            if (dot) dot.style.background = TIER_COLORS[savedTier] || '#555';
             if (data.founding_granted && founderCk) {
                 // Replace checkbox with "★ Founding Member" label + revoke button
                 var fc = row.querySelector('.founder-control');
@@ -551,7 +555,17 @@ function saveTier(btn) {
         msg.style.color = '#ff6b6b';
         msg.classList.add('show');
     })
-    .finally(function() { btn.disabled = false; btn.textContent = 'Save'; });
+    .finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Save';
+        // Re-evaluate visibility: if user changed the dropdowns while save was in flight,
+        // show Save again; otherwise hide it.
+        var founderCkNow = row.querySelector('.founder-check');
+        var stillChanged = tierSel.value !== tierSel.dataset.original ||
+                           statusSel.value !== statusSel.dataset.original ||
+                           (founderCkNow && founderCkNow.checked);
+        btn.classList.toggle('visible', stillChanged);
+    });
 }
 
 function revokeFounder(userId, email) {
