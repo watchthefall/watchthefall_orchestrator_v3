@@ -50,9 +50,10 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16') -> st
         if output_format == 'vertical_9_16':
             print(f"[NORMALIZE] output_format=vertical_9_16 target=720x1280")
             cmd = [
-                FFMPEG_BIN, "-y", "-i", input_path,
+                FFMPEG_BIN, "-y", "-threads", "1", "-i", input_path,
                 "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280:(iw-720)/2:(ih-1280)/2",
                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+                "-threads", "1",
                 "-pix_fmt", "yuv420p",
                 "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart",
@@ -71,11 +72,13 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16') -> st
             )
             print(f"[NORMALIZE] output_format=square_1_1 target=720x720 strategy=blur-pad")
             cmd = [
-                FFMPEG_BIN, "-y", "-i", input_path,
+                FFMPEG_BIN, "-y", "-threads", "1", "-i", input_path,
                 "-filter_complex", _fc,
+                "-filter_threads", "1",
                 "-map", "[out]",
                 "-map", "0:a?",
                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+                "-threads", "1",
                 "-pix_fmt", "yuv420p",
                 "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart",
@@ -85,9 +88,10 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16') -> st
             # Fallback: width-only normalize, preserve source aspect ratio.
             print(f"[NORMALIZE] output_format={output_format} — using fallback scale=720:-2")
             cmd = [
-                FFMPEG_BIN, "-y", "-i", input_path,
+                FFMPEG_BIN, "-y", "-threads", "1", "-i", input_path,
                 "-vf", "scale=720:-2",
                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+                "-threads", "1",
                 "-pix_fmt", "yuv420p",
                 "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart",
@@ -781,9 +785,8 @@ class VideoProcessor:
             FFMPEG_BIN, '-y',
             '-i', self.video_path,
             '-filter_complex', filter_complex,
-            '-threads', '4',
-            '-filter_threads', '2',
-            '-bufsize', '256M',
+            '-threads', '1',
+            '-filter_threads', '1',
             '-map', '[vout]',
             '-map', '0:a?',
             '-c:v', 'libx264',
