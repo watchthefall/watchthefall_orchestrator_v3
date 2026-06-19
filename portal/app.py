@@ -4291,14 +4291,18 @@ def save_video_download():
         os.path.realpath(OUTPUT_DIR),
     )
     real_file_path = os.path.realpath(file_path)
-    if not any(real_file_path.startswith(root) for root in allowed_roots):
+    try:
+        is_allowed_path = any(os.path.commonpath([real_file_path, root]) == root for root in allowed_roots)
+    except ValueError:
+        is_allowed_path = False
+    if not is_allowed_path:
         return jsonify({'error': 'Invalid file path'}), 400
 
     # Verify file exists
-    if not os.path.exists(file_path):
+    if not os.path.isfile(real_file_path):
         return jsonify({'error': 'File does not exist at specified path'}), 400
 
-    download_id = save_download(user_id, source_url, filename, file_path, display_name)
+    download_id = save_download(user_id, source_url, filename, real_file_path, display_name)
     
     return jsonify({
         'success': True,
