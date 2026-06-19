@@ -703,23 +703,7 @@
                 </div>
             </div>
 
-            <!-- Scale -->
-            <div class="bes-field-group">
-                <label class="bes-label">Scale — <span id="besWmScaleVal">50%</span> <span style="font-size:10px;font-weight:400;opacity:0.45;text-transform:none;letter-spacing:0;">of video width</span></label>
-                <input type="range" id="besWmScale" min="10" max="130" value="50"
-                       oninput="brandEditorDraft.wmScaleUi = parseInt(this.value);
-                                document.getElementById('besWmScaleVal').textContent = this.value + '%';">
-            </div>
-
-            <!-- Opacity -->
-            <div class="bes-field-group">
-                <label class="bes-label">Opacity <span id="besWmOpacityVal">50%</span></label>
-                <input type="range" id="besWmOpacity" min="0" max="100" value="50"
-                       oninput="brandEditorDraft.wmOpacity = parseInt(this.value);
-                                document.getElementById('besWmOpacityVal').textContent = this.value + '%';">
-            </div>
-
-            <p class="bes-help">Scale and opacity are saved to this brand. Drag the watermark on the overview preview to set its position.</p>
+            <p class="bes-help">Scale and opacity are in the <strong>Composition</strong> tab — select the Watermark layer there to adjust them. Drag the watermark on the overview preview to reposition it.</p>
         </div>
 
         <!-- Sticky footer -->
@@ -5127,16 +5111,8 @@ function openBrandEditor(brandId, mode) {
             brandEditorDraft.wmScaleUi = renderScaleToWatermarkUi(brand.wm_scale != null ? brand.wm_scale : 0.25);
             brandEditorDraft.wmOpacity = Math.round((brand.wm_opacity != null ? brand.wm_opacity : 0.5) * 100);
             brandEditorDraft.wmPath    = brand.watermark_path || null;
-            const wmScaleEl   = document.getElementById('besWmScale');
-            const wmScaleVal  = document.getElementById('besWmScaleVal');
-            const wmOpacEl    = document.getElementById('besWmOpacity');
-            const wmOpacVal   = document.getElementById('besWmOpacityVal');
             const wmPreview   = document.getElementById('besWmPreviewImg');
             const wmPlaceh    = document.getElementById('besWmPlaceholder');
-            if (wmScaleEl)  wmScaleEl.value       = brandEditorDraft.wmScaleUi;
-            if (wmScaleVal) wmScaleVal.textContent = brandEditorDraft.wmScaleUi + '%';
-            if (wmOpacEl)   wmOpacEl.value         = brandEditorDraft.wmOpacity;
-            if (wmOpacVal)  wmOpacVal.textContent  = brandEditorDraft.wmOpacity + '%';
             if (wmPreview && wmPlaceh) {
                 if (brandEditorDraft.wmPath) {
                     wmPreview.src = `${apiBase}/api/preview/brand-asset/${brandId}/watermark?t=${Date.now()}`;
@@ -5532,9 +5508,10 @@ function _refreshCompositionControls() {
     if (scaleSlider) scaleSlider.value = scalePct;
     if (scaleVal)    scaleVal.textContent = scalePct + '%';
 
-    // Opacity + Rotation — logo layer only
+    // Opacity — logo and watermark; Rotation — logo only
     const isLogo = layoutSelectedLayer === 'logo';
-    if (opacRow) opacRow.style.display = isLogo ? '' : 'none';
+    const isWm   = layoutSelectedLayer === 'watermark';
+    if (opacRow) opacRow.style.display = (isLogo || isWm) ? '' : 'none';
     if (rotRow)  rotRow.style.display  = isLogo ? '' : 'none';
     if (isLogo) {
         const opacPct = Math.round((brandEditorDraft.logoOpacity  != null ? brandEditorDraft.logoOpacity  : 1) * 100);
@@ -5543,6 +5520,10 @@ function _refreshCompositionControls() {
         if (opacVal)    opacVal.textContent = opacPct + '%';
         if (rotSlider)  rotSlider.value = rotDeg;
         if (rotVal)     rotVal.textContent  = rotDeg + '°';
+    } else if (isWm) {
+        const opacPct = brandEditorDraft.wmOpacity != null ? brandEditorDraft.wmOpacity : 50;
+        if (opacSlider) opacSlider.value = opacPct;
+        if (opacVal)    opacVal.textContent = opacPct + '%';
     }
 }
 // Keep old name as alias so any stale references don't crash
@@ -5568,14 +5549,20 @@ function onLayoutScaleInput(value) {
     if (saveBtn) saveBtn.disabled = false;
 }
 
-// Patch 52: live-update opacity from the overview slider (logo only)
+// Patch 52: live-update opacity from the overview slider (logo + watermark)
 function onLayoutOpacityInput(value) {
     const pct   = parseInt(value);
     const valEl = document.getElementById('v2LayoutOpacityVal');
     if (valEl) valEl.textContent = pct + '%';
-    brandEditorDraft.logoOpacity = pct / 100;
-    const img = document.getElementById('v2LayoutLogoImg');
-    if (img) img.style.opacity = pct / 100;
+    if (layoutSelectedLayer === 'watermark') {
+        brandEditorDraft.wmOpacity = pct;
+        const img = document.getElementById('v2LayoutWmImg');
+        if (img) img.style.opacity = pct / 100;
+    } else {
+        brandEditorDraft.logoOpacity = pct / 100;
+        const img = document.getElementById('v2LayoutLogoImg');
+        if (img) img.style.opacity = pct / 100;
+    }
     layoutDirty = true;
     const saveBtn = document.getElementById('v2LayoutSaveBtn');
     if (saveBtn) saveBtn.disabled = false;
@@ -5677,9 +5664,10 @@ async function saveLayout() {
         logo_rotation: brandEditorDraft.logoRotation != null ? brandEditorDraft.logoRotation : 0.0    // always base
     };
     if (brandEditorDraft.wmPath) {
-        payload.wm_x     = clamp(brandEditorDraft.posWmX / 100);
-        payload.wm_y     = clamp(brandEditorDraft.posWmY / 100);
-        payload.wm_scale = watermarkUiToRenderScale(brandEditorDraft.wmScaleUi != null ? brandEditorDraft.wmScaleUi : 25);
+        payload.wm_x       = clamp(brandEditorDraft.posWmX / 100);
+        payload.wm_y       = clamp(brandEditorDraft.posWmY / 100);
+        payload.wm_scale   = watermarkUiToRenderScale(brandEditorDraft.wmScaleUi != null ? brandEditorDraft.wmScaleUi : 25);
+        payload.wm_opacity = brandEditorDraft.wmOpacity != null ? brandEditorDraft.wmOpacity / 100 : 0.5;
     }
     try {
         const res = await fetchWithTimeout(`${apiBase}/api/brands/${brandEditorDraft.brandId}`, {
