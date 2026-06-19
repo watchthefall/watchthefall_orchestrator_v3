@@ -279,7 +279,7 @@ PAYMENT_LINKS = {
 FOUNDING_PAYMENT_LINKS = {
     'Creator':  'https://www.paypal.com/ncp/payment/2DWH7AN9FW3L2',  # £9/mo founding
     'Studio':   'https://www.paypal.com/ncp/payment/DJY4Q8DPKDULU',  # £19/mo founding
-    'Platinum': '',   # TODO: create PayPal link at £49/mo founding price
+    'Platinum': 'https://www.paypal.com/ncp/payment/BXWGBCNCXML3S',  # £49/mo founding
 }
 
 
