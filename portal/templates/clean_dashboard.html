@@ -2180,7 +2180,7 @@
     </div>
     {% endif %}
     
-    <div class="control-section collapsed" id="textLayerSection">
+    <div class="control-section collapsed" id="textLayerSection" style="display:none;">
         <button type="button" class="control-toggle" onclick="toggleControlSection('textLayerSection')">
             <span class="control-toggle-copy">
                 <span class="control-toggle-title">Text layer</span>
@@ -3047,6 +3047,34 @@ function captureAndSyncSliders() {
     return overrides;
 }
 // ========== END JOB-ITEM MODEL ==========
+
+// Return slider-domain overrides for a specific format, applying format_overrides when available.
+// For vertical_9_16 (or when no format_overrides exist) falls back to base brand settings.
+function getFormatDefaults(brandData, fmt) {
+    if (!brandData) return getDefaultOverrides();
+    if (fmt === 'vertical_9_16' || !brandData.format_overrides) {
+        return mergeRenderParams(brandData);
+    }
+    let fov = null;
+    try {
+        const parsed = typeof brandData.format_overrides === 'string'
+            ? JSON.parse(brandData.format_overrides)
+            : brandData.format_overrides;
+        fov = (parsed && parsed[fmt]) || null;
+    } catch (e) { fov = null; }
+    if (!fov) return mergeRenderParams(brandData);
+    // Patch format-specific position/scale fields into a copy of brandData,
+    // then run through mergeRenderParams so unit conversion stays in one place.
+    const patched = Object.assign({}, brandData, {
+        logo_x:     fov.logo_x     != null ? fov.logo_x     : brandData.logo_x,
+        logo_y:     fov.logo_y     != null ? fov.logo_y     : brandData.logo_y,
+        logo_scale: fov.logo_scale != null ? fov.logo_scale : brandData.logo_scale,
+        wm_x:       fov.wm_x      != null ? fov.wm_x       : brandData.wm_x,
+        wm_y:       fov.wm_y      != null ? fov.wm_y       : brandData.wm_y,
+        wm_scale:   fov.wm_scale  != null ? fov.wm_scale   : brandData.wm_scale,
+    });
+    return mergeRenderParams(patched);
+}
 
 // Extract saved defaults from brandDataCache into overrides format
 function getBrandDefaults(brandId) {
@@ -4345,7 +4373,10 @@ function enterQueueMode() {
             for (const brandId of canonicalBrandIds) {
                 const brandData = brandDataCache[brandId];
                 const brandName = brandData ? brandData.display_name : `Brand #${brandId}`;
-                const baseOverrides = brandOverrides[brandId] || getBrandDefaults(brandId);
+                // For non-vertical formats, load format_overrides (not vertical session state)
+                const baseOverrides = fmt === 'vertical_9_16'
+                    ? (brandOverrides[brandId] || getFormatDefaults(brandData, fmt))
+                    : getFormatDefaults(brandData, fmt);
                 processingQueue.push({
                     video:          vid,
                     brand_id:       brandId,
@@ -4545,7 +4576,7 @@ async function switchToBrand(idx) {
     // Initialise overrides if not yet set
     if (!current.overrides) {
         const brandData = brandDataCache[current.brand_id];
-        current.overrides = brandData ? mergeRenderParams(brandData) : getDefaultOverrides();
+        current.overrides = brandData ? getFormatDefaults(brandData, current.format) : getDefaultOverrides();
         current.userEdited = false;
     }
 

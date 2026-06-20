@@ -389,16 +389,8 @@
 {% include '_upgrade_modal.html' %}
 
 <!-- Create Brand Modal (legacy - for edit mode only) -->
-<div id="createModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Edit Brand</h2>
-            <button class="modal-close" onclick="closeCreateModal()">×</button>
-        </div>
-        
-        <div id="modalStatus"></div>
-        
-        <form id="createForm" onsubmit="createBrand(event)">
+<!-- createModal removed: all triggers use openBrandWizard() -->
+<form id="createForm" style="display:none;">
             <div class="form-group">
                 <label>Brand Name (slug)</label>
                 <input type="text" id="brandName" required placeholder="e.g., mybrand" pattern="[a-z0-9]+(-[a-z0-9]+)*" title="Lowercase letters, numbers, and hyphens only">
@@ -481,8 +473,8 @@
                         </div>
                     </div>
                     
-                    <!-- Text Controls -->
-                    <div class="control-section">
+                    <!-- Text Controls — hidden: text is a template feature, coming later -->
+                    <div class="control-section" style="display:none;">
                         <h3>✏️ Text Overlay</h3>
                         <label style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
                             <span>Enable Text</span>
@@ -508,10 +500,7 @@
                 </div>
             </div>
             
-            <button type="submit" class="btn btn-primary" style="width:100%; margin-top:20px;">Save Changes</button>
         </form>
-    </div>
-</div>
 
 <!-- Brand Editor Shell — Option C foundation (Phase 10F: Text/CTA mode V1) -->
 <div id="brandEditorShell" class="modal">
@@ -521,7 +510,7 @@
             <div class="bes-header-left">
                 <button class="bes-back-btn" onclick="closeBrandEditor()" title="Back to Brands">← Brands</button>
                 <div class="bes-header-inner">
-                    <h2 id="besTitle">Text / CTA</h2>
+                    <h2 id="besTitle">Logo</h2>
                     <span id="besBrandChip" class="bes-brand-chip"></span>
                 </div>
             </div>
@@ -531,23 +520,23 @@
         <!-- Mode tabs: Text/CTA is the only real mode here.
              Logo / Watermark / Position route to existing working editors. -->
         <div class="bes-tabs" role="tablist">
-            <button class="bes-tab" data-mode="logo"      onclick="switchEditorMode('logo')">✏️ Logo <span class="bes-tab-dot dot-off"></span></button>
+            <button class="bes-tab active" data-mode="logo"      onclick="switchEditorMode('logo')">✏️ Logo <span class="bes-tab-dot dot-off"></span></button>
             <button class="bes-tab" data-mode="watermark" onclick="switchEditorMode('watermark')">💧 Watermark <span class="bes-tab-dot dot-off"></span></button>
-            <button class="bes-tab active" data-mode="text" onclick="switchEditorMode('text')">T&nbsp; Text / CTA <span class="bes-tab-dot dot-off"></span></button>
+            <button class="bes-tab" data-mode="text" onclick="switchEditorMode('text')" style="display:none;">T&nbsp; Text / CTA <span class="bes-tab-dot dot-off"></span></button>
         </div>
 
         <!-- Day 4: Readiness chips — Logo / Text / Watermark status at a glance -->
         <div id="besReadinessBar" class="bes-readiness-bar">
             <span id="besChipLogo"      class="bes-ready-chip off">Logo –</span>
-            <span id="besChipText"      class="bes-ready-chip off">Text –</span>
+            <span id="besChipText"      class="bes-ready-chip off" style="display:none;">Text –</span>
             <span id="besChipWatermark" class="bes-ready-chip off">Watermark –</span>
         </div>
 
         <!-- Status bar -->
         <div id="besStatus" class="bes-status-bar"></div>
 
-        <!-- Text / CTA mode panel -->
-        <div id="besTextPanel" class="bes-panel">
+        <!-- Text / CTA mode panel — hidden: text is a template feature, coming later -->
+        <div id="besTextPanel" class="bes-panel" style="display:none;">
 
             <!-- Enable toggle -->
             <div class="bes-field-group">
@@ -612,7 +601,7 @@
         </div>
 
         <!-- Logo mode panel -->
-        <div id="besLogoPanel" class="bes-panel" style="display:none;">
+        <div id="besLogoPanel" class="bes-panel">
 
             <!-- Current logo preview -->
             <div class="bes-field-group">
@@ -711,12 +700,12 @@
             <!-- Day 4: readiness summary above action buttons -->
             <div id="besFooterReadiness" class="bes-footer-readiness incomplete">
                 <span class="bes-footer-dot"></span>
-                <span id="besFooterReadinessMsg">Add a logo or enable text to unlock rendering</span>
+                <span id="besFooterReadinessMsg">Add a logo to unlock rendering</span>
             </div>
             <div class="bes-footer-actions">
                 <button type="button" class="btn btn-secondary" onclick="closeBrandEditor()">Cancel</button>
                 <button type="button" class="btn btn-primary" id="besTextSaveBtn"
-                        onclick="saveEditorText()">Save Text Preset</button>
+                        style="display:none;" onclick="saveEditorText()">Save Text Preset</button>
                 <button type="button" class="btn btn-primary" id="besLogoSaveBtn"
                         style="display:none;" onclick="saveLogoSettings()">Save Logo Settings</button>
                 <button type="button" class="btn btn-primary" id="besWatermarkSaveBtn"
@@ -760,7 +749,7 @@
                             <ul class="wz-feature-list">
                                 <li class="wz-feature-item"><span class="wz-feature-check">✓</span> Logo &amp; Background Removal</li>
                                 <li class="wz-feature-item"><span class="wz-feature-check">✓</span> Watermarks</li>
-                                <li class="wz-feature-item"><span class="wz-feature-check">✓</span> Text &amp; CTA</li>
+                                <li class="wz-feature-item" style="display:none;"><span class="wz-feature-check">✓</span> Text &amp; CTA</li>
                                 <li class="wz-feature-item"><span class="wz-feature-check">✓</span> Layout &amp; Positioning</li>
                             </ul>
                         </div>
@@ -3931,9 +3920,6 @@ let _brandEditorSaved = false;  // set true on any save success in the editor sh
 function _besReadiness() {
     return {
         logo:      !!brandEditorDraft.logoPath,
-        text:      !!(brandEditorDraft.textEnabled &&
-                      brandEditorDraft.textContent &&
-                      brandEditorDraft.textContent.trim()),
         watermark: !!brandEditorDraft.wmPath,
     };
 }
@@ -3941,7 +3927,7 @@ function _besReadiness() {
 /** Refresh readiness chips, tab dots, and footer status line from current draft. */
 function updateBesReadiness() {
     const r = _besReadiness();
-    const isReady = r.logo || r.text;
+    const isReady = r.logo;
 
     // Chips
     function _setChip(id, on, labelOn, labelOff) {
@@ -3951,7 +3937,6 @@ function updateBesReadiness() {
         el.textContent = on ? labelOn : labelOff;
     }
     _setChip('besChipLogo',      r.logo,      'Logo ✓',      'Logo –');
-    _setChip('besChipText',      r.text,      'Text ✓',      'Text –');
     _setChip('besChipWatermark', r.watermark, 'Watermark ✓', 'Watermark –');
 
     // Tab dots
@@ -3961,7 +3946,6 @@ function updateBesReadiness() {
         const mode = tab.dataset.mode;
         const on = mode === 'logo' ? r.logo
                  : mode === 'watermark' ? r.watermark
-                 : mode === 'text' ? r.text
                  : false;
         dot.className = 'bes-tab-dot ' + (on ? 'dot-on' : 'dot-off');
     });
@@ -3972,7 +3956,7 @@ function updateBesReadiness() {
     if (footerEl)  footerEl.className = 'bes-footer-readiness ' + (isReady ? 'ready' : 'incomplete');
     if (msgEl)     msgEl.textContent  = isReady
         ? 'Brand ready to render'
-        : 'Add a logo or enable text to unlock rendering';
+        : 'Add a logo to unlock rendering';
 }
 
 // ── End Day 4 ────────────────────────────────────────────────────────────────
@@ -4047,16 +4031,9 @@ function renderBrands(brands, canCreate) {
             ? `${apiBase}/api/preview/brand-asset/${brand.id}/logo?t=${Date.now()}`
             : null;
 
-        // D4: Ready = logo uploaded OR at least one text/CTA field filled in
         const hasLogo = !!brand.logo_path;
-        const hasText = !!(brand.text_enabled && brand.text_content && brand.text_content.trim());
         const hasWm   = !!(brand.watermark_path || brand.watermark_vertical);
-        const isReady = hasLogo || hasText;
-
-        // Text preview: first 28 chars of CTA content
-        const textPreview = hasText
-            ? _e(brand.text_content.trim().slice(0, 28) + (brand.text_content.trim().length > 28 ? '…' : ''))
-            : null;
+        const isReady = hasLogo;
 
         const card = document.createElement('div');
         card.className = 'v2-rail-card';
@@ -4080,10 +4057,8 @@ function renderBrands(brands, canCreate) {
                 </div>
                 <div class="v2-rail-card-stats">
                     <span class="v2-stat ${hasLogo ? 'v2-stat-on' : 'v2-stat-off'}">Logo ${hasLogo ? '✓' : '–'}</span>
-                    <span class="v2-stat ${hasText ? 'v2-stat-on' : 'v2-stat-off'}">Text ${hasText ? '✓' : '–'}</span>
                     <span class="v2-stat ${hasWm   ? 'v2-stat-on' : 'v2-stat-off'}">Watermark ${hasWm ? '✓' : '–'}</span>
                 </div>
-                ${textPreview ? `<div class="v2-rail-text-preview">"${textPreview}"</div>` : ''}
                 <div class="v2-rail-updated">${_e(_timeAgo(brand.updated_at))}</div>
             </div>`;
 
@@ -4133,7 +4108,6 @@ function renderWorkspace(brand) {
 
     const isReady   = brand.is_ready || false;
     const hasWm     = !!brand.watermark_path;
-    const hasText   = !!brand.text_enabled;
 
     const formatLabel = _formatLabel(selectedFormat);
     const brandVideoUrl = document.getElementById('v2Container')?.dataset?.brandVideoUrl || '/portal/brand_video';
@@ -4152,7 +4126,6 @@ function renderWorkspace(brand) {
                             ? '<span class="v2-chip v2-chip-ready">✅ Ready</span>'
                             : '<span class="v2-chip v2-chip-incomplete">⚠️ Incomplete</span>'}
                         ${hasWm   ? '<span class="v2-chip v2-chip-asset">Watermark</span>' : ''}
-                        ${hasText ? '<span class="v2-chip v2-chip-asset">Text / CTA</span>' : ''}
                     </div>
                 </div>
                 <button class="btn btn-secondary v2-ws-edit-btn"
@@ -4185,7 +4158,6 @@ function renderWorkspace(brand) {
                              data-layout-layer="watermark"
                              style="left:${(brand.wm_x||0.5)*100}%;top:${(brand.wm_y||0.5)*100}%;width:${(brand.wm_scale||0.25)*50}%;opacity:${brand.wm_opacity!=null?brand.wm_opacity:0.5}"
                              onerror="this.style.display='none'">` : ''}
-                        ${hasText && brand.text_content ? `<div class="v2-preview-text" style="color:${brand.text_color||'#fff'};${brand.text_position==='top'?'top:8px':'bottom:8px'}">${_e(brand.text_content)}</div>` : ''}
                     ` : '<div class="v2-preview-empty">No logo<br>uploaded</div>'}
                 </div>
                 <!-- Layout controls strip -->
@@ -4270,15 +4242,7 @@ function renderWorkspace(brand) {
                                 title="Watermark settings">Edit</button>
                     </div>
 
-                    <div class="v2-layer ${hasText ? 'v2-layer-active' : 'v2-layer-optional'}"
-                         onclick="openBrandEditor(${brand.id}, 'text')">
-                        <div class="v2-layer-thumb v2-layer-thumb-empty" style="font-size:15px;font-weight:700;color:var(--accent);">T</div>
-                        <div class="v2-layer-info">
-                            <div class="v2-layer-name">Text / CTA</div>
-                            <div class="v2-layer-status">${hasText ? 'Enabled' : 'Optional'}</div>
-                        </div>
-                        <span class="v2-layer-eye" style="opacity:${hasText ? 1 : 0.35};pointer-events:none">✏</span>
-                    </div>
+                    <!-- Text/CTA layer row hidden: text is a template feature, coming later -->
 
                 </div>
             </div>
