@@ -355,6 +355,7 @@
                                 <div class="danger-dropdown">
                                     <button onclick="openDeactivateModal({{ user.id }}, '{{ user.email }}'); closeDangerMenu({{ user.id }})">Deactivate</button>
                                     <button onclick="openResetAccountModal({{ user.id }}, '{{ user.email }}'); closeDangerMenu({{ user.id }})">Reset Account</button>
+                                    <button style="color:#ff5252;" onclick="openPurgeModal({{ user.id }}, '{{ user.email }}'); closeDangerMenu({{ user.id }})">Purge User</button>
                                 </div>
                             </div>
                             {% endif %}
@@ -442,10 +443,27 @@
     </div>
 </div>
 
+<!-- Purge User Modal -->
+<div class="admin-modal-overlay" id="purgeUserModal">
+    <div class="admin-modal">
+        <h3 style="color:#ff5252;">☠ Purge User Account</h3>
+        <p>Hard-delete <strong id="purgeUserEmail"></strong> and all their data. <strong>The email will be freed so they can re-register.</strong></p>
+        <p class="warning-text" style="color:#e05252;font-weight:600;">This cannot be undone. The user row will be permanently removed.</p>
+        <p style="margin-top:12px;">Type: <strong id="purgeUserConfirmText" style="font-family:monospace;color:#fff;"></strong></p>
+        <input type="text" class="confirm-input" id="purgeUserConfirmInput" placeholder="Type confirmation" autocomplete="off" oninput="checkPurgeConfirmation()">
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closePurgeModal()">Cancel</button>
+            <button class="btn btn-danger" id="purgeUserConfirmBtn" onclick="confirmPurgeUser()" disabled style="opacity:0.5;background:#ff5252;">Purge User</button>
+        </div>
+    </div>
+</div>
+
 <script>
 var _resetUserId = null;
 var _deactivateUserId = null;
 var _resetAccountUserId = null;
+var _purgeUserId = null;
+var _purgeUserEmail = null;
 var _resetAccountEmail = null;
 
 var TIER_COLORS = {
@@ -730,6 +748,44 @@ function confirmResetAccount() {
         } else { alert('Error: ' + (data.error || 'Unknown')); btn.disabled = false; btn.textContent = 'Reset Account'; }
     })
     .catch(function() { alert('Network error'); btn.disabled = false; btn.textContent = 'Reset Account'; });
+}
+
+/* ── Purge User ── */
+function openPurgeModal(userId, email) {
+    _purgeUserId = userId; _purgeUserEmail = email;
+    document.getElementById('purgeUserEmail').textContent = email;
+    document.getElementById('purgeUserConfirmText').textContent = 'PURGE ' + email;
+    document.getElementById('purgeUserConfirmInput').value = '';
+    var btn = document.getElementById('purgeUserConfirmBtn');
+    btn.disabled = true; btn.style.opacity = '0.5';
+    document.getElementById('purgeUserModal').classList.add('active');
+}
+function closePurgeModal() {
+    document.getElementById('purgeUserModal').classList.remove('active');
+    _purgeUserId = null; _purgeUserEmail = null;
+}
+function checkPurgeConfirmation() {
+    var ok = document.getElementById('purgeUserConfirmInput').value.trim() === 'PURGE ' + _purgeUserEmail;
+    var btn = document.getElementById('purgeUserConfirmBtn');
+    btn.disabled = !ok; btn.style.opacity = ok ? '1' : '0.5';
+}
+function confirmPurgeUser() {
+    var input = document.getElementById('purgeUserConfirmInput').value.trim();
+    if (input !== 'PURGE ' + _purgeUserEmail) { alert('Type exactly: PURGE ' + _purgeUserEmail); return; }
+    var btn = document.getElementById('purgeUserConfirmBtn');
+    btn.disabled = true; btn.textContent = 'Purging…';
+    fetch('/api/admin/purge-user', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: _purgeUserId, confirmation: input})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            alert('Purged ' + data.email + '.\nAccount fully removed — email is now free to re-register.');
+            location.reload();
+        } else { alert('Error: ' + (data.error || 'Unknown')); btn.disabled = false; btn.textContent = 'Purge User'; }
+    })
+    .catch(function() { alert('Network error'); btn.disabled = false; btn.textContent = 'Purge User'; });
 }
 
 /* ── Helpers ── */

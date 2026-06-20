@@ -900,6 +900,57 @@ def admin_reset_account():
     })
 
 
+# ── Admin API: Purge User (hard delete — frees email for re-registration) ──
+@app.route('/api/admin/purge-user', methods=['POST'])
+@admin_required
+def admin_purge_user():
+    """Hard-delete a user and all their data so the email can be used to re-register."""
+    from .database import get_connection
+    data = request.get_json(force=True) or {}
+    user_id = data.get('user_id')
+    confirmation = data.get('confirmation', '')
+
+    if not user_id:
+        return jsonify({'success': False, 'error': 'user_id required'}), 400
+
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT email FROM users WHERE id = ?', (user_id,))
+        target = c.fetchone()
+        if not target:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+    target_email = target['email']
+
+    if confirmation != f'PURGE {target_email}':
+        return jsonify({'success': False, 'error': f'Type exactly: PURGE {target_email}'}), 400
+
+    if user_id == session.get('user_id'):
+        return jsonify({'success': False, 'error': 'Cannot purge your own account'}), 400
+
+    if target_email.lower() in [e.lower() for e in ADMIN_EMAILS]:
+        return jsonify({'success': False, 'error': 'Cannot purge an admin account'}), 400
+
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT name FROM brands WHERE user_id = ? AND is_system = 0', (user_id,))
+        brand_names = [row['name'] for row in c.fetchall()]
+        if brand_names:
+            placeholders = ','.join('?' * len(brand_names))
+            c.execute(f'DELETE FROM brand_configs WHERE brand_name IN ({placeholders})', brand_names)
+        c.execute('DELETE FROM brands WHERE user_id = ?', (user_id,))
+        c.execute('DELETE FROM branded_outputs WHERE user_id = ?', (user_id,))
+        c.execute('DELETE FROM downloads WHERE user_id = ?', (user_id,))
+        c.execute('DELETE FROM daily_usage WHERE user_id = ?', (user_id,))
+        # Free the email so they can re-register via waitlist
+        c.execute('DELETE FROM beta_access WHERE LOWER(email) = LOWER(?)', (target_email,))
+        c.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        conn.commit()
+
+    print(f"[ADMIN] Purged user {user_id} ({target_email}) by {session.get('email')}")
+    return jsonify({'success': True, 'email': target_email})
+
+
 # ── Admin API: Update Account Status ──
 @app.route('/api/admin/update-status', methods=['POST'])
 @admin_required
