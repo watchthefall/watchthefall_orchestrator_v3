@@ -367,6 +367,9 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 
+# Startup diagnostics
+print(f"[STARTUP] LOOPS_API_KEY={'SET' if os.environ.get('LOOPS_API_KEY') else 'MISSING'}", flush=True)
+
 # P1 fix: rate limiter — in-memory storage safe because WEB_CONCURRENCY=1
 limiter = Limiter(
     get_remote_address,
@@ -1429,9 +1432,13 @@ def waitlist_submit():
 
         if created:
             print(f"[WAITLIST] New entry: {email} platform={main_platform} type={creator_type}")
-            _loops_sync_contact(email, creator_name,
-                                main_platform=main_platform,
-                                creator_type=creator_type)
+            import threading as _threading
+            _threading.Thread(
+                target=_loops_sync_contact,
+                args=(email, creator_name),
+                kwargs={'main_platform': main_platform, 'creator_type': creator_type},
+                daemon=True,
+            ).start()
             return jsonify({'success': True, 'created': True})
         else:
             # Already on the list — friendly, not an error
