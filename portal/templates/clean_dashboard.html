@@ -343,6 +343,17 @@
         border: 1px solid #343948;
         color: #b6bfd3;
     }
+    .review-copy-btn {
+        background: transparent;
+        border: 1px solid #343948;
+        color: #98a2b8;
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .review-copy-btn:hover { border-color: var(--accent); color: var(--accent); }
     .review-footer-actions {
         margin-top: 4px;
         display: flex;
@@ -2245,6 +2256,13 @@
             <button onclick="skipBrand()" class="review-secondary">Skip</button>
             <button onclick="approveAndNext()" id="approveNextBtn" class="review-primary">Approve &amp; Next</button>
         </div>
+        <div id="copyAdjustRow" style="display:none; margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <span style="font-size:11px; color:#888; flex-shrink:0;">Copy adjustments →</span>
+            <button onclick="copyToBrandFormats()" class="review-copy-btn" title="Copy to other formats of this brand on this video">This brand's formats</button>
+            <button onclick="copyToVideoRemaining()" class="review-copy-btn" title="Copy to all remaining items for this video">This video</button>
+            <button onclick="copyToAllRemaining()" class="review-copy-btn" title="Copy to every remaining item in the queue">All remaining</button>
+            <span id="copyConfirmMsg" style="font-size:11px; color:#4ade80; opacity:0; transition:opacity 0.4s; margin-left:4px;"></span>
+        </div>
         <div class="review-footer-actions">
             <button onclick="processAllBrands()" id="processAllBtn" class="btn-secondary">Start branding</button>
             <button onclick="exitQueueMode()" class="review-linkish">Back to brands</button>
@@ -2342,6 +2360,7 @@ let processingQueue = [];
 let currentQueueIndex = 0;
 let isReviewCompletionState = false;
 let selectedOutputFormats = ['vertical_9_16'];
+let activeReviewFormat = 'vertical_9_16'; // tracks format of current queue item for canvas sizing
 let selectedSources = [];   // Patch 50A: filenames of sources chosen for this render run
 let completedOutputs = []; // accumulates { brand_name, download_url } after each successful brand
 
@@ -2703,7 +2722,7 @@ function updateReviewHeader() {
     if (!current || total === 0) {
         title.textContent = 'Reviewing: Vertical 9:16';
         meta.textContent = '';
-        summary.textContent = 'Brand 0 of 0';
+        summary.textContent = 'Item 0 of 0';
         queueSummary.textContent = '';
         stateBadge.textContent = 'Default';
         stateBadge.className = 'review-state-badge default';
@@ -2712,17 +2731,15 @@ function updateReviewHeader() {
     }
 
     const activeBrandName = brandDataCache[current.brand_id] ? brandDataCache[current.brand_id].display_name : current.brand_name;
-    const extraFmts = selectedOutputFormats.length > 1
-        ? ` + ${selectedOutputFormats.length - 1} more format${selectedOutputFormats.length > 2 ? 's' : ''}`
-        : '';
-    title.textContent = `Reviewing: ${activeBrandName} · Vertical 9:16${extraFmts}`;
-    // Phase 17: primary position label — "Brand X of Y" is unambiguous.
-    // "remaining" is dropped (redundant with position). Reviewed count only shown
-    // once at least one brand has been actioned so brand-1 header is clean.
+    const fmtLabel = (OUTPUT_FORMAT_OPTIONS[current.format] || {}).label || current.format || 'Vertical 9:16';
+    title.textContent = `Reviewing: ${activeBrandName} · ${fmtLabel}`;
+    // Show approved count once at least one item actioned; also show video context for multi-video
+    const videos = [...new Set(processingQueue.map(i => i.video).filter(Boolean))];
+    const videoCtx = videos.length > 1 ? ` · Video ${videos.indexOf(current.video) + 1} of ${videos.length}` : '';
     meta.textContent = reviewed > 0
-        ? (skipped > 0 ? `${reviewed} approved · ${skipped} skipped` : `${reviewed} approved`)
-        : '';
-    summary.textContent = `Brand ${currentQueueIndex + 1} of ${total}`;
+        ? (skipped > 0 ? `${reviewed} approved · ${skipped} skipped${videoCtx}` : `${reviewed} approved${videoCtx}`)
+        : (videoCtx ? videoCtx.replace(' · ', '') : '');
+    summary.textContent = `Item ${currentQueueIndex + 1} of ${total}`;
     queueSummary.textContent = '';
 
     let badgeClass = 'default';
@@ -2909,14 +2926,13 @@ function approveAndNext() {
     renderBrandPills();
     updateReviewHeader();
 
-    // Phase 17: fire render immediately — non-blocking, continues in background
-    // while the user moves on to reviewing the next brand.
-    fireRenderForBrand(current);
+    // Fire exactly one render for this (brand × format) item
+    fireRenderForItem(current);
 
     if (currentQueueIndex < processingQueue.length - 1) {
         switchToBrand(currentQueueIndex + 1);
     } else {
-        // All brands reviewed — renders already running. Show streaming state.
+        // All items reviewed — renders already running. Show streaming state.
         renderStreamingCompletionState();
     }
 }
@@ -4282,75 +4298,49 @@ function enterQueueMode() {
         return;
     }
     
-    // ========== JOB-ITEM MODEL (Commit 5: use jobItems as primary queue source) ==========
     // Save current active preview brand's slider state first
     if (activePreviewBrandId) {
         brandOverrides[activePreviewBrandId] = captureAndSyncSliders();
     }
-    
-    // Ensure jobItems exists for current file + selected brands
-    // If jobItems is empty or doesn't match, rebuild from selectedBrandIds
-    const fileItems = jobItems.filter(item => item.filename === currentFile);
-    const hasAllBrands = canonicalBrandIds.every(brandId => 
-        fileItems.some(item => item.brandId === brandId)
-    );
-    
-    if (fileItems.length !== canonicalBrandIds.length || !hasAllBrands) {
-        // Rebuild jobItems to match selection
-        console.log('[JobItems] Rebuilding jobItems for queue mode');
-        // Remove old items for this file
-        jobItems = jobItems.filter(item => item.filename !== currentFile);
-        // Create new items for each selected brand
-        canonicalBrandIds.forEach(brandId => {
+
+    // Build flat queue: video × brand × format (brand-first within each video).
+    // Each item gets its own overrides so every (brand, format) combo is independently editable.
+    const sources = selectedSources.length > 0
+        ? selectedSources
+        : (currentFile ? [currentFile] : []);
+
+    processingQueue = [];
+    for (const vid of sources) {
+        for (const brandId of canonicalBrandIds) {
             const brandData = brandDataCache[brandId];
-            jobItems.push({
-                id: generateItemId(),
-                filename: currentFile,
-                sourceUrl: '',
-                brandId: brandId,
-                overrides: brandOverrides[brandId] || getBrandDefaults(brandId),
-                status: 'pending',
-                reviewDecision: null,
-                frameData: frameData,
-                videoWidth: videoWidth,
-                videoHeight: videoHeight,
-                createdAt: Date.now()
-            });
-        });
-        persistJobItems();
-    }
-    
-    // Sync processingQueue from jobItems (for backward compatibility during migration)
-    const currentFileItems = jobItems.filter(item => item.filename === currentFile);
-    currentFileItems.forEach(item => {
-        if (item.status !== 'skipped') {
-            item.status = 'pending';
-            item.reviewDecision = null;
-        } else {
-            item.reviewDecision = 'skipped';
+            const brandName = brandData ? brandData.display_name : `Brand #${brandId}`;
+            const baseOverrides = brandOverrides[brandId] || getBrandDefaults(brandId);
+            for (const fmt of selectedOutputFormats) {
+                processingQueue.push({
+                    video:          vid,
+                    brand_id:       brandId,
+                    brand_name:     brandName,
+                    format:         fmt,
+                    overrides:      { ...baseOverrides },
+                    status:         'pending',
+                    reviewDecision: null,
+                    userEdited:     false
+                });
+            }
         }
-    });
-    persistJobItems();
-    processingQueue = currentFileItems.map(item => ({
-        brand_id: item.brandId,
-        brand_name: brandDataCache[item.brandId] ? brandDataCache[item.brandId].display_name : `Brand #${item.brandId}`,
-        overrides: item.overrides || getBrandDefaults(item.brandId),
-        status: item.status || 'pending',
-        reviewDecision: item.reviewDecision || null
-    }));
-    
-    console.log('[BRANDR] Queue initialized from jobItems:', processingQueue.length, 'items');
-    console.log('[JobItems] Active items for this file:', currentFileItems.length);
-    // ========== END JOB-ITEM MODEL ==========
-    
+    }
+
+    console.log('[BRANDR] Queue built:', processingQueue.length, 'items',
+        `(${sources.length} video(s) × ${canonicalBrandIds.length} brand(s) × ${selectedOutputFormats.length} format(s))`);
+
     currentQueueIndex = 0;
-    activeItemIndex = 0;  // Sync with jobItems
+    activeItemIndex = 0;
     isQueueMode = true;
     syncReviewViewportState();
     
     // Clear sessionStorage now that branding has started
     sessionStorage.removeItem('lastDownloadFilename');
-    console.log('[BRANDR] Entering queue mode with', processingQueue.length, 'brands');
+    console.log('[BRANDR] Entering queue mode with', processingQueue.length, 'items');
     console.log('[BRANDR] Processing queue:', processingQueue);
     updateStepProgress(3);
     
@@ -4399,40 +4389,21 @@ function enterQueueMode() {
 function renderBrandPills() {
     const container = document.getElementById('brandPillsContainer');
     container.innerHTML = '';
-    
-    // ========== JOB-ITEM MODEL (Commit 6: use jobItems directly) ==========
-    // Use jobItems for current file as primary source, fallback to processingQueue
-    let renderSource = processingQueue;
-    let activeIndex = currentQueueIndex;
-    
-    if (currentFile && isQueueMode) {
-        const fileItems = jobItems.filter(item => item.filename === currentFile);
-        if (fileItems.length > 0) {
-            // Map jobItems to pill format
-            renderSource = fileItems.map(item => ({
-                brand_name: brandDataCache[item.brandId] ? brandDataCache[item.brandId].display_name : `Brand #${item.brandId}`,
-                status: item.status === 'completed' ? 'done' : item.status === 'error' ? 'failed' : item.status || 'pending',
-                reviewDecision: item.reviewDecision || null
-            }));
-            activeIndex = activeItemIndex;
-        }
-    }
-    // ========== END JOB-ITEM MODEL ==========
-    
-    renderSource.forEach((item, idx) => {
+
+    const FORMAT_SHORT = { vertical_9_16: '9:16', square_1_1: '1:1', landscape_16_9: '16:9', auto_pack: 'pack' };
+    const videos = [...new Set(processingQueue.map(i => i.video).filter(Boolean))];
+    const multiVideo = videos.length > 1;
+
+    processingQueue.forEach((item, idx) => {
         const pill = document.createElement('button');
         pill.className = 'brand-pill';
         pill.dataset.index = idx;
         pill.onclick = () => switchToBrand(idx);
-        
-        // Status-based styling
+
         let statusIcon = '';
         let bgColor = '#333';
-        
-        if (item.reviewDecision === 'approved') {
-            statusIcon = '\u2713 ';
-            bgColor = '#28a745';
-        } else if (item.status === 'done') {
+
+        if (item.reviewDecision === 'approved' || item.status === 'done') {
             statusIcon = '\u2713 ';
             bgColor = '#28a745';
         } else if (item.status === 'processing') {
@@ -4444,31 +4415,34 @@ function renderBrandPills() {
         } else if (item.status === 'skipped') {
             statusIcon = '\u2212 ';
             bgColor = '#666';
-        } else if (idx === activeIndex) {
-            bgColor = 'var(--accent)';  // Active/editing
+        } else if (idx === currentQueueIndex) {
+            bgColor = 'var(--accent)';
         }
-        
-        pill.innerHTML = statusIcon + item.brand_name;
+
+        const fmtShort = FORMAT_SHORT[item.format] || item.format || '?';
+        const videoPrefix = multiVideo ? `V${videos.indexOf(item.video) + 1} \u00B7 ` : '';
+        pill.innerHTML = statusIcon + videoPrefix + item.brand_name + ' \u00B7 ' + fmtShort;
         pill.style.cssText = `
-            padding: 8px 16px;
+            padding: 6px 12px;
             border: none;
             border-radius: 20px;
             background: ${bgColor};
             color: #fff;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             cursor: pointer;
             transition: transform 0.1s, opacity 0.2s;
+            white-space: nowrap;
         `;
-        
-        if (idx === activeIndex) {
+
+        if (idx === currentQueueIndex) {
             pill.style.transform = 'scale(1.05)';
             pill.style.boxShadow = '0 0 10px var(--accent-glow)';
         }
-        
+
         container.appendChild(pill);
     });
-    
+
     updateQueueStatusSummary();
     updateReviewHeader();
 }
@@ -4500,57 +4474,49 @@ function updateQueueStatusSummary() {
 }
 
 async function switchToBrand(idx) {
-    // ========== JOB-ITEM MODEL (Commit 6: prefer jobItems, sync indices) ==========
-    // Determine data source: prefer jobItems when in queue mode with current file
-    let dataSource = processingQueue;
-    let useJobItems = false;
-    
-    if (currentFile && isQueueMode) {
-        const fileItems = jobItems.filter(item => item.filename === currentFile);
-        if (fileItems.length > 0) {
-            dataSource = fileItems.map(item => ({
-                brand_id: item.brandId,
-                brand_name: brandDataCache[item.brandId] ? brandDataCache[item.brandId].display_name : `Brand #${item.brandId}`,
-                overrides: item.overrides,
-                status: item.status === 'completed' ? 'done' : item.status === 'error' ? 'failed' : item.status || 'pending',
-                reviewDecision: item.reviewDecision || null
-            }));
-            useJobItems = true;
-        }
-    }
-    
-    // Save current brand's overrides before switching
-    const currentIdx = useJobItems ? activeItemIndex : currentQueueIndex;
-    if (currentIdx !== idx && dataSource[currentIdx]) {
+    // Save current item's overrides before switching
+    if (idx !== currentQueueIndex && processingQueue[currentQueueIndex]) {
         saveCurrentOverridesFromSliders();
     }
-    
-    // Sync both indices
+
     currentQueueIndex = idx;
-    if (useJobItems) {
-        activeItemIndex = idx;
-        persistJobItems();
+    activeItemIndex = idx;
+
+    const current = processingQueue[idx];
+    if (!current) return;
+
+    // Switch video source when crossing a video boundary (multi-link)
+    if (current.video && current.video !== currentFile) {
+        currentFile = current.video;
+        console.log('[BRANDR] switchToBrand: video switched to', currentFile);
+        // Frame data will reload via applyBrandToPreview / loadBrandAssets
+        frameData = null;
     }
-    // ========== END JOB-ITEM MODEL ==========
-    
-    const current = dataSource[idx];
-    
-    // Skip if already processing/done
+
+    // Resize canvas to match this item's output format
+    activeReviewFormat = current.format || 'vertical_9_16';
+    resizeCanvasForFormat(activeReviewFormat);
+
+    // Show/hide copy row — only useful when there are pending items ahead
+    const copyRow = document.getElementById('copyAdjustRow');
+    if (copyRow) {
+        const hasPendingAhead = processingQueue.slice(idx + 1).some(i => i.status === 'pending' || i.status === 'editing');
+        copyRow.style.display = hasPendingAhead ? 'flex' : 'none';
+    }
+
+    // Skip if already processing/done (still update pills + header)
     if (current.status === 'processing') {
-        document.getElementById('processResult').innerHTML = '<div class="status-msg info">This brand is currently processing...</div>';
+        renderBrandPills();
+        updateReviewHeader();
+        document.getElementById('processResult').innerHTML = '<div class="status-msg info">This item is currently processing...</div>';
         return;
     }
-    
-    // Update pills to show active state
-    renderBrandPills();
-    
-    // Initialise overrides for this job if not yet set — mergeRenderParams translates
-    // DB field names to slider domain and fills all defaults in one pass.
+
+    // Initialise overrides if not yet set
     if (!current.overrides) {
         const brandData = brandDataCache[current.brand_id];
         current.overrides = brandData ? mergeRenderParams(brandData) : getDefaultOverrides();
         current.userEdited = false;
-        if (!brandData) console.error(`[BRANDR] Brand #${current.brand_id} not found in cache`);
     }
 
     // Mark as editing
@@ -4558,14 +4524,16 @@ async function switchToBrand(idx) {
         current.status = 'editing';
     }
 
-    // Apply brand + session overrides into sliders BEFORE loading assets so any cached-image
-    // onload fires updateCanvasPreview with the correct slider values already in place.
+    // Update pills
+    renderBrandPills();
+
+    // Apply brand + overrides into sliders before loading assets
     applyBrandToPreview(brandDataCache[current.brand_id], current.overrides);
 
-    // Load brand assets for preview using brand_id
+    // Load brand assets
     await loadBrandAssets(current.brand_id);
-    
-    // Clear any previous transient review message
+
+    // Clear transient review message
     document.getElementById('processResult').innerHTML = '';
     updateReviewHeader();
 }
@@ -4587,6 +4555,68 @@ function getDefaultOverrides() {
         text_bg_enabled: true,
         text_bg_opacity: 0.6
     };
+}
+
+// Resize canvas to match output format dimensions for accurate preview
+function resizeCanvasForFormat(fmt) {
+    if (!canvas) return;
+    if (fmt === 'square_1_1') {
+        canvas.width  = 360;
+        canvas.height = 360;
+        videoWidth  = 720;
+        videoHeight = 720;
+    } else {
+        // Default: vertical 9:16
+        canvas.width  = 360;
+        canvas.height = 640;
+        videoWidth  = 720;
+        videoHeight = 1280;
+    }
+    updateCanvasPreview();
+}
+
+// ── Copy-adjustments helpers ──
+
+function _applyCopyToItems(predicate) {
+    const current = processingQueue[currentQueueIndex];
+    if (!current) return;
+    saveCurrentOverridesFromSliders();
+    const overrides = { ...current.overrides };
+    let count = 0;
+    processingQueue.forEach((item, idx) => {
+        if (idx <= currentQueueIndex) return;
+        if (item.status === 'processing' || item.status === 'done') return;
+        if (!predicate(item, current)) return;
+        item.overrides   = { ...overrides };
+        item.userEdited  = true;
+        count++;
+    });
+    return count;
+}
+
+function copyToBrandFormats() {
+    const count = _applyCopyToItems((item, cur) =>
+        item.brand_id === cur.brand_id && item.video === cur.video
+    );
+    _showCopyMsg(count ? `Copied to ${count} other format${count > 1 ? 's' : ''} for this brand` : 'No pending formats to copy to');
+}
+
+function copyToVideoRemaining() {
+    const count = _applyCopyToItems((item, cur) => item.video === cur.video);
+    _showCopyMsg(count ? `Copied to ${count} remaining item${count > 1 ? 's' : ''} for this video` : 'No pending items to copy to');
+}
+
+function copyToAllRemaining() {
+    const count = _applyCopyToItems(() => true);
+    _showCopyMsg(count ? `Copied to ${count} remaining item${count > 1 ? 's' : ''}` : 'No pending items to copy to');
+}
+
+function _showCopyMsg(msg) {
+    const el = document.getElementById('copyConfirmMsg');
+    if (!el) return;
+    el.textContent = '✓ ' + msg;
+    el.style.opacity = '1';
+    setTimeout(() => { el.style.opacity = '0'; }, 2500);
 }
 
 function loadOverridesIntoSliders(overrides) {
@@ -4847,6 +4877,132 @@ async function fireRenderForBrand(item) {
         };
         setTimeout(poll, POLL_INTERVAL_MS);
     }
+}
+
+// fireRenderForItem — fires exactly ONE format POST for a (brand × format) queue item.
+// Called from approveAndNext(). Non-blocking: polls in background while user reviews next item.
+async function fireRenderForItem(item) {
+    if (item.status === 'processing' || item.status === 'done') {
+        console.warn('[FIRE] Skip', item.brand_name, item.format, '— already', item.status);
+        return;
+    }
+
+    item.status = 'processing';
+    renderBrandPills();
+
+    const payload = {
+        source_path:   item.video || currentFile,
+        brand_ids:     [item.brand_id],
+        brands:        [item.brand_name],
+        output_format: item.format || 'vertical_9_16',
+        ...(item.userEdited ? {
+            watermark_scale:           item.overrides.watermark_scale,
+            watermark_opacity:         item.overrides.watermark_opacity,
+            logo_scale:                item.overrides.logo_scale,
+            logo_x:                    item.overrides.logo_x,
+            logo_y:                    item.overrides.logo_y,
+            logo_rotation:             item.overrides.logo_rotation,
+            text_enabled:              item.overrides.text_enabled,
+            text_content:              item.overrides.text_content,
+            text_x:                    item.overrides.text_x,
+            text_y:                    item.overrides.text_y,
+            text_size:                 item.overrides.text_size,
+            text_color:                item.overrides.text_color,
+            text_bg_enabled:           item.overrides.text_bg_enabled,
+            text_bg_opacity:           item.overrides.text_bg_opacity,
+            secondary_logo_enabled:    item.overrides.secondary_logo_enabled    || false,
+            secondary_logo_brand_id:   item.overrides.secondary_logo_brand_id   || null,
+            secondary_logo_scale:      item.overrides.secondary_logo_scale      || 0.12,
+            secondary_logo_opacity:    item.overrides.secondary_logo_opacity    || 0.9,
+            secondary_logo_rotation:   item.overrides.secondary_logo_rotation   || 0,
+            secondary_logo_x:          item.overrides.secondary_logo_x          || 0,
+            secondary_logo_y:          item.overrides.secondary_logo_y          || 0
+        } : {})
+    };
+
+    let job_id;
+    try {
+        const postRes = await fetch(`${apiBase}/api/videos/process_brands`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
+        });
+        let postData;
+        try { postData = await postRes.json(); }
+        catch { throw new Error(`Server error ${postRes.status}`); }
+
+        if (!postData.success) {
+            if (postData.error === 'DAILY_LIMIT_REACHED' || postData.error === 'BRANDS_PER_JOB_LIMIT') {
+                openUpgradeModal('Limit reached', postData.message || 'You have reached your plan limit.');
+            }
+            throw new Error(postData.error || postData.details || 'Render could not be queued');
+        }
+        job_id = postData.job_id;
+        item.jobId = job_id;
+        console.log('[FIRE] Queued', item.format, 'job', job_id, '—', item.brand_name);
+    } catch (postErr) {
+        console.error('[FIRE] POST failed:', item.brand_name, item.format, postErr.message);
+        item.status = 'failed';
+        renderBrandPills();
+        checkQueueComplete();
+        return;
+    }
+
+    // Poll until settled
+    const POLL_INTERVAL_MS = 5000;
+    const MAX_POLLS = 180;
+    let pollCount = 0;
+
+    const poll = async () => {
+        if (pollCount >= MAX_POLLS) {
+            console.error('[FIRE] Poll timeout:', item.brand_name, item.format, job_id);
+            item.status = 'failed';
+            renderBrandPills();
+            checkQueueComplete();
+            return;
+        }
+        pollCount++;
+
+        let pollRes, pollData;
+        try {
+            pollRes  = await fetch(`${apiBase}/api/videos/brand-job/${job_id}`);
+            pollData = await pollRes.json();
+        } catch (netErr) {
+            setTimeout(poll, POLL_INTERVAL_MS);
+            return;
+        }
+
+        if (pollRes.status === 404 || pollData.error) {
+            item.status = 'failed';
+            item.error  = 'Render job lost after server restart. Please retry.';
+            console.warn('[FIRE] Job lost:', job_id, item.format);
+            renderBrandPills();
+            checkQueueComplete();
+            return;
+        }
+
+        if (!pollRes.ok) { setTimeout(poll, POLL_INTERVAL_MS); return; }
+
+        if (pollData.status === 'completed') {
+            if (pollData.outputs && pollData.outputs[0]) {
+                const downloadUrl = pollData.outputs[0].download_url;
+                window.open(downloadUrl, '_blank');
+                completedOutputs.push({ brand_name: item.brand_name + ' · ' + item.format, download_url: downloadUrl });
+            }
+            item.status = 'done';
+            console.log('[FIRE] Done:', item.brand_name, item.format, 'polls:', pollCount);
+            renderBrandPills();
+            checkQueueComplete();
+        } else if (pollData.status === 'failed') {
+            item.status = 'failed';
+            console.error('[FIRE] Failed:', item.brand_name, item.format, pollData.error);
+            renderBrandPills();
+            checkQueueComplete();
+        } else {
+            setTimeout(poll, POLL_INTERVAL_MS);
+        }
+    };
+    setTimeout(poll, POLL_INTERVAL_MS);
 }
 
 async function processCurrentBrand() {
@@ -5291,22 +5447,7 @@ function retryBrand(idx) {
 }
 
 function checkQueueComplete() {
-    // ========== JOB-ITEM MODEL (Commit 6: prefer jobItems) ==========
-    // Use jobItems for current file as primary source, fallback to processingQueue
-    let checkSource = processingQueue;
-    
-    if (currentFile && isQueueMode) {
-        const fileItems = jobItems.filter(item => item.filename === currentFile);
-        if (fileItems.length > 0) {
-            // Map jobItems status to queue status format
-            checkSource = fileItems.map(item => ({
-                status: item.status === 'completed' ? 'done' : item.status === 'error' ? 'failed' : item.status || 'pending'
-            }));
-        }
-    }
-    // ========== END JOB-ITEM MODEL ==========
-    
-    const allDone = checkSource.every(q => q.status === 'done' || q.status === 'skipped' || q.status === 'failed');
+    const allDone = processingQueue.every(q => q.status === 'done' || q.status === 'skipped' || q.status === 'failed');
     if (allDone) {
         const result = document.getElementById('processResult');
         const done = checkSource.filter(q => q.status === 'done').length;
