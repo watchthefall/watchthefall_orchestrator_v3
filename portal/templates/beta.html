@@ -552,8 +552,9 @@
             : "You'll be notified when your access is approved.\nIf approved, register using the same email address.\nJoin the Discord for beta updates, feature previews, and early creator rewards.";
           document.getElementById('success-msg').textContent = msg;
           document.getElementById('form-state').style.display = 'none';
-          document.getElementById('success-state').style.display = 'block';
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          const successEl = document.getElementById('success-state');
+          successEl.style.display = 'block';
+          successEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else {
           submitError.textContent = json.error || 'Something went wrong. Please try again.';
           submitError.style.display = 'block';
