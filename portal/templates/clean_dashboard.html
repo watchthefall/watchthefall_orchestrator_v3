@@ -2712,7 +2712,10 @@ function updateReviewHeader() {
     }
 
     const activeBrandName = brandDataCache[current.brand_id] ? brandDataCache[current.brand_id].display_name : current.brand_name;
-    title.textContent = `Reviewing: ${activeBrandName} · Vertical 9:16`;
+    const extraFmts = selectedOutputFormats.length > 1
+        ? ` + ${selectedOutputFormats.length - 1} more format${selectedOutputFormats.length > 2 ? 's' : ''}`
+        : '';
+    title.textContent = `Reviewing: ${activeBrandName} · Vertical 9:16${extraFmts}`;
     // Phase 17: primary position label — "Brand X of Y" is unambiguous.
     // "remaining" is dropped (redundant with position). Reviewed count only shown
     // once at least one brand has been actioned so brand-1 header is clean.

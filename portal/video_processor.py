@@ -42,7 +42,7 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16') -> st
         Path to normalized video file (or original if normalization fails)
     """
     try:
-        fixed_path = input_path.replace(".mp4", "_normalized.mp4")
+        fixed_path = input_path.replace(".mp4", f"_normalized_{output_format}.mp4")
         print(f"[NORMALIZE] Normalizing video to clean 8-bit H264 SDR: {input_path}")
 
         NORMALIZE_TIMEOUT = 300  # 5 min — normalization is just scale+re-encode, not overlay rendering
