@@ -1475,7 +1475,12 @@ def get_branded_outputs_for_user(user_id, limit=50):
             SELECT bo.id, bo.output_filename, bo.brand_name, bo.output_format,
                    bo.source_filename, bo.width, bo.height, bo.aspect_ratio, bo.created_at,
                    bo.file_path, bo.bookmarked,
-                   COALESCE(d.display_name, bo.source_filename) AS source_display_name
+                   COALESCE(
+                       (SELECT d.display_name FROM downloads d
+                        WHERE d.filename = bo.source_filename AND d.user_id = bo.user_id
+                        LIMIT 1),
+                       bo.source_filename
+                   ) AS source_display_name
             FROM branded_outputs bo
             JOIN (
                 SELECT output_filename, MAX(id) AS max_id
@@ -1483,7 +1488,6 @@ def get_branded_outputs_for_user(user_id, limit=50):
                 WHERE user_id = ?
                 GROUP BY output_filename
             ) dedup ON bo.id = dedup.max_id
-            LEFT JOIN downloads d ON d.filename = bo.source_filename AND d.user_id = bo.user_id
             ORDER BY bo.created_at DESC
             LIMIT ?
         ''', (user_id, limit))
