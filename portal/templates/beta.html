@@ -287,11 +287,15 @@
     #success-state { display: none; }
     .success-card {
       text-align: center;
-      padding: 48px 24px;
+      padding: 32px 24px 36px;
     }
-    .success-icon {
-      font-size: 3rem;
-      margin-bottom: 16px;
+    .success-banner {
+      width: 100%;
+      max-width: 460px;
+      height: auto;
+      display: block;
+      margin: 0 auto 28px;
+      border-radius: 10px;
     }
     .success-card h2 {
       font-size: 1.5rem;
@@ -305,6 +309,11 @@
       max-width: 340px;
       margin: 0 auto 24px;
       line-height: 1.7;
+    }
+    .success-note {
+      font-size: 0.8rem;
+      color: #555;
+      margin-top: 14px;
     }
     .success-card .btn-discord { font-size: 1rem; padding: 11px 28px; }
   </style>
@@ -469,16 +478,19 @@
     <!-- Success state (shown after submit) -->
     <div id="success-state">
       <div class="card success-card">
-        <div class="success-icon">🎉</div>
+        <img src="/static/images/email/brandr_foundingmember_onthelist.png"
+             alt="Brandr Founding Member — You're on the list"
+             class="success-banner"
+             onerror="this.style.display='none'">
         <h2>You're on the list.</h2>
         <p id="success-msg">
-          You'll be notified when your access is approved.<br>
-          If approved, register using the same email address.<br>
-          Join the Discord for beta updates, feature previews, and early creator rewards.
+          We review applications manually and approve in batches.<br>
+          You'll hear from us when your access is ready.
         </p>
         <a href="https://discord.gg/UeMfn4AmF" target="_blank" rel="noopener" class="btn-discord">
           Join the Brandr Discord
         </a>
+        <p class="success-note">Beta members lock in Founding Member pricing for 12 months.</p>
       </div>
       <div class="login-nudge" style="margin-top:16px;">
         Approved? <a href="{{ url_for('register') }}">Create your account</a> or <a href="{{ url_for('login') }}">log in</a>.
