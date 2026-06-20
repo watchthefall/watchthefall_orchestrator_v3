@@ -479,7 +479,7 @@ class VideoProcessor:
             logo_x_expr = f"{logo_cx_px}-w/2"
             logo_y_expr = f"{logo_cy_px}-h/2"
 
-            logo_shape = brand_config.get('logo_shape', 'original')
+            logo_shape = brand_config.get('logo_shape') or 'original'
             print(f"[VISUAL_PRESET] Adding logo: {logo_path}")
             print(f"[VISUAL_PRESET] Logo: width={logo_target_w}px, center=({logo_cx_px},{logo_cy_px}), opacity={logo_opacity:.2f}, rotation={logo_rotation}°")
             print(f"[SHAPE] render brand='{brand_name}' logo_shape='{logo_shape}'")

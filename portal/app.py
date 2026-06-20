@@ -2193,7 +2193,7 @@ def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
             for req_key, cfg_key in _override_fields:
                 if req_key in data:
                     merged_config[cfg_key] = data[req_key]
-            for _fld in ('logo_x', 'logo_y'):
+            for _fld in ('logo_x', 'logo_y', 'logo_rotation', 'wm_x', 'wm_y'):
                 if _fld in data:
                     merged_config[_fld] = float(data[_fld])
             if 'text_enabled' in data:
