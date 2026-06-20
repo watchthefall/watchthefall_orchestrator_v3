@@ -1337,7 +1337,7 @@ def _loops_send_event(email, event_name):
         'https://app.loops.so/api/v1/events/send',
         data=payload,
         headers={
-            'Authorization': f'ApiKey {api_key}',
+            'Authorization': f'Bearer {api_key}',
             'Content-Type': 'application/json',
         },
         method='POST',
@@ -1362,7 +1362,7 @@ def _loops_update_contact(email, **props):
         'https://app.loops.so/api/v1/contacts/update',
         data=payload,
         headers={
-            'Authorization': f'ApiKey {api_key}',
+            'Authorization': f'Bearer {api_key}',
             'Content-Type': 'application/json',
         },
         method='PUT',
@@ -1394,7 +1394,7 @@ def _loops_sync_contact(email, creator_name, **kwargs):
         'https://app.loops.so/api/v1/contacts/create',
         data=payload,
         headers={
-            'Authorization': f'ApiKey {api_key}',
+            'Authorization': f'Bearer {api_key}',
             'Content-Type': 'application/json',
         },
         method='POST',
