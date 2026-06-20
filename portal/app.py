@@ -620,9 +620,25 @@ def admin_waitlist_approve(entry_id):
     """Admin action: approve a pending beta waitlist entry."""
     import traceback as _tb
     try:
+        # Fetch email before approving so we can fire the Loops event
+        from .database import get_connection as _gc
+        with _gc() as _conn:
+            _row = _conn.execute('SELECT email FROM beta_access WHERE id=?', (entry_id,)).fetchone()
+        entry_email = _row['email'] if _row else None
+
         success = approve_waitlist_entry(entry_id, session.get('email', 'admin'))
         if success:
             print(f"[ADMIN WAITLIST] Approved entry id={entry_id} by {session.get('email')}")
+            if entry_email:
+                import threading
+                def _loops_approve_tasks(email):
+                    _loops_send_event(email, 'beta_approved')
+                    _loops_update_contact(email, foundingStatus=True, userGroup='founding_member')
+                threading.Thread(
+                    target=_loops_approve_tasks,
+                    args=(entry_email,),
+                    daemon=True,
+                ).start()
             return jsonify({'success': True, 'status': 'approved'})
         return jsonify({'success': False, 'error': 'Entry not found or already actioned.'}), 404
     except Exception as _e:
@@ -1305,6 +1321,56 @@ def beta_page():
     if 'user_id' in session:
         return redirect(url_for('brand_video'))
     return render_template('beta.html')
+
+
+def _loops_send_event(email, event_name):
+    """Fire a Loops event for an existing contact."""
+    import urllib.request, urllib.error, json as _json
+    api_key = os.environ.get('LOOPS_API_KEY', '')
+    if not api_key:
+        return
+    payload = _json.dumps({'email': email, 'eventName': event_name}).encode()
+    req = urllib.request.Request(
+        'https://app.loops.so/api/v1/events/send',
+        data=payload,
+        headers={
+            'Authorization': f'ApiKey {api_key}',
+            'Content-Type': 'application/json',
+        },
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            print(f"[LOOPS] event '{event_name}' sent for {email} ({resp.status})")
+    except urllib.error.HTTPError as _he:
+        print(f"[LOOPS] event error {_he.code} for {email}: {_he.read()[:200]}")
+    except Exception as _e:
+        print(f"[LOOPS] event failed for {email}: {_e}")
+
+
+def _loops_update_contact(email, **props):
+    """Update contact properties in Loops. Creates the property if it doesn't exist."""
+    import urllib.request, urllib.error, json as _json
+    api_key = os.environ.get('LOOPS_API_KEY', '')
+    if not api_key:
+        return
+    payload = _json.dumps({'email': email, **props}).encode()
+    req = urllib.request.Request(
+        'https://app.loops.so/api/v1/contacts/update',
+        data=payload,
+        headers={
+            'Authorization': f'ApiKey {api_key}',
+            'Content-Type': 'application/json',
+        },
+        method='PUT',
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            print(f"[LOOPS] contact updated: {email} {props} ({resp.status})")
+    except urllib.error.HTTPError as _he:
+        print(f"[LOOPS] update error {_he.code} for {email}: {_he.read()[:200]}")
+    except Exception as _e:
+        print(f"[LOOPS] update failed for {email}: {_e}")
 
 
 def _loops_sync_contact(email, creator_name, **kwargs):
