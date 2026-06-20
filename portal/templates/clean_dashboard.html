@@ -2251,17 +2251,20 @@
     
     <!-- Queue Mode Actions (hidden by default) -->
     <div id="queueModeActions" style="display:none;">
+        <div id="copyAdjustRow" style="display:none; margin-bottom:8px; padding:8px 10px; background:#1a1f2e; border-radius:7px; border:1px solid #2a2f3e;">
+            <div style="font-size:11px; color:#888; margin-bottom:6px;">Apply these settings to:</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <label style="font-size:12px; color:#b0b8cc; cursor:pointer; display:flex; align-items:center; gap:4px;"><input type="radio" name="copyScope" value="none" checked style="accent-color:var(--accent);"> This item only</label>
+                <label style="font-size:12px; color:#b0b8cc; cursor:pointer; display:flex; align-items:center; gap:4px;"><input type="radio" name="copyScope" value="brand_formats" style="accent-color:var(--accent);"> This brand's formats</label>
+                <label style="font-size:12px; color:#b0b8cc; cursor:pointer; display:flex; align-items:center; gap:4px;"><input type="radio" name="copyScope" value="video" style="accent-color:var(--accent);"> This video</label>
+                <label style="font-size:12px; color:#b0b8cc; cursor:pointer; display:flex; align-items:center; gap:4px;"><input type="radio" name="copyScope" value="all" style="accent-color:var(--accent);"> All remaining</label>
+            </div>
+            <span id="copyConfirmMsg" style="font-size:11px; color:#4ade80; opacity:0; transition:opacity 0.4s; display:block; margin-top:4px;"></span>
+        </div>
         <div class="review-actions">
             <button onclick="reviewPrevious()" class="review-quiet">Previous</button>
-            <button onclick="skipBrand()" class="review-secondary">Skip</button>
+            <button onclick="skipBrand()" class="review-secondary">Use defaults</button>
             <button onclick="approveAndNext()" id="approveNextBtn" class="review-primary">Approve &amp; Next</button>
-        </div>
-        <div id="copyAdjustRow" style="display:none; margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-            <span style="font-size:11px; color:#888; flex-shrink:0;">Copy adjustments →</span>
-            <button onclick="copyToBrandFormats()" class="review-copy-btn" title="Copy to other formats of this brand on this video">This brand's formats</button>
-            <button onclick="copyToVideoRemaining()" class="review-copy-btn" title="Copy to all remaining items for this video">This video</button>
-            <button onclick="copyToAllRemaining()" class="review-copy-btn" title="Copy to every remaining item in the queue">All remaining</button>
-            <span id="copyConfirmMsg" style="font-size:11px; color:#4ade80; opacity:0; transition:opacity 0.4s; margin-left:4px;"></span>
         </div>
         <div class="review-footer-actions">
             <button onclick="processAllBrands()" id="processAllBtn" class="btn-secondary">Start branding</button>
@@ -2923,6 +2926,17 @@ function approveAndNext() {
     current.reviewDecision = 'approved';
     if (current.status === 'editing') current.status = 'pending';
     syncQueueItemToJobItem(current);
+
+    // Apply copy scope chosen by the radio before moving on
+    const scopeRadio = document.querySelector('input[name="copyScope"]:checked');
+    const scope = scopeRadio ? scopeRadio.value : 'none';
+    if (scope === 'brand_formats') copyToBrandFormats(true);
+    else if (scope === 'video') copyToVideoRemaining(true);
+    else if (scope === 'all') copyToAllRemaining(true);
+    // Reset scope back to "this item only" for the next item
+    const noneRadio = document.querySelector('input[name="copyScope"][value="none"]');
+    if (noneRadio) noneRadio.checked = true;
+
     renderBrandPills();
     updateReviewHeader();
 
@@ -2932,7 +2946,6 @@ function approveAndNext() {
     if (currentQueueIndex < processingQueue.length - 1) {
         switchToBrand(currentQueueIndex + 1);
     } else {
-        // All items reviewed — renders already running. Show streaming state.
         renderStreamingCompletionState();
     }
 }
@@ -3399,16 +3412,33 @@ const ctx = canvas.getContext('2d');
 
 function updateCanvasPreview() {
     if (!ctx) return;
-    
-    // Clear canvas
+
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw frame (or placeholder)
+
     if (frameData) {
         const img = new Image();
         img.onload = () => {
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            if (activeReviewFormat === 'square_1_1') {
+                // Simulate blur-pad: blurred fill + centered video content
+                ctx.filter = 'blur(12px) brightness(0.45)';
+                ctx.drawImage(img, -20, -20, canvas.width + 40, canvas.height + 40);
+                ctx.filter = 'none';
+                const srcAspect = img.naturalWidth / img.naturalHeight;
+                let vW, vH;
+                if (srcAspect <= 1) {
+                    // Portrait/vertical source: fit to canvas height
+                    vH = canvas.height; vW = vH * srcAspect;
+                } else {
+                    // Landscape source: fit to canvas width
+                    vW = canvas.width; vH = vW / srcAspect;
+                }
+                const vX = (canvas.width - vW) / 2;
+                const vY = (canvas.height - vH) / 2;
+                ctx.drawImage(img, vX, vY, vW, vH);
+            } else {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            }
             drawOverlays();
         };
         img.src = frameData;
@@ -4311,11 +4341,11 @@ function enterQueueMode() {
 
     processingQueue = [];
     for (const vid of sources) {
-        for (const brandId of canonicalBrandIds) {
-            const brandData = brandDataCache[brandId];
-            const brandName = brandData ? brandData.display_name : `Brand #${brandId}`;
-            const baseOverrides = brandOverrides[brandId] || getBrandDefaults(brandId);
-            for (const fmt of selectedOutputFormats) {
+        for (const fmt of selectedOutputFormats) {
+            for (const brandId of canonicalBrandIds) {
+                const brandData = brandDataCache[brandId];
+                const brandName = brandData ? brandData.display_name : `Brand #${brandId}`;
+                const baseOverrides = brandOverrides[brandId] || getBrandDefaults(brandId);
                 processingQueue.push({
                     video:          vid,
                     brand_id:       brandId,
@@ -4497,11 +4527,11 @@ async function switchToBrand(idx) {
     activeReviewFormat = current.format || 'vertical_9_16';
     resizeCanvasForFormat(activeReviewFormat);
 
-    // Show/hide copy row — only useful when there are pending items ahead
+    // Always show scope row when in queue mode; hide only on last item
     const copyRow = document.getElementById('copyAdjustRow');
     if (copyRow) {
         const hasPendingAhead = processingQueue.slice(idx + 1).some(i => i.status === 'pending' || i.status === 'editing');
-        copyRow.style.display = hasPendingAhead ? 'flex' : 'none';
+        copyRow.style.display = hasPendingAhead ? 'block' : 'none';
     }
 
     // Skip if already processing/done (still update pills + header)
@@ -4594,21 +4624,21 @@ function _applyCopyToItems(predicate) {
     return count;
 }
 
-function copyToBrandFormats() {
+function copyToBrandFormats(silent) {
     const count = _applyCopyToItems((item, cur) =>
         item.brand_id === cur.brand_id && item.video === cur.video
     );
-    _showCopyMsg(count ? `Copied to ${count} other format${count > 1 ? 's' : ''} for this brand` : 'No pending formats to copy to');
+    if (!silent) _showCopyMsg(count ? `Copied to ${count} other format${count > 1 ? 's' : ''} for this brand` : 'No pending formats to copy to');
 }
 
-function copyToVideoRemaining() {
+function copyToVideoRemaining(silent) {
     const count = _applyCopyToItems((item, cur) => item.video === cur.video);
-    _showCopyMsg(count ? `Copied to ${count} remaining item${count > 1 ? 's' : ''} for this video` : 'No pending items to copy to');
+    if (!silent) _showCopyMsg(count ? `Copied to ${count} remaining item${count > 1 ? 's' : ''} for this video` : 'No pending items to copy to');
 }
 
-function copyToAllRemaining() {
+function copyToAllRemaining(silent) {
     const count = _applyCopyToItems(() => true);
-    _showCopyMsg(count ? `Copied to ${count} remaining item${count > 1 ? 's' : ''}` : 'No pending items to copy to');
+    if (!silent) _showCopyMsg(count ? `Copied to ${count} remaining item${count > 1 ? 's' : ''}` : 'No pending items to copy to');
 }
 
 function _showCopyMsg(msg) {
@@ -5590,7 +5620,7 @@ async function skipBrand() {
     if (nextIdx !== -1) {
         await switchToBrand(nextIdx);
         if (result) {
-            result.innerHTML = `<div class="status-msg info">Skipped ${skippedBrandName}. Moving to the next version.</div>`;
+            result.innerHTML = `<div class="status-msg info">Using defaults for ${skippedBrandName}. Moving to next item.</div>`;
         }
     } else {
         renderReviewCompletionState();
