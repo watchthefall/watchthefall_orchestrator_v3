@@ -367,12 +367,6 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 
-@app.after_request
-def add_cors_for_email_images(response):
-    if request.path.startswith('/static/images/email/'):
-        response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
-
 # Startup diagnostics
 print(f"[STARTUP] LOOPS_API_KEY={'SET' if os.environ.get('LOOPS_API_KEY') else 'MISSING'}", flush=True)
 
