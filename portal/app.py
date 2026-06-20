@@ -957,7 +957,18 @@ def dashboard():
     except Exception as _e:
         print(f"[DASHBOARD] get_daily_usage failed for user={user_id}: {_e}")
         usage = {'branding_jobs': 0, 'downloads': 0}
-    
+
+    try:
+        from .database import get_connection
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute('SELECT COALESCE(founding_status, 0) as founding_status FROM users WHERE id = ?', (user_id,))
+            row = c.fetchone()
+            founding_status = row['founding_status'] if row else 0
+    except Exception as _e:
+        print(f"[DASHBOARD] founding_status fetch failed for user={user_id}: {_e}")
+        founding_status = 0
+
     return render_template('dashboard.html',
         state=state,
         tier=tier,
@@ -966,6 +977,7 @@ def dashboard():
         can_create=can_create,
         usage=usage,
         limits=limits,
+        founding_status=founding_status,
     )
 
 
@@ -1295,6 +1307,38 @@ def beta_page():
     return render_template('beta.html')
 
 
+def _loops_sync_contact(email, creator_name, **kwargs):
+    """Fire-and-forget: add a new waitlist contact to Loops."""
+    import urllib.request, urllib.error, json as _json
+    api_key = os.environ.get('LOOPS_API_KEY', '')
+    if not api_key:
+        return
+    first_name = creator_name.split()[0] if creator_name else ''
+    payload = _json.dumps({
+        'email': email,
+        'firstName': first_name,
+        'source': 'waitlist',
+        'mainPlatform': kwargs.get('main_platform', ''),
+        'creatorType': kwargs.get('creator_type', ''),
+    }).encode()
+    req = urllib.request.Request(
+        'https://app.loops.so/api/v1/contacts/create',
+        data=payload,
+        headers={
+            'Authorization': f'ApiKey {api_key}',
+            'Content-Type': 'application/json',
+        },
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            print(f"[LOOPS] contact synced: {email} ({resp.status})")
+    except urllib.error.HTTPError as _he:
+        print(f"[LOOPS] sync error {_he.code} for {email}: {_he.read()[:200]}")
+    except Exception as _e:
+        print(f"[LOOPS] sync failed for {email}: {_e}")
+
+
 @app.route('/api/waitlist', methods=['POST'])
 def waitlist_submit():
     """Public endpoint: submit a waitlist application.
@@ -1319,6 +1363,9 @@ def waitlist_submit():
 
         if created:
             print(f"[WAITLIST] New entry: {email} platform={main_platform} type={creator_type}")
+            _loops_sync_contact(email, creator_name,
+                                main_platform=main_platform,
+                                creator_type=creator_type)
             return jsonify({'success': True, 'created': True})
         else:
             # Already on the list — friendly, not an error

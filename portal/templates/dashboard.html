@@ -144,10 +144,15 @@
     {% include '_nav.html' %}
     
     <div class="container">
+        {% set tier_logo = '/static/images/tier_logos/brandr_' + tier.lower() + '.png' %}
+
         {% if state == 'no_brand_kit' %}
         <!-- Onboarding State -->
         <div class="welcome-section">
-            <img src="/static/img/brandr_logo.png" alt="Brandr" style="width: 100px; height: 100px; object-fit: contain; display: block; margin: 0 auto 20px;">
+            <img src="{{ tier_logo }}" alt="Brandr {{ tier }}" style="width: 200px; height: auto; object-fit: contain; display: block; margin: 0 auto 20px;">
+            {% if founding_status %}
+            <img src="/static/images/tier_logos/brandr_founding_member.png" alt="Founding Member" style="width: 340px; max-width: 100%; height: auto; display: block; margin: 0 auto 28px; opacity: 0.95;">
+            {% endif %}
             <h1>Welcome to Brandr</h1>
             <p class="subtitle">
                 Set up your Brands, create branded content,<br>
@@ -183,7 +188,13 @@
         {% else %}
         <!-- Workspace State (has_brand_kit) -->
         <div class="workspace-section">
-            <h1 style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">Welcome back <span class="tier-badge tier-{{ tier.lower() }}" style="font-size:11px; padding:3px 10px; vertical-align:middle;">{{ tier }}</span>{% if tier == 'Elite' %}<span class="founder-accent"><img class="founder-mark founder-mark-inline" src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDABALDA4MChAODQ4SERATGCgaGBYWGDEjJR0oOjM9PDkzODdASFxOQERXRTc4UG1RV19iZ2hnPk1xeXBkeFxlZ2P/2wBDARESEhgVGC8aGi9jQjhCY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2P/wAARCAAoACgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDz+lCk9AT+FJWnYlolMipLheSYbkKfyqZOyGlcoi3lYZEbn6KaVraVRlo3A9SpFddDqN1Y2IaCOW6m3AFRkkk8knFXB4iu5rX/AEqz8g7sCOTneO+Qa5nXnulp6m3sltc4AgjrRVrUXikvJWgTZGXJVfQZorqTurmLVmVRVm3dSwbykBT5twz17VWGO9WYGjAxgnJ5z/8ArpS2HHc1ra+1GzlU2Vs0vygk+Wx5/Ci5vLi4mzONsxXLBT91u39Kkt55orQi2jUbuDktmobT5TJcSDKxcs2MLnsB6k9Pbk1yWV72N9e5lX6JHcsiZwOo9D6UVDKxd2YnJJyT70V1xWhzvcZRRRVCHxSvDIHjYqw5BBqW4vZ7kgzSs5HTJ6UUUrK9x3exXPNFFFMR/9k=" alt="" /> <span>Founding Member</span></span>{% endif %}</h1>
+            <div style="display:flex; align-items:center; gap:20px; margin-bottom:24px; flex-wrap:wrap;">
+                <img src="{{ tier_logo }}" alt="Brandr {{ tier }}" style="width:120px; height:auto; object-fit:contain; flex-shrink:0;">
+                {% if founding_status %}
+                <img src="/static/images/tier_logos/brandr_founding_member.png" alt="Founding Member" style="width:260px; max-width:100%; height:auto; object-fit:contain; flex-shrink:0; opacity:0.95;">
+                {% endif %}
+            </div>
+            <h1 style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">Welcome back <span class="tier-badge tier-{{ tier.lower() }}" style="font-size:11px; padding:3px 10px; vertical-align:middle;">{{ tier }}</span></h1>
             
             {% if max_brands is defined and max_brands != -1 and brand_count is defined and brand_count >= max_brands %}
             <!-- Over-limit banner — direct modal trigger -->
