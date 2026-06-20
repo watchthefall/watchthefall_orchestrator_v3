@@ -287,35 +287,37 @@
     #success-state { display: none; }
     .success-card {
       text-align: center;
-      padding: 32px 24px 36px;
+      padding: 40px 28px 44px;
     }
-    .success-banner {
-      width: 100%;
-      max-width: 460px;
+    .success-hero {
+      width: 280px;
+      max-width: 80%;
       height: auto;
       display: block;
-      margin: 0 auto 28px;
-      border-radius: 10px;
+      margin: 0 auto 32px;
+      border-radius: 12px;
     }
     .success-card h2 {
-      font-size: 1.5rem;
+      font-size: 1.6rem;
       font-weight: 700;
       color: var(--gold);
-      margin-bottom: 10px;
+      margin-bottom: 12px;
+      letter-spacing: -0.01em;
     }
     .success-card p {
       font-size: 0.95rem;
       color: var(--muted);
-      max-width: 340px;
-      margin: 0 auto 24px;
-      line-height: 1.7;
+      max-width: 320px;
+      margin: 0 auto 28px;
+      line-height: 1.75;
     }
     .success-note {
-      font-size: 0.8rem;
-      color: #555;
-      margin-top: 14px;
+      font-size: 0.78rem;
+      color: #444;
+      margin-top: 18px;
+      letter-spacing: 0.01em;
     }
-    .success-card .btn-discord { font-size: 1rem; padding: 11px 28px; }
+    .success-card .btn-discord { font-size: 1rem; padding: 13px 32px; }
   </style>
 </head>
 <body>
@@ -478,9 +480,9 @@
     <!-- Success state (shown after submit) -->
     <div id="success-state">
       <div class="card success-card">
-        <img src="/static/images/email/brandr_foundingmember_onthelist.png"
-             alt="Brandr Founding Member — You're on the list"
-             class="success-banner"
+        <img src="/static/images/email/brandr_foundingmember_card.png"
+             alt="Brandr Founding Member"
+             class="success-hero"
              onerror="this.style.display='none'">
         <h2>You're on the list.</h2>
         <p id="success-msg">
@@ -490,7 +492,7 @@
         <a href="https://discord.gg/UeMfn4AmF" target="_blank" rel="noopener" class="btn-discord">
           Join the Brandr Discord
         </a>
-        <p class="success-note">Beta members lock in Founding Member pricing for 12 months.</p>
+        <p class="success-note">Founding Members lock in beta pricing for 12 months.</p>
       </div>
       <div class="login-nudge" style="margin-top:16px;">
         Approved? <a href="{{ url_for('register') }}">Create your account</a> or <a href="{{ url_for('login') }}">log in</a>.
