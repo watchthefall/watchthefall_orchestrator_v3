@@ -1829,7 +1829,7 @@
     <div class="step-line" id="stepLine1"></div>
     <div class="step-item" id="step2">
         <span class="step-dot">2</span>
-        <span>Brandr</span>
+        <span>Studio</span>
     </div>
     <div class="step-line" id="stepLine2"></div>
     <div class="step-item" id="step3">
@@ -2279,21 +2279,7 @@
     </div>
 </div>
 
-<!-- ========== SECTION 3: DEBUG (Collapsed, Admin Only) ========== -->
-{% if is_admin_user %}
-<div class="section collapsed" id="debugSection">
-    <div class="collapsible-header" onclick="toggleSection('debugSection')">
-        <h2>Debug Tools</h2>
-        <span class="collapse-icon">▼</span>
-    </div>
-    <div class="collapsible-content">
-        <button onclick="loadSystemStatus()">System Status</button>
-        <div id="systemStatus" style="font-size:11px; margin-top:10px; color:#888;"></div>
-        <button onclick="loadBrandIntegrity()" style="margin-top:10px;">Brand Integrity</button>
-        <div id="brandIntegrity" style="font-size:11px; margin-top:10px; color:#888;"></div>
-    </div>
-</div>
-{% endif %}
+<!-- Debug Tools moved to /portal/admin -->
 
 <script>
 const apiBase = window.location.origin;

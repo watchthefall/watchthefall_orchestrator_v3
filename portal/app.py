@@ -427,6 +427,8 @@ def inject_global_context():
 @app.route('/portal/register', methods=['GET', 'POST'])
 @limiter.limit('5 per minute')
 def register():
+    if session.get('user_id'):
+        return redirect(url_for('brand_video'))
     if request.method == 'POST':
         print("[REGISTER] POST received", flush=True)
         email = request.form.get('email', '').strip()
