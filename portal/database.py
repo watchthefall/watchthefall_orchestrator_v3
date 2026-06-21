@@ -860,6 +860,196 @@ def claim_waitlist_entry(entry_id, user_id):
 # ========== END BETA ACCESS ==========
 
 
+# ========== INVITE & REFERRAL CODES ==========
+
+def init_invite_codes():
+    """Create invite_codes and referral_codes tables if they don't exist."""
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS invite_codes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code TEXT UNIQUE NOT NULL,
+                    grants_tier TEXT NOT NULL DEFAULT 'Studio',
+                    grants_months INTEGER NOT NULL DEFAULT 3,
+                    grants_founding_status INTEGER NOT NULL DEFAULT 1,
+                    created_by_email TEXT,
+                    created_at TEXT NOT NULL,
+                    used_by_user_id INTEGER DEFAULT NULL,
+                    used_at TEXT DEFAULT NULL,
+                    notes TEXT DEFAULT NULL
+                )
+            ''')
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS referral_codes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code TEXT UNIQUE NOT NULL,
+                    owner_user_id INTEGER NOT NULL,
+                    reward_months INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    is_active INTEGER NOT NULL DEFAULT 1
+                )
+            ''')
+            conn.commit()
+    except Exception as e:
+        print(f'[DATABASE] init_invite_codes error: {e}')
+
+
+def create_invite_code(code, grants_tier, grants_months, grants_founding_status, created_by_email, notes=None):
+    """Insert a new invite code. Returns True on success, False on duplicate/error."""
+    now = datetime.utcnow().isoformat()
+    try:
+        with get_connection() as conn:
+            conn.execute(
+                '''INSERT INTO invite_codes
+                   (code, grants_tier, grants_months, grants_founding_status,
+                    created_by_email, created_at, notes)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                (code.upper(), grants_tier, grants_months, int(bool(grants_founding_status)),
+                 created_by_email, now, notes)
+            )
+            conn.commit()
+        return True
+    except Exception as e:
+        print(f'[DATABASE] create_invite_code error: {e}')
+        return False
+
+
+def get_invite_code(code):
+    """Return invite code row as dict, or None if not found."""
+    try:
+        with get_connection() as conn:
+            row = conn.execute(
+                'SELECT * FROM invite_codes WHERE code = ?', (code.upper().strip(),)
+            ).fetchone()
+            return dict(row) if row else None
+    except Exception as e:
+        print(f'[DATABASE] get_invite_code error: {e}')
+        return None
+
+
+def redeem_invite_code(code, user_id):
+    """Mark invite code as used. Returns True if newly redeemed, False if already used."""
+    now = datetime.utcnow().isoformat()
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute(
+                '''UPDATE invite_codes SET used_by_user_id = ?, used_at = ?
+                   WHERE code = ? AND used_by_user_id IS NULL''',
+                (user_id, now, code.upper().strip())
+            )
+            conn.commit()
+            return c.rowcount > 0
+    except Exception as e:
+        print(f'[DATABASE] redeem_invite_code error: {e}')
+        return False
+
+
+def create_referral_code(code, owner_user_id, reward_months=1):
+    """Insert a new referral code for a user. Returns True on success."""
+    now = datetime.utcnow().isoformat()
+    try:
+        with get_connection() as conn:
+            conn.execute(
+                '''INSERT INTO referral_codes
+                   (code, owner_user_id, reward_months, created_at, is_active)
+                   VALUES (?, ?, ?, ?, 1)''',
+                (code.upper(), owner_user_id, reward_months, now)
+            )
+            conn.commit()
+        return True
+    except Exception as e:
+        print(f'[DATABASE] create_referral_code error: {e}')
+        return False
+
+
+def get_referral_code(code):
+    """Return active referral code row as dict, or None."""
+    try:
+        with get_connection() as conn:
+            row = conn.execute(
+                'SELECT * FROM referral_codes WHERE code = ? AND is_active = 1',
+                (code.upper().strip(),)
+            ).fetchone()
+            return dict(row) if row else None
+    except Exception as e:
+        print(f'[DATABASE] get_referral_code error: {e}')
+        return None
+
+
+def credit_referral_reward(owner_user_id, reward_months):
+    """Extend owner's bonus_tier_until by reward_months. Stacks on existing expiry."""
+    from datetime import timedelta
+    now = datetime.utcnow()
+    try:
+        with get_connection() as conn:
+            row = conn.execute(
+                'SELECT bonus_tier_until FROM users WHERE id = ?', (owner_user_id,)
+            ).fetchone()
+            if not row:
+                return False
+            existing = row['bonus_tier_until']
+            if existing:
+                try:
+                    base = datetime.fromisoformat(existing)
+                    if base < now:
+                        base = now
+                except ValueError:
+                    base = now
+            else:
+                base = now
+            new_until = (base + timedelta(days=30 * reward_months)).isoformat()
+            conn.execute(
+                'UPDATE users SET bonus_tier_until = ? WHERE id = ?',
+                (new_until, owner_user_id)
+            )
+            conn.commit()
+        print(f'[DATABASE] Referral reward: user={owner_user_id} +{reward_months}mo until={new_until}')
+        return True
+    except Exception as e:
+        print(f'[DATABASE] credit_referral_reward error: {e}')
+        return False
+
+
+def get_all_invite_codes():
+    """Return all invite codes with redeemer email if used."""
+    try:
+        with get_connection() as conn:
+            rows = conn.execute(
+                '''SELECT ic.*, u.email as redeemed_by_email
+                   FROM invite_codes ic
+                   LEFT JOIN users u ON ic.used_by_user_id = u.id
+                   ORDER BY ic.created_at DESC'''
+            ).fetchall()
+            return [dict(r) for r in rows]
+    except Exception as e:
+        print(f'[DATABASE] get_all_invite_codes error: {e}')
+        return []
+
+
+def get_all_referral_codes():
+    """Return all referral codes with owner email and usage count."""
+    try:
+        with get_connection() as conn:
+            rows = conn.execute(
+                '''SELECT rc.*, u.email as owner_email,
+                          (SELECT COUNT(*) FROM beta_access ba
+                           WHERE ba.referral_code_used = rc.code) as times_used
+                   FROM referral_codes rc
+                   LEFT JOIN users u ON rc.owner_user_id = u.id
+                   ORDER BY rc.created_at DESC'''
+            ).fetchall()
+            return [dict(r) for r in rows]
+    except Exception as e:
+        print(f'[DATABASE] get_all_referral_codes error: {e}')
+        return []
+
+
+# ========== END INVITE & REFERRAL CODES ==========
+
+
 def get_db():
     """Get database connection with busy timeout.
     DEPRECATED: Prefer get_connection() context manager for guaranteed cleanup.

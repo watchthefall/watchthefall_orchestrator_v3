@@ -133,6 +133,16 @@
                 <label for="password">Password:</label>
                 <input type="password" id="password" name="password" required autocomplete="new-password">
             </div>
+            <div class="form-group">
+                <label for="invite_code" style="display:flex;justify-content:space-between;">
+                    <span>Invite Code <span style="color:#666;font-size:0.8em;">(optional)</span></span>
+                </label>
+                <input type="text" id="invite_code" name="invite_code"
+                       placeholder="e.g. BRANDR-A1B2C3"
+                       autocomplete="off"
+                       style="text-transform:uppercase;letter-spacing:0.05em;"
+                       value="{{ request.form.get('invite_code', '') }}">
+            </div>
             <button type="submit" class="btn">Create Account</button>
         </form>
         {% endif %}

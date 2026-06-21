@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en" data-tier="{{ tier|default('Explorer') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Codes — Brandr Admin</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        body { background: #0f0f13; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; }
+        .page-wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 60px; }
+        h1 { font-size: 1.4rem; font-weight: 700; color: var(--accent); margin: 0 0 4px; }
+        .subtitle { color: #666; font-size: 0.85rem; margin-bottom: 32px; }
+        .back-link { color: #666; text-decoration: none; font-size: 0.85rem; display: inline-block; margin-bottom: 20px; }
+        .back-link:hover { color: var(--accent); }
+
+        .section { margin-bottom: 48px; }
+        .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .section-title { font-size: 1rem; font-weight: 600; color: #e0e0e0; }
+        .section-desc { color: #666; font-size: 0.8rem; margin-top: 2px; }
+
+        /* Create form panel */
+        .create-panel {
+            background: #1a1a22;
+            border: 1px solid #2a2a35;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+        .form-field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 120px; }
+        .form-field label { font-size: 0.78rem; color: #888; }
+        .form-field select,
+        .form-field input[type="number"],
+        .form-field input[type="text"] {
+            background: #0f0f13;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #e0e0e0;
+            padding: 8px 10px;
+            font-size: 0.9rem;
+        }
+        .form-field select:focus,
+        .form-field input:focus { outline: none; border-color: var(--accent); }
+        .btn-create {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            padding: 9px 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .btn-create:hover { background: var(--accent-hover); }
+
+        /* Result flash */
+        .code-result {
+            display: none;
+            margin-top: 14px;
+            background: #0d1a0d;
+            border: 1px solid #2a5a2a;
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #6fdb6f;
+            font-family: monospace;
+            font-size: 1.1rem;
+            letter-spacing: 0.08em;
+        }
+        .code-result .copy-hint { font-size: 0.75rem; color: #4a7a4a; margin-top: 4px; font-family: sans-serif; letter-spacing: normal; }
+
+        /* Table */
+        .code-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .code-table th {
+            text-align: left; color: #555; font-weight: 500;
+            border-bottom: 1px solid #222; padding: 8px 10px;
+        }
+        .code-table td { padding: 10px 10px; border-bottom: 1px solid #1a1a22; vertical-align: middle; }
+        .code-table tr:hover td { background: #16161e; }
+        .mono { font-family: monospace; letter-spacing: 0.05em; color: var(--accent); }
+        .badge-used { background: #1a0808; color: #f87171; border: 1px solid #3a1010; border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; }
+        .badge-available { background: #0d1a0d; color: #6fdb6f; border: 1px solid #1a3a1a; border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; }
+        .tier-pill {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 0.75rem; font-weight: 600;
+        }
+        .empty-row td { color: #444; text-align: center; padding: 24px; font-style: italic; }
+
+        @media (max-width: 600px) {
+            .form-row { flex-direction: column; }
+            .btn-create { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+{% include '_nav.html' %}
+
+<div class="page-wrap">
+    <a href="{{ url_for('admin_console') }}" class="back-link">← Back to Admin</a>
+    <h1>Invite &amp; Referral Codes</h1>
+    <p class="subtitle">Invite codes bypass the waitlist and grant direct Studio access. Referral codes reward the sharer when their referral activates.</p>
+
+    <!-- ── INVITE CODES ─────────────────────────────────────────── -->
+    <div class="section">
+        <div class="section-header">
+            <div>
+                <div class="section-title">Invite Codes</div>
+                <div class="section-desc">Single-use · bypasses waitlist · grants tier for N months + Founding Member badge</div>
+            </div>
+        </div>
+
+        <div class="create-panel">
+            <div class="form-row">
+                <div class="form-field">
+                    <label>Tier grant</label>
+                    <select id="inv-tier">
+                        {% for t in ['Studio', 'Creator', 'Platinum'] %}
+                        <option value="{{ t }}" {% if t == 'Studio' %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-field" style="max-width:100px;">
+                    <label>Months free</label>
+                    <input type="number" id="inv-months" value="3" min="1" max="24">
+                </div>
+                <div class="form-field" style="flex:2;">
+                    <label>Notes (optional)</label>
+                    <input type="text" id="inv-notes" placeholder="e.g. for @username">
+                </div>
+                <div class="form-field" style="flex:0;align-items:center;">
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                        <input type="checkbox" id="inv-founding" checked style="width:14px;height:14px;cursor:pointer;">
+                        <span>Founding badge</span>
+                    </label>
+                </div>
+                <button class="btn-create" onclick="createInviteCode()">Generate Code</button>
+            </div>
+            <div class="code-result" id="inv-result">
+                <div id="inv-code-text"></div>
+                <div class="copy-hint">Click to copy</div>
+            </div>
+        </div>
+
+        <table class="code-table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Tier</th>
+                    <th>Months</th>
+                    <th>Founding</th>
+                    <th>Status</th>
+                    <th>Redeemed by</th>
+                    <th>Notes</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if invite_codes %}
+                    {% for ic in invite_codes %}
+                    <tr>
+                        <td class="mono">{{ ic.code }}</td>
+                        <td>
+                            <span class="tier-pill" style="background:{{ tier_config.get(ic.grants_tier, {}).get('color', '#555') }}22;color:{{ tier_config.get(ic.grants_tier, {}).get('color', '#999') }};">
+                                {{ ic.grants_tier }}
+                            </span>
+                        </td>
+                        <td>{{ ic.grants_months }}mo</td>
+                        <td>{{ '✓' if ic.grants_founding_status else '—' }}</td>
+                        <td>
+                            {% if ic.used_by_user_id %}
+                                <span class="badge-used">Used</span>
+                            {% else %}
+                                <span class="badge-available">Available</span>
+                            {% endif %}
+                        </td>
+                        <td style="color:#888;font-size:0.8rem;">{{ ic.redeemed_by_email or '—' }}</td>
+                        <td style="color:#666;font-size:0.8rem;">{{ ic.notes or '—' }}</td>
+                        <td style="color:#555;font-size:0.78rem;">{{ ic.created_at[:10] if ic.created_at else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                <tr class="empty-row"><td colspan="8">No invite codes yet — generate one above.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ── REFERRAL CODES ────────────────────────────────────────── -->
+    <div class="section">
+        <div class="section-header">
+            <div>
+                <div class="section-title">Referral Codes</div>
+                <div class="section-desc">Shareable · personal per user · referrer earns +N months when their referral activates</div>
+            </div>
+        </div>
+
+        <div class="create-panel">
+            <div class="form-row">
+                <div class="form-field" style="flex:3;">
+                    <label>Assign to user</label>
+                    <select id="ref-user">
+                        <option value="">— select user —</option>
+                        {% for u in users %}
+                        <option value="{{ u.id }}">{{ u.email }} ({{ u.tier }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-field" style="max-width:140px;">
+                    <label>Reward months per referral</label>
+                    <input type="number" id="ref-months" value="1" min="1" max="12">
+                </div>
+                <button class="btn-create" onclick="createReferralCode()">Generate Code</button>
+            </div>
+            <div class="code-result" id="ref-result">
+                <div id="ref-code-text"></div>
+                <div class="copy-hint">Click to copy</div>
+            </div>
+        </div>
+
+        <table class="code-table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Owner</th>
+                    <th>Reward</th>
+                    <th>Times used</th>
+                    <th>Active</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if referral_codes %}
+                    {% for rc in referral_codes %}
+                    <tr>
+                        <td class="mono">{{ rc.code }}</td>
+                        <td style="color:#aaa;font-size:0.85rem;">{{ rc.owner_email or rc.owner_user_id }}</td>
+                        <td>+{{ rc.reward_months }}mo per referral</td>
+                        <td>{{ rc.times_used }}</td>
+                        <td>{{ '✓' if rc.is_active else '—' }}</td>
+                        <td style="color:#555;font-size:0.78rem;">{{ rc.created_at[:10] if rc.created_at else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                <tr class="empty-row"><td colspan="6">No referral codes yet — assign one above.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+async function createInviteCode() {
+    const tier = document.getElementById('inv-tier').value;
+    const months = parseInt(document.getElementById('inv-months').value);
+    const notes = document.getElementById('inv-notes').value.trim();
+    const founding = document.getElementById('inv-founding').checked;
+
+    const res = await fetch('/api/admin/codes/create-invite', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({grants_tier: tier, grants_months: months, grants_founding_status: founding, notes: notes || null})
+    });
+    const data = await res.json();
+    const el = document.getElementById('inv-result');
+    const codeEl = document.getElementById('inv-code-text');
+    if (data.success) {
+        codeEl.textContent = data.code;
+        el.style.display = 'block';
+        el.onclick = () => { navigator.clipboard.writeText(data.code); el.style.borderColor = '#4a9a4a'; };
+        setTimeout(() => location.reload(), 1500);
+    } else {
+        alert('Error: ' + (data.error || 'Unknown error'));
+    }
+}
+
+async function createReferralCode() {
+    const userId = document.getElementById('ref-user').value;
+    const months = parseInt(document.getElementById('ref-months').value);
+    if (!userId) { alert('Select a user first.'); return; }
+
+    const res = await fetch('/api/admin/codes/create-referral', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({owner_user_id: parseInt(userId), reward_months: months})
+    });
+    const data = await res.json();
+    const el = document.getElementById('ref-result');
+    const codeEl = document.getElementById('ref-code-text');
+    if (data.success) {
+        codeEl.textContent = data.code;
+        el.style.display = 'block';
+        el.onclick = () => { navigator.clipboard.writeText(data.code); el.style.borderColor = '#4a9a4a'; };
+        setTimeout(() => location.reload(), 1500);
+    } else {
+        alert('Error: ' + (data.error || 'Unknown error'));
+    }
+}
+</script>
+</body>
+</html>

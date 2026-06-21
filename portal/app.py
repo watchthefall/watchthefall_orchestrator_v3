@@ -96,6 +96,9 @@ from .database import (
     get_pending_waitlist_entries, get_all_waitlist_entries, get_waitlist_counts,
     approve_waitlist_entry, claim_waitlist_entry, set_waitlist_entry_status,
     user_can_download_filename, save_branded_output, get_connection,
+    init_invite_codes, create_invite_code, get_invite_code, redeem_invite_code,
+    create_referral_code, get_referral_code, credit_referral_reward,
+    get_all_invite_codes, get_all_referral_codes,
 )
 
 
@@ -392,6 +395,7 @@ from .database import init_db, init_founding_slots
 init_db()
 init_users_db()
 init_founding_slots()
+init_invite_codes()
 
 
 @app.context_processor
@@ -433,6 +437,7 @@ def register():
         print("[REGISTER] POST received", flush=True)
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
+        invite_code_str = (request.form.get('invite_code') or '').strip().upper()
         print(f"[REGISTER] email parsed: {email}", flush=True)
 
         if not email or not password:
@@ -443,12 +448,23 @@ def register():
             flash('Password must be at least 6 characters.', 'error')
             return render_template('register.html')
 
+        # ── INVITE CODE CHECK ──────────────────────────────────────────────
+        invite_code_entry = None
+        if invite_code_str:
+            invite_code_entry = get_invite_code(invite_code_str)
+            if not invite_code_entry:
+                flash('That invite code is not valid.', 'error')
+                return render_template('register.html')
+            if invite_code_entry.get('used_by_user_id'):
+                flash('That invite code has already been used.', 'error')
+                return render_template('register.html')
+            print(f"[REGISTER] valid invite code: {invite_code_str}", flush=True)
+
         # ── REGISTRATION GATE ──────────────────────────────────────────────
-        # Only admin emails and approved beta_access entries may register.
-        # This check is backend-enforced; frontend messaging is secondary.
+        # Admin emails, valid invite codes, and approved beta_access entries may register.
         is_admin_email = email.lower() in [e.lower() for e in ADMIN_EMAILS]
         entry = None
-        if not is_admin_email:
+        if not is_admin_email and not invite_code_entry:
             print("[REGISTER] beta lookup start", flush=True)
             try:
                 entry = get_waitlist_entry_by_email(email)
@@ -479,6 +495,36 @@ def register():
 
         print(f"[REGISTER] register_user returned: user_id={user_id}", flush=True)
         if user_id:
+            # Apply invite code grants if used
+            if invite_code_entry:
+                try:
+                    from datetime import timedelta
+                    bonus_until = (datetime.utcnow() + timedelta(days=30 * invite_code_entry['grants_months'])).isoformat()
+                    fs_at = datetime.utcnow().isoformat() if invite_code_entry['grants_founding_status'] else None
+                    with get_connection() as _conn:
+                        _conn.execute(
+                            '''UPDATE users SET tier = ?, bonus_tier_until = ?,
+                               founding_status = ?, founding_status_granted_at = ?
+                               WHERE id = ?''',
+                            (invite_code_entry['grants_tier'], bonus_until,
+                             invite_code_entry['grants_founding_status'], fs_at, user_id)
+                        )
+                        _conn.commit()
+                    redeem_invite_code(invite_code_str, user_id)
+                    print(f"[REGISTER] Invite code applied: tier={invite_code_entry['grants_tier']} until={bonus_until}", flush=True)
+                except Exception as _ic_err:
+                    print(f"[REGISTER] Warning: invite code apply failed: {_ic_err}", flush=True)
+
+            # Credit referral reward if this person came via a referral code
+            if entry and entry.get('referral_code_used'):
+                try:
+                    ref_row = get_referral_code(entry['referral_code_used'])
+                    if ref_row:
+                        credit_referral_reward(ref_row['owner_user_id'], ref_row['reward_months'])
+                        print(f"[REGISTER] Referral reward: +{ref_row['reward_months']}mo to user={ref_row['owner_user_id']}", flush=True)
+                except Exception as _ref_err:
+                    print(f"[REGISTER] Warning: referral reward failed: {_ref_err}", flush=True)
+
             session['user_id'] = user_id
             session['email'] = email
             flash('Welcome to Brandr! Your account is ready.', 'success')
@@ -1790,6 +1836,71 @@ def admin_set_tier():
     print(f"[ADMIN] set-tier user={user_id} tier={new_tier} status={new_status} founder_granted={founding_granted} by {admin_email}")
     return jsonify({'success': True, 'user_id': user_id, 'tier': new_tier,
                     'special_status': new_status, 'founding_granted': founding_granted})
+
+
+@app.route('/portal/admin/codes')
+@admin_required
+def admin_codes():
+    """Admin: manage invite and referral codes."""
+    invite_codes = get_all_invite_codes()
+    referral_codes = get_all_referral_codes()
+    # Fetch all users for referral code owner dropdown
+    with get_connection() as conn:
+        users = [dict(r) for r in conn.execute(
+            'SELECT id, email, tier FROM users WHERE COALESCE(account_status,\'active\') = \'active\' ORDER BY email'
+        ).fetchall()]
+    return render_template('admin_codes.html',
+                           invite_codes=invite_codes,
+                           referral_codes=referral_codes,
+                           users=users,
+                           tier_config=TIER_CONFIG)
+
+
+@app.route('/api/admin/codes/create-invite', methods=['POST'])
+@admin_required
+def admin_create_invite_code():
+    """Generate a new single-use invite code."""
+    import secrets as _sec
+    data = request.get_json(force=True) or {}
+    grants_tier = data.get('grants_tier', 'Studio')
+    grants_months = int(data.get('grants_months', 3))
+    grants_founding = bool(data.get('grants_founding_status', True))
+    notes = (data.get('notes') or '').strip() or None
+
+    if grants_tier not in TIER_CONFIG:
+        return jsonify({'success': False, 'error': f'Invalid tier: {grants_tier}'}), 400
+    if grants_months < 1 or grants_months > 24:
+        return jsonify({'success': False, 'error': 'months must be 1–24'}), 400
+
+    code = 'BRANDR-' + _sec.token_hex(3).upper()
+    admin_email = session.get('email', 'admin')
+    ok = create_invite_code(code, grants_tier, grants_months, grants_founding, admin_email, notes)
+    if ok:
+        print(f"[ADMIN] invite code created: {code} tier={grants_tier} months={grants_months} by {admin_email}")
+        return jsonify({'success': True, 'code': code})
+    return jsonify({'success': False, 'error': 'Code generation failed (possible duplicate — try again)'}), 500
+
+
+@app.route('/api/admin/codes/create-referral', methods=['POST'])
+@admin_required
+def admin_create_referral_code():
+    """Generate a personal referral code for a user."""
+    import secrets as _sec
+    data = request.get_json(force=True) or {}
+    owner_user_id = data.get('owner_user_id')
+    reward_months = int(data.get('reward_months', 1))
+
+    if not owner_user_id:
+        return jsonify({'success': False, 'error': 'owner_user_id required'}), 400
+    if reward_months < 1 or reward_months > 12:
+        return jsonify({'success': False, 'error': 'reward_months must be 1–12'}), 400
+
+    code = 'REF-' + _sec.token_hex(3).upper()
+    ok = create_referral_code(code, owner_user_id, reward_months)
+    if ok:
+        print(f"[ADMIN] referral code created: {code} owner={owner_user_id} reward={reward_months}mo by {session.get('email')}")
+        return jsonify({'success': True, 'code': code})
+    return jsonify({'success': False, 'error': 'Code generation failed (possible duplicate — try again)'}), 500
 
 
 @app.route('/api/admin/revoke-founder', methods=['POST'])
