@@ -6712,11 +6712,123 @@ if (lastDownloadFilename) {
 // Initialize drag-and-drop upload
 initUploadDropzone();
 
-// Refresh brands when page becomes visible (e.g., after editing in Manage Brands)
+// Resume polling for any processingQueue items that were in-flight when the tab was backgrounded.
+// Called from visibilitychange. Handles the case where mobile browsers freeze/kill setTimeout
+// chains while the tab is hidden, leaving items stuck in 'processing' even after server completes.
+async function resumeStuckPolls() {
+    const stuck = processingQueue.filter(
+        item => item.status === 'processing' && item.jobId && !item._resumeActive
+    );
+    if (!stuck.length) return;
+    console.log('[RESUME] Tab visible — checking', stuck.length, 'in-flight item(s)');
+
+    for (const item of stuck) {
+        item._resumeActive = true;
+        (async () => {
+            let pollRes, pollData;
+            try {
+                pollRes  = await fetch(`${apiBase}/api/videos/brand-job/${item.jobId}`);
+                pollData = await pollRes.json();
+            } catch (netErr) {
+                console.warn('[RESUME] Network error for', item.brand_name, '— retrying in 5s');
+                item._resumeActive = false;
+                setTimeout(resumeStuckPolls, 5000);
+                return;
+            }
+
+            if (pollRes.status === 404 || pollData.error) {
+                item.status = 'failed';
+                item.error  = 'Render job lost after server restart. Please retry.';
+                console.warn('[RESUME] Job lost:', item.jobId, item.brand_name);
+                renderBrandPills();
+                checkQueueComplete();
+                item._resumeActive = false;
+                return;
+            }
+
+            if (pollData.status === 'completed') {
+                if (item.status !== 'processing') { item._resumeActive = false; return; } // settled by original timer racing us
+                if (pollData.outputs && pollData.outputs[0]) {
+                    const downloadUrl = pollData.outputs[0].download_url;
+                    window.open(downloadUrl, '_blank');
+                    completedOutputs.push({ brand_name: item.brand_name + ' · ' + (item.format || 'vertical_9_16'), download_url: downloadUrl });
+                }
+                item.status = 'done';
+                console.log('[RESUME] Recovered completed job:', item.brand_name, item.format);
+                renderBrandPills();
+                checkQueueComplete();
+                item._resumeActive = false;
+
+            } else if (pollData.status === 'failed') {
+                item.status = 'failed';
+                console.error('[RESUME] Server-side render failed:', item.brand_name, pollData.error);
+                renderBrandPills();
+                checkQueueComplete();
+                item._resumeActive = false;
+
+            } else {
+                // Still queued/processing — original timer may have been killed; start a fresh poll chain
+                console.log('[RESUME] Job still processing:', item.brand_name, '— restarting poll chain');
+                item._resumeActive = false;
+                const POLL_INTERVAL_MS = 5000;
+                const MAX_POLLS = 180;
+                const job_id = item.jobId;
+                let pollCount = 0;
+                const poll = async () => {
+                    if (item.status !== 'processing') return; // settled by another path
+                    if (pollCount >= MAX_POLLS) {
+                        item.status = 'failed';
+                        renderBrandPills();
+                        checkQueueComplete();
+                        return;
+                    }
+                    pollCount++;
+                    let pRes, pData;
+                    try {
+                        pRes  = await fetch(`${apiBase}/api/videos/brand-job/${job_id}`);
+                        pData = await pRes.json();
+                    } catch (e) { setTimeout(poll, POLL_INTERVAL_MS); return; }
+                    if (pRes.status === 404 || pData.error) {
+                        item.status = 'failed';
+                        item.error  = 'Render job lost. Please retry.';
+                        renderBrandPills();
+                        checkQueueComplete();
+                        return;
+                    }
+                    if (!pRes.ok) { setTimeout(poll, POLL_INTERVAL_MS); return; }
+                    if (pData.status === 'completed') {
+                        if (item.status !== 'processing') return;
+                        if (pData.outputs && pData.outputs[0]) {
+                            const downloadUrl = pData.outputs[0].download_url;
+                            window.open(downloadUrl, '_blank');
+                            completedOutputs.push({ brand_name: item.brand_name + ' · ' + (item.format || 'vertical_9_16'), download_url: downloadUrl });
+                        }
+                        item.status = 'done';
+                        renderBrandPills();
+                        checkQueueComplete();
+                    } else if (pData.status === 'failed') {
+                        item.status = 'failed';
+                        renderBrandPills();
+                        checkQueueComplete();
+                    } else {
+                        setTimeout(poll, POLL_INTERVAL_MS);
+                    }
+                };
+                setTimeout(poll, POLL_INTERVAL_MS);
+            }
+        })();
+    }
+}
+
+// Refresh brands when page becomes visible (e.g., after editing in Manage Brands).
+// In queue mode, resume any polls that were frozen while the tab was hidden instead.
 document.addEventListener('visibilitychange', function() {
-    if (!document.hidden && !isQueueMode) {
+    if (document.hidden) return;
+    if (isQueueMode) {
+        resumeStuckPolls();
+    } else {
         console.log('[BRANDR] Page visible again, refreshing brand list...');
-        loadBrands();  // Reload brands to get latest config from database
+        loadBrands();
     }
 });
 </script>
