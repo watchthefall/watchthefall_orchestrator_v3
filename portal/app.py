@@ -515,15 +515,11 @@ def register():
                 except Exception as _ic_err:
                     print(f"[REGISTER] Warning: invite code apply failed: {_ic_err}", flush=True)
 
-            # Credit referral reward if this person came via a referral code
+            # Referral attribution — record which code brought this user in.
+            # Automatic reward (credit_referral_reward) is DISABLED during beta:
+            # bonus_tier_until mutations require a redemption audit trail first.
             if entry and entry.get('referral_code_used'):
-                try:
-                    ref_row = get_referral_code(entry['referral_code_used'])
-                    if ref_row:
-                        credit_referral_reward(ref_row['owner_user_id'], ref_row['reward_months'])
-                        print(f"[REGISTER] Referral reward: +{ref_row['reward_months']}mo to user={ref_row['owner_user_id']}", flush=True)
-                except Exception as _ref_err:
-                    print(f"[REGISTER] Warning: referral reward failed: {_ref_err}", flush=True)
+                print(f"[REGISTER] Referral attribution recorded: code={entry['referral_code_used']} user={user_id}", flush=True)
 
             session['user_id'] = user_id
             session['email'] = email
