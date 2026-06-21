@@ -1264,6 +1264,25 @@
         order: 7;
         margin-top: 2px !important;
     }
+    @media (max-width: 480px) {
+        .brand-grid {
+            grid-template-columns: 1fr;
+        }
+        .section {
+            width: 97%;
+            padding: 12px;
+        }
+        #previewSection .preview-container {
+            max-width: 100%;
+        }
+        .overrides-panel, .quick-tweaks {
+            width: 100%;
+            min-width: 0;
+        }
+        .step-label { font-size: 11px; }
+        .intent-fork { padding: 16px 12px; }
+    }
+
     @media (min-width: 1100px) {
         #previewSection {
             max-width: 980px;
