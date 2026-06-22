@@ -1434,6 +1434,9 @@ def _loops_send_event(email, event_name):
         headers={
             'Authorization': f'Bearer {api_key}',
             'Content-Type': 'application/json',
+            # Default urllib UA (Python-urllib/x.y) trips Cloudflare error 1010 in front
+            # of app.loops.so, blocking the API call before it reaches Loops.
+            'User-Agent': 'Mozilla/5.0 (compatible; BrandrServer/1.0; +https://brandr.online)',
         },
         method='POST',
     )
@@ -1459,6 +1462,9 @@ def _loops_update_contact(email, **props):
         headers={
             'Authorization': f'Bearer {api_key}',
             'Content-Type': 'application/json',
+            # Default urllib UA (Python-urllib/x.y) trips Cloudflare error 1010 in front
+            # of app.loops.so, blocking the API call before it reaches Loops.
+            'User-Agent': 'Mozilla/5.0 (compatible; BrandrServer/1.0; +https://brandr.online)',
         },
         method='PUT',
     )
@@ -1495,6 +1501,9 @@ def _loops_sync_contact(email, creator_name, **kwargs):
         headers={
             'Authorization': f'Bearer {api_key}',
             'Content-Type': 'application/json',
+            # Default urllib UA (Python-urllib/x.y) trips Cloudflare error 1010 in front
+            # of app.loops.so, blocking the API call before it reaches Loops.
+            'User-Agent': 'Mozilla/5.0 (compatible; BrandrServer/1.0; +https://brandr.online)',
         },
         method='POST',
     )
