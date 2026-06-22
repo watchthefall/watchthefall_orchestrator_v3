@@ -2068,7 +2068,13 @@
         <canvas id="previewCanvas" width="360" height="640"></canvas>
         <div class="watermark-bounds" id="watermarkBounds"></div>
     </div>
-    
+
+    <!-- ===== REFRAME CONTROLS (Studio · vertical only) ===== -->
+    <div id="reframeControls" style="display:none; align-items:center; justify-content:space-between; gap:10px; width:94%; max-width:500px; margin:6px auto 0;">
+        <span style="font-size:12px; color:#8b93a7;">Drag video to reframe</span>
+        <button type="button" onclick="resetSourceFraming()" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:6px 12px; font-size:12px; font-weight:600; cursor:pointer;">↺ Reset framing</button>
+    </div>
+
     <!-- Queue Mode Header (hidden by default) -->
     <div id="queueModeHeader" style="display:none; margin-bottom:6px;">
         <div class="review-context-card">
@@ -2369,6 +2375,13 @@ let currentQueueIndex = 0;
 let isReviewCompletionState = false;
 let selectedOutputFormats = ['vertical_9_16'];
 let activeReviewFormat = 'vertical_9_16'; // tracks format of current queue item for canvas sizing
+// Studio reframe (Commit 2): per (source+format) crop, loaded from /api/source-edits.
+// Vertical-only in v1; square keeps its blur-pad default untouched.
+const SOURCE_EDIT_DEFAULTS = { crop_x: 0.5, crop_y: 0.5, zoom: 1.0, crop_mode: 'fill' };
+let currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS };
+let sourcePanning = false;
+let sourcePanStart = null;          // { x, y, crop_x, crop_y } captured at gesture start
+let sourceEditSaveTimer = null;     // debounce handle for POST /api/source-edits
 let selectedSources = [];   // Patch 50A: filenames of sources chosen for this render run
 let completedOutputs = []; // accumulates { brand_name, download_url } after each successful brand
 
@@ -2525,6 +2538,7 @@ function resetCreateReviewSession(reason) {
 
     const previewContainer = document.getElementById('previewContainer');
     if (previewContainer) previewContainer.style.display = 'none';
+    updateReframeControlVisibility();
 
     const previewTargetBar = document.getElementById('previewTargetBar');
     if (previewTargetBar) previewTargetBar.style.display = 'none';
@@ -2791,6 +2805,7 @@ function renderReviewCompletionState() {
     if (overrideControls) overrideControls.style.display = 'none';
     const previewContainer = document.getElementById('previewContainer');
     if (previewContainer) previewContainer.style.display = 'none';
+    updateReframeControlVisibility();
     const reviewLane = document.getElementById('brandReviewLane');
     if (reviewLane) reviewLane.classList.remove('review-active');
     const previewSection = document.getElementById('previewSection');
@@ -2850,6 +2865,7 @@ function renderStreamingCompletionState() {
     if (overrideControls) overrideControls.style.display = 'none';
     const previewContainer = document.getElementById('previewContainer');
     if (previewContainer) previewContainer.style.display = 'none';
+    updateReframeControlVisibility();
     const reviewLane = document.getElementById('brandReviewLane');
     if (reviewLane) reviewLane.classList.remove('review-active');
     const previewSection = document.getElementById('previewSection');
@@ -3469,8 +3485,9 @@ function updateCanvasPreview() {
                 const vX = (canvas.width - vW) / 2;
                 const vY = (canvas.height - vH) / 2;
                 ctx.drawImage(img, vX, vY, vW, vH);
+                canvas._srcVis = null; // square is not reframable in v1
             } else {
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                drawReframedSource(img);
             }
             drawOverlays();
         };
@@ -3488,6 +3505,32 @@ function updateCanvasPreview() {
         ctx.fillText('Download a video to preview', canvas.width/2, canvas.height/2);
         drawOverlays();
     }
+}
+
+// Draw the source frame with reframe applied: cover-scale to the output aspect,
+// then zoom and offset by crop_x/crop_y. Mirrors FFmpeg crop semantics so the
+// Commit 3 render matches this preview. At defaults (0.5/0.5/1.0) this is a
+// centered cover-crop — identical to a stretch for 9:16 sources.
+function drawReframedSource(img) {
+    const srcW = img.naturalWidth, srcH = img.naturalHeight;
+    if (!srcW || !srcH) { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); canvas._srcVis = null; return; }
+    const se = currentSourceEdit || SOURCE_EDIT_DEFAULTS;
+    const zoom = Math.max(1, Number(se.zoom) || 1);
+    const cropX = Math.min(1, Math.max(0, Number(se.crop_x ?? 0.5)));
+    const cropY = Math.min(1, Math.max(0, Number(se.crop_y ?? 0.5)));
+    const targetAspect = canvas.width / canvas.height;
+
+    // Largest region of the source with the target aspect (cover), then divide by zoom.
+    let visW, visH;
+    if (srcW / srcH > targetAspect) { visH = srcH; visW = srcH * targetAspect; }
+    else { visW = srcW; visH = srcW / targetAspect; }
+    visW /= zoom; visH /= zoom;
+
+    const sx = (srcW - visW) * cropX;
+    const sy = (srcH - visH) * cropY;
+    ctx.drawImage(img, sx, sy, visW, visH, 0, 0, canvas.width, canvas.height);
+    // Stash for the drag handler so panning maps 1:1 to the visible source window.
+    canvas._srcVis = { srcW, srcH, visW, visH };
 }
 
 function drawOverlays() {
@@ -3743,7 +3786,15 @@ function startDrag(e) {
             var secCY = secLogoCenterYPercent * canvas.height;
             secLogoDragStart = { x: pos.x - secCX, y: pos.y - secCY };
             canvas.style.cursor = 'grabbing';
+            return;
         }
+    }
+
+    // No overlay was hit → reframe the source video (vertical only in v1).
+    if (activeReviewFormat === 'vertical_9_16' && frameData) {
+        sourcePanning = true;
+        sourcePanStart = { x: pos.x, y: pos.y, crop_x: currentSourceEdit.crop_x, crop_y: currentSourceEdit.crop_y };
+        canvas.style.cursor = 'grabbing';
     }
 }
 
@@ -3778,8 +3829,26 @@ function drag(e) {
         
         logoCenterXPercent = Math.max(minPercent, Math.min(maxPercentX, logoCenterXPercent));
         logoCenterYPercent = Math.max(minPercent, Math.min(maxPercentY, logoCenterYPercent));
-        
+
         updateCanvasPreview();
+    } else if (sourcePanning) {
+        const pos = getCanvasCoords(e);
+        const v = canvas._srcVis;
+        if (v) {
+            // Map canvas-pixel drag to a crop-fraction shift across the visible source window.
+            // Dragging the video right reveals content to its left → crop_x decreases.
+            const slackX = v.srcW - v.visW;
+            const slackY = v.srcH - v.visH;
+            if (slackX > 0) {
+                const dCropX = ((pos.x - sourcePanStart.x) / canvas.width) * v.visW / slackX;
+                currentSourceEdit.crop_x = Math.min(1, Math.max(0, sourcePanStart.crop_x - dCropX));
+            }
+            if (slackY > 0) {
+                const dCropY = ((pos.y - sourcePanStart.y) / canvas.height) * v.visH / slackY;
+                currentSourceEdit.crop_y = Math.min(1, Math.max(0, sourcePanStart.crop_y - dCropY));
+            }
+            updateCanvasPreview();
+        }
     }
 }
 
@@ -3787,10 +3856,83 @@ function endDrag() {
     if (logoDragging || textDragging || secondaryLogoDragging) {
         autoSaveActiveReviewState();
     }
+    if (sourcePanning) {
+        sourcePanning = false;
+        snapshotSourceEditToItem();
+        debouncedSaveSourceEdit();
+    }
     logoDragging = false;
     textDragging = false;
     secondaryLogoDragging = false;
     canvas.style.cursor = 'default';
+}
+
+// ── Studio reframe helpers (Commit 2) ──────────────────────────────────────────
+function snapshotSourceEditToItem() {
+    const item = (typeof processingQueue !== 'undefined') ? processingQueue[currentQueueIndex] : null;
+    if (item) item.source_edit = { ...currentSourceEdit };
+}
+
+function debouncedSaveSourceEdit() {
+    if (sourceEditSaveTimer) clearTimeout(sourceEditSaveTimer);
+    sourceEditSaveTimer = setTimeout(saveSourceEditNow, 600);
+}
+
+async function saveSourceEditNow() {
+    const item = (typeof processingQueue !== 'undefined') ? processingQueue[currentQueueIndex] : null;
+    const src = (item && item.video) || currentFile;
+    const fmt = (item && item.format) || activeReviewFormat;
+    if (!src || fmt !== 'vertical_9_16') return;   // vertical-only in v1
+    try {
+        await fetch(`${apiBase}/api/source-edits`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                source_filename: src, output_format: fmt,
+                crop_x: currentSourceEdit.crop_x, crop_y: currentSourceEdit.crop_y,
+                zoom: currentSourceEdit.zoom, crop_mode: 'fill'
+            })
+        });
+    } catch (e) { console.warn('[REFRAME] save failed:', e); }
+}
+
+// Load the saved reframe for the item's (source, format). Prefers this session's
+// in-memory snapshot on the item; otherwise fetches from /api/source-edits.
+async function loadSourceEditForItem(item) {
+    const src = (item && item.video) || currentFile;
+    const fmt = (item && item.format) || activeReviewFormat;
+    if (!src || fmt !== 'vertical_9_16') {
+        currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS };
+        return;
+    }
+    if (item && item.source_edit) {
+        currentSourceEdit = { ...item.source_edit };
+        return;
+    }
+    try {
+        const r = await fetch(`${apiBase}/api/source-edits?source_filename=${encodeURIComponent(src)}&output_format=${encodeURIComponent(fmt)}`);
+        const d = await r.json();
+        currentSourceEdit = (d && d.success && d.edit) ? { ...d.edit } : { ...SOURCE_EDIT_DEFAULTS };
+    } catch (e) {
+        currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS };
+    }
+    if (item) item.source_edit = { ...currentSourceEdit };
+}
+
+function resetSourceFraming() {
+    currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS };
+    snapshotSourceEditToItem();
+    updateCanvasPreview();
+    debouncedSaveSourceEdit();
+}
+
+// Show the Reframe control only while the vertical preview is on screen
+// (square is fixed blur-pad in v1; hidden whenever the preview is hidden).
+function updateReframeControlVisibility() {
+    const el = document.getElementById('reframeControls');
+    if (!el) return;
+    const pc = document.getElementById('previewContainer');
+    const previewVisible = pc && pc.style.display !== 'none';
+    el.style.display = (previewVisible && activeReviewFormat === 'vertical_9_16') ? 'flex' : 'none';
 }
 
 // ========== SLIDER LISTENERS ==========
@@ -4562,6 +4704,9 @@ async function switchToBrand(idx) {
     // Resize canvas to match this item's output format
     activeReviewFormat = current.format || 'vertical_9_16';
     resizeCanvasForFormat(activeReviewFormat);
+    // Load this item's saved reframe (vertical only) and redraw with it applied.
+    await loadSourceEditForItem(current);
+    updateCanvasPreview();
 
     // Always show scope row when in queue mode; hide only on last item
     const copyRow = document.getElementById('copyAdjustRow');
@@ -4643,6 +4788,7 @@ function resizeCanvasForFormat(fmt) {
     // left a dark void below it). Inline style overrides both CSS breakpoints.
     const pc = document.getElementById('previewContainer');
     if (pc) pc.style.aspectRatio = (fmt === 'square_1_1') ? '1 / 1' : '9 / 16';
+    updateReframeControlVisibility();
     updateCanvasPreview();
 }
 
