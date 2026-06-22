@@ -1948,36 +1948,46 @@ def cleanup_old_downloads(max_age_hours=24):
 
     return deleted_count
 
+def get_bookmarked_realpaths():
+    """Return the set of realpath strings for every bookmarked source and output file.
+
+    Single source of truth for "what must never be deleted by an age-based cleanup",
+    used by both cleanup_old_files and the admin emergency cleanup. Raises on DB error
+    so callers can choose their own fail-safe behavior (both currently skip deletion).
+    """
+    import os
+    with get_connection() as conn:
+        rows = conn.execute('''
+            SELECT file_path FROM downloads
+            WHERE bookmarked = 1 AND file_path IS NOT NULL
+            UNION
+            SELECT file_path FROM branded_outputs
+            WHERE bookmarked = 1 AND file_path IS NOT NULL
+        ''').fetchall()
+    return {
+        os.path.realpath(row['file_path'])
+        for row in rows
+        if row['file_path']
+    }
+
+
 def cleanup_old_files(max_age_hours=24):
     """Delete old files from storage directories"""
     import os
     from datetime import datetime, timedelta
     from .config import RAW_DIR, OUTPUT_DIR
-    
+
     cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
-    
+
     deleted_count = 0
-    protected_paths = set()
 
     try:
-        with get_connection() as conn:
-            rows = conn.execute('''
-                SELECT file_path FROM downloads
-                WHERE bookmarked = 1 AND file_path IS NOT NULL
-                UNION
-                SELECT file_path FROM branded_outputs
-                WHERE bookmarked = 1 AND file_path IS NOT NULL
-            ''').fetchall()
-            protected_paths = {
-                os.path.realpath(row['file_path'])
-                for row in rows
-                if row['file_path']
-            }
+        protected_paths = get_bookmarked_realpaths()
     except Exception as e:
         # Conservative: if protected saved paths cannot be loaded, skip generic cleanup.
         print(f"[CLEANUP] Could not load bookmarked file paths; skipping generic file cleanup: {e}")
         return 0
-    
+
     # Clean up both directories
     for directory in [RAW_DIR, OUTPUT_DIR]:
         if os.path.exists(directory):

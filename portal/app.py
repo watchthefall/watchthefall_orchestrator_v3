@@ -1981,7 +1981,7 @@ def admin_disk_cleanup():
     import time
     import shutil
     from .config import RAW_DIR, OUTPUT_DIR, DB_PATH
-    from .database import get_connection
+    from .database import get_connection, get_bookmarked_realpaths
 
     admin_email = session.get('email', 'unknown')
     data = request.get_json(force=True) or {}
@@ -1994,16 +1994,33 @@ def admin_disk_cleanup():
     cutoff_hours = max(0.0, min(168.0, cutoff_hours))
     cutoff_mtime = time.time() - cutoff_hours * 3600
 
-    print(f"[DISK CLEANUP] started by admin={admin_email} cutoff_hours={cutoff_hours:.1f}")
+    # Fail-safe: never delete bookmarked/saved sources or outputs. If the protected
+    # set cannot be loaded, abort and delete nothing rather than risk saved assets.
+    try:
+        protected_paths = get_bookmarked_realpaths()
+    except Exception as e:
+        print(f"[DISK CLEANUP] aborted — could not load bookmarked paths: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Could not load protected (bookmarked) paths; cleanup aborted to avoid deleting saved assets.',
+            'files_deleted': 0,
+            'bytes_freed': 0,
+        }), 500
+
+    print(f"[DISK CLEANUP] started by admin={admin_email} cutoff_hours={cutoff_hours:.1f} "
+          f"protected={len(protected_paths)}")
 
     total_deleted = 0
     total_bytes = 0
     raw_deleted = 0
     output_deleted = 0
+    protected_skipped = 0
     errors = []
 
     def _purge_dir(directory):
-        """Delete files older than cutoff_mtime in directory. Returns (count, bytes)."""
+        """Delete files older than cutoff_mtime in directory, skipping bookmarked
+        files. Returns (count, bytes)."""
+        nonlocal protected_skipped
         count = 0
         freed = 0
         if not os.path.isdir(directory):
@@ -2016,6 +2033,9 @@ def admin_disk_cleanup():
         for name in entries:
             path = os.path.join(directory, name)
             if not os.path.isfile(path):
+                continue
+            if os.path.realpath(path) in protected_paths:
+                protected_skipped += 1
                 continue
             try:
                 mtime = os.path.getmtime(path)
@@ -2068,6 +2088,7 @@ def admin_disk_cleanup():
         'bytes_freed': total_bytes,
         'raw_files_deleted': raw_deleted,
         'output_files_deleted': output_deleted,
+        'protected_skipped': protected_skipped,
         'cutoff_hours': cutoff_hours,
         'checkpoint_result': checkpoint_result,
         'errors': errors,
