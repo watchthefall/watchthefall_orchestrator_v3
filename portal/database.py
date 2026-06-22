@@ -2007,6 +2007,38 @@ def cleanup_old_files(max_age_hours=24):
     
     return deleted_count
 
+
+def sweep_normalized_temp_files(max_age_minutes=30):
+    """Delete stale normalized temp files (``*_normalized_*.mp4``) in RAW_DIR.
+
+    Normalized files are pure derived inputs, regenerated on every render and never
+    read again once their render settles (max render time ~14 min << 30 min default).
+    They have no DB rows, so deleting them creates no orphans. This sweep ONLY touches
+    files matching the normalized glob in RAW_DIR — never source files, outputs, brand
+    assets, or the database. Returns the number of files deleted.
+    """
+    import os
+    import time
+    import glob
+    from .config import RAW_DIR
+
+    if not os.path.isdir(RAW_DIR):
+        return 0
+
+    cutoff = time.time() - max_age_minutes * 60
+    deleted = 0
+    try:
+        for path in glob.glob(os.path.join(RAW_DIR, '*_normalized_*.mp4')):
+            try:
+                if os.path.isfile(path) and os.path.getmtime(path) < cutoff:
+                    os.remove(path)
+                    deleted += 1
+            except OSError as e:
+                print(f"[NORMALIZE SWEEP] could not delete {path}: {e}")
+    except Exception as e:
+        print(f"[NORMALIZE SWEEP] sweep error: {e}")
+    return deleted
+
 # ============================================================================
 # DAILY USAGE TRACKING
 # ============================================================================

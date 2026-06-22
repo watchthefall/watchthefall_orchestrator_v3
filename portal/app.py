@@ -5214,15 +5214,30 @@ def schedule_cleanup():
     """Schedule periodic cleanup of old files"""
     import time
     import threading
-    from .database import cleanup_old_downloads, cleanup_old_branded_outputs
+    from .database import (cleanup_old_downloads, cleanup_old_branded_outputs,
+                           sweep_normalized_temp_files)
+
+    SWEEP_INTERVAL = 30 * 60     # 30 min — normalized temp sweep cadence
+    FULL_CLEANUP_EVERY = 12      # full age-based cleanup every 12 sweeps (~6h)
 
     def cleanup_worker():
+        tick = 0
         while True:
             try:
-                dl_count = cleanup_old_downloads(24)
-                render_count = cleanup_old_branded_outputs(24)
-                print(f"[CLEANUP] Deleted {dl_count} old downloads and {render_count} expired renders")
-                time.sleep(6 * 60 * 60)  # 6 hours
+                # Frequent: clear stale normalized temp files (>30 min old). These are
+                # the bulk of RAW_DIR and accumulate fast; the 24h cleanup is too slow.
+                swept = sweep_normalized_temp_files(30)
+                if swept:
+                    print(f"[CLEANUP] Swept {swept} stale normalized temp files")
+
+                # Periodic (~6h): age-based cleanup of downloads + expired renders.
+                if tick % FULL_CLEANUP_EVERY == 0:
+                    dl_count = cleanup_old_downloads(24)
+                    render_count = cleanup_old_branded_outputs(24)
+                    print(f"[CLEANUP] Deleted {dl_count} old downloads and {render_count} expired renders")
+
+                tick += 1
+                time.sleep(SWEEP_INTERVAL)
             except Exception as e:
                 print(f"[CLEANUP] Error during cleanup: {e}")
                 time.sleep(60 * 60)
