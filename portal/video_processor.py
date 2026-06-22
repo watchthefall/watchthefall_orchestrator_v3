@@ -215,7 +215,78 @@ class VideoProcessor:
         except Exception as e:
             print(f"[ERROR] Failed to check video stream: {e}")
             return False
-    
+
+    def _validate_output(self, output_path: str) -> bool:
+        """
+        Validate a freshly-rendered output file by probing it directly.
+
+        A render is accepted only when the file is actually playable, not merely
+        present. FFmpeg can exit non-zero (e.g. an audio-muxer hiccup) yet still
+        write a complete branded video; it can also leave a truncated/empty file
+        behind. This guards both cases by confirming: the file exists, is
+        non-empty, ffprobe finds a video stream, and the container reports a
+        positive duration.
+
+        Args:
+            output_path: Path to the rendered file to validate.
+
+        Returns:
+            bool: True if the output is a valid, non-empty video file.
+        """
+        try:
+            if not os.path.exists(output_path):
+                print(f"[VALIDATE] Reject: output missing — {output_path}")
+                return False
+
+            size = os.path.getsize(output_path)
+            if size == 0:
+                print(f"[VALIDATE] Reject: output is 0 bytes — {output_path}")
+                return False
+
+            cmd = [FFPROBE_BIN, '-v', 'quiet', '-print_format', 'json',
+                   '-show_format', '-show_streams', output_path]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            if result.returncode != 0:
+                print(f"[VALIDATE] Reject: ffprobe failed (code={result.returncode}) — {output_path}")
+                return False
+
+            info = json.loads(result.stdout or '{}')
+            streams = info.get('streams', [])
+
+            has_video = any(s.get('codec_type') == 'video' for s in streams)
+            if not has_video:
+                print(f"[VALIDATE] Reject: no video stream — {output_path}")
+                return False
+
+            # Duration may sit on the container format or on the video stream,
+            # depending on the muxer — check both before giving up.
+            def _as_float(val):
+                try:
+                    return float(val)
+                except (TypeError, ValueError):
+                    return 0.0
+
+            duration = _as_float(info.get('format', {}).get('duration'))
+            if duration <= 0:
+                for s in streams:
+                    if s.get('codec_type') == 'video':
+                        duration = _as_float(s.get('duration'))
+                        break
+            if duration <= 0:
+                print(f"[VALIDATE] Reject: non-positive duration ({duration}) — {output_path}")
+                return False
+
+            print(f"[VALIDATE] OK: {size//1024}KB, duration={duration:.1f}s, "
+                  f"video stream present — {output_path}")
+            return True
+
+        except subprocess.TimeoutExpired:
+            print(f"[VALIDATE] Reject: ffprobe timed out — {output_path}")
+            return False
+        except Exception as e:
+            print(f"[VALIDATE] Reject: validation error: {e} — {output_path}")
+            return False
+
     def detect_orientation(self) -> str:
         """
         Detect video orientation based on dimensions.
@@ -781,7 +852,10 @@ class VideoProcessor:
         # Build FFmpeg command — veryfast preset keeps encoding time within request window
         # (fast preset can take 5-10+ min on shared CPU for long videos, causing gunicorn timeout)
         FFMPEG_TIMEOUT = 840  # 14 minutes — raises clean Python error before gunicorn 900s kill
-        cmd = [
+
+        # Video-only base. The brand step never touches audio (filter_complex is video-only),
+        # so audio codec/flags are appended per-attempt below.
+        base_cmd = [
             FFMPEG_BIN, '-y',
             '-i', self.video_path,
             '-filter_complex', filter_complex,
@@ -792,55 +866,77 @@ class VideoProcessor:
             '-c:v', 'libx264',
             '-crf', '23',
             '-preset', 'veryfast',   # was 'fast' — ~2x faster, fits within request window
-            '-c:a', 'aac',
-            '-b:a', '128k',
-            '-movflags', '+faststart',
-            output_path
+        ]
+        tail_cmd = ['-movflags', '+faststart', output_path]
+
+        # Audio strategy tiers. The input is already normalized to clean AAC 128k upstream
+        # (see normalize_video), so a stream copy is both higher quality and avoids the AAC
+        # re-encoder failures (FFmpeg exit 69 / "Conversion failed!") that have discarded
+        # otherwise-complete renders. Fall back to a resync'd re-encode for the rare case
+        # where the audio isn't mp4-copyable, then drop audio only as a last resort so a
+        # render never fails outright.
+        audio_attempts = [
+            ('copy',       ['-c:a', 'copy']),
+            ('reencode',   ['-c:a', 'aac', '-b:a', '128k', '-af', 'aresample=async=1:first_pts=0']),
+            ('drop-audio', ['-an']),
         ]
 
-        print(f"[RENDER] Starting FFmpeg for brand='{brand_name}'")
-        print(f"[RENDER] Input:   {self.video_path}")
-        print(f"[RENDER] Output:  {output_path}")
-        print(f"[RENDER] Timeout: {FFMPEG_TIMEOUT}s")
-        print(f"[RENDER] Command: {' '.join(cmd)}")
+        last_error = ''
+        for attempt_idx, (label, audio_flags) in enumerate(audio_attempts, 1):
+            cmd = base_cmd + audio_flags + tail_cmd
+            print(f"[RENDER] Starting FFmpeg for brand='{brand_name}' "
+                  f"(audio={label}, attempt {attempt_idx}/{len(audio_attempts)})")
+            print(f"[RENDER] Input:   {self.video_path}")
+            print(f"[RENDER] Output:  {output_path}")
+            print(f"[RENDER] Timeout: {FFMPEG_TIMEOUT}s")
+            print(f"[RENDER] Command: {' '.join(cmd)}")
 
-        try:
-            result = subprocess.run(
-                cmd,
-                stdout=subprocess.DEVNULL,  # FFmpeg has no useful stdout
-                stderr=subprocess.PIPE,     # Capture stderr for error reporting only
-                text=True,
-                timeout=FFMPEG_TIMEOUT
-            )
-            processing_time = time.time() - start_time
-            output_exists = os.path.exists(output_path)
-            output_size   = os.path.getsize(output_path) if output_exists else 0
-            print(f"[RENDER] FFmpeg returned code={result.returncode} in {processing_time:.1f}s")
-            print(f"[RENDER] Output exists={output_exists} size={output_size} bytes")
-            if result.returncode != 0:
-                stderr_tail = (result.stderr or '')[-3000:]
-                print(f"[RENDER ERROR] FFmpeg non-zero exit for brand='{brand_name}'")
-                print(f"[RENDER ERROR] stderr tail: {stderr_tail}")
-                raise subprocess.CalledProcessError(result.returncode, cmd, stderr=result.stderr)
-            if not output_exists or output_size == 0:
-                print(f"[RENDER ERROR] FFmpeg exited 0 but output missing/empty: {output_path}")
-                raise Exception(f"FFmpeg produced no output for brand '{brand_name}' — check disk space")
-            print(f"[RENDER] Completed brand='{brand_name}' in {processing_time:.1f}s ({output_size//1024}KB)")
-            return output_path
+            try:
+                result = subprocess.run(
+                    cmd,
+                    stdout=subprocess.DEVNULL,  # FFmpeg has no useful stdout
+                    stderr=subprocess.PIPE,     # Capture stderr for error reporting only
+                    text=True,
+                    timeout=FFMPEG_TIMEOUT
+                )
+            except subprocess.TimeoutExpired:
+                processing_time = time.time() - start_time
+                print(f"[RENDER ERROR] FFmpeg timed out after {processing_time:.0f}s for brand='{brand_name}'")
+                print(f"[RENDER ERROR] Output path: {output_path}")
+                raise Exception(
+                    f"FFmpeg timed out after {FFMPEG_TIMEOUT//60} minutes for brand '{brand_name}'. "
+                    f"Try a shorter clip (under 60 seconds)."
+                )
 
-        except subprocess.TimeoutExpired:
             processing_time = time.time() - start_time
-            print(f"[RENDER ERROR] FFmpeg timed out after {processing_time:.0f}s for brand='{brand_name}'")
-            print(f"[RENDER ERROR] Output path: {output_path}")
-            raise Exception(
-                f"FFmpeg timed out after {FFMPEG_TIMEOUT//60} minutes for brand '{brand_name}'. "
-                f"Try a shorter clip (under 60 seconds)."
-            )
-        except subprocess.CalledProcessError as e:
-            stderr_tail = (e.stderr or '')[-3000:]
-            print(f"[RENDER ERROR] FFmpeg failed (code={e.returncode}) for brand='{brand_name}'")
-            print(f"[RENDER ERROR] stderr tail: {stderr_tail}")
-            raise Exception(f"FFmpeg error for brand '{brand_name}': {stderr_tail}")
+            output_valid = self._validate_output(output_path)
+            output_size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
+            print(f"[RENDER] FFmpeg returned code={result.returncode} in {processing_time:.1f}s (audio={label})")
+            print(f"[RENDER] Output valid={output_valid} size={output_size} bytes")
+
+            if output_valid:
+                # Accept the render if the file probes clean, even when FFmpeg reported a
+                # non-zero exit (e.g. an audio-muxer hiccup) — the branded video is complete.
+                if result.returncode != 0:
+                    print(f"[RENDER WARN] FFmpeg exit={result.returncode} but output probes valid — "
+                          f"accepting (audio={label})")
+                if label == 'drop-audio':
+                    print(f"[RENDER WARN] brand='{brand_name}' rendered WITHOUT audio "
+                          f"after audio copy + re-encode both failed")
+                print(f"[RENDER] Completed brand='{brand_name}' in {processing_time:.1f}s "
+                      f"({output_size//1024}KB, audio={label})")
+                return output_path
+
+            last_error = (result.stderr or '')[-1500:]
+            print(f"[RENDER ERROR] Attempt {attempt_idx} (audio={label}) failed for "
+                  f"brand='{brand_name}' code={result.returncode}")
+            print(f"[RENDER ERROR] stderr tail: {last_error}")
+
+        # All audio strategies exhausted and the output never probed valid — the failure
+        # is not audio-related (bad filter, missing input, disk, etc.).
+        raise Exception(
+            f"FFmpeg error for brand '{brand_name}' after {len(audio_attempts)} attempts: {last_error}"
+        )
     
     def process_multiple_brands(self, brands: List[Dict], logo_settings: Optional[Dict] = None,
                                video_id: str = 'video') -> List[str]:
