@@ -4638,6 +4638,11 @@ function resizeCanvasForFormat(fmt) {
         videoWidth  = 720;
         videoHeight = 1280;
     }
+    // Match the preview box to the output aspect so a square render shows in a
+    // square "pill" instead of a square canvas stranded in a 9:16 box (which
+    // left a dark void below it). Inline style overrides both CSS breakpoints.
+    const pc = document.getElementById('previewContainer');
+    if (pc) pc.style.aspectRatio = (fmt === 'square_1_1') ? '1 / 1' : '9 / 16';
     updateCanvasPreview();
 }
 
