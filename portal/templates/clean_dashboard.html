@@ -5516,9 +5516,9 @@ function checkQueueComplete() {
     const allDone = processingQueue.every(q => q.status === 'done' || q.status === 'skipped' || q.status === 'failed');
     if (allDone) {
         const result = document.getElementById('processResult');
-        const done = checkSource.filter(q => q.status === 'done').length;
-        const failed = checkSource.filter(q => q.status === 'failed').length;
-        const skipped = checkSource.filter(q => q.status === 'skipped').length;
+        const done = processingQueue.filter(q => q.status === 'done').length;
+        const failed = processingQueue.filter(q => q.status === 'failed').length;
+        const skipped = processingQueue.filter(q => q.status === 'skipped').length;
         try {
             renderCompletionPanel(result, done, failed, skipped);
         } catch (panelErr) {
