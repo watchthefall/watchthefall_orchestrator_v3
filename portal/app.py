@@ -1472,10 +1472,14 @@ def _loops_update_contact(email, **props):
 
 
 def _loops_sync_contact(email, creator_name, **kwargs):
-    """Fire-and-forget: add a new waitlist contact to Loops."""
+    """Add a new waitlist contact to Loops. Called synchronously from the request so
+    the HTTP call is guaranteed to run and any failure is observable in the logs."""
     import urllib.request, urllib.error, json as _json
-    api_key = os.environ.get('LOOPS_API_KEY', '')
+    # .strip() guards against a trailing newline/quote on the Render env value, which
+    # would otherwise corrupt the Bearer token and 401 every call.
+    api_key = os.environ.get('LOOPS_API_KEY', '').strip()
     if not api_key:
+        print("[LOOPS] sync skipped: LOOPS_API_KEY is empty", flush=True)
         return
     first_name = creator_name.split()[0] if creator_name else ''
     payload = _json.dumps({
@@ -1496,11 +1500,16 @@ def _loops_sync_contact(email, creator_name, **kwargs):
     )
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:
-            print(f"[LOOPS] contact synced: {email} ({resp.status})")
+            print(f"[LOOPS] contact synced: {email} ({resp.status})", flush=True)
     except urllib.error.HTTPError as _he:
-        print(f"[LOOPS] sync error {_he.code} for {email}: {_he.read()[:200]}")
+        body = ''
+        try:
+            body = _he.read()[:300].decode('utf-8', 'replace')
+        except Exception:
+            pass
+        print(f"[LOOPS] sync error {_he.code} for {email}: {body}", flush=True)
     except Exception as _e:
-        print(f"[LOOPS] sync failed for {email}: {_e}")
+        print(f"[LOOPS] sync failed for {email}: {repr(_e)}", flush=True)
 
 
 @app.route('/api/waitlist', methods=['POST'])
@@ -1526,14 +1535,14 @@ def waitlist_submit():
         )
 
         if created:
-            print(f"[WAITLIST] New entry: {email} platform={main_platform} type={creator_type}")
-            import threading as _threading
-            _threading.Thread(
-                target=_loops_sync_contact,
-                args=(email, creator_name),
-                kwargs={'main_platform': main_platform, 'creator_type': creator_type},
-                daemon=True,
-            ).start()
+            print(f"[WAITLIST] New entry: {email} platform={main_platform} type={creator_type}", flush=True)
+            # Synchronous (not a background thread): a single 5s-timeout HTTP call is fine
+            # within the request window, guarantees the call runs, and surfaces any Loops
+            # failure in the logs instead of swallowing it on a dying thread.
+            _loops_sync_contact(
+                email, creator_name,
+                main_platform=main_platform, creator_type=creator_type,
+            )
             return jsonify({'success': True, 'created': True})
         else:
             # Already on the list — friendly, not an error
