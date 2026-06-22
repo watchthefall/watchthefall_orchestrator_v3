@@ -99,6 +99,7 @@ from .database import (
     init_invite_codes, create_invite_code, get_invite_code, redeem_invite_code,
     create_referral_code, get_referral_code, credit_referral_reward,
     get_all_invite_codes, get_all_referral_codes,
+    init_source_edits, get_source_edit, upsert_source_edit, SOURCE_EDIT_DEFAULTS,
 )
 
 
@@ -396,6 +397,7 @@ init_db()
 init_users_db()
 init_founding_slots()
 init_invite_codes()
+init_source_edits()
 
 
 @app.context_processor
@@ -2201,6 +2203,81 @@ def api_usage():
             'max_brands_per_job': limits['max_brands_per_job'],
             'max_outputs_per_job': limits.get('max_outputs_per_job', limits['max_brands_per_job']),
         }
+    })
+
+
+# ── Source reframe/crop edits (Studio content edit, per source+format) ──────────
+SOURCE_EDIT_FORMATS = {'vertical_9_16', 'square_1_1'}
+SOURCE_EDIT_CROP_MODES = {'fill'}  # 'fit' may be added later
+
+
+def _clamp(value, lo, hi, default):
+    """Coerce to float and clamp to [lo, hi]; fall back to default on bad input."""
+    try:
+        return max(lo, min(hi, float(value)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _validate_source_edit_request(user_id, source_filename, output_format):
+    """Shared validation for source-edit GET/POST.
+    Returns (error_response, status_code) on failure, or (None, None) when OK."""
+    if not source_filename or not output_format:
+        return jsonify({'success': False, 'error': 'source_filename and output_format required'}), 400
+    if output_format not in SOURCE_EDIT_FORMATS:
+        return jsonify({'success': False, 'error': 'Invalid output_format'}), 400
+    # Reject any path component — only bare filenames are accepted (matches render path guard).
+    if os.path.basename(source_filename) != source_filename:
+        return jsonify({'success': False, 'error': 'Invalid source filename'}), 400
+    if not user_can_download_filename(user_id, source_filename):
+        return jsonify({'success': False, 'error': 'Source video not found or access denied'}), 404
+    return None, None
+
+
+@app.route('/api/source-edits', methods=['GET'])
+@login_required
+def get_source_edit_api():
+    """Return the saved reframe/crop for (current user, source, format), or defaults."""
+    user_id = session['user_id']
+    source_filename = (request.args.get('source_filename') or '').strip()
+    output_format = (request.args.get('output_format') or '').strip()
+
+    err, code = _validate_source_edit_request(user_id, source_filename, output_format)
+    if err:
+        return err, code
+
+    edit = get_source_edit(user_id, source_filename, output_format)
+    return jsonify({'success': True, 'edit': edit})
+
+
+@app.route('/api/source-edits', methods=['POST'])
+@login_required
+def save_source_edit_api():
+    """Insert/update the reframe/crop for (current user, source, format)."""
+    user_id = session['user_id']
+    data = request.get_json(silent=True) or {}
+    source_filename = (data.get('source_filename') or '').strip()
+    output_format = (data.get('output_format') or '').strip()
+
+    err, code = _validate_source_edit_request(user_id, source_filename, output_format)
+    if err:
+        return err, code
+
+    crop_mode = data.get('crop_mode', 'fill')
+    if crop_mode not in SOURCE_EDIT_CROP_MODES:
+        return jsonify({'success': False, 'error': 'Invalid crop_mode'}), 400
+
+    crop_x = _clamp(data.get('crop_x', 0.5), 0.0, 1.0, 0.5)
+    crop_y = _clamp(data.get('crop_y', 0.5), 0.0, 1.0, 0.5)
+    zoom = _clamp(data.get('zoom', 1.0), 1.0, 4.0, 1.0)
+
+    if not upsert_source_edit(user_id, source_filename, output_format,
+                              crop_x, crop_y, zoom, crop_mode):
+        return jsonify({'success': False, 'error': 'Could not save reframe'}), 500
+
+    return jsonify({
+        'success': True,
+        'edit': {'crop_x': crop_x, 'crop_y': crop_y, 'zoom': zoom, 'crop_mode': crop_mode}
     })
 
 

@@ -1050,6 +1050,99 @@ def get_all_referral_codes():
 # ========== END INVITE & REFERRAL CODES ==========
 
 
+# ========== SOURCE EDITS (REFRAME/CROP) ==========
+# Per (user, source video, output format) reframe/crop settings for Studio.
+# Content edit — NOT a brand edit. One row per user+source+format.
+
+def init_source_edits():
+    """Create the source_edits table (per-user reframe/crop per source+format)."""
+    try:
+        with get_connection() as conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS source_edits (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id         INTEGER NOT NULL,
+                    source_filename TEXT    NOT NULL,
+                    output_format   TEXT    NOT NULL,
+                    crop_x          REAL    DEFAULT 0.5,
+                    crop_y          REAL    DEFAULT 0.5,
+                    zoom            REAL    DEFAULT 1.0,
+                    crop_mode       TEXT    DEFAULT 'fill',
+                    trim_start      REAL    DEFAULT NULL,
+                    trim_end        REAL    DEFAULT NULL,
+                    created_at      TEXT,
+                    updated_at      TEXT,
+                    UNIQUE(user_id, source_filename, output_format)
+                )
+            ''')
+            conn.commit()
+    except Exception as e:
+        print(f'[DATABASE] init_source_edits error: {e}')
+
+
+# Defaults returned when a source has no saved edit yet. Single source of truth.
+SOURCE_EDIT_DEFAULTS = {
+    'crop_x': 0.5,
+    'crop_y': 0.5,
+    'zoom': 1.0,
+    'crop_mode': 'fill',
+}
+
+
+def get_source_edit(user_id, source_filename, output_format):
+    """Return the saved reframe/crop edit as a dict, or SOURCE_EDIT_DEFAULTS if none.
+    Never raises — returns defaults on any error."""
+    try:
+        with get_connection() as conn:
+            row = conn.execute(
+                '''SELECT crop_x, crop_y, zoom, crop_mode
+                   FROM source_edits
+                   WHERE user_id = ? AND source_filename = ? AND output_format = ?''',
+                (user_id, source_filename, output_format)
+            ).fetchone()
+        if row:
+            return {
+                'crop_x':    row['crop_x'],
+                'crop_y':    row['crop_y'],
+                'zoom':      row['zoom'],
+                'crop_mode': row['crop_mode'],
+            }
+    except Exception as e:
+        print(f'[DATABASE] get_source_edit error: {e}')
+    return dict(SOURCE_EDIT_DEFAULTS)
+
+
+def upsert_source_edit(user_id, source_filename, output_format,
+                       crop_x, crop_y, zoom, crop_mode):
+    """Insert or update the reframe/crop edit for (user, source, format).
+    Caller is responsible for validating ownership and clamping values.
+    Returns True on success, False on error."""
+    now = datetime.utcnow().isoformat()
+    try:
+        with get_connection() as conn:
+            conn.execute(
+                '''INSERT INTO source_edits
+                       (user_id, source_filename, output_format,
+                        crop_x, crop_y, zoom, crop_mode, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(user_id, source_filename, output_format) DO UPDATE SET
+                        crop_x     = excluded.crop_x,
+                        crop_y     = excluded.crop_y,
+                        zoom       = excluded.zoom,
+                        crop_mode  = excluded.crop_mode,
+                        updated_at = excluded.updated_at''',
+                (user_id, source_filename, output_format,
+                 crop_x, crop_y, zoom, crop_mode, now, now)
+            )
+            conn.commit()
+        return True
+    except Exception as e:
+        print(f'[DATABASE] upsert_source_edit error: {e}')
+        return False
+
+# ========== END SOURCE EDITS ==========
+
+
 def get_db():
     """Get database connection with busy timeout.
     DEPRECATED: Prefer get_connection() context manager for guaranteed cleanup.
