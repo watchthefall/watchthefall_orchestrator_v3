@@ -99,14 +99,14 @@
 <div class="page-wrap">
     <a href="{{ url_for('admin_console') }}" class="back-link">← Back to Admin</a>
     <h1>Invite &amp; Referral Codes</h1>
-    <p class="subtitle">Invite codes bypass the waitlist and grant direct Studio access. Referral codes reward the sharer when their referral activates.</p>
+    <p class="subtitle">Invite codes bypass the waitlist and grant temporary access. Referral codes are attribution-only during beta.</p>
 
     <!-- ── INVITE CODES ─────────────────────────────────────────── -->
     <div class="section">
         <div class="section-header">
             <div>
                 <div class="section-title">Invite Codes</div>
-                <div class="section-desc">Single-use · bypasses waitlist · grants tier for N months + Founding Member badge</div>
+                <div class="section-desc">Single-use · bypasses waitlist · grants tier for N months + Founder badge/offer. Paid founding slots are only consumed when a user pays.</div>
             </div>
         </div>
 
@@ -191,7 +191,7 @@
         <div class="section-header">
             <div>
                 <div class="section-title">Referral Codes</div>
-                <div class="section-desc">Shareable · personal per user · referrer earns +N months when their referral activates</div>
+                <div class="section-desc">Shareable · personal per user · attribution-only during beta; automatic reward months are disabled.</div>
             </div>
         </div>
 
@@ -207,7 +207,7 @@
                     </select>
                 </div>
                 <div class="form-field" style="max-width:140px;">
-                    <label>Reward months per referral</label>
+                    <label>Reward months after beta</label>
                     <input type="number" id="ref-months" value="1" min="1" max="12">
                 </div>
                 <button class="btn-create" onclick="createReferralCode()">Generate Code</button>
@@ -223,7 +223,7 @@
                 <tr>
                     <th>Code</th>
                     <th>Owner</th>
-                    <th>Reward</th>
+                    <th>Beta status</th>
                     <th>Times used</th>
                     <th>Active</th>
                     <th>Created</th>
@@ -235,7 +235,7 @@
                     <tr>
                         <td class="mono">{{ rc.code }}</td>
                         <td style="color:#aaa;font-size:0.85rem;">{{ rc.owner_email or rc.owner_user_id }}</td>
-                        <td>+{{ rc.reward_months }}mo per referral</td>
+                        <td>Attribution only</td>
                         <td>{{ rc.times_used }}</td>
                         <td>{{ '✓' if rc.is_active else '—' }}</td>
                         <td style="color:#555;font-size:0.78rem;">{{ rc.created_at[:10] if rc.created_at else '—' }}</td>
