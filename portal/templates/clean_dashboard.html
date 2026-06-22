@@ -5024,6 +5024,14 @@ async function fireRenderForBrand(item) {
         brand_ids:     [item.brand_id],
         brands:        [item.brand_name],
         output_format: fmt,
+        ...(fmt === 'vertical_9_16' ? {
+            source_edit: {
+                crop_x: currentSourceEdit.crop_x,
+                crop_y: currentSourceEdit.crop_y,
+                zoom: currentSourceEdit.zoom,
+                crop_mode: currentSourceEdit.crop_mode || 'fill'
+            }
+        } : {}),
         ...(item.userEdited ? {
             watermark_scale:           item.overrides.watermark_scale,
             watermark_opacity:         item.overrides.watermark_opacity,
@@ -5175,6 +5183,9 @@ async function fireRenderForItem(item) {
     }
 
     item.status = 'processing';
+    if ((item.format || 'vertical_9_16') === 'vertical_9_16') {
+        snapshotSourceEditToItem();
+    }
     renderBrandPills();
 
     const payload = {
@@ -5182,6 +5193,14 @@ async function fireRenderForItem(item) {
         brand_ids:     [item.brand_id],
         brands:        [item.brand_name],
         output_format: item.format || 'vertical_9_16',
+        ...((item.format || 'vertical_9_16') === 'vertical_9_16' && item.source_edit ? {
+            source_edit: {
+                crop_x: item.source_edit.crop_x,
+                crop_y: item.source_edit.crop_y,
+                zoom: item.source_edit.zoom,
+                crop_mode: item.source_edit.crop_mode || 'fill'
+            }
+        } : {}),
         ...(item.userEdited ? {
             watermark_scale:           item.overrides.watermark_scale,
             watermark_opacity:         item.overrides.watermark_opacity,
@@ -5364,6 +5383,14 @@ async function processCurrentBrand() {
                 brand_ids: [current.brand_id],
                 brands: [current.brand_name],
                 output_format: selectedOutputFormats[0] || 'vertical_9_16',
+                ...((selectedOutputFormats[0] || 'vertical_9_16') === 'vertical_9_16' ? {
+                    source_edit: {
+                        crop_x: currentSourceEdit.crop_x,
+                        crop_y: currentSourceEdit.crop_y,
+                        zoom: currentSourceEdit.zoom,
+                        crop_mode: currentSourceEdit.crop_mode || 'fill'
+                    }
+                } : {}),
                 ...(current.userEdited ? {
                     watermark_scale: current.overrides.watermark_scale,
                     watermark_opacity: current.overrides.watermark_opacity,

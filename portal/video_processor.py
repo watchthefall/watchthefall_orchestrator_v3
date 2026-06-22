@@ -6,6 +6,7 @@ import os
 import subprocess
 import json
 import time
+import uuid
 from typing import Dict, List, Optional
 
 # Import configuration
@@ -18,7 +19,94 @@ except ImportError:
     PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def normalize_video(input_path: str, output_format: str = 'vertical_9_16') -> str:
+def _normalized_output_path(input_path: str, output_format: str, job_id: Optional[str]) -> str:
+    base, _ext = os.path.splitext(input_path)
+    safe_job_id = ''.join(ch for ch in str(job_id or uuid.uuid4()) if ch.isalnum() or ch in ('-', '_'))[:36]
+    return f"{base}_normalized_{output_format}_{safe_job_id}.mp4"
+
+
+def _even_dimension(value: float) -> int:
+    return max(2, int(round(value / 2.0) * 2))
+
+
+def _source_video_geometry(input_path: str) -> Dict:
+    cmd = [FFPROBE_BIN, '-v', 'quiet', '-print_format', 'json', '-show_streams', input_path]
+    result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=60)
+    info = json.loads(result.stdout or '{}')
+    video_stream = next((s for s in info.get('streams', []) if s.get('codec_type') == 'video'), None)
+    if not video_stream:
+        raise ValueError('No video stream found')
+
+    width = int(video_stream.get('width') or 0)
+    height = int(video_stream.get('height') or 0)
+    if width <= 0 or height <= 0:
+        raise ValueError(f'Invalid video dimensions: {width}x{height}')
+
+    fps = 30.0
+    rate = video_stream.get('avg_frame_rate') or video_stream.get('r_frame_rate') or ''
+    try:
+        if '/' in rate:
+            num, den = rate.split('/', 1)
+            den_f = float(den)
+            if den_f:
+                fps = float(num) / den_f
+        elif rate:
+            fps = float(rate)
+    except (TypeError, ValueError, ZeroDivisionError):
+        fps = 30.0
+    if fps <= 0 or fps > 120:
+        fps = 30.0
+
+    return {'width': width, 'height': height, 'fps': fps}
+
+
+def _build_vertical_reframe_filter(input_path: str, source_edit: Optional[Dict]) -> Optional[str]:
+    if not source_edit:
+        return None
+
+    crop_mode = source_edit.get('crop_mode', 'fill')
+    if crop_mode != 'fill':
+        print(f"[NORMALIZE-REFRAME] Unsupported crop_mode='{crop_mode}' â€” using legacy center-cover")
+        return None
+
+    geom = _source_video_geometry(input_path)
+    vw, vh = geom['width'], geom['height']
+    target_w, target_h = 720, 1280
+
+    def _clamp(value, lo, hi, default):
+        try:
+            return max(lo, min(hi, float(value)))
+        except (TypeError, ValueError):
+            return default
+
+    crop_x = _clamp(source_edit.get('crop_x', 0.5), 0.0, 1.0, 0.5)
+    crop_y = _clamp(source_edit.get('crop_y', 0.5), 0.0, 1.0, 0.5)
+    zoom = _clamp(source_edit.get('zoom', 1.0), 0.25, 4.0, 1.0)
+
+    cover_scale = max(target_w / vw, target_h / vh)
+    scale = cover_scale * zoom
+    sw = _even_dimension(vw * scale)
+    sh = _even_dimension(vh * scale)
+    ox = int(round((target_w - sw) * crop_x))
+    oy = int(round((target_h - sh) * crop_y))
+    fps = geom['fps']
+
+    print(
+        "[NORMALIZE-REFRAME] vertical_9_16 "
+        f"src={vw}x{vh} target={target_w}x{target_h} "
+        f"crop=({crop_x:.3f},{crop_y:.3f}) zoom={zoom:.3f} "
+        f"scaled={sw}x{sh} overlay=({ox},{oy}) fps={fps:.3f}"
+    )
+
+    return (
+        f"color=c=black:s={target_w}x{target_h}:r={fps:.6f}[base];"
+        f"[0:v]scale={sw}:{sh}[src_scaled];"
+        f"[base][src_scaled]overlay={ox}:{oy}:shortest=1[out]"
+    )
+
+
+def normalize_video(input_path: str, output_format: str = 'vertical_9_16',
+                    source_edit: Optional[Dict] = None, job_id: Optional[str] = None) -> str:
     """
     Normalize video to standard 8-bit H264 SDR format, stripping HDR/DOVI metadata,
     and enforce the target output format dimensions.
@@ -42,23 +130,50 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16') -> st
         Path to normalized video file (or original if normalization fails)
     """
     try:
-        fixed_path = input_path.replace(".mp4", f"_normalized_{output_format}.mp4")
+        fixed_path = _normalized_output_path(input_path, output_format, job_id)
         print(f"[NORMALIZE] Normalizing video to clean 8-bit H264 SDR: {input_path}")
 
         NORMALIZE_TIMEOUT = 300  # 5 min — normalization is just scale+re-encode, not overlay rendering
 
         if output_format == 'vertical_9_16':
             print(f"[NORMALIZE] output_format=vertical_9_16 target=720x1280")
-            cmd = [
-                FFMPEG_BIN, "-y", "-threads", "1", "-i", input_path,
-                "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280:(iw-720)/2:(ih-1280)/2",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-                "-threads", "1",
-                "-pix_fmt", "yuv420p",
-                "-c:a", "aac", "-b:a", "128k",
-                "-movflags", "+faststart",
-                fixed_path
-            ]
+            reframe_filter = None
+            if source_edit:
+                try:
+                    reframe_filter = _build_vertical_reframe_filter(input_path, source_edit)
+                except Exception as reframe_error:
+                    print(
+                        "[NORMALIZE-REFRAME WARNING] Failed to build source reframe filter; "
+                        f"falling back to legacy center-cover. error={reframe_error}"
+                    )
+
+            if reframe_filter:
+                cmd = [
+                    FFMPEG_BIN, "-y", "-threads", "1", "-i", input_path,
+                    "-filter_complex", reframe_filter,
+                    "-filter_threads", "1",
+                    "-map", "[out]",
+                    "-map", "0:a?",
+                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+                    "-threads", "1",
+                    "-pix_fmt", "yuv420p",
+                    "-c:a", "aac", "-b:a", "128k",
+                    "-movflags", "+faststart",
+                    fixed_path
+                ]
+            else:
+                if source_edit:
+                    print("[NORMALIZE-REFRAME WARNING] Source edit present but unused; using legacy center-cover")
+                cmd = [
+                    FFMPEG_BIN, "-y", "-threads", "1", "-i", input_path,
+                    "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280:(iw-720)/2:(ih-1280)/2",
+                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+                    "-threads", "1",
+                    "-pix_fmt", "yuv420p",
+                    "-c:a", "aac", "-b:a", "128k",
+                    "-movflags", "+faststart",
+                    fixed_path
+                ]
         elif output_format == 'square_1_1':
             # Blur-pad: blurred 720×720 background + foreground scaled to fit, centered.
             # Preserves full source frame — no cropping of faces/text.
@@ -113,6 +228,11 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16') -> st
             return fixed_path
         else:
             print(f"[NORMALIZE] Failed to normalize video (code={result.returncode}). stderr: {(result.stderr or '')[-1000:]}")
+            if output_format == 'vertical_9_16' and source_edit:
+                print(
+                    "[NORMALIZE-REFRAME WARNING] Source reframe normalization failed; "
+                    "falling back to original input, so render may not match preview."
+                )
             if os.path.exists(fixed_path):
                 os.remove(fixed_path)  # Clean up failed output
             return input_path

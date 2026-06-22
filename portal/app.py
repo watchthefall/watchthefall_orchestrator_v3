@@ -100,6 +100,7 @@ from .database import (
     create_referral_code, get_referral_code, credit_referral_reward,
     get_all_invite_codes, get_all_referral_codes,
     init_source_edits, get_source_edit, upsert_source_edit, SOURCE_EDIT_DEFAULTS,
+    SOURCE_EDIT_CROP_MODES,
 )
 
 
@@ -2255,6 +2256,55 @@ def _validate_source_edit_request(user_id, source_filename, output_format):
     return None, None
 
 
+def _resolve_render_source_edit(user_id, source_filename, output_format, payload_edit):
+    """Return a clamped source-edit dict for vertical render parity, or None."""
+    if output_format != 'vertical_9_16':
+        return None
+
+    edit = payload_edit if isinstance(payload_edit, dict) else None
+    if edit is None and source_filename:
+        try:
+            edit = get_source_edit(user_id, source_filename, output_format)
+            print(f"[SOURCE-EDIT] Loaded persisted edit for user={user_id} source={source_filename} format={output_format}: {edit}")
+        except Exception as e:
+            print(f"[SOURCE-EDIT] Persisted edit fallback failed: {e}")
+            edit = None
+
+    if not isinstance(edit, dict):
+        edit = SOURCE_EDIT_DEFAULTS.copy()
+
+    crop_mode = edit.get('crop_mode', 'fill')
+    if crop_mode not in SOURCE_EDIT_CROP_MODES:
+        print(f"[SOURCE-EDIT] Unsupported crop_mode='{crop_mode}' ignored; using fill")
+        crop_mode = 'fill'
+
+    resolved = {
+        'crop_x': _clamp(edit.get('crop_x', 0.5), 0.0, 1.0, 0.5),
+        'crop_y': _clamp(edit.get('crop_y', 0.5), 0.0, 1.0, 0.5),
+        'zoom': _clamp(edit.get('zoom', 1.0), 0.25, 4.0, 1.0),
+        'crop_mode': crop_mode,
+    }
+    print(f"[SOURCE-EDIT] Render edit resolved: {resolved}")
+    return resolved
+
+
+def _is_default_source_edit(edit):
+    if not isinstance(edit, dict):
+        return True
+    try:
+        crop_x = float(edit.get('crop_x', 0.5))
+        crop_y = float(edit.get('crop_y', 0.5))
+        zoom = float(edit.get('zoom', 1.0))
+    except (TypeError, ValueError):
+        return False
+    return (
+        abs(crop_x - 0.5) < 1e-9
+        and abs(crop_y - 0.5) < 1e-9
+        and abs(zoom - 1.0) < 1e-9
+        and edit.get('crop_mode', 'fill') == 'fill'
+    )
+
+
 @app.route('/api/source-edits', methods=['GET'])
 @login_required
 def get_source_edit_api():
@@ -2352,7 +2402,8 @@ def downloader_dashboard():
 # ============================================================================
 
 def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
-                     data, user_id, output_format, sec_logo_resolved_path, video_id):
+                     data, user_id, output_format, sec_logo_resolved_path, video_id,
+                     source_edit=None):
     """Background thread: run FFmpeg render for one or more brands.
     Updates brand_render_jobs[job_id] in place. No Flask request context.
     Phase 18 — called from process_branded_videos() after all validation passes.
@@ -2365,7 +2416,12 @@ def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
     try:
         # Normalize video (fixes corrupted timestamps, enforces output dimensions)
         print(f"[RENDER-ASYNC] {job_id[:8]} normalizing video: {video_filepath}")
-        normalized_video_path = normalize_video(video_filepath, output_format=output_format)
+        normalized_video_path = normalize_video(
+            video_filepath,
+            output_format=output_format,
+            source_edit=source_edit,
+            job_id=job_id,
+        )
         print(f"[RENDER-ASYNC] {job_id[:8]} using normalized: {normalized_video_path}")
 
         processor    = VideoProcessor(normalized_video_path, OUTPUT_DIR)
@@ -3023,6 +3079,16 @@ def process_branded_videos():
         # The browser connection is released; the render continues on the server regardless of
         # whether the client tab stays open.
         single_brand_name = resolved_brands[0].get('display_name') or resolved_brands[0].get('name') if resolved_brands else ''
+        source_filename_for_edit = os.path.basename(video_filepath)
+        source_edit = _resolve_render_source_edit(
+            user_id,
+            source_filename_for_edit,
+            output_format,
+            data.get('source_edit'),
+        )
+        if _is_default_source_edit(source_edit):
+            print("[SOURCE-EDIT] Default edit detected; using legacy normalize path")
+            source_edit = None
         job_id = str(uuid.uuid4())
         brand_render_jobs[job_id] = {
             'status':       'queued',
@@ -3048,6 +3114,7 @@ def process_branded_videos():
                 output_format,
                 sec_logo_resolved_path,
                 video_id,
+                source_edit,
             ),
             daemon=True
         ).start()
