@@ -2290,7 +2290,9 @@ def save_source_edit_api():
 
     crop_x = _clamp(data.get('crop_x', 0.5), 0.0, 1.0, 0.5)
     crop_y = _clamp(data.get('crop_y', 0.5), 0.0, 1.0, 0.5)
-    zoom = _clamp(data.get('zoom', 1.0), 1.0, 4.0, 1.0)
+    # zoom < 1 shrinks the video inside the format canvas (black background shows);
+    # zoom > 1 crops. 1.0 = cover (default). Floor of 0.25 keeps it usable.
+    zoom = _clamp(data.get('zoom', 1.0), 0.25, 4.0, 1.0)
 
     if not upsert_source_edit(user_id, source_filename, output_format,
                               crop_x, crop_y, zoom, crop_mode):

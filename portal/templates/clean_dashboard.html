@@ -3512,25 +3512,28 @@ function updateCanvasPreview() {
 // Commit 3 render matches this preview. At defaults (0.5/0.5/1.0) this is a
 // centered cover-crop — identical to a stretch for 9:16 sources.
 function drawReframedSource(img) {
-    const srcW = img.naturalWidth, srcH = img.naturalHeight;
-    if (!srcW || !srcH) { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); canvas._srcVis = null; return; }
+    const vw = img.naturalWidth, vh = img.naturalHeight;
+    const W = canvas.width, H = canvas.height;
+    if (!vw || !vh) { ctx.drawImage(img, 0, 0, W, H); canvas._srcVis = null; return; }
     const se = currentSourceEdit || SOURCE_EDIT_DEFAULTS;
-    const zoom = Math.max(1, Number(se.zoom) || 1);
+    const zoom  = Math.max(0.05, Number(se.zoom) || 1);
     const cropX = Math.min(1, Math.max(0, Number(se.crop_x ?? 0.5)));
     const cropY = Math.min(1, Math.max(0, Number(se.crop_y ?? 0.5)));
-    const targetAspect = canvas.width / canvas.height;
 
-    // Largest region of the source with the target aspect (cover), then divide by zoom.
-    let visW, visH;
-    if (srcW / srcH > targetAspect) { visH = srcH; visW = srcH * targetAspect; }
-    else { visW = srcW; visH = srcW / targetAspect; }
-    visW /= zoom; visH /= zoom;
-
-    const sx = (srcW - visW) * cropX;
-    const sy = (srcH - visH) * cropY;
-    ctx.drawImage(img, sx, sy, visW, visH, 0, 0, canvas.width, canvas.height);
-    // Stash for the drag handler so panning maps 1:1 to the visible source window.
-    canvas._srcVis = { srcW, srcH, visW, visH };
+    // Canvas-composition model: the video is PLACED inside the format canvas, never
+    // stretched. coverScale fills the canvas at zoom=1 (centered cover = today's
+    // default). zoom>1 enlarges → canvas clips the overflow (crop); zoom<1 shrinks →
+    // the black base canvas shows around it. FFmpeg (Commit 3b) uses the same numbers.
+    const coverScale = Math.max(W / vw, H / vh);
+    const scale = coverScale * zoom;
+    const sw = vw * scale, sh = vh * scale;
+    const ox = (W - sw) * cropX;
+    const oy = (H - sh) * cropY;
+    // Black base canvas was already filled by updateCanvasPreview(); draw video on top.
+    ctx.drawImage(img, ox, oy, sw, sh);
+    // Stash placement for the drag handler. slack = W-sw / H-sh is negative when the
+    // video is larger than the canvas (crop) and positive when smaller (letterbox).
+    canvas._srcVis = { W, H, sw, sh };
 }
 
 function drawOverlays() {
@@ -3835,17 +3838,18 @@ function drag(e) {
         const pos = getCanvasCoords(e);
         const v = canvas._srcVis;
         if (v) {
-            // Map canvas-pixel drag to a crop-fraction shift across the visible source window.
-            // Dragging the video right reveals content to its left → crop_x decreases.
-            const slackX = v.srcW - v.visW;
-            const slackY = v.srcH - v.visH;
-            if (slackX > 0) {
-                const dCropX = ((pos.x - sourcePanStart.x) / canvas.width) * v.visW / slackX;
-                currentSourceEdit.crop_x = Math.min(1, Math.max(0, sourcePanStart.crop_x - dCropX));
+            // 1:1 placement drag. ox = (W-sw)*crop_x, so crop_x moves by Δpx / (W-sw).
+            // slack is negative when cropping and positive when letterboxing; the same
+            // formula moves the video with the cursor in both cases.
+            const slackX = v.W - v.sw;
+            const slackY = v.H - v.sh;
+            if (slackX !== 0) {
+                currentSourceEdit.crop_x = Math.min(1, Math.max(0,
+                    sourcePanStart.crop_x + (pos.x - sourcePanStart.x) / slackX));
             }
-            if (slackY > 0) {
-                const dCropY = ((pos.y - sourcePanStart.y) / canvas.height) * v.visH / slackY;
-                currentSourceEdit.crop_y = Math.min(1, Math.max(0, sourcePanStart.crop_y - dCropY));
+            if (slackY !== 0) {
+                currentSourceEdit.crop_y = Math.min(1, Math.max(0,
+                    sourcePanStart.crop_y + (pos.y - sourcePanStart.y) / slackY));
             }
             updateCanvasPreview();
         }
