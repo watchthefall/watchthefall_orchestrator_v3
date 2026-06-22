@@ -2681,23 +2681,50 @@ def process_branded_videos():
         else:
             # URL is actually a local file path
             print(f"[PROCESS BRANDS] Processing local file: {url}")
-            
-            # First check if it's in RAW_DIR
-            video_filepath = os.path.join(RAW_DIR, url)
-            
-            # If not in the new location, check the old OUTPUT_DIR
-            if not os.path.exists(video_filepath):
-                video_filepath = os.path.join(OUTPUT_DIR, url)
-            
-            video_id = os.path.splitext(url)[0]
-            
-            # Check if file exists
-            if not os.path.exists(video_filepath):
+
+            requested_filename = os.path.basename(url)
+            if requested_filename != url:
                 return jsonify({
                     'success': False,
-                    'error': f'File not found: {video_filepath}'
+                    'error': 'Invalid source filename'
+                }), 400
+
+            if not user_can_download_filename(user_id, requested_filename):
+                print(f"[PROCESS BRANDS] Ownership denied for source: user={user_id} file={requested_filename}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Source video not found or access denied'
                 }), 404
-            
+
+            # First check if it's in RAW_DIR
+            video_filepath = os.path.join(RAW_DIR, requested_filename)
+
+            # If not in the new location, check the old OUTPUT_DIR
+            if not os.path.exists(video_filepath):
+                video_filepath = os.path.join(OUTPUT_DIR, requested_filename)
+
+            allowed_roots = (os.path.realpath(RAW_DIR), os.path.realpath(OUTPUT_DIR))
+            real_video_filepath = os.path.realpath(video_filepath)
+            try:
+                is_allowed_source = any(os.path.commonpath([real_video_filepath, root]) == root for root in allowed_roots)
+            except ValueError:
+                is_allowed_source = False
+            if not is_allowed_source:
+                return jsonify({
+                    'success': False,
+                    'error': 'Invalid source path'
+                }), 400
+
+            video_id = os.path.splitext(requested_filename)[0]
+
+            # Check if file exists
+            if not os.path.exists(real_video_filepath):
+                return jsonify({
+                    'success': False,
+                    'error': 'Source video file is no longer available'
+                }), 404
+
+            video_filepath = real_video_filepath
             print(f"[PROCESS BRANDS] Found local file: {video_filepath}")
         
         # 2. Load and validate brands (brand_id-first with backward compat)
@@ -4852,12 +4879,11 @@ def toggle_download_bookmark_api(download_id):
 def toggle_render_bookmark_api(output_id):
     """Toggle bookmark on a finished render. Enforces per-tier bookmark limits."""
     from .database import toggle_branded_output_bookmark, get_user_render_bookmark_count
-    from .config import TIER_CONFIG, DEFAULT_TIER
 
     user_id = session['user_id']
-    tier = session.get('tier', DEFAULT_TIER)
-    tier_cfg = TIER_CONFIG.get(tier, TIER_CONFIG[DEFAULT_TIER])
-    max_bookmarks = tier_cfg.get('max_render_bookmarks', 5)
+    tier = get_user_tier(user_id)
+    limits = get_effective_limits(tier, get_user_special_status(user_id))
+    max_bookmarks = limits.get('max_render_bookmarks', 5)
 
     # Check limit only when bookmarking (not unbookmarking)
     current_count = get_user_render_bookmark_count(user_id)

@@ -1864,6 +1864,26 @@ def cleanup_old_files(max_age_hours=24):
     cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
     
     deleted_count = 0
+    protected_paths = set()
+
+    try:
+        with get_connection() as conn:
+            rows = conn.execute('''
+                SELECT file_path FROM downloads
+                WHERE bookmarked = 1 AND file_path IS NOT NULL
+                UNION
+                SELECT file_path FROM branded_outputs
+                WHERE bookmarked = 1 AND file_path IS NOT NULL
+            ''').fetchall()
+            protected_paths = {
+                os.path.realpath(row['file_path'])
+                for row in rows
+                if row['file_path']
+            }
+    except Exception as e:
+        # Conservative: if protected saved paths cannot be loaded, skip generic cleanup.
+        print(f"[CLEANUP] Could not load bookmarked file paths; skipping generic file cleanup: {e}")
+        return 0
     
     # Clean up both directories
     for directory in [RAW_DIR, OUTPUT_DIR]:
@@ -1871,6 +1891,8 @@ def cleanup_old_files(max_age_hours=24):
             for filename in os.listdir(directory):
                 filepath = os.path.join(directory, filename)
                 if os.path.isfile(filepath):
+                    if os.path.realpath(filepath) in protected_paths:
+                        continue
                     # Check file modification time
                     file_modified = datetime.fromtimestamp(os.path.getmtime(filepath))
                     if file_modified < cutoff_time:
