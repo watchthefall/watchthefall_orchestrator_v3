@@ -1067,7 +1067,7 @@ def init_source_edits():
                     crop_x          REAL    DEFAULT 0.5,
                     crop_y          REAL    DEFAULT 0.5,
                     zoom            REAL    DEFAULT 1.0,
-                    crop_mode       TEXT    DEFAULT 'fill',
+                    crop_mode       TEXT    DEFAULT 'fit',
                     trim_start      REAL    DEFAULT NULL,
                     trim_end        REAL    DEFAULT NULL,
                     created_at      TEXT,
@@ -1085,7 +1085,7 @@ SOURCE_EDIT_DEFAULTS = {
     'crop_x': 0.5,
     'crop_y': 0.5,
     'zoom': 1.0,
-    'crop_mode': 'fill',
+    'crop_mode': 'fit',
 }
 
 

@@ -64,8 +64,8 @@ def _build_vertical_reframe_filter(input_path: str, source_edit: Optional[Dict])
     if not source_edit:
         return None
 
-    crop_mode = source_edit.get('crop_mode', 'fill')
-    if crop_mode != 'fill':
+    crop_mode = source_edit.get('crop_mode', 'fit')
+    if crop_mode not in {'fit', 'fill'}:
         print(f"[NORMALIZE-REFRAME] Unsupported crop_mode='{crop_mode}' â€” using legacy center-cover")
         return None
 
@@ -83,8 +83,8 @@ def _build_vertical_reframe_filter(input_path: str, source_edit: Optional[Dict])
     crop_y = _clamp(source_edit.get('crop_y', 0.5), 0.0, 1.0, 0.5)
     zoom = _clamp(source_edit.get('zoom', 1.0), 0.25, 4.0, 1.0)
 
-    cover_scale = max(target_w / vw, target_h / vh)
-    scale = cover_scale * zoom
+    base_scale = max(target_w / vw, target_h / vh) if crop_mode == 'fill' else min(target_w / vw, target_h / vh)
+    scale = base_scale * zoom
     sw = _even_dimension(vw * scale)
     sh = _even_dimension(vh * scale)
     ox = int(round((target_w - sw) * crop_x))
@@ -94,7 +94,7 @@ def _build_vertical_reframe_filter(input_path: str, source_edit: Optional[Dict])
     print(
         "[NORMALIZE-REFRAME] vertical_9_16 "
         f"src={vw}x{vh} target={target_w}x{target_h} "
-        f"crop=({crop_x:.3f},{crop_y:.3f}) zoom={zoom:.3f} "
+        f"mode={crop_mode} crop=({crop_x:.3f},{crop_y:.3f}) zoom={zoom:.3f} "
         f"scaled={sw}x{sh} overlay=({ox},{oy}) fps={fps:.3f}"
     )
 

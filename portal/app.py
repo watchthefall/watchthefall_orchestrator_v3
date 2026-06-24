@@ -2229,7 +2229,7 @@ def api_usage():
 
 # ── Source reframe/crop edits (Studio content edit, per source+format) ──────────
 SOURCE_EDIT_FORMATS = {'vertical_9_16', 'square_1_1'}
-SOURCE_EDIT_CROP_MODES = {'fill'}  # 'fit' may be added later
+SOURCE_EDIT_CROP_MODES = {'fit', 'fill'}
 
 
 def _clamp(value, lo, hi, default):
@@ -2272,10 +2272,10 @@ def _resolve_render_source_edit(user_id, source_filename, output_format, payload
     if not isinstance(edit, dict):
         edit = SOURCE_EDIT_DEFAULTS.copy()
 
-    crop_mode = edit.get('crop_mode', 'fill')
+    crop_mode = edit.get('crop_mode', SOURCE_EDIT_DEFAULTS.get('crop_mode', 'fit'))
     if crop_mode not in SOURCE_EDIT_CROP_MODES:
-        print(f"[SOURCE-EDIT] Unsupported crop_mode='{crop_mode}' ignored; using fill")
-        crop_mode = 'fill'
+        print(f"[SOURCE-EDIT] Unsupported crop_mode='{crop_mode}' ignored; using fit")
+        crop_mode = SOURCE_EDIT_DEFAULTS.get('crop_mode', 'fit')
 
     resolved = {
         'crop_x': _clamp(edit.get('crop_x', 0.5), 0.0, 1.0, 0.5),
@@ -2300,6 +2300,8 @@ def _is_default_source_edit(edit):
         abs(crop_x - 0.5) < 1e-9
         and abs(crop_y - 0.5) < 1e-9
         and abs(zoom - 1.0) < 1e-9
+        # Only the legacy centered cover-crop can skip the source-edit pipeline.
+        # The new default is fit, which must still render through the reframe filter.
         and edit.get('crop_mode', 'fill') == 'fill'
     )
 
@@ -2333,14 +2335,14 @@ def save_source_edit_api():
     if err:
         return err, code
 
-    crop_mode = data.get('crop_mode', 'fill')
+    crop_mode = data.get('crop_mode', SOURCE_EDIT_DEFAULTS.get('crop_mode', 'fit'))
     if crop_mode not in SOURCE_EDIT_CROP_MODES:
         return jsonify({'success': False, 'error': 'Invalid crop_mode'}), 400
 
     crop_x = _clamp(data.get('crop_x', 0.5), 0.0, 1.0, 0.5)
     crop_y = _clamp(data.get('crop_y', 0.5), 0.0, 1.0, 0.5)
-    # zoom < 1 shrinks the video inside the format canvas (black background shows);
-    # zoom > 1 crops. 1.0 = cover (default). Floor of 0.25 keeps it usable.
+    # fit: zoom=1 shows the full source inside the canvas; fill: zoom=1 cover-crops.
+    # zoom < 1 shrinks further; zoom > 1 crops. Floor of 0.25 keeps it usable.
     zoom = _clamp(data.get('zoom', 1.0), 0.25, 4.0, 1.0)
 
     if not upsert_source_edit(user_id, source_filename, output_format,

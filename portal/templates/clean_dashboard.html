@@ -2073,6 +2073,10 @@
     <div id="reframeControls" style="display:none; flex-wrap:wrap; align-items:center; gap:6px; width:94%; max-width:500px; margin:6px auto 8px; font-size:12px; color:#8b93a7;">
         <span style="margin-right:2px;">Reframe</span>
         <div style="display:inline-flex; align-items:center; gap:2px; background:#202531; border:1px solid #343948; border-radius:999px; padding:2px;">
+            <button id="sourceFitBtn" type="button" onclick="setSourceCropMode('fit')" title="Show the full source inside the canvas" style="width:auto; flex:0 0 auto; background:transparent; color:#d7dce6; border:none; border-radius:999px; padding:5px 10px; font-weight:700; cursor:pointer;">Fit</button>
+            <button id="sourceFillBtn" type="button" onclick="setSourceCropMode('fill')" title="Fill the canvas with a centered crop" style="width:auto; flex:0 0 auto; background:transparent; color:#8b93a7; border:none; border-radius:999px; padding:5px 10px; font-weight:700; cursor:pointer;">Fill</button>
+        </div>
+        <div style="display:inline-flex; align-items:center; gap:2px; background:#202531; border:1px solid #343948; border-radius:999px; padding:2px;">
             <button type="button" onclick="adjustSourceZoom(0.8)" title="Zoom out" style="width:26px; height:26px; background:transparent; color:#d7dce6; border:none; border-radius:999px; font-size:16px; font-weight:700; line-height:1; cursor:pointer; flex:0 0 auto;">−</button>
             <span id="reframeZoomLabel" style="min-width:40px; text-align:center; color:#d7dce6; font-weight:600;">100%</span>
             <button type="button" onclick="adjustSourceZoom(1.25)" title="Zoom in" style="width:26px; height:26px; background:transparent; color:#d7dce6; border:none; border-radius:999px; font-size:16px; font-weight:700; line-height:1; cursor:pointer; flex:0 0 auto;">+</button>
@@ -2385,7 +2389,7 @@ let selectedOutputFormats = ['vertical_9_16'];
 let activeReviewFormat = 'vertical_9_16'; // tracks format of current queue item for canvas sizing
 // Studio reframe (Commit 2): per (source+format) crop, loaded from /api/source-edits.
 // Vertical-only in v1; square keeps its blur-pad default untouched.
-const SOURCE_EDIT_DEFAULTS = { crop_x: 0.5, crop_y: 0.5, zoom: 1.0, crop_mode: 'fill' };
+const SOURCE_EDIT_DEFAULTS = { crop_x: 0.5, crop_y: 0.5, zoom: 1.0, crop_mode: 'fit' };
 let currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS };
 let sourceEditSaveTimer = null;     // debounce handle for POST /api/source-edits
 let selectedSources = [];   // Patch 50A: filenames of sources chosen for this render run
@@ -3513,10 +3517,9 @@ function updateCanvasPreview() {
     }
 }
 
-// Draw the source frame with reframe applied: cover-scale to the output aspect,
-// then zoom and offset by crop_x/crop_y. Mirrors FFmpeg crop semantics so the
-// Commit 3 render matches this preview. At defaults (0.5/0.5/1.0) this is a
-// centered cover-crop — identical to a stretch for 9:16 sources.
+// Draw the source frame with reframe applied. Fit shows the full downloaded
+// source inside the output canvas; Fill keeps the old centered cover-crop.
+// Render uses the same scale/offset math so preview and output match.
 function drawReframedSource(img) {
     const vw = img.naturalWidth, vh = img.naturalHeight;
     const W = canvas.width, H = canvas.height;
@@ -3525,13 +3528,12 @@ function drawReframedSource(img) {
     const zoom  = Math.max(0.05, Number(se.zoom) || 1);
     const cropX = Math.min(1, Math.max(0, Number(se.crop_x ?? 0.5)));
     const cropY = Math.min(1, Math.max(0, Number(se.crop_y ?? 0.5)));
+    const cropMode = se.crop_mode === 'fill' ? 'fill' : 'fit';
 
-    // Canvas-composition model: the video is PLACED inside the format canvas, never
-    // stretched. coverScale fills the canvas at zoom=1 (centered cover = today's
-    // default). zoom>1 enlarges → canvas clips the overflow (crop); zoom<1 shrinks →
-    // the black base canvas shows around it. FFmpeg (Commit 3b) uses the same numbers.
-    const coverScale = Math.max(W / vw, H / vh);
-    const scale = coverScale * zoom;
+    // Canvas-composition model: the video is placed inside the format canvas,
+    // never stretched. Black base canvas remains visible when the source is fit.
+    const baseScale = cropMode === 'fill' ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh);
+    const scale = baseScale * zoom;
     const sw = vw * scale, sh = vh * scale;
     const ox = (W - sw) * cropX;
     const oy = (H - sh) * cropY;
@@ -3539,7 +3541,7 @@ function drawReframedSource(img) {
     ctx.drawImage(img, ox, oy, sw, sh);
     // Stash placement for the drag handler. slack = W-sw / H-sh is negative when the
     // video is larger than the canvas (crop) and positive when smaller (letterbox).
-    canvas._srcVis = { W, H, sw, sh };
+    canvas._srcVis = { W, H, sw, sh, crop_mode: cropMode };
 }
 
 function drawOverlays() {
@@ -3778,6 +3780,28 @@ function setSourceCropY(value) {
     updateCanvasPreview();
     persistSourceReframe();
     updateReframeZoomLabel();
+}
+
+function setSourceCropMode(mode) {
+    if (activeReviewFormat !== 'vertical_9_16') return;
+    currentSourceEdit.crop_mode = mode === 'fill' ? 'fill' : 'fit';
+    updateCanvasPreview();
+    persistSourceReframe();
+    updateReframeModeControls();
+}
+
+function updateReframeModeControls() {
+    const mode = currentSourceEdit && currentSourceEdit.crop_mode === 'fill' ? 'fill' : 'fit';
+    const fitBtn = document.getElementById('sourceFitBtn');
+    const fillBtn = document.getElementById('sourceFillBtn');
+    if (fitBtn) {
+        fitBtn.style.background = mode === 'fit' ? '#b9c8ff' : 'transparent';
+        fitBtn.style.color = mode === 'fit' ? '#111827' : '#d7dce6';
+    }
+    if (fillBtn) {
+        fillBtn.style.background = mode === 'fill' ? '#b9c8ff' : 'transparent';
+        fillBtn.style.color = mode === 'fill' ? '#111827' : '#8b93a7';
+    }
 }
 
 function pointerDistance(a, b) {
@@ -4032,7 +4056,7 @@ async function saveSourceEditNow() {
             body: JSON.stringify({
                 source_filename: src, output_format: fmt,
                 crop_x: currentSourceEdit.crop_x, crop_y: currentSourceEdit.crop_y,
-                zoom: currentSourceEdit.zoom, crop_mode: 'fill'
+                zoom: currentSourceEdit.zoom, crop_mode: currentSourceEdit.crop_mode || SOURCE_EDIT_DEFAULTS.crop_mode
             })
         });
     } catch (e) { console.warn('[REFRAME] save failed:', e); }
@@ -4048,23 +4072,28 @@ async function loadSourceEditForItem(item) {
         return;
     }
     if (item && item.source_edit) {
-        currentSourceEdit = { ...item.source_edit };
+        currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS, ...item.source_edit };
+        currentSourceEdit.crop_mode = currentSourceEdit.crop_mode === 'fill' ? 'fill' : 'fit';
+        updateReframeModeControls();
         return;
     }
     try {
         const r = await fetch(`${apiBase}/api/source-edits?source_filename=${encodeURIComponent(src)}&output_format=${encodeURIComponent(fmt)}`);
         const d = await r.json();
-        currentSourceEdit = (d && d.success && d.edit) ? { ...d.edit } : { ...SOURCE_EDIT_DEFAULTS };
+        currentSourceEdit = (d && d.success && d.edit) ? { ...SOURCE_EDIT_DEFAULTS, ...d.edit } : { ...SOURCE_EDIT_DEFAULTS };
+        currentSourceEdit.crop_mode = currentSourceEdit.crop_mode === 'fill' ? 'fill' : 'fit';
     } catch (e) {
         currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS };
     }
     if (item) item.source_edit = { ...currentSourceEdit };
+    updateReframeModeControls();
 }
 
 function resetSourceFraming() {
     currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS };
     snapshotSourceEditToItem();
     updateCanvasPreview();
+    updateReframeModeControls();
     debouncedSaveSourceEdit();
 }
 
@@ -4083,6 +4112,7 @@ function updateReframeControlVisibility() {
     const previewVisible = pc && pc.style.display !== 'none';
     el.style.display = (previewVisible && activeReviewFormat === 'vertical_9_16') ? 'flex' : 'none';
     updateReframeZoomLabel();
+    updateReframeModeControls();
 }
 
 // ========== SLIDER LISTENERS ==========
@@ -5109,7 +5139,7 @@ async function fireRenderForBrand(item) {
                 crop_x: currentSourceEdit.crop_x,
                 crop_y: currentSourceEdit.crop_y,
                 zoom: currentSourceEdit.zoom,
-                crop_mode: currentSourceEdit.crop_mode || 'fill'
+                crop_mode: currentSourceEdit.crop_mode || SOURCE_EDIT_DEFAULTS.crop_mode
             }
         } : {}),
         ...(item.userEdited ? {
@@ -5278,7 +5308,7 @@ async function fireRenderForItem(item) {
                 crop_x: item.source_edit.crop_x,
                 crop_y: item.source_edit.crop_y,
                 zoom: item.source_edit.zoom,
-                crop_mode: item.source_edit.crop_mode || 'fill'
+                crop_mode: item.source_edit.crop_mode || SOURCE_EDIT_DEFAULTS.crop_mode
             }
         } : {}),
         ...(item.userEdited ? {
@@ -5468,7 +5498,7 @@ async function processCurrentBrand() {
                         crop_x: currentSourceEdit.crop_x,
                         crop_y: currentSourceEdit.crop_y,
                         zoom: currentSourceEdit.zoom,
-                        crop_mode: currentSourceEdit.crop_mode || 'fill'
+                        crop_mode: currentSourceEdit.crop_mode || SOURCE_EDIT_DEFAULTS.crop_mode
                     }
                 } : {}),
                 ...(current.userEdited ? {
