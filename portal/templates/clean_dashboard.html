@@ -2070,29 +2070,17 @@
     </div>
 
     <!-- ===== REFRAME CONTROLS (Studio · vertical only) ===== -->
-    <div id="reframeControls" style="display:none; align-items:center; justify-content:space-between; gap:10px; width:94%; max-width:500px; margin:6px auto 0; flex-wrap:wrap;">
-        <span style="font-size:12px; color:#8b93a7;">Drag video to reframe</span>
-        <div id="reframeQuickControls" style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
-            <button type="button" onclick="adjustSourceZoom(0.8)" title="Zoom out" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:700; cursor:pointer;">-</button>
-            <button type="button" onclick="adjustSourceZoom(1.25)" title="Zoom in" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:700; cursor:pointer;">+</button>
-            <button type="button" onclick="resetSourceFraming()" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:6px 12px; font-size:12px; font-weight:600; cursor:pointer;">Reset</button>
-            <button type="button" onclick="setSourceCropY(0)" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:600; cursor:pointer;">Top</button>
-            <button type="button" onclick="setSourceCropY(0.5)" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:600; cursor:pointer;">Centre</button>
-            <button type="button" onclick="setSourceCropY(1)" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:600; cursor:pointer;">Bottom</button>
+    <div id="reframeControls" style="display:none; flex-wrap:wrap; align-items:center; gap:6px; width:94%; max-width:500px; margin:6px auto 8px; font-size:12px; color:#8b93a7;">
+        <span style="margin-right:2px;">Reframe</span>
+        <div style="display:inline-flex; align-items:center; gap:2px; background:#202531; border:1px solid #343948; border-radius:999px; padding:2px;">
+            <button type="button" onclick="adjustSourceZoom(0.8)" title="Zoom out" style="width:26px; height:26px; background:transparent; color:#d7dce6; border:none; border-radius:999px; font-size:16px; font-weight:700; line-height:1; cursor:pointer; flex:0 0 auto;">−</button>
+            <span id="reframeZoomLabel" style="min-width:40px; text-align:center; color:#d7dce6; font-weight:600;">100%</span>
+            <button type="button" onclick="adjustSourceZoom(1.25)" title="Zoom in" style="width:26px; height:26px; background:transparent; color:#d7dce6; border:none; border-radius:999px; font-size:16px; font-weight:700; line-height:1; cursor:pointer; flex:0 0 auto;">+</button>
         </div>
-        <div id="debugReframeControls" style="display:none; width:100%; margin-top:8px; padding:8px; background:#151923; border:1px solid #343948; border-radius:8px;">
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
-                <span style="font-size:12px; color:#d7dce6; font-weight:700;">Debug zoom</span>
-                <span id="debugReframeZoomVal" style="font-size:12px; color:#aab2c5;">1.00x</span>
-            </div>
-            <input type="range" id="debugReframeZoom" min="0.25" max="4" step="0.05" value="1" style="width:100%;">
-            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;">
-                <button type="button" onclick="setDebugReframeZoom(0.5, true)" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:7px; padding:5px 10px; font-size:12px; font-weight:700; cursor:pointer;">0.5x</button>
-                <button type="button" onclick="setDebugReframeZoom(1, true)" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:7px; padding:5px 10px; font-size:12px; font-weight:700; cursor:pointer;">1x</button>
-                <button type="button" onclick="setDebugReframeZoom(2, true)" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:7px; padding:5px 10px; font-size:12px; font-weight:700; cursor:pointer;">2x</button>
-            </div>
-            <pre id="debugReframeReadout" style="margin:8px 0 0; color:#8b93a7; font-size:11px; white-space:pre-wrap;">_srcVis: pending</pre>
-        </div>
+        <button type="button" onclick="setSourceCropY(0)" style="width:auto; flex:0 0 auto; background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:5px 11px; font-weight:600; cursor:pointer;">Top</button>
+        <button type="button" onclick="setSourceCropY(0.5)" style="width:auto; flex:0 0 auto; background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:5px 11px; font-weight:600; cursor:pointer;">Centre</button>
+        <button type="button" onclick="setSourceCropY(1)" style="width:auto; flex:0 0 auto; background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:5px 11px; font-weight:600; cursor:pointer;">Bottom</button>
+        <button type="button" onclick="resetSourceFraming()" style="width:auto; flex:0 0 auto; margin-left:auto; background:#202531; color:#8b93a7; border:1px solid #343948; border-radius:999px; padding:5px 11px; font-weight:600; cursor:pointer;">Reset</button>
     </div>
 
     <!-- Queue Mode Header (hidden by default) -->
@@ -2400,7 +2388,6 @@ let activeReviewFormat = 'vertical_9_16'; // tracks format of current queue item
 const SOURCE_EDIT_DEFAULTS = { crop_x: 0.5, crop_y: 0.5, zoom: 1.0, crop_mode: 'fill' };
 let currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS };
 let sourceEditSaveTimer = null;     // debounce handle for POST /api/source-edits
-const DEBUG_REFRAME = new URLSearchParams(window.location.search).get('debug_reframe') === '1';
 let selectedSources = [];   // Patch 50A: filenames of sources chosen for this render run
 let completedOutputs = []; // accumulates { brand_name, download_url } after each successful brand
 
@@ -3553,7 +3540,6 @@ function drawReframedSource(img) {
     // Stash placement for the drag handler. slack = W-sw / H-sh is negative when the
     // video is larger than the canvas (crop) and positive when smaller (letterbox).
     canvas._srcVis = { W, H, sw, sh };
-    refreshDebugReframeReadout();
 }
 
 function drawOverlays() {
@@ -3783,7 +3769,7 @@ function adjustSourceZoom(factor) {
     currentSourceEdit.zoom = clampSourceZoom((Number(currentSourceEdit.zoom) || 1) * factor);
     updateCanvasPreview();
     persistSourceReframe();
-    syncDebugReframeControls();
+    updateReframeZoomLabel();
 }
 
 function setSourceCropY(value) {
@@ -3791,7 +3777,7 @@ function setSourceCropY(value) {
     currentSourceEdit.crop_y = Math.max(0, Math.min(1, Number(value)));
     updateCanvasPreview();
     persistSourceReframe();
-    syncDebugReframeControls();
+    updateReframeZoomLabel();
 }
 
 function pointerDistance(a, b) {
@@ -4021,7 +4007,7 @@ function finalizeSourceGesture() {
     sourcePinchStart = null;
     canvas.style.cursor = 'default';
     persistSourceReframe();
-    syncDebugReframeControls();
+    updateReframeZoomLabel();
 }
 
 // ── Studio reframe helpers (Commit 2) ──────────────────────────────────────────
@@ -4082,42 +4068,10 @@ function resetSourceFraming() {
     debouncedSaveSourceEdit();
 }
 
-function refreshDebugReframeReadout() {
-    if (!DEBUG_REFRAME) return;
-    const readout = document.getElementById('debugReframeReadout');
-    if (!readout) return;
-    const vis = canvas && canvas._srcVis;
-    if (!vis) {
-        readout.textContent = '_srcVis: null';
-        return;
-    }
-    readout.textContent = `_srcVis: ${JSON.stringify({
-        W: vis.W,
-        H: vis.H,
-        sw: Math.round(vis.sw),
-        sh: Math.round(vis.sh)
-    })}`;
-}
-
-function syncDebugReframeControls() {
-    if (!DEBUG_REFRAME) return;
-    const zoom = Math.max(0.25, Math.min(4, Number(currentSourceEdit.zoom) || 1));
-    const slider = document.getElementById('debugReframeZoom');
-    const label = document.getElementById('debugReframeZoomVal');
-    if (slider) slider.value = zoom;
-    if (label) label.textContent = `${zoom.toFixed(2)}x`;
-    refreshDebugReframeReadout();
-}
-
-function setDebugReframeZoom(value, recenter) {
-    if (!DEBUG_REFRAME) return;
-    currentSourceEdit.zoom = Math.max(0.25, Math.min(4, Number(value) || 1));
-    if (recenter) {
-        currentSourceEdit.crop_x = 0.5;
-        currentSourceEdit.crop_y = 0.5;
-    }
-    updateCanvasPreview();
-    syncDebugReframeControls();
+// Updates the live zoom % readout in the reframe strip.
+function updateReframeZoomLabel() {
+    const label = document.getElementById('reframeZoomLabel');
+    if (label) label.textContent = Math.round((Number(currentSourceEdit.zoom) || 1) * 100) + '%';
 }
 
 // Show the Reframe control only while the vertical preview is on screen
@@ -4128,11 +4082,7 @@ function updateReframeControlVisibility() {
     const pc = document.getElementById('previewContainer');
     const previewVisible = pc && pc.style.display !== 'none';
     el.style.display = (previewVisible && activeReviewFormat === 'vertical_9_16') ? 'flex' : 'none';
-    const debugEl = document.getElementById('debugReframeControls');
-    if (debugEl) {
-        debugEl.style.display = (DEBUG_REFRAME && previewVisible && activeReviewFormat === 'vertical_9_16') ? 'block' : 'none';
-    }
-    syncDebugReframeControls();
+    updateReframeZoomLabel();
 }
 
 // ========== SLIDER LISTENERS ==========
@@ -4149,14 +4099,6 @@ document.getElementById('logoScale').addEventListener('input', (e) => {
     // Logo stays anchored to center - no position reset needed
     updateCanvasPreview();
 });
-if (DEBUG_REFRAME) {
-    const debugZoomSlider = document.getElementById('debugReframeZoom');
-    if (debugZoomSlider) {
-        debugZoomSlider.addEventListener('input', (e) => {
-            setDebugReframeZoom(e.target.value, false);
-        });
-    }
-}
 setupReviewAutoSave();
 updateOutputFormatUI();
 
