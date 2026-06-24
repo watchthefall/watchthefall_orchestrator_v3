@@ -2072,7 +2072,14 @@
     <!-- ===== REFRAME CONTROLS (Studio · vertical only) ===== -->
     <div id="reframeControls" style="display:none; align-items:center; justify-content:space-between; gap:10px; width:94%; max-width:500px; margin:6px auto 0; flex-wrap:wrap;">
         <span style="font-size:12px; color:#8b93a7;">Drag video to reframe</span>
-        <button type="button" onclick="resetSourceFraming()" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:6px 12px; font-size:12px; font-weight:600; cursor:pointer;">↺ Reset framing</button>
+        <div id="reframeQuickControls" style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+            <button type="button" onclick="adjustSourceZoom(0.8)" title="Zoom out" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:700; cursor:pointer;">-</button>
+            <button type="button" onclick="adjustSourceZoom(1.25)" title="Zoom in" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:700; cursor:pointer;">+</button>
+            <button type="button" onclick="resetSourceFraming()" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:6px 12px; font-size:12px; font-weight:600; cursor:pointer;">Reset</button>
+            <button type="button" onclick="setSourceCropY(0)" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:600; cursor:pointer;">Top</button>
+            <button type="button" onclick="setSourceCropY(0.5)" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:600; cursor:pointer;">Centre</button>
+            <button type="button" onclick="setSourceCropY(1)" style="background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:600; cursor:pointer;">Bottom</button>
+        </div>
         <div id="debugReframeControls" style="display:none; width:100%; margin-top:8px; padding:8px; background:#151923; border:1px solid #343948; border-radius:8px;">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
                 <span style="font-size:12px; color:#d7dce6; font-weight:700;">Debug zoom</span>
@@ -2392,8 +2399,6 @@ let activeReviewFormat = 'vertical_9_16'; // tracks format of current queue item
 // Vertical-only in v1; square keeps its blur-pad default untouched.
 const SOURCE_EDIT_DEFAULTS = { crop_x: 0.5, crop_y: 0.5, zoom: 1.0, crop_mode: 'fill' };
 let currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS };
-let sourcePanning = false;
-let sourcePanStart = null;          // { x, y, crop_x, crop_y } captured at gesture start
 let sourceEditSaveTimer = null;     // debounce handle for POST /api/source-edits
 const DEBUG_REFRAME = new URLSearchParams(window.location.search).get('debug_reframe') === '1';
 let selectedSources = [];   // Patch 50A: filenames of sources chosen for this render run
@@ -3738,24 +3743,19 @@ function drawOverlays() {
     }
 }
 
-// ========== DRAG SUPPORT (Logo & Text) ==========
-canvas.addEventListener('mousedown', startDrag);
-canvas.addEventListener('mousemove', drag);
-canvas.addEventListener('mouseup', endDrag);
-canvas.addEventListener('mouseleave', endDrag);
+// ========== POINTER DRAG SUPPORT (Logo, Text & Source Reframe) ==========
+const activeReframePointers = new Map();
+let sourceGestureMode = null; // null | 'pan' | 'pinch'
+let sourceGestureActive = false;
+let sourcePanPointerId = null;
+let sourcePointerPanStart = null; // { x, y, crop_x, crop_y }
+let sourcePinchStart = null; // { dist, zoom }
 
-// Touch support
-canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    startDrag({ clientX: touch.clientX, clientY: touch.clientY });
-}, { passive: false });
-canvas.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    drag({ clientX: touch.clientX, clientY: touch.clientY });
-}, { passive: false });
-canvas.addEventListener('touchend', endDrag);
+canvas.addEventListener('pointerdown', handleCanvasPointerDown);
+canvas.addEventListener('pointermove', handleCanvasPointerMove);
+canvas.addEventListener('pointerup', handleCanvasPointerEnd);
+canvas.addEventListener('pointercancel', handleCanvasPointerEnd);
+canvas.addEventListener('pointerleave', handleCanvasPointerLeave);
 
 function getCanvasCoords(e) {
     const rect = canvas.getBoundingClientRect();
@@ -3767,123 +3767,261 @@ function getCanvasCoords(e) {
     };
 }
 
-function startDrag(e) {
-    const pos = getCanvasCoords(e);
-    
-    // Check if clicking on text first (priority over logo)
+function clampSourceZoom(value) {
+    const zoom = Number(value);
+    if (!Number.isFinite(zoom)) return 1;
+    return Math.max(0.25, Math.min(4, zoom));
+}
+
+function persistSourceReframe() {
+    snapshotSourceEditToItem();
+    debouncedSaveSourceEdit();
+}
+
+function adjustSourceZoom(factor) {
+    if (activeReviewFormat !== 'vertical_9_16') return;
+    currentSourceEdit.zoom = clampSourceZoom((Number(currentSourceEdit.zoom) || 1) * factor);
+    updateCanvasPreview();
+    persistSourceReframe();
+    syncDebugReframeControls();
+}
+
+function setSourceCropY(value) {
+    if (activeReviewFormat !== 'vertical_9_16') return;
+    currentSourceEdit.crop_y = Math.max(0, Math.min(1, Number(value)));
+    updateCanvasPreview();
+    persistSourceReframe();
+    syncDebugReframeControls();
+}
+
+function pointerDistance(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function getActivePointerList() {
+    return Array.from(activeReframePointers.values());
+}
+
+function startSourcePan(pointerId, pos) {
+    sourceGestureActive = true;
+    sourceGestureMode = 'pan';
+    sourcePanPointerId = pointerId;
+    sourcePointerPanStart = {
+        x: pos.x,
+        y: pos.y,
+        crop_x: currentSourceEdit.crop_x,
+        crop_y: currentSourceEdit.crop_y
+    };
+    sourcePinchStart = null;
+    canvas.style.cursor = 'grabbing';
+}
+
+function startSourcePinch() {
+    const pointers = getActivePointerList();
+    if (pointers.length < 2) return;
+    sourceGestureActive = true;
+    sourceGestureMode = 'pinch';
+    sourcePanPointerId = null;
+    sourcePointerPanStart = null;
+    sourcePinchStart = {
+        dist: Math.max(1, pointerDistance(pointers[0], pointers[1])),
+        zoom: clampSourceZoom(currentSourceEdit.zoom)
+    };
+    canvas.style.cursor = 'grabbing';
+}
+
+function resetPanBaselineFromRemainingPointer() {
+    const pointers = getActivePointerList();
+    if (!sourceGestureActive || pointers.length !== 1) return;
+    startSourcePan(pointers[0].id, pointers[0]);
+}
+
+function applySourcePan(pos) {
+    const v = canvas._srcVis;
+    if (!v || !sourcePointerPanStart) return;
+    const slackX = v.W - v.sw;
+    const slackY = v.H - v.sh;
+    if (slackX !== 0) {
+        currentSourceEdit.crop_x = Math.min(1, Math.max(0,
+            sourcePointerPanStart.crop_x + (pos.x - sourcePointerPanStart.x) / slackX));
+    }
+    if (slackY !== 0) {
+        currentSourceEdit.crop_y = Math.min(1, Math.max(0,
+            sourcePointerPanStart.crop_y + (pos.y - sourcePointerPanStart.y) / slackY));
+    }
+    updateCanvasPreview();
+}
+
+function applySourcePinch() {
+    const pointers = getActivePointerList();
+    if (!sourcePinchStart || pointers.length < 2) return;
+    const curDist = Math.max(1, pointerDistance(pointers[0], pointers[1]));
+    currentSourceEdit.zoom = clampSourceZoom(sourcePinchStart.zoom * (curDist / sourcePinchStart.dist));
+    updateCanvasPreview();
+}
+
+function hitTestOverlay(pos) {
     if (canvas._textBounds) {
         const tb = canvas._textBounds;
         if (pos.x >= tb.x && pos.x <= tb.x + tb.w && pos.y >= tb.y && pos.y <= tb.y + tb.h) {
-            textDragging = true;
-            textDragStart = { x: pos.x - textX, y: pos.y - textY };
-            canvas.style.cursor = 'grabbing';
-            return;
+            return 'text';
         }
     }
-    
-    // Check if clicking on logo
     if (canvas._logoBounds) {
         const b = canvas._logoBounds;
         if (pos.x >= b.x && pos.x <= b.x + b.w && pos.y >= b.y && pos.y <= b.y + b.h) {
-            logoDragging = true;
-            // Store offset from center (not top-left)
-            const centerX = logoCenterXPercent * canvas.width;
-            const centerY = logoCenterYPercent * canvas.height;
-            logoDragStart = { x: pos.x - centerX, y: pos.y - centerY };
-            canvas.style.cursor = 'grabbing';
-            return;
+            return 'logo';
         }
     }
-    
-    // Check if clicking on secondary logo
     if (canvas._secLogoBounds) {
         const sb = canvas._secLogoBounds;
         if (pos.x >= sb.x && pos.x <= sb.x + sb.w && pos.y >= sb.y && pos.y <= sb.y + sb.h) {
-            secondaryLogoDragging = true;
-            var secCX = secLogoCenterXPercent * canvas.width;
-            var secCY = secLogoCenterYPercent * canvas.height;
-            secLogoDragStart = { x: pos.x - secCX, y: pos.y - secCY };
-            canvas.style.cursor = 'grabbing';
-            return;
+            return 'secondaryLogo';
         }
     }
-
-    // No overlay was hit → reframe the source video (vertical only in v1).
-    if (activeReviewFormat === 'vertical_9_16' && frameData) {
-        sourcePanning = true;
-        sourcePanStart = { x: pos.x, y: pos.y, crop_x: currentSourceEdit.crop_x, crop_y: currentSourceEdit.crop_y };
-        canvas.style.cursor = 'grabbing';
-    }
+    return null;
 }
 
-function drag(e) {
+function startOverlayDrag(kind, pos) {
+    if (kind === 'text') {
+        textDragging = true;
+        textDragStart = { x: pos.x - textX, y: pos.y - textY };
+    } else if (kind === 'logo') {
+        logoDragging = true;
+        const centerX = logoCenterXPercent * canvas.width;
+        const centerY = logoCenterYPercent * canvas.height;
+        logoDragStart = { x: pos.x - centerX, y: pos.y - centerY };
+    } else if (kind === 'secondaryLogo') {
+        secondaryLogoDragging = true;
+        var secCX = secLogoCenterXPercent * canvas.width;
+        var secCY = secLogoCenterYPercent * canvas.height;
+        secLogoDragStart = { x: pos.x - secCX, y: pos.y - secCY };
+    }
+    canvas.style.cursor = 'grabbing';
+}
+
+function dragOverlay(pos) {
     if (textDragging) {
-        const pos = getCanvasCoords(e);
         textX = pos.x - textDragStart.x;
         textY = pos.y - textDragStart.y;
         updateCanvasPreview();
     } else if (secondaryLogoDragging) {
-        const pos = getCanvasCoords(e);
         var secCX = pos.x - secLogoDragStart.x;
         var secCY = pos.y - secLogoDragStart.y;
         secLogoCenterXPercent = Math.max(0.05, Math.min(0.95, secCX / canvas.width));
         secLogoCenterYPercent = Math.max(0.05, Math.min(0.95, secCY / canvas.height));
         updateCanvasPreview();
     } else if (logoDragging) {
-        const pos = getCanvasCoords(e);
-        // Update center position as percentage
         const centerX = pos.x - logoDragStart.x;
         const centerY = pos.y - logoDragStart.y;
         logoCenterXPercent = centerX / canvas.width;
         logoCenterYPercent = centerY / canvas.height;
-        
-        // Clamp to keep logo fully onscreen (considering half-size)
+
         const logoScalePct = parseInt(document.getElementById('logoScale').value) / 100;
         const logoW = canvas.width * logoScalePct;
         const logoH = logoImg ? (logoImg.height / logoImg.width) * logoW : logoW;
         const minPercent = (logoW / 2) / canvas.width;
         const maxPercentX = 1 - (logoW / 2) / canvas.width;
         const maxPercentY = 1 - (logoH / 2) / canvas.height;
-        
+
         logoCenterXPercent = Math.max(minPercent, Math.min(maxPercentX, logoCenterXPercent));
         logoCenterYPercent = Math.max(minPercent, Math.min(maxPercentY, logoCenterYPercent));
-
         updateCanvasPreview();
-    } else if (sourcePanning) {
-        const pos = getCanvasCoords(e);
-        const v = canvas._srcVis;
-        if (v) {
-            // 1:1 placement drag. ox = (W-sw)*crop_x, so crop_x moves by Δpx / (W-sw).
-            // slack is negative when cropping and positive when letterboxing; the same
-            // formula moves the video with the cursor in both cases.
-            const slackX = v.W - v.sw;
-            const slackY = v.H - v.sh;
-            if (slackX !== 0) {
-                currentSourceEdit.crop_x = Math.min(1, Math.max(0,
-                    sourcePanStart.crop_x + (pos.x - sourcePanStart.x) / slackX));
-            }
-            if (slackY !== 0) {
-                currentSourceEdit.crop_y = Math.min(1, Math.max(0,
-                    sourcePanStart.crop_y + (pos.y - sourcePanStart.y) / slackY));
-            }
-            updateCanvasPreview();
-        }
     }
 }
 
-function endDrag() {
+function handleCanvasPointerDown(e) {
+    if (activeReviewFormat !== 'vertical_9_16' && !hitTestOverlay(getCanvasCoords(e))) return;
+    e.preventDefault();
+    const pos = getCanvasCoords(e);
+    activeReframePointers.set(e.pointerId, { id: e.pointerId, x: pos.x, y: pos.y });
+    try { canvas.setPointerCapture(e.pointerId); } catch (_e) {}
+
+    if (logoDragging || textDragging || secondaryLogoDragging) return;
+
+    const overlay = hitTestOverlay(pos);
+    if (overlay) {
+        startOverlayDrag(overlay, pos);
+        return;
+    }
+
+    if (activeReviewFormat !== 'vertical_9_16' || !frameData) return;
+    if (!sourceGestureActive) {
+        startSourcePan(e.pointerId, pos);
+    } else if (activeReframePointers.size >= 2) {
+        startSourcePinch();
+    }
+}
+
+function handleCanvasPointerMove(e) {
+    if (!activeReframePointers.has(e.pointerId)) return;
+    e.preventDefault();
+    const pos = getCanvasCoords(e);
+    activeReframePointers.set(e.pointerId, { id: e.pointerId, x: pos.x, y: pos.y });
+
     if (logoDragging || textDragging || secondaryLogoDragging) {
-        autoSaveActiveReviewState();
+        dragOverlay(pos);
+        return;
     }
-    if (sourcePanning) {
-        sourcePanning = false;
-        snapshotSourceEditToItem();
-        debouncedSaveSourceEdit();
+
+    if (activeReviewFormat !== 'vertical_9_16' || !sourceGestureActive) return;
+    if (activeReframePointers.size >= 2) {
+        if (sourceGestureMode !== 'pinch') startSourcePinch();
+        applySourcePinch();
+    } else if (sourceGestureMode === 'pan' && e.pointerId === sourcePanPointerId) {
+        applySourcePan(pos);
     }
+}
+
+function handleCanvasPointerEnd(e) {
+    if (activeReframePointers.has(e.pointerId)) {
+        activeReframePointers.delete(e.pointerId);
+    }
+    try { canvas.releasePointerCapture(e.pointerId); } catch (_e) {}
+
+    if (logoDragging || textDragging || secondaryLogoDragging) {
+        endOverlayDrag();
+        return;
+    }
+
+    if (!sourceGestureActive) return;
+
+    if (activeReframePointers.size >= 2) {
+        startSourcePinch();
+        return;
+    }
+    if (activeReframePointers.size === 1) {
+        resetPanBaselineFromRemainingPointer();
+        return;
+    }
+    finalizeSourceGesture();
+}
+
+function handleCanvasPointerLeave(e) {
+    if (typeof canvas.hasPointerCapture === 'function' && canvas.hasPointerCapture(e.pointerId)) {
+        return;
+    }
+    handleCanvasPointerEnd(e);
+}
+
+function endOverlayDrag() {
+    autoSaveActiveReviewState();
     logoDragging = false;
     textDragging = false;
     secondaryLogoDragging = false;
+    activeReframePointers.clear();
     canvas.style.cursor = 'default';
+}
+
+function finalizeSourceGesture() {
+    sourceGestureActive = false;
+    sourceGestureMode = null;
+    sourcePanPointerId = null;
+    sourcePointerPanStart = null;
+    sourcePinchStart = null;
+    canvas.style.cursor = 'default';
+    persistSourceReframe();
+    syncDebugReframeControls();
 }
 
 // ── Studio reframe helpers (Commit 2) ──────────────────────────────────────────
