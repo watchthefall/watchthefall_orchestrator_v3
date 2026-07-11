@@ -423,3 +423,13 @@ if INSTAGRAM_COOKIES:
         print(f"[CONFIG] Warning: Failed to write cookies: {e}")
 else:
     print(f"[CONFIG] No INSTAGRAM_COOKIES env var set, using existing cookie file if present")
+
+# Bootstrap the Instagram cookie POOL (INSTAGRAM_COOKIES + INSTAGRAM_COOKIES_1..10).
+# Writes each valid env var to data/pool/cookies_<slot>.txt for rotation. If only
+# the base INSTAGRAM_COOKIES is set the pool has one member and behaviour is
+# unchanged. cookie_pool imports no project modules, so this is import-safe.
+try:
+    from . import cookie_pool
+    cookie_pool.bootstrap_pool(COOKIE_DIR)
+except Exception as _cp_err:
+    print(f"[CONFIG] Cookie pool bootstrap skipped: {_cp_err}")

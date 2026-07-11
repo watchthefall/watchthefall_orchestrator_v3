@@ -3238,58 +3238,102 @@ def fetch_videos_from_urls():
                 # if is_tiktok:
                 #     ydl_opts['impersonate'] = ('chrome', '110', 'windows')
                 
-                # Only add cookiefile if the file exists and is readable
-                from .config import COOKIE_FILE as cookie_file
-                try:
-                    if os.path.exists(cookie_file) and os.path.isfile(cookie_file):
-                        # Test if file is readable and has valid content
-                        with open(cookie_file, 'r', encoding='utf-8') as f:
-                            content = f.read().strip()
-                            # Check if file has actual cookie data (not just comments)
-                            # File is valid if it has content and either:
-                            # 1. Doesn't start with the header (unlikely but possible), OR
-                            # 2. Has more than one line (indicating actual cookie data beyond header)
-                            # Additional check: look for actual cookie data patterns
-                            has_cookie_data = False
-                            if content:
-                                lines = content.split('\n')
-                                # Check if we have more than just header lines
-                                # Look for lines that contain actual cookie data (domain, flag, path, etc.)
-                                for line in lines:
-                                    line = line.strip()
-                                    # Skip empty lines and comments
-                                    if line and not line.startswith('#'):
-                                        # Check if this looks like a cookie line (has tab-separated values)
-                                        if '\t' in line:
-                                            has_cookie_data = True
-                                            break
-                            
-                            if has_cookie_data:
-                                ydl_opts['cookiefile'] = cookie_file
-                                print(f"[FETCH] Using cookie file: {cookie_file}")
-                            else:
-                                print(f"[FETCH] Cookie file exists but appears to be empty or only contains header: {cookie_file}")
-                    else:
-                        print(f"[FETCH] Cookie file not found or not readable: {cookie_file}")
-                except Exception as cookie_error:
-                    print(f"[FETCH] Warning: Could not use cookie file {cookie_file}: {cookie_error}")
-                    # Continue without cookies
-                
-                with YoutubeDL(ydl_opts) as ydl:
-                    print(f"[FETCH] Downloading: {url_input[:50]}...")
+                # --- Cookie selection + rotation ----------------------------
+                # Instagram needs session cookies and they expire; we hold a pool
+                # (INSTAGRAM_COOKIES + _1.._10) and rotate least-recently-used,
+                # failing over on auth errors. Non-Instagram sources fall back to
+                # the single legacy cookies.txt (behaviour unchanged).
+                from .config import COOKIE_FILE as _legacy_cookie_file
+                from . import cookie_pool
+
+                def _legacy_cookie_candidate():
+                    """The single portal/data/cookies.txt if it carries cookie data."""
                     try:
-                        info = ydl.extract_info(url_input, download=True)
-                        filename = ydl.prepare_filename(info)
+                        if os.path.exists(_legacy_cookie_file) and os.path.isfile(_legacy_cookie_file):
+                            with open(_legacy_cookie_file, 'r', encoding='utf-8') as f:
+                                for line in f:
+                                    line = line.strip()
+                                    if line and not line.startswith('#') and '\t' in line:
+                                        return _legacy_cookie_file
+                    except Exception as _ck_err:
+                        print(f"[FETCH] legacy cookie check failed: {_ck_err}")
+                    return None
+
+                if is_instagram and cookie_pool.pool_size() > 0:
+                    using_pool = True
+                    cookie_candidates = cookie_pool.candidates_lru()
+                else:
+                    using_pool = False
+                    _legacy = _legacy_cookie_candidate()
+                    cookie_candidates = [_legacy] if _legacy else [None]
+
+                info = None
+                filename = None
+                tried_bad = []          # cookies that auth-failed on this URL
+                content_error = None    # non-auth error → don't rotate, surface it
+
+                for _idx, _cookie in enumerate(cookie_candidates):
+                    opts = dict(ydl_opts)
+                    if _cookie:
+                        opts['cookiefile'] = _cookie
+                        _label = os.path.basename(_cookie)
+                        print(f"[FETCH] Using cookie: {_label}"
+                              + (f" (pool {_idx + 1}/{len(cookie_candidates)})" if using_pool else ""))
+                        if using_pool:
+                            cookie_pool.mark_used(_cookie)
+                    else:
+                        print("[FETCH] No cookie file in use")
+
+                    try:
+                        with YoutubeDL(opts) as ydl:
+                            print(f"[FETCH] Downloading: {url_input[:50]}...")
+                            info = ydl.extract_info(url_input, download=True)
+                            filename = ydl.prepare_filename(info)
+                        if using_pool and _cookie:
+                            cookie_pool.mark_success(_cookie)
+                            # A later cookie worked, so the earlier failures were
+                            # genuinely dead cookies — cool them down.
+                            for _b in tried_bad:
+                                cookie_pool.mark_bad(_b)
+                        break
                     except Exception as download_error:
-                        print(f"[FETCH ERROR] Download failed for {url_input}: {str(download_error)}")
+                        err_text = _strip_ansi(str(download_error))
+                        print(f"[FETCH ERROR] Download failed for {url_input}: {err_text}")
+                        info = None
+                        if (using_pool and cookie_pool.is_auth_failure(err_text)
+                                and _idx < len(cookie_candidates) - 1):
+                            print(f"[FETCH] auth failure on {os.path.basename(_cookie)} "
+                                  f"— rotating to next cookie")
+                            tried_bad.append(_cookie)
+                            continue
+                        if using_pool and cookie_pool.is_auth_failure(err_text):
+                            break  # last cookie also auth-failed → all failed
+                        # Non-auth error (private/removed post, network, unsupported)
+                        # — another cookie won't help. Surface it as before.
                         import traceback
                         traceback.print_exc()
-                        return {
-                            'url': url_input,
-                            'error': _strip_ansi(str(download_error)),
-                            'success': False
-                        }
-                
+                        content_error = err_text
+                        break
+
+                if content_error is not None:
+                    return {'url': url_input, 'error': content_error, 'success': False}
+
+                if info is None:
+                    # Every available cookie auth-failed for this URL. Ambiguous
+                    # (private post OR whole pool stale), so we do NOT cool every
+                    # cookie down — but alert loudly and show one friendly error.
+                    if using_pool:
+                        print(f"[COOKIE ALERT] all {cookie_pool.pool_size()} pooled "
+                              f"cookie(s) failed auth for {url_input} — refresh the "
+                              f"pool if this persists")
+                    return {
+                        'url': url_input,
+                        'error': ("Instagram couldn't be reached for this link right now. "
+                                  "It may be private or removed, or Instagram is temporarily "
+                                  "blocking downloads. Please try again shortly or try another link."),
+                        'success': False,
+                    }
+
                 # Ensure .mp4 extension
                 if not filename.endswith('.mp4'):
                     base, _ = os.path.splitext(filename)
