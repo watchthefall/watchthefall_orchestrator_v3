@@ -56,6 +56,7 @@ TIER_CONFIG = {
         'accent': '#86EDA5',
         'badge_image': 'badges/explorer.png',
         'fetches_per_day': 25,
+        'credits_per_day': 10,    # 1 credit = 1 render (finished branded video)
         'ig_per_hour': 3,
         'branding_jobs_per_day': 15,
         'max_brands_per_job': 1,
@@ -72,6 +73,7 @@ TIER_CONFIG = {
         'accent': '#A855F7',
         'badge_image': 'badges/creator.png',
         'fetches_per_day': 100,
+        'credits_per_day': 35,    # 1 credit = 1 render (finished branded video)
         'ig_per_hour': 10,
         'branding_jobs_per_day': 60,
         'max_brands_per_job': 8,
@@ -88,6 +90,7 @@ TIER_CONFIG = {
         'accent': '#F5A623',
         'badge_image': 'badges/studio.png',
         'fetches_per_day': 200,
+        'credits_per_day': 75,    # 1 credit = 1 render (finished branded video)
         'ig_per_hour': 15,
         'branding_jobs_per_day': 120,
         'max_brands_per_job': 20,
@@ -106,6 +109,7 @@ TIER_CONFIG = {
         'accent': '#C0CFFF',
         'badge_image': 'badges/platinum.png',
         'fetches_per_day': 500,
+        'credits_per_day': 250,   # 1 credit = 1 render (finished branded video)
         'ig_per_hour': 30,
         'branding_jobs_per_day': 300,
         'max_brands_per_job': 50,
@@ -123,6 +127,7 @@ TIER_CONFIG = {
         'accent': '#D4A017',
         'badge_image': 'badges/elite.png',
         'fetches_per_day': 9999,
+        'credits_per_day': 9999,  # unlimited (invitation-only)
         'ig_per_hour': 60,
         'branding_jobs_per_day': 9999,
         'max_brands_per_job': 100,
@@ -244,6 +249,7 @@ SPECIAL_STATUSES = {
         'badge_priority': True,   # overrides tier badge visually
         'overrides': {
             'fetches_per_day': 9999,
+            'credits_per_day': 9999,
             'branding_jobs_per_day': 9999,
             'max_brands_per_job': 100,
             'max_brand_configs': -1,

@@ -210,8 +210,8 @@
                 <h3 class="section-title">Your Limits</h3>
                 <div class="limits-grid">
                     <div class="limit-card">
-                        <div class="limit-label">Branding Jobs</div>
-                        <div class="limit-value">{% if limits.branding_jobs_per_day >= 9999 %}&infin;{% else %}{{ limits.branding_jobs_per_day }}{% endif %}</div>
+                        <div class="limit-label">Credits</div>
+                        <div class="limit-value">{% if credits_per_day is defined and credits_per_day >= 9999 %}&infin;{% else %}{{ credits_per_day if credits_per_day is defined else limits.get('credits_per_day', 0) }}{% endif %}</div>
                         <div class="limit-unit">per day</div>
                     </div>
                     <div class="limit-card">
@@ -241,9 +241,9 @@
                 <h3 class="section-title">Today's Usage</h3>
                 <div class="limits-grid">
                     <div class="limit-card">
-                        <div class="limit-label">Branding Jobs</div>
-                        <div class="limit-value">{{ usage.branding_jobs }}</div>
-                        <div class="limit-unit">used today</div>
+                        <div class="limit-label">Credits Left</div>
+                        <div class="limit-value">{% if credits is defined %}{{ credits.total }}{% else %}&mdash;{% endif %}</div>
+                        <div class="limit-unit">{% if credits is defined and (credits.earned + credits.purchased) > 0 %}incl. {{ credits.earned + credits.purchased }} bonus{% else %}today{% endif %}</div>
                     </div>
                     <div class="limit-card">
                         <div class="limit-label">Fetches</div>
@@ -261,7 +261,7 @@
                         <tr>
                             <th>Plan</th>
                             <th>Brands / Job</th>
-                            <th>Jobs / Day</th>
+                            <th>Credits / Day</th>
                             <th>Fetches / Day</th>
                             <th>Configs</th>
                         </tr>
@@ -273,7 +273,7 @@
                         <tr {% if tier == plan_name %}class="current-tier"{% endif %}>
                             <td><span class="tier-badge tier-{{ plan_name.lower() }}" style="font-size:10px;padding:2px 8px;">{{ plan_name }}</span></td>
                             <td>{% if pf.max_brands_per_job >= 9999 %}&infin;{% else %}{{ pf.max_brands_per_job }}{% endif %}</td>
-                            <td>{% if pf.max_branding_jobs_per_day >= 9999 %}&infin;{% else %}{{ pf.max_branding_jobs_per_day }}{% endif %}</td>
+                            <td>{% if pc.credits_per_day >= 9999 %}&infin;{% else %}{{ pc.credits_per_day }}{% endif %}</td>
                             <td>{% if pc.fetches_per_day >= 9999 %}&infin;{% else %}{{ pc.fetches_per_day }}{% endif %}</td>
                             <td>{% if pf.max_brand_configs_total == -1 %}&infin;{% else %}{{ pf.max_brand_configs_total }}{% endif %}</td>
                         </tr>
