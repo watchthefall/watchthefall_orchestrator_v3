@@ -22,6 +22,16 @@ _pkg = types.ModuleType('portal')
 _pkg.__path__ = [os.path.join(_ROOT, 'portal')]
 sys.modules['portal'] = _pkg
 
+# database.py runs init_db() at import, whose migrations ALTER the users table.
+# Point DB_PATH at a throwaway DB (with a bare users table) BEFORE importing, so
+# the import doesn't touch the real dev DB or crash on a missing users table.
+import sqlite3  # noqa: E402
+_TMP = tempfile.mkdtemp(prefix='brandr_credits_sim_')
+os.environ['DB_PATH'] = os.path.join(_TMP, 'boot.db')
+_c = sqlite3.connect(os.environ['DB_PATH'])
+_c.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)")
+_c.commit(); _c.close()
+
 from portal import database as db  # noqa: E402
 
 
