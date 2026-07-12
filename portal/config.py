@@ -433,3 +433,8 @@ try:
     cookie_pool.bootstrap_pool(COOKIE_DIR)
 except Exception as _cp_err:
     print(f"[CONFIG] Cookie pool bootstrap skipped: {_cp_err}")
+
+# Optional residential proxy for Instagram (durable fix for datacenter-IP 403s).
+# Set IG_PROXY=http://user:pass@host:port on Render to route IG requests through it.
+IG_PROXY = os.environ.get('IG_PROXY', '').strip()
+print(f"[CONFIG] IG_PROXY: {'SET' if IG_PROXY else 'not set (Instagram uses Render IP directly)'}")

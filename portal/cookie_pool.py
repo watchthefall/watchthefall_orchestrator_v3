@@ -33,10 +33,18 @@ import threading
 MAX_POOL = 10
 COOLDOWN_SECONDS = 30 * 60   # a cookie proven dead rests this long before retry
 
+# Pool-wide circuit breaker: when EVERY cookie fails auth in one fetch (the
+# signature of an Instagram IP block / rate-limit rather than dead cookies),
+# stop trying for a while. Each failed fetch otherwise fires one request per
+# cookie at Instagram, which digs an IP block deeper — the breaker cuts that to
+# zero and returns the friendly error instantly until the window elapses.
+POOL_BREAKER_SECONDS = int(os.environ.get('IG_POOL_BREAKER_SECONDS', 5 * 60))
+
 _lock = threading.Lock()
 _pool = []      # ordered list of cookie file paths on disk
 # path -> {'last_used': float, 'cooldown_until': float, 'fails': int}
 _health = {}
+_pool_blocked_until = 0.0   # epoch; > now means the breaker is open
 
 
 def _looks_valid(text):
@@ -140,6 +148,40 @@ def mark_bad(path):
     if h:
         print(f"[COOKIE ALERT] {os.path.basename(path)} failed auth "
               f"({fails} total) — cooling down {COOLDOWN_SECONDS // 60}min")
+
+
+def trip_breaker():
+    """Open the pool-wide breaker after an all-cookies-failed fetch. Subsequent
+    Instagram fetches short-circuit (no requests) until the window elapses."""
+    global _pool_blocked_until
+    with _lock:
+        _pool_blocked_until = time.time() + POOL_BREAKER_SECONDS
+    print(f"[COOKIE POOL] circuit breaker OPEN for {POOL_BREAKER_SECONDS // 60}min "
+          f"— all cookies failed (likely an Instagram IP block); skipping fetches to "
+          f"avoid digging deeper", flush=True)
+
+
+def reset_breaker():
+    """Close the breaker early — called on any successful fetch (Instagram is
+    responding again)."""
+    global _pool_blocked_until
+    with _lock:
+        was_open = _pool_blocked_until > time.time()
+        _pool_blocked_until = 0.0
+    if was_open:
+        print("[COOKIE POOL] circuit breaker CLOSED — Instagram fetch succeeded", flush=True)
+
+
+def breaker_open():
+    """True while the breaker is open (skip Instagram fetches)."""
+    with _lock:
+        return _pool_blocked_until > time.time()
+
+
+def breaker_remaining():
+    """Seconds until the breaker closes (0 if closed)."""
+    with _lock:
+        return max(0, int(_pool_blocked_until - time.time()))
 
 
 # Substrings that indicate an Instagram auth/cookie problem (rotate to another

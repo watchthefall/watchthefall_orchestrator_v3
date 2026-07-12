@@ -114,6 +114,15 @@ def main():
         _check("every cookie still available next request (no cooldown on ambiguous all-fail)",
                cookie_pool.pool_size() == len(cookie_pool.candidates_lru()))
 
+        print("\n7) Circuit breaker: closed by default, opens on trip, closes on reset")
+        cookie_pool.reset_breaker()
+        _check("breaker starts closed", cookie_pool.breaker_open() is False)
+        cookie_pool.trip_breaker()
+        _check("breaker open after all-fail trip", cookie_pool.breaker_open() is True)
+        _check("breaker_remaining > 0", cookie_pool.breaker_remaining() > 0)
+        cookie_pool.reset_breaker()
+        _check("breaker closed after a successful fetch (reset)", cookie_pool.breaker_open() is False)
+
     finally:
         os.environ.clear()
         os.environ.update(saved_env)

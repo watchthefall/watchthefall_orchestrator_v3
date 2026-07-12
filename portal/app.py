@@ -2727,7 +2727,10 @@ def process_branded_videos():
                             'Connection': 'keep-alive',
                             'Upgrade-Insecure-Requests': '1',
                         }
-                    
+                        _ig_proxy = os.environ.get('IG_PROXY', '').strip()
+                        if _ig_proxy:
+                            ydl_opts['proxy'] = _ig_proxy
+
                     # Apply TikTok impersonation for TikTok URLs
                     # Note: impersonation requires curl_cffi and specific target format
                     # Temporarily disabled until proper integration is tested
@@ -3231,7 +3234,15 @@ def fetch_videos_from_urls():
                         'Connection': 'keep-alive',
                         'Upgrade-Insecure-Requests': '1',
                     }
-                
+                    # Route Instagram through a residential proxy when IG_PROXY is
+                    # set (e.g. http://user:pass@host:port). Off by default —
+                    # Instagram blocks datacenter IPs like Render's, so this is the
+                    # durable fix for those 403s. Inert until the env var is set.
+                    _ig_proxy = os.environ.get('IG_PROXY', '').strip()
+                    if _ig_proxy:
+                        ydl_opts['proxy'] = _ig_proxy
+                        print("[FETCH] Instagram routed via IG_PROXY (residential)")
+
                 # Apply TikTok impersonation for TikTok URLs
                 # Note: impersonation requires curl_cffi and specific target format
                 # Temporarily disabled until proper integration is tested
@@ -3267,6 +3278,21 @@ def fetch_videos_from_urls():
                     _legacy = _legacy_cookie_candidate()
                     cookie_candidates = [_legacy] if _legacy else [None]
 
+                # Circuit breaker: if the whole pool just failed (Instagram IP
+                # block), skip entirely instead of firing a request per cookie and
+                # digging the block deeper. Returns the friendly error instantly.
+                if using_pool and cookie_pool.breaker_open():
+                    _mins = max(1, cookie_pool.breaker_remaining() // 60)
+                    print(f"[COOKIE POOL] breaker open — skipping Instagram fetch for "
+                          f"{url_input[:50]} (~{_mins}min left)", flush=True)
+                    return {
+                        'url': url_input,
+                        'error': ("Instagram downloads are paused for a few minutes while a "
+                                  "temporary block clears. Please try again shortly, or use a "
+                                  "TikTok / X link in the meantime."),
+                        'success': False,
+                    }
+
                 info = None
                 filename = None
                 tried_bad = []          # cookies that auth-failed on this URL
@@ -3291,6 +3317,7 @@ def fetch_videos_from_urls():
                             filename = ydl.prepare_filename(info)
                         if using_pool and _cookie:
                             cookie_pool.mark_success(_cookie)
+                            cookie_pool.reset_breaker()  # Instagram is responding again
                             # A later cookie worked, so the earlier failures were
                             # genuinely dead cookies — cool them down.
                             for _b in tried_bad:
@@ -3326,6 +3353,7 @@ def fetch_videos_from_urls():
                         print(f"[COOKIE ALERT] all {cookie_pool.pool_size()} pooled "
                               f"cookie(s) failed auth for {url_input} — refresh the "
                               f"pool if this persists")
+                        cookie_pool.trip_breaker()  # stop hammering IG for a while
                     return {
                         'url': url_input,
                         'error': ("Instagram couldn't be reached for this link right now. "
