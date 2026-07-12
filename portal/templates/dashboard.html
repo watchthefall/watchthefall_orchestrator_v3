@@ -221,17 +221,20 @@
                 </div>
                 {% endif %}
 
-                <!-- Branding Jobs Today -->
+                <!-- Credits Today (1 credit = 1 render) -->
+                {% if credits is defined %}
                 <div class="usage-widget" style="margin-bottom:0;">
                     <div class="usage-info">
-                        <div class="usage-label">Jobs Today</div>
-                        <div class="usage-numbers"><span class="usage-accent">{{ usage.branding_jobs }}</span> / {% if limits.branding_jobs_per_day >= 9999 %}&infin;{% else %}{{ limits.branding_jobs_per_day }}{% endif %}</div>
-                        {% set pct_jobs = (((usage.branding_jobs / limits.branding_jobs_per_day) * 100) | int) if limits.branding_jobs_per_day > 0 and limits.branding_jobs_per_day < 9999 else 0 %}
+                        <div class="usage-label">Credits Left Today</div>
+                        <div class="usage-numbers"><span class="usage-accent">{{ credits.total }}</span> / {% if credits_per_day >= 9999 %}&infin;{% else %}{{ credits_per_day }}{% endif %}{% if (credits.earned + credits.purchased) > 0 %} <span style="opacity:.6; font-size:.85em;">(+{{ credits.earned + credits.purchased }} bonus)</span>{% endif %}</div>
+                        {% set credits_used = (credits_per_day - credits.subscription) if (credits_per_day > 0 and credits_per_day < 9999) else 0 %}
+                        {% set pct_credits = (((credits_used / credits_per_day) * 100) | int) if (credits_per_day > 0 and credits_per_day < 9999) else 0 %}
                         <div class="usage-bar">
-                            <div class="usage-bar-fill{% if pct_jobs >= 100 %} critical{% elif pct_jobs >= 80 %} warning{% endif %}" style="width: {{ [pct_jobs, 100] | min }}%"></div>
+                            <div class="usage-bar-fill{% if pct_credits >= 100 %} critical{% elif pct_credits >= 80 %} warning{% endif %}" style="width: {{ [pct_credits, 100] | min }}%"></div>
                         </div>
                     </div>
                 </div>
+                {% endif %}
 
                 <!-- Fetches Today -->
                 <div class="usage-widget" style="margin-bottom:0;">
@@ -245,7 +248,7 @@
                     </div>
                 </div>
             </div>
-            {% set any_high = (pct_brands is defined and pct_brands >= 80) or pct_jobs >= 80 or pct_dl >= 80 %}
+            {% set any_high = (pct_brands is defined and pct_brands >= 80) or (pct_credits is defined and pct_credits >= 80) or pct_dl >= 80 %}
             {% if any_high and tier not in ('Platinum', 'Elite') %}
             <div style="text-align:right; margin-bottom:16px;">
                 <button class="btn-accent sm" onclick="openUpgradeModal('Running low on usage', 'Upgrade your plan to keep creating without interruption.')">Upgrade Plan</button>

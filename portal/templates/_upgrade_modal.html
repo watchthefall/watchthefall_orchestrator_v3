@@ -186,8 +186,7 @@
                     <ul class="upgrade-card-features">
                         <li>{{ all_tier_features.Explorer.max_brands_per_job }} brand per job</li>
                         <li>{{ all_tier_features.Explorer.max_brand_configs_total }} brand config</li>
-                        <li>{{ all_tier_features.Explorer.max_branding_jobs_per_day }} jobs/day</li>
-                        <li>{{ all_tier_features.Explorer.max_downloads_per_day }} downloads/day</li>
+                        <li>{{ all_tier_config.Explorer.credits_per_day }} credits/day</li>
                     </ul>
                     <div class="upgrade-card-actions">
                         {% if tier == 'Explorer' %}
@@ -220,8 +219,7 @@
                     <ul class="upgrade-card-features">
                         <li class="highlight">{{ all_tier_features.Creator.max_brands_per_job }} brands per job</li>
                         <li class="highlight">{{ all_tier_features.Creator.max_brand_configs_total }} brand configs</li>
-                        <li>{{ all_tier_features.Creator.max_branding_jobs_per_day }} jobs/day</li>
-                        <li>{{ all_tier_features.Creator.max_downloads_per_day }} downloads/day</li>
+                        <li class="highlight">{{ all_tier_config.Creator.credits_per_day }} credits/day</li>
                         <li class="highlight">Result preview strip</li>
                         <li class="highlight">Brand as profile image</li>
                     </ul>
@@ -258,8 +256,7 @@
                     <ul class="upgrade-card-features">
                         <li class="highlight">{{ all_tier_features.Studio.max_brands_per_job }} brands per job</li>
                         <li class="highlight">Unlimited brand configs</li>
-                        <li>{{ all_tier_features.Studio.max_branding_jobs_per_day }} jobs/day</li>
-                        <li>{{ all_tier_features.Studio.max_downloads_per_day }} downloads/day</li>
+                        <li class="highlight">{{ all_tier_config.Studio.credits_per_day }} credits/day</li>
                         <li class="highlight">Priority processing queue</li>
                         <li class="highlight">Advanced queue controls</li>
                         <li class="highlight">Batch templates</li>
@@ -297,8 +294,7 @@
                     <ul class="upgrade-card-features">
                         <li class="highlight">{{ all_tier_features.Platinum.max_brands_per_job }} brands per job</li>
                         <li class="highlight">Unlimited brand configs</li>
-                        <li>{{ all_tier_features.Platinum.max_branding_jobs_per_day }} jobs/day</li>
-                        <li>{{ all_tier_features.Platinum.max_downloads_per_day }} downloads/day</li>
+                        <li class="highlight">{{ all_tier_config.Platinum.credits_per_day }} credits/day</li>
                         <li class="highlight">Dual-logo composition</li>
                         <li class="highlight">{{ all_tier_features.Platinum.max_concurrent_jobs }} concurrent jobs</li>
                         <li>Everything in Studio</li>
