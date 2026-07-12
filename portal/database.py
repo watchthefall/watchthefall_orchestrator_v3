@@ -2163,9 +2163,9 @@ def _refresh_subscription(conn, user_id, daily_allowance):
 
 
 def get_credit_balance(user_id, daily_allowance):
-    """Return {subscription, earned, purchased, total} after a lazy daily refresh.
-    Never raises — on DB error returns the full daily_allowance as a fail-open
-    fallback so enforcement/UI degrade gracefully (never falsely block a user)."""
+    """Return {subscription, earned, purchased, total, ok} after a lazy daily
+    refresh. Never raises. On DB error returns ok=False (with fallback numbers)
+    so the render pre-check can fail CLOSED; display surfaces ignore ok."""
     def _do(conn):
         _ensure_credits_row(conn, user_id)
         _refresh_subscription(conn, user_id, daily_allowance)
@@ -2176,13 +2176,16 @@ def get_credit_balance(user_id, daily_allowance):
         ).fetchone()
         sub, earn, purch = r['subscription_credits'], r['earned_credits'], r['purchased_credits']
         return {'subscription': sub, 'earned': earn, 'purchased': purch,
-                'total': sub + earn + purch}
+                'total': sub + earn + purch, 'ok': True}
     try:
         return _retry_write(_do)
     except Exception as e:
-        print(f"[CREDITS] get_credit_balance error for user={user_id}: {e}", flush=True)
+        print(f"[CREDITS] get_credit_balance DB error for user={user_id}: {e}", flush=True)
+        # ok=False lets the render pre-check fail CLOSED (503) so a persistent DB
+        # outage can't hand out free renders. Display surfaces ignore ok and just
+        # show these fallback numbers.
         return {'subscription': daily_allowance, 'earned': 0, 'purchased': 0,
-                'total': daily_allowance}
+                'total': daily_allowance, 'ok': False}
 
 
 def spend_credits(user_id, amount, daily_allowance):
@@ -2198,10 +2201,13 @@ def spend_credits(user_id, amount, daily_allowance):
             'FROM user_credits WHERE user_id = ?', (user_id,)
         ).fetchone()
         sub, earn, purch = r['subscription_credits'], r['earned_credits'], r['purchased_credits']
-        if sub + earn + purch < amount:
+        before_total = sub + earn + purch
+        if before_total < amount:
             conn.commit()  # persist the refresh even though we didn't spend
+            print(f"[CREDITS] user={user_id} insufficient balance={before_total} needed={amount}",
+                  flush=True)
             return False, {'subscription': sub, 'earned': earn, 'purchased': purch,
-                           'total': sub + earn + purch}
+                           'total': before_total}
         remaining = amount
         take_sub = min(sub, remaining); remaining -= take_sub
         take_earn = min(earn, remaining); remaining -= take_earn
@@ -2213,12 +2219,21 @@ def spend_credits(user_id, amount, daily_allowance):
             (sub, earn, purch, user_id)
         )
         conn.commit()
+        after_total = sub + earn + purch
+        print(f"[CREDITS] user={user_id} balance_before={before_total} spent={amount} "
+              f"balance_after={after_total} (sub={sub} earned={earn} purchased={purch})",
+              flush=True)
         return True, {'subscription': sub, 'earned': earn, 'purchased': purch,
-                      'total': sub + earn + purch}
+                      'total': after_total}
     try:
         return _retry_write(_do)
     except Exception as e:
-        print(f"[CREDITS] spend_credits error for user={user_id}: {e}", flush=True)
+        # Charge-on-success path: the render already completed. Don't fail it on a
+        # DB blip — log and allow (a few free renders during an outage is fine).
+        # Runaway free renders are prevented up front: the pre-check fails CLOSED
+        # (503) when the DB is unreachable, so renders don't even start.
+        print(f"[CREDITS] spend_credits DB error for user={user_id} (render allowed uncharged): {e}",
+              flush=True)
         return True, {'subscription': 0, 'earned': 0, 'purchased': 0, 'total': 0}
 
 
@@ -2241,6 +2256,20 @@ def add_purchased_credits(user_id, amount):
         _ensure_credits_row(conn, user_id)
         conn.execute('UPDATE user_credits SET purchased_credits = purchased_credits + ? WHERE user_id = ?',
                      (amount, user_id))
+        conn.commit()
+        return True
+    return _retry_write(_do)
+
+
+def set_subscription_credits(user_id, amount):
+    """Admin: set subscription_credits to an exact value and mark it refreshed
+    today so the lazy daily reset doesn't immediately overwrite it. Pass the
+    tier allowance to emulate 'reset subscription'."""
+    def _do(conn):
+        _ensure_credits_row(conn, user_id)
+        conn.execute('UPDATE user_credits SET subscription_credits = ?, subscription_refreshed_on = ? '
+                     'WHERE user_id = ?',
+                     (amount, _today_str(), user_id))
         conn.commit()
         return True
     return _retry_write(_do)

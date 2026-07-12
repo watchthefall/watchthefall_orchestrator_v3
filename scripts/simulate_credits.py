@@ -111,6 +111,21 @@ def main():
         bal = db.get_credit_balance(2, 9999)
         _check("unlimited user gets 9999 subscription", bal['subscription'] == 9999)
 
+        print("\n8) Balance read reports ok=True on success")
+        _check("ok flag present and True", db.get_credit_balance(U, ALLOW).get('ok') is True)
+
+        print("\n9) Admin set_subscription_credits sets an exact value (survives same-day read)")
+        db.set_subscription_credits(U, 7)
+        bal = db.get_credit_balance(U, ALLOW)
+        _check("subscription set to exactly 7 (not re-refreshed to allowance)", bal['subscription'] == 7)
+
+        print("\n10) DB unreachable -> ok=False (fail-closed signal for the render pre-check)")
+        _good_path = db.DB_PATH
+        db.DB_PATH = os.path.join(tmp, 'no_such_dir', 'x.db')  # missing parent -> connect fails
+        bad = db.get_credit_balance(U, ALLOW)
+        db.DB_PATH = _good_path
+        _check("ok == False on DB error", bad.get('ok') is False)
+
     finally:
         import shutil
         shutil.rmtree(tmp, ignore_errors=True)

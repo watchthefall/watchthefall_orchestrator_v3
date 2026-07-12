@@ -91,7 +91,8 @@ from .config import (
 )
 from .database import (
     log_event, get_daily_usage, increment_branding_jobs, increment_downloads,
-    get_credit_balance, spend_credits,
+    get_credit_balance, spend_credits, set_subscription_credits,
+    add_earned_credits, add_purchased_credits,
     get_user_special_status, set_user_special_status,
     create_waitlist_entry, get_waitlist_entry_by_email,
     get_pending_waitlist_entries, get_all_waitlist_entries, get_waitlist_counts,
@@ -2256,6 +2257,56 @@ def api_usage():
     })
 
 
+@app.route('/api/admin/credits', methods=['POST'])
+@admin_required
+def admin_manage_credits():
+    """Admin credit tool — fix a user's credits in seconds.
+
+    Body: {"user_id": <int>, "action": <str>, "amount": <int>}
+      action = grant_earned      -> add permanent earned credits
+             | grant_purchased   -> add permanent purchased credits
+             | set_subscription  -> set today's subscription credits exactly
+             | reset_subscription-> reset subscription to the tier's daily allowance
+    Returns the resulting balance. GET the current balance with action=inspect.
+    """
+    data = request.get_json(force=True) or {}
+    try:
+        target_id = int(data.get('user_id'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'user_id (int) is required'}), 400
+    action = data.get('action', 'inspect')
+    try:
+        amount = int(data.get('amount', 0))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'amount must be an integer'}), 400
+
+    allowance = get_effective_limits(
+        get_user_tier(target_id), get_user_special_status(target_id)
+    ).get('credits_per_day', 0)
+
+    if action == 'grant_earned':
+        add_earned_credits(target_id, amount)
+    elif action == 'grant_purchased':
+        add_purchased_credits(target_id, amount)
+    elif action == 'set_subscription':
+        set_subscription_credits(target_id, amount)
+    elif action == 'reset_subscription':
+        set_subscription_credits(target_id, allowance)
+    elif action == 'inspect':
+        pass  # just report the balance
+    else:
+        return jsonify({'success': False,
+                        'error': "action must be one of: grant_earned, grant_purchased, "
+                                 "set_subscription, reset_subscription, inspect"}), 400
+
+    bal = get_credit_balance(target_id, allowance)
+    print(f"[CREDITS][ADMIN] user={target_id} action={action} amount={amount} "
+          f"-> balance={bal['total']} (sub={bal['subscription']} earned={bal['earned']} "
+          f"purchased={bal['purchased']})", flush=True)
+    return jsonify({'success': True, 'user_id': target_id, 'action': action,
+                    'credits_per_day': allowance, 'balance': bal})
+
+
 # ── Source reframe/crop edits (Studio content edit, per source+format) ──────────
 SOURCE_EDIT_FORMATS = {'vertical_9_16', 'square_1_1'}
 SOURCE_EDIT_CROP_MODES = {'fit', 'fill'}
@@ -2603,15 +2654,13 @@ def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
             increment_branding_jobs(user_id)
         except Exception as _e:
             print(f"[RENDER-ASYNC] Usage increment failed: {_e}")
+        # spend_credits logs balance_before/spent/after (and 'insufficient')
+        # itself, so no extra logging needed here.
         try:
             _allowance = get_effective_limits(
                 get_user_tier(user_id), get_user_special_status(user_id)
             ).get('credits_per_day', 0)
-            _ok, _bal = spend_credits(user_id, 1, _allowance)
-            if _ok:
-                print(f"[CREDITS] user={user_id} spent 1 credit (render), balance={_bal['total']}")
-            else:
-                print(f"[CREDITS] user={user_id} render completed but no credits to charge (not charged)")
+            spend_credits(user_id, 1, _allowance)
         except Exception as _e:
             print(f"[CREDITS] credit spend failed for user={user_id}: {_e}")
 
@@ -2654,6 +2703,16 @@ def process_branded_videos():
         # in _do_brand_render. Pre-check here so we reject before doing work.
         credits_allowance = limits.get('credits_per_day', 0)
         balance = get_credit_balance(user_id, credits_allowance)
+        if not balance.get('ok', True):
+            # Credit system unreachable (DB down) — fail CLOSED so a persistent
+            # DB issue can't hand out free renders. Charge-on-success still
+            # fails open, so a brief blip mid-render just skips the charge.
+            print(f"[CREDITS] user={user_id} pre-check unavailable (DB) — returning 503", flush=True)
+            return jsonify({
+                'success': False,
+                'error': 'SERVICE_UNAVAILABLE',
+                'message': "We couldn't check your credits right now. Please try again in a moment.",
+            }), 503
         if balance['total'] < 1:
             return jsonify({
                 'success': False,
