@@ -2379,6 +2379,9 @@ let secLogoSelectedBrandId = null;  // Which brand's logo is used as secondary
 let currentWmMode = 'positioned';  // always positioned — fullscreen removed
 let currentWmX = 0.5;
 let currentWmY = 0.5;
+// Watermark drag state (center-anchored, like the logo)
+let watermarkDragging = false;
+let wmDragStart = { x: 0, y: 0 };
 
 // ========== QUEUE MODE STATE ==========
 let isQueueMode = false;
@@ -3033,6 +3036,8 @@ function captureCurrentSliders() {
     var result = {
         watermark_scale: watermarkUiToRenderScale(parseInt(document.getElementById('wmScale').value)),
         watermark_opacity: parseInt(document.getElementById('wmOpacity').value) / 100,
+        wm_x: currentWmX,
+        wm_y: currentWmY,
         logo_x: logoCenterXPercent,
         logo_y: logoCenterYPercent,
         logo_rotation: logoRotationDegrees,
@@ -3564,6 +3569,10 @@ function drawOverlays() {
         const cy = currentWmY * canvas.height;
         ctx.drawImage(watermarkImg, cx - wmW / 2, cy - wmH / 2, wmW, wmH);
         ctx.globalAlpha = 1.0;
+        // Store watermark bounds for hit testing (dragging) — parity with logo
+        canvas._wmBounds = { x: cx - wmW / 2, y: cy - wmH / 2, w: wmW, h: wmH };
+    } else {
+        canvas._wmBounds = null;
     }
 
     // Draw logo (anchored to CENTER coordinates) — same naturalWidth guard
@@ -3889,6 +3898,13 @@ function hitTestOverlay(pos) {
             return 'secondaryLogo';
         }
     }
+    // Watermark last: it is drawn beneath text/logos, so overlapping layers win.
+    if (canvas._wmBounds) {
+        const wb = canvas._wmBounds;
+        if (pos.x >= wb.x && pos.x <= wb.x + wb.w && pos.y >= wb.y && pos.y <= wb.y + wb.h) {
+            return 'watermark';
+        }
+    }
     return null;
 }
 
@@ -3906,6 +3922,11 @@ function startOverlayDrag(kind, pos) {
         var secCX = secLogoCenterXPercent * canvas.width;
         var secCY = secLogoCenterYPercent * canvas.height;
         secLogoDragStart = { x: pos.x - secCX, y: pos.y - secCY };
+    } else if (kind === 'watermark') {
+        watermarkDragging = true;
+        const wmCX = currentWmX * canvas.width;
+        const wmCY = currentWmY * canvas.height;
+        wmDragStart = { x: pos.x - wmCX, y: pos.y - wmCY };
     }
     canvas.style.cursor = 'grabbing';
 }
@@ -3914,6 +3935,12 @@ function dragOverlay(pos) {
     if (textDragging) {
         textX = pos.x - textDragStart.x;
         textY = pos.y - textDragStart.y;
+        updateCanvasPreview();
+    } else if (watermarkDragging) {
+        const wmCX = pos.x - wmDragStart.x;
+        const wmCY = pos.y - wmDragStart.y;
+        currentWmX = Math.max(0.05, Math.min(0.95, wmCX / canvas.width));
+        currentWmY = Math.max(0.05, Math.min(0.95, wmCY / canvas.height));
         updateCanvasPreview();
     } else if (secondaryLogoDragging) {
         var secCX = pos.x - secLogoDragStart.x;
@@ -3947,7 +3974,7 @@ function handleCanvasPointerDown(e) {
     activeReframePointers.set(e.pointerId, { id: e.pointerId, x: pos.x, y: pos.y });
     try { canvas.setPointerCapture(e.pointerId); } catch (_e) {}
 
-    if (logoDragging || textDragging || secondaryLogoDragging) return;
+    if (logoDragging || textDragging || secondaryLogoDragging || watermarkDragging) return;
 
     const overlay = hitTestOverlay(pos);
     if (overlay) {
@@ -3969,7 +3996,7 @@ function handleCanvasPointerMove(e) {
     const pos = getCanvasCoords(e);
     activeReframePointers.set(e.pointerId, { id: e.pointerId, x: pos.x, y: pos.y });
 
-    if (logoDragging || textDragging || secondaryLogoDragging) {
+    if (logoDragging || textDragging || secondaryLogoDragging || watermarkDragging) {
         dragOverlay(pos);
         return;
     }
@@ -3989,7 +4016,7 @@ function handleCanvasPointerEnd(e) {
     }
     try { canvas.releasePointerCapture(e.pointerId); } catch (_e) {}
 
-    if (logoDragging || textDragging || secondaryLogoDragging) {
+    if (logoDragging || textDragging || secondaryLogoDragging || watermarkDragging) {
         endOverlayDrag();
         return;
     }
@@ -4019,6 +4046,7 @@ function endOverlayDrag() {
     logoDragging = false;
     textDragging = false;
     secondaryLogoDragging = false;
+    watermarkDragging = false;
     activeReframePointers.clear();
     canvas.style.cursor = 'default';
 }
@@ -5045,6 +5073,11 @@ function loadOverridesIntoSliders(overrides) {
     // Show/hide text controls
     document.getElementById('textControls').style.display = overrides.text_enabled ? 'block' : 'none';
     
+    // Restore watermark position from overrides (only when present — older
+    // saved items without wm_x/wm_y keep the brand-config position)
+    if (overrides.wm_x != null) currentWmX = overrides.wm_x;
+    if (overrides.wm_y != null) currentWmY = overrides.wm_y;
+
     // Restore logo position and rotation from overrides
     logoCenterXPercent = overrides.logo_x || 0;
     logoCenterYPercent = overrides.logo_y || 0;
@@ -5145,6 +5178,8 @@ async function fireRenderForBrand(item) {
         ...(item.userEdited ? {
             watermark_scale:           item.overrides.watermark_scale,
             watermark_opacity:         item.overrides.watermark_opacity,
+            wm_x:                      item.overrides.wm_x,
+            wm_y:                      item.overrides.wm_y,
             logo_scale:                item.overrides.logo_scale,
             logo_x:                    item.overrides.logo_x,
             logo_y:                    item.overrides.logo_y,
@@ -5314,6 +5349,8 @@ async function fireRenderForItem(item) {
         ...(item.userEdited ? {
             watermark_scale:           item.overrides.watermark_scale,
             watermark_opacity:         item.overrides.watermark_opacity,
+            wm_x:                      item.overrides.wm_x,
+            wm_y:                      item.overrides.wm_y,
             logo_scale:                item.overrides.logo_scale,
             logo_x:                    item.overrides.logo_x,
             logo_y:                    item.overrides.logo_y,
@@ -5504,6 +5541,8 @@ async function processCurrentBrand() {
                 ...(current.userEdited ? {
                     watermark_scale: current.overrides.watermark_scale,
                     watermark_opacity: current.overrides.watermark_opacity,
+                    wm_x: current.overrides.wm_x,
+                    wm_y: current.overrides.wm_y,
                     logo_scale: current.overrides.logo_scale,
                     logo_x: current.overrides.logo_x,
                     logo_y: current.overrides.logo_y,
@@ -5731,6 +5770,8 @@ async function processAllBrands() {
                             ...(item.userEdited ? {
                                 watermark_scale: item.overrides.watermark_scale,
                                 watermark_opacity: item.overrides.watermark_opacity,
+                                wm_x: item.overrides.wm_x,
+                                wm_y: item.overrides.wm_y,
                                 logo_scale: item.overrides.logo_scale,
                                 logo_x: item.overrides.logo_x,
                                 logo_y: item.overrides.logo_y,
