@@ -93,6 +93,7 @@ from .database import (
     log_event, get_daily_usage, increment_branding_jobs, increment_downloads,
     get_credit_balance, spend_credits, set_subscription_credits,
     add_earned_credits, add_purchased_credits,
+    log_render_event, get_render_stats, get_user_render_stats,
     get_user_special_status, set_user_special_status,
     create_waitlist_entry, get_waitlist_entry_by_email,
     get_pending_waitlist_entries, get_all_waitlist_entries, get_waitlist_counts,
@@ -2307,6 +2308,35 @@ def admin_manage_credits():
                     'credits_per_day': allowance, 'balance': bal})
 
 
+@app.route('/api/admin/render-stats', methods=['GET'])
+@admin_required
+def admin_render_stats():
+    """Evidence-backed unit economics from per-render telemetry (render_events).
+
+    Query params:
+      days   — lookback window (default 30)
+      cost   — assumed fixed infrastructure GBP/month for cost math (default 20)
+      users  — if truthy, also return the heaviest per-user breakdown
+    Answers: renders/user, cost per render (loaded + marginal), capacity,
+    and heavy-user behaviour — replacing the modelled figures in the handbook
+    (Section 16) with measured ones.
+    """
+    try:
+        days = max(1, min(365, int(request.args.get('days', 30))))
+    except (TypeError, ValueError):
+        days = 30
+    try:
+        cost = float(request.args.get('cost', 20.0))
+    except (TypeError, ValueError):
+        cost = 20.0
+
+    stats = get_render_stats(days=days, cost_per_month_gbp=cost)
+    payload = {'success': True, 'stats': stats}
+    if request.args.get('users'):
+        payload['heaviest_users'] = get_user_render_stats(days=days)
+    return jsonify(payload)
+
+
 # ── Source reframe/crop edits (Studio content edit, per source+format) ──────────
 SOURCE_EDIT_FORMATS = {'vertical_9_16', 'square_1_1'}
 SOURCE_EDIT_CROP_MODES = {'fit', 'fill'}
@@ -2596,9 +2626,24 @@ def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
                 import time as _rt
                 _t0 = _rt.time()
                 output_path = processor.process_brand(merged_config, video_id=video_id, output_format=output_format)
-                print(f"[RENDER-ASYNC] {job_id[:8]} brand '{brand_name}' done in {_rt.time()-_t0:.1f}s")
+                _render_secs = _rt.time() - _t0
+                print(f"[RENDER-ASYNC] {job_id[:8]} brand '{brand_name}' done in {_render_secs:.1f}s")
                 output_paths.append(output_path)
                 output_metadata[output_path] = {'brand_id': brand_id, 'brand_name': brand_name}
+
+                # Per-render telemetry (best-effort; never affects the render).
+                # One row per brand render = the real compute unit — powers
+                # measured unit economics (renders/user, cost/user, capacity).
+                try:
+                    _out_kb = (os.path.getsize(output_path) // 1024) if os.path.exists(output_path) else None
+                    log_render_event(
+                        user_id=user_id, job_id=job_id, brand_id=brand_id,
+                        brand_name=brand_name, output_format=output_format,
+                        render_seconds=_render_secs, output_kb=_out_kb,
+                        brand_count=total_brands,
+                    )
+                except Exception as _te:
+                    print(f"[RENDER-EVENT] telemetry skipped: {_te}")
 
                 # Best-effort: persist branded output record
                 try:

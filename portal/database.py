@@ -7,7 +7,7 @@ import sqlite3
 import json
 import time
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from .config import DB_PATH
 
 
@@ -267,6 +267,28 @@ def init_db():
             )
         ''')
         
+        # Per-render telemetry. One row per brand render (the real compute unit),
+        # so unit economics move from modelled to measured: renders/user,
+        # render-seconds/user, output size, heavy-user behaviour, capacity.
+        # Best-effort logging only — never blocks or fails a completed render.
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS render_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                job_id TEXT,
+                brand_id INTEGER,
+                brand_name TEXT,
+                output_format TEXT,
+                render_seconds REAL,
+                output_kb INTEGER,
+                brand_count INTEGER,
+                created_on TEXT,
+                created_at TEXT
+            )
+        ''')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_render_events_user ON render_events(user_id)')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_render_events_date ON render_events(created_on)')
+
         # Beta access / waitlist table
         c.execute('''
             CREATE TABLE IF NOT EXISTS beta_access (
@@ -527,6 +549,31 @@ def _run_migrations():
             ''')
             conn.commit()
             print("[DATABASE] Migration completed: user_credits table created")
+
+        # Migration: Create render_events table for existing databases
+        try:
+            c.execute("SELECT id FROM render_events LIMIT 1")
+        except sqlite3.OperationalError:
+            print("[DATABASE] Running migration: Creating render_events table")
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS render_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    job_id TEXT,
+                    brand_id INTEGER,
+                    brand_name TEXT,
+                    output_format TEXT,
+                    render_seconds REAL,
+                    output_kb INTEGER,
+                    brand_count INTEGER,
+                    created_on TEXT,
+                    created_at TEXT
+                )
+            ''')
+            c.execute('CREATE INDEX IF NOT EXISTS idx_render_events_user ON render_events(user_id)')
+            c.execute('CREATE INDEX IF NOT EXISTS idx_render_events_date ON render_events(created_on)')
+            conn.commit()
+            print("[DATABASE] Migration completed: render_events table created")
 
         # Migration: Add special_status column to users table
         try:
@@ -2284,6 +2331,129 @@ def set_subscription_credits(user_id, amount):
         conn.commit()
         return True
     return _retry_write(_do)
+
+
+# ── Render telemetry ────────────────────────────────────────────────────────
+# One row per brand render (the actual compute unit). Powers evidence-backed
+# unit economics: renders per user, render-seconds per user, output size,
+# heavy-user behaviour, capacity forecasting. Logging is best-effort and must
+# never affect a completed render.
+
+def log_render_event(user_id, job_id, brand_id, brand_name, output_format,
+                     render_seconds, output_kb, brand_count):
+    """Record one completed brand render. Never raises — telemetry must not
+    break a render that already succeeded."""
+    def _do(conn):
+        now = datetime.utcnow()
+        conn.execute(
+            'INSERT INTO render_events '
+            '(user_id, job_id, brand_id, brand_name, output_format, render_seconds, '
+            ' output_kb, brand_count, created_on, created_at) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (user_id, job_id, brand_id, brand_name, output_format,
+             round(float(render_seconds), 2) if render_seconds is not None else None,
+             int(output_kb) if output_kb is not None else None,
+             brand_count, now.strftime('%Y-%m-%d'), now.isoformat(timespec='seconds'))
+        )
+        conn.commit()
+        return True
+    try:
+        return _retry_write(_do)
+    except Exception as e:
+        print(f"[RENDER-EVENT] log failed (render unaffected) user={user_id} job={job_id}: {e}",
+              flush=True)
+        return False
+
+
+def _median(values):
+    """Median of a list of numbers; None if empty."""
+    if not values:
+        return None
+    s = sorted(values)
+    n = len(s)
+    mid = n // 2
+    if n % 2:
+        return s[mid]
+    return (s[mid - 1] + s[mid]) / 2.0
+
+
+def get_render_stats(days=30, cost_per_month_gbp=20.0):
+    """Aggregate render telemetry over the last `days`. Returns a dict of
+    fleet-wide metrics: render count, unique users, mean/median/p95 render
+    seconds, total compute time, avg output size, and derived cost figures
+    (loaded per render = fixed cost / renders in window scaled to a month;
+    marginal per render = instance $/sec proxy in GBP). Never raises."""
+    try:
+        cutoff = (datetime.utcnow() - timedelta(days=days)).strftime('%Y-%m-%d')
+        with get_connection() as conn:
+            rows = conn.execute(
+                'SELECT user_id, render_seconds, output_kb FROM render_events '
+                'WHERE created_on >= ?', (cutoff,)
+            ).fetchall()
+        secs = [r['render_seconds'] for r in rows if r['render_seconds'] is not None]
+        kbs = [r['output_kb'] for r in rows if r['output_kb'] is not None]
+        users = {r['user_id'] for r in rows if r['user_id'] is not None}
+        n = len(rows)
+        total_secs = sum(secs) if secs else 0.0
+        p95 = None
+        if secs:
+            ss = sorted(secs)
+            p95 = ss[min(len(ss) - 1, int(len(ss) * 0.95))]
+        # Fully-loaded cost per render: fixed monthly cost spread over the
+        # window's render volume, scaled to a 30-day month. Falls as volume
+        # rises — only meaningful at present utilisation.
+        renders_per_month = (n * 30.0 / days) if days else 0
+        loaded_gbp = (cost_per_month_gbp / renders_per_month) if renders_per_month else None
+        # Marginal compute cost: instance cost per second of render time.
+        month_seconds = 30 * 86400
+        gbp_per_sec = cost_per_month_gbp / month_seconds
+        mean_secs = (total_secs / len(secs)) if secs else None
+        marginal_gbp = (mean_secs * gbp_per_sec) if mean_secs is not None else None
+        return {
+            'window_days': days,
+            'renders': n,
+            'unique_users': len(users),
+            'renders_per_user': round(n / len(users), 1) if users else 0,
+            'mean_render_seconds': round(mean_secs, 1) if mean_secs is not None else None,
+            'median_render_seconds': round(_median(secs), 1) if secs else None,
+            'p95_render_seconds': round(p95, 1) if p95 is not None else None,
+            'total_compute_hours': round(total_secs / 3600.0, 2),
+            'avg_output_kb': round(sum(kbs) / len(kbs)) if kbs else None,
+            'est_renders_per_month': round(renders_per_month),
+            'loaded_cost_per_render_gbp': round(loaded_gbp, 4) if loaded_gbp is not None else None,
+            'marginal_cost_per_render_gbp': round(marginal_gbp, 5) if marginal_gbp is not None else None,
+            'fixed_cost_per_month_gbp': cost_per_month_gbp,
+        }
+    except Exception as e:
+        print(f"[RENDER-EVENT] get_render_stats error: {e}", flush=True)
+        return {'window_days': days, 'renders': 0, 'error': str(e)}
+
+
+def get_user_render_stats(days=30, limit=50):
+    """Per-user render aggregates over the last `days`, heaviest first. Answers
+    'average renders per customer' and surfaces heavy users. Never raises."""
+    try:
+        cutoff = (datetime.utcnow() - timedelta(days=days)).strftime('%Y-%m-%d')
+        with get_connection() as conn:
+            rows = conn.execute(
+                'SELECT user_id, COUNT(*) AS renders, '
+                '       SUM(render_seconds) AS total_seconds, '
+                '       AVG(render_seconds) AS avg_seconds, '
+                '       SUM(output_kb) AS total_kb '
+                'FROM render_events WHERE created_on >= ? AND user_id IS NOT NULL '
+                'GROUP BY user_id ORDER BY renders DESC LIMIT ?',
+                (cutoff, limit)
+            ).fetchall()
+        return [{
+            'user_id': r['user_id'],
+            'renders': r['renders'],
+            'total_compute_seconds': round(r['total_seconds'], 1) if r['total_seconds'] is not None else 0,
+            'avg_render_seconds': round(r['avg_seconds'], 1) if r['avg_seconds'] is not None else 0,
+            'total_output_mb': round((r['total_kb'] or 0) / 1024.0, 1),
+        } for r in rows]
+    except Exception as e:
+        print(f"[RENDER-EVENT] get_user_render_stats error: {e}", flush=True)
+        return []
 
 
 def get_user_special_status(user_id):
