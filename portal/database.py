@@ -1097,6 +1097,7 @@ def init_source_edits():
                     crop_y          REAL    DEFAULT 0.5,
                     zoom            REAL    DEFAULT 1.0,
                     crop_mode       TEXT    DEFAULT 'fit',
+                    flip_h          INTEGER DEFAULT 0,
                     trim_start      REAL    DEFAULT NULL,
                     trim_end        REAL    DEFAULT NULL,
                     created_at      TEXT,
@@ -1104,6 +1105,12 @@ def init_source_edits():
                     UNIQUE(user_id, source_filename, output_format)
                 )
             ''')
+            # Migration: add flip_h to pre-existing source_edits tables
+            try:
+                conn.execute("ALTER TABLE source_edits ADD COLUMN flip_h INTEGER DEFAULT 0")
+                print("[DATABASE] Migration: added flip_h column to source_edits")
+            except sqlite3.OperationalError:
+                pass  # column already exists
             conn.commit()
     except Exception as e:
         print(f'[DATABASE] init_source_edits error: {e}')
@@ -1115,6 +1122,7 @@ SOURCE_EDIT_DEFAULTS = {
     'crop_y': 0.5,
     'zoom': 1.0,
     'crop_mode': 'fit',
+    'flip_h': 0,
 }
 
 
@@ -1124,7 +1132,7 @@ def get_source_edit(user_id, source_filename, output_format):
     try:
         with get_connection() as conn:
             row = conn.execute(
-                '''SELECT crop_x, crop_y, zoom, crop_mode
+                '''SELECT crop_x, crop_y, zoom, crop_mode, flip_h
                    FROM source_edits
                    WHERE user_id = ? AND source_filename = ? AND output_format = ?''',
                 (user_id, source_filename, output_format)
@@ -1135,6 +1143,7 @@ def get_source_edit(user_id, source_filename, output_format):
                 'crop_y':    row['crop_y'],
                 'zoom':      row['zoom'],
                 'crop_mode': row['crop_mode'],
+                'flip_h':    row['flip_h'] or 0,
             }
     except Exception as e:
         print(f'[DATABASE] get_source_edit error: {e}')
@@ -1142,26 +1151,28 @@ def get_source_edit(user_id, source_filename, output_format):
 
 
 def upsert_source_edit(user_id, source_filename, output_format,
-                       crop_x, crop_y, zoom, crop_mode):
+                       crop_x, crop_y, zoom, crop_mode, flip_h=0):
     """Insert or update the reframe/crop edit for (user, source, format).
     Caller is responsible for validating ownership and clamping values.
     Returns True on success, False on error."""
     now = datetime.utcnow().isoformat()
+    flip_h = 1 if flip_h else 0
     try:
         with get_connection() as conn:
             conn.execute(
                 '''INSERT INTO source_edits
                        (user_id, source_filename, output_format,
-                        crop_x, crop_y, zoom, crop_mode, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        crop_x, crop_y, zoom, crop_mode, flip_h, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(user_id, source_filename, output_format) DO UPDATE SET
                         crop_x     = excluded.crop_x,
                         crop_y     = excluded.crop_y,
                         zoom       = excluded.zoom,
                         crop_mode  = excluded.crop_mode,
+                        flip_h     = excluded.flip_h,
                         updated_at = excluded.updated_at''',
                 (user_id, source_filename, output_format,
-                 crop_x, crop_y, zoom, crop_mode, now, now)
+                 crop_x, crop_y, zoom, crop_mode, flip_h, now, now)
             )
             conn.commit()
         return True

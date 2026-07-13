@@ -98,9 +98,13 @@ def _build_vertical_reframe_filter(input_path: str, source_edit: Optional[Dict])
         f"scaled={sw}x{sh} overlay=({ox},{oy}) fps={fps:.3f}"
     )
 
+    # Flip mirrors the raw source BEFORE scale/overlay, so pan position is
+    # unchanged and only the content is mirrored (matches the canvas preview).
+    flip_pre = "hflip," if source_edit.get('flip_h') else ""
+
     return (
         f"color=c=black:s={target_w}x{target_h}:r={fps:.6f}[base];"
-        f"[0:v]scale={sw}:{sh}[src_scaled];"
+        f"[0:v]{flip_pre}scale={sw}:{sh}[src_scaled];"
         f"[base][src_scaled]overlay={ox}:{oy}:shortest=1[out]"
     )
 
@@ -135,6 +139,11 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16',
 
         NORMALIZE_TIMEOUT = 300  # 5 min — normalization is just scale+re-encode, not overlay rendering
 
+        # Horizontal flip mirrors the raw source before any scale/crop. Applies to
+        # ALL formats. For the vertical reframe path it's baked into the reframe
+        # filter; for every other path we prepend it here. "" when not flipped.
+        flip_pre = "hflip," if (source_edit and source_edit.get('flip_h')) else ""
+
         if output_format == 'vertical_9_16':
             print(f"[NORMALIZE] output_format=vertical_9_16 target=720x1280")
             reframe_filter = None
@@ -166,7 +175,7 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16',
                     print("[NORMALIZE-REFRAME WARNING] Source edit present but unused; using legacy center-cover")
                 cmd = [
                     FFMPEG_BIN, "-y", "-threads", "1", "-i", input_path,
-                    "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280:(iw-720)/2:(ih-1280)/2",
+                    "-vf", flip_pre + "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280:(iw-720)/2:(ih-1280)/2",
                     "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
                     "-threads", "1",
                     "-pix_fmt", "yuv420p",
@@ -178,7 +187,7 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16',
             # Blur-pad: blurred 720×720 background + foreground scaled to fit, centered.
             # Preserves full source frame — no cropping of faces/text.
             _fc = (
-                "[0:v]split=2[fg][bg_raw];"
+                f"[0:v]{flip_pre}split=2[fg][bg_raw];"
                 "[bg_raw]scale=720:720:force_original_aspect_ratio=increase,"
                 "crop=720:720:(iw-720)/2:(ih-720)/2,"
                 "gblur=sigma=25[bg];"
@@ -204,7 +213,7 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16',
             print(f"[NORMALIZE] output_format={output_format} — using fallback scale=720:-2")
             cmd = [
                 FFMPEG_BIN, "-y", "-threads", "1", "-i", input_path,
-                "-vf", "scale=720:-2",
+                "-vf", flip_pre + "scale=720:-2",
                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
                 "-threads", "1",
                 "-pix_fmt", "yuv420p",

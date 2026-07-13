@@ -2336,10 +2336,9 @@ def _validate_source_edit_request(user_id, source_filename, output_format):
 
 
 def _resolve_render_source_edit(user_id, source_filename, output_format, payload_edit):
-    """Return a clamped source-edit dict for vertical render parity, or None."""
-    if output_format != 'vertical_9_16':
-        return None
-
+    """Return a clamped source-edit dict for render, or None.
+    Crop/reframe apply to vertical_9_16 only; flip_h applies to ALL formats, so
+    non-vertical returns a flip-only edit (or None when not flipped)."""
     edit = payload_edit if isinstance(payload_edit, dict) else None
     if edit is None and source_filename:
         try:
@@ -2352,6 +2351,12 @@ def _resolve_render_source_edit(user_id, source_filename, output_format, payload
     if not isinstance(edit, dict):
         edit = SOURCE_EDIT_DEFAULTS.copy()
 
+    flip_h = 1 if edit.get('flip_h') else 0
+
+    if output_format != 'vertical_9_16':
+        # Non-vertical: no crop/reframe yet, but flip still applies.
+        return {'flip_h': flip_h} if flip_h else None
+
     crop_mode = edit.get('crop_mode', SOURCE_EDIT_DEFAULTS.get('crop_mode', 'fit'))
     if crop_mode not in SOURCE_EDIT_CROP_MODES:
         print(f"[SOURCE-EDIT] Unsupported crop_mode='{crop_mode}' ignored; using fit")
@@ -2362,6 +2367,7 @@ def _resolve_render_source_edit(user_id, source_filename, output_format, payload
         'crop_y': _clamp(edit.get('crop_y', 0.5), 0.0, 1.0, 0.5),
         'zoom': _clamp(edit.get('zoom', 1.0), 0.25, 4.0, 1.0),
         'crop_mode': crop_mode,
+        'flip_h': flip_h,
     }
     print(f"[SOURCE-EDIT] Render edit resolved: {resolved}")
     return resolved
@@ -2383,6 +2389,8 @@ def _is_default_source_edit(edit):
         # Only the legacy centered cover-crop can skip the source-edit pipeline.
         # The new default is fit, which must still render through the reframe filter.
         and edit.get('crop_mode', 'fill') == 'fill'
+        # A flip is a real transform — never skip the pipeline when it's set.
+        and not edit.get('flip_h')
     )
 
 
@@ -2424,14 +2432,16 @@ def save_source_edit_api():
     # fit: zoom=1 shows the full source inside the canvas; fill: zoom=1 cover-crops.
     # zoom < 1 shrinks further; zoom > 1 crops. Floor of 0.25 keeps it usable.
     zoom = _clamp(data.get('zoom', 1.0), 0.25, 4.0, 1.0)
+    flip_h = 1 if data.get('flip_h') else 0
 
     if not upsert_source_edit(user_id, source_filename, output_format,
-                              crop_x, crop_y, zoom, crop_mode):
+                              crop_x, crop_y, zoom, crop_mode, flip_h):
         return jsonify({'success': False, 'error': 'Could not save reframe'}), 500
 
     return jsonify({
         'success': True,
-        'edit': {'crop_x': crop_x, 'crop_y': crop_y, 'zoom': zoom, 'crop_mode': crop_mode}
+        'edit': {'crop_x': crop_x, 'crop_y': crop_y, 'zoom': zoom,
+                 'crop_mode': crop_mode, 'flip_h': flip_h}
     })
 
 

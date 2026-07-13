@@ -2087,6 +2087,12 @@
         <button type="button" onclick="resetSourceFraming()" style="width:auto; flex:0 0 auto; margin-left:auto; background:#202531; color:#8b93a7; border:1px solid #343948; border-radius:999px; padding:5px 11px; font-weight:600; cursor:pointer;">Reset</button>
     </div>
 
+    <!-- Flip control — separate from framing, always visible for any format -->
+    <div id="flipControl" style="display:none; align-items:center; gap:6px; width:94%; max-width:500px; margin:0 auto 8px; font-size:12px; color:#8b93a7;">
+        <span style="margin-right:2px;">Video</span>
+        <button id="sourceFlipBtn" type="button" onclick="toggleSourceFlip()" title="Mirror the video left-to-right (great for reposting)" style="width:auto; flex:0 0 auto; background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:5px 12px; font-weight:700; cursor:pointer;">&#8646; Flip horizontal</button>
+    </div>
+
     <!-- Queue Mode Header (hidden by default) -->
     <div id="queueModeHeader" style="display:none; margin-bottom:6px;">
         <div class="review-context-card">
@@ -2392,7 +2398,7 @@ let selectedOutputFormats = ['vertical_9_16'];
 let activeReviewFormat = 'vertical_9_16'; // tracks format of current queue item for canvas sizing
 // Studio reframe (Commit 2): per (source+format) crop, loaded from /api/source-edits.
 // Vertical-only in v1; square keeps its blur-pad default untouched.
-const SOURCE_EDIT_DEFAULTS = { crop_x: 0.5, crop_y: 0.5, zoom: 1.0, crop_mode: 'fit' };
+const SOURCE_EDIT_DEFAULTS = { crop_x: 0.5, crop_y: 0.5, zoom: 1.0, crop_mode: 'fit', flip_h: 0 };
 let currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS };
 let sourceEditSaveTimer = null;     // debounce handle for POST /api/source-edits
 let selectedSources = [];   // Patch 50A: filenames of sources chosen for this render run
@@ -3543,7 +3549,17 @@ function drawReframedSource(img) {
     const ox = (W - sw) * cropX;
     const oy = (H - sh) * cropY;
     // Black base canvas was already filled by updateCanvasPreview(); draw video on top.
-    ctx.drawImage(img, ox, oy, sw, sh);
+    if (se.flip_h) {
+        // Mirror the source content in place (same rect) — matches ffmpeg hflip
+        // applied before scale/overlay. Overlays are drawn later, un-mirrored.
+        ctx.save();
+        ctx.translate(ox + sw, oy);
+        ctx.scale(-1, 1);
+        ctx.drawImage(img, 0, 0, sw, sh);
+        ctx.restore();
+    } else {
+        ctx.drawImage(img, ox, oy, sw, sh);
+    }
     // Stash placement for the drag handler. slack = W-sw / H-sh is negative when the
     // video is larger than the canvas (crop) and positive when smaller (letterbox).
     canvas._srcVis = { W, H, sw, sh, crop_mode: cropMode };
@@ -4062,6 +4078,23 @@ function finalizeSourceGesture() {
     updateReframeZoomLabel();
 }
 
+// Flip is a source transform (mirror L-R), not framing — works for ALL formats,
+// so no vertical guard. Persists through the same source-edit save path.
+function toggleSourceFlip() {
+    currentSourceEdit.flip_h = currentSourceEdit.flip_h ? 0 : 1;
+    updateCanvasPreview();
+    persistSourceReframe();
+    updateFlipButtonState();
+}
+
+function updateFlipButtonState() {
+    const btn = document.getElementById('sourceFlipBtn');
+    if (!btn) return;
+    const on = !!(currentSourceEdit && currentSourceEdit.flip_h);
+    btn.style.background = on ? '#b9c8ff' : '#202531';
+    btn.style.color = on ? '#111827' : '#d7dce6';
+}
+
 // ── Studio reframe helpers (Commit 2) ──────────────────────────────────────────
 function snapshotSourceEditToItem() {
     const item = (typeof processingQueue !== 'undefined') ? processingQueue[currentQueueIndex] : null;
@@ -4077,14 +4110,16 @@ async function saveSourceEditNow() {
     const item = (typeof processingQueue !== 'undefined') ? processingQueue[currentQueueIndex] : null;
     const src = (item && item.video) || currentFile;
     const fmt = (item && item.format) || activeReviewFormat;
-    if (!src || fmt !== 'vertical_9_16') return;   // vertical-only in v1
+    // Crop is vertical-only, but flip applies to any format — save for both.
+    if (!src || (fmt !== 'vertical_9_16' && fmt !== 'square_1_1')) return;
     try {
         await fetch(`${apiBase}/api/source-edits`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 source_filename: src, output_format: fmt,
                 crop_x: currentSourceEdit.crop_x, crop_y: currentSourceEdit.crop_y,
-                zoom: currentSourceEdit.zoom, crop_mode: currentSourceEdit.crop_mode || SOURCE_EDIT_DEFAULTS.crop_mode
+                zoom: currentSourceEdit.zoom, crop_mode: currentSourceEdit.crop_mode || SOURCE_EDIT_DEFAULTS.crop_mode,
+                flip_h: currentSourceEdit.flip_h ? 1 : 0
             })
         });
     } catch (e) { console.warn('[REFRAME] save failed:', e); }
@@ -4095,14 +4130,17 @@ async function saveSourceEditNow() {
 async function loadSourceEditForItem(item) {
     const src = (item && item.video) || currentFile;
     const fmt = (item && item.format) || activeReviewFormat;
-    if (!src || fmt !== 'vertical_9_16') {
+    if (!src || (fmt !== 'vertical_9_16' && fmt !== 'square_1_1')) {
         currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS };
+        updateReframeModeControls();
+        updateFlipButtonState();
         return;
     }
     if (item && item.source_edit) {
         currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS, ...item.source_edit };
         currentSourceEdit.crop_mode = currentSourceEdit.crop_mode === 'fill' ? 'fill' : 'fit';
         updateReframeModeControls();
+        updateFlipButtonState();
         return;
     }
     try {
@@ -4115,6 +4153,7 @@ async function loadSourceEditForItem(item) {
     }
     if (item) item.source_edit = { ...currentSourceEdit };
     updateReframeModeControls();
+    updateFlipButtonState();
 }
 
 function resetSourceFraming() {
@@ -4139,8 +4178,12 @@ function updateReframeControlVisibility() {
     const pc = document.getElementById('previewContainer');
     const previewVisible = pc && pc.style.display !== 'none';
     el.style.display = (previewVisible && activeReviewFormat === 'vertical_9_16') ? 'flex' : 'none';
+    // Flip control is format-agnostic — show it for any format while previewing.
+    const flipEl = document.getElementById('flipControl');
+    if (flipEl) flipEl.style.display = previewVisible ? 'flex' : 'none';
     updateReframeZoomLabel();
     updateReframeModeControls();
+    updateFlipButtonState();
 }
 
 // ========== SLIDER LISTENERS ==========
@@ -5167,14 +5210,13 @@ async function fireRenderForBrand(item) {
         brand_ids:     [item.brand_id],
         brands:        [item.brand_name],
         output_format: fmt,
-        ...(fmt === 'vertical_9_16' ? {
-            source_edit: {
-                crop_x: currentSourceEdit.crop_x,
-                crop_y: currentSourceEdit.crop_y,
-                zoom: currentSourceEdit.zoom,
-                crop_mode: currentSourceEdit.crop_mode || SOURCE_EDIT_DEFAULTS.crop_mode
-            }
-        } : {}),
+        source_edit: {
+            crop_x: currentSourceEdit.crop_x,
+            crop_y: currentSourceEdit.crop_y,
+            zoom: currentSourceEdit.zoom,
+            crop_mode: currentSourceEdit.crop_mode || SOURCE_EDIT_DEFAULTS.crop_mode,
+            flip_h: currentSourceEdit.flip_h ? 1 : 0
+        },
         ...(item.userEdited ? {
             watermark_scale:           item.overrides.watermark_scale,
             watermark_opacity:         item.overrides.watermark_opacity,
@@ -5338,12 +5380,13 @@ async function fireRenderForItem(item) {
         brand_ids:     [item.brand_id],
         brands:        [item.brand_name],
         output_format: item.format || 'vertical_9_16',
-        ...((item.format || 'vertical_9_16') === 'vertical_9_16' && item.source_edit ? {
+        ...(item.source_edit ? {
             source_edit: {
                 crop_x: item.source_edit.crop_x,
                 crop_y: item.source_edit.crop_y,
                 zoom: item.source_edit.zoom,
-                crop_mode: item.source_edit.crop_mode || SOURCE_EDIT_DEFAULTS.crop_mode
+                crop_mode: item.source_edit.crop_mode || SOURCE_EDIT_DEFAULTS.crop_mode,
+                flip_h: item.source_edit.flip_h ? 1 : 0
             }
         } : {}),
         ...(item.userEdited ? {
@@ -5530,14 +5573,13 @@ async function processCurrentBrand() {
                 brand_ids: [current.brand_id],
                 brands: [current.brand_name],
                 output_format: selectedOutputFormats[0] || 'vertical_9_16',
-                ...((selectedOutputFormats[0] || 'vertical_9_16') === 'vertical_9_16' ? {
-                    source_edit: {
-                        crop_x: currentSourceEdit.crop_x,
-                        crop_y: currentSourceEdit.crop_y,
-                        zoom: currentSourceEdit.zoom,
-                        crop_mode: currentSourceEdit.crop_mode || SOURCE_EDIT_DEFAULTS.crop_mode
-                    }
-                } : {}),
+                source_edit: {
+                    crop_x: currentSourceEdit.crop_x,
+                    crop_y: currentSourceEdit.crop_y,
+                    zoom: currentSourceEdit.zoom,
+                    crop_mode: currentSourceEdit.crop_mode || SOURCE_EDIT_DEFAULTS.crop_mode,
+                    flip_h: currentSourceEdit.flip_h ? 1 : 0
+                },
                 ...(current.userEdited ? {
                     watermark_scale: current.overrides.watermark_scale,
                     watermark_opacity: current.overrides.watermark_opacity,
