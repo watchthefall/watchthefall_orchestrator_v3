@@ -16,11 +16,11 @@ cookie_file = './portal/data/cookies.txt'
 print(f"Cookie file: {cookie_file}")
 print(f"Cookie file exists: {os.path.exists(cookie_file)}")
 
+has_cookie_data = False
 if os.path.exists(cookie_file) and os.path.isfile(cookie_file):
     try:
         with open(cookie_file, 'r', encoding='utf-8') as f:
             content = f.read().strip()
-            has_cookie_data = False
             if content:
                 lines = content.split('\n')
                 for line in lines:
@@ -36,6 +36,8 @@ if os.path.exists(cookie_file) and os.path.isfile(cookie_file):
                 print("Cookie file appears to be empty or only contains header")
     except Exception as e:
         print(f"Error reading cookie file: {e}")
+else:
+    print("Cookie file not found; continuing without cookiefile")
 
 # Test yt-dlp options
 ydl_opts = {

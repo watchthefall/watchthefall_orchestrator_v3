@@ -81,6 +81,21 @@ def init_db():
         conn.execute('PRAGMA busy_timeout=30000')
         
         c = conn.cursor()
+
+        # Users table
+        #
+        # Keep this base table here, not only in app.init_users_db(). This module
+        # runs init_db() on import, before app startup calls init_users_db(), and
+        # the migrations below expect users to exist.
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                tier TEXT DEFAULT 'Explorer',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
         
         # Jobs table
         c.execute('''
