@@ -17,7 +17,7 @@ services:
       # Remove once job state is persisted to SQLite/Redis.
       - key: WEB_CONCURRENCY
         value: "1"
-      # Persistent disk — paths must be inside the mountPath below (/var/data).
+      # Persistent disk - paths must be inside the mountPath below (/var/data).
       - key: DB_PATH
         value: /var/data/wtf_studio.db
       - key: STORAGE_ROOT
@@ -30,4 +30,4 @@ services:
 disk:
   name: brandr-data
   mountPath: /var/data
-  sizeGB: 1
+  sizeGB: 5
