@@ -413,6 +413,8 @@ def inject_global_context():
     founding_slots_remaining = {t: max(0, max_slots - slots_used.get(t, 0))
                                  for t in FOUNDING_MEMBER_CONFIG.get('eligible_tiers', [])}
     ctx = {'is_admin_user': is_admin(), 'tier': DEFAULT_TIER,
+           'theme_tier': DEFAULT_TIER,
+           'founding_status': 0,
            'tier_features': get_tier_features(DEFAULT_TIER),
            'all_tier_features': TIER_FEATURES,
            'all_tier_config': TIER_CONFIG,
@@ -429,6 +431,23 @@ def inject_global_context():
         ctx['user_badge'] = badge
         ctx['user_special_status'] = special_status
         ctx['tier_features'] = get_tier_features(tier)
+        # Founding members get the GOLD theme, overriding their base-tier colour
+        # entirely (theme_tier='Founding'). founding_status is an account marker,
+        # not a tier — so a founding Creator still has Creator features but a gold UI.
+        founding = 0
+        try:
+            from .database import get_connection
+            with get_connection() as conn:
+                row = conn.execute(
+                    'SELECT COALESCE(founding_status, 0) AS fs FROM users WHERE id = ?',
+                    (user_id,)
+                ).fetchone()
+                founding = row['fs'] if row else 0
+        except Exception as _e:
+            print(f"[THEME] founding_status fetch failed for user={user_id}: {_e}")
+            founding = 0
+        ctx['founding_status'] = founding
+        ctx['theme_tier'] = 'Founding' if founding else tier
     return ctx
 
 
