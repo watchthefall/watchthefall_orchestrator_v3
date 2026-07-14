@@ -69,6 +69,24 @@
     --tier-icon: url('/static/img/tier_icons/icon_elite.png');
 }
 
+/* Founding member — GOLD prestige theme. Applied via data-tier="Founding",
+   which the server sets for ANY founder regardless of their base tier
+   (founding wins). Gold = founder reward + price-lock status.
+   NOTE: --tier-logo/--tier-icon are stopgaps (gold Elite icon + neutral badge)
+   until the dedicated gold founding wordmark/icon land in Phase 2. */
+:root[data-tier="Founding"] {
+    --accent: #E8B923;
+    --accent-hover: #F5C842;
+    --accent-soft: rgba(232, 185, 35, 0.16);
+    --accent-muted: rgba(232, 185, 35, 0.09);
+    --accent-glow: rgba(232, 185, 35, 0.38);
+    --accent-border: rgba(232, 185, 35, 0.32);
+    --accent-text: #F2CB4E;
+    --accent-rgb: 232, 185, 35;
+    --tier-logo: url('/static/images/badges/brandr_default.png');
+    --tier-icon: url('/static/img/tier_icons/icon_elite.png');
+}
+
 /* ============================================================================
    TIER IDENTITY CUES — Subtle visual signals per tier
    ============================================================================ */
