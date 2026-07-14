@@ -1879,12 +1879,12 @@
                     </div>
                     <!-- Single mode input -->
                     <div id="singleLinkInput" style="display:flex; gap:8px; max-width:600px; margin:0 auto;">
-                        <input type="text" id="inlineUrlInput" placeholder="Paste a TikTok, Instagram, or YouTube link..." style="flex:1; min-width:0; width:auto; background:#121214; border:1px solid #444; border-radius:8px; padding:12px 16px; color:#fff; font-size:14px; outline:none; margin:0;" onkeydown="if(event.key==='Enter')inlineFetchVideo()">
+                        <input type="text" id="inlineUrlInput" placeholder="Paste a TikTok, Instagram, YouTube (Shorts too), or X link..." style="flex:1; min-width:0; width:auto; background:#121214; border:1px solid #444; border-radius:8px; padding:12px 16px; color:#fff; font-size:14px; outline:none; margin:0;" onkeydown="if(event.key==='Enter')inlineFetchVideo()">
                         <button id="inlineFetchBtn" onclick="inlineFetchVideo()" style="width:auto; flex-shrink:0; padding:12px 20px; font-size:14px; white-space:nowrap; margin:0; border-radius:8px;">Get Media</button>
                     </div>
                     <!-- Batch mode input -->
                     <div id="batchLinkInput" style="display:none; max-width:600px; margin:0 auto;">
-                        <textarea id="batchUrlInput" placeholder="Paste multiple links, one per line (max 5)&#10;https://www.tiktok.com/...&#10;https://www.instagram.com/..." style="width:100%; min-height:100px; background:#121214; border:1px solid #444; border-radius:8px; padding:12px 16px; color:#fff; font-size:13px; outline:none; resize:vertical; font-family:inherit; box-sizing:border-box;"></textarea>
+                        <textarea id="batchUrlInput" placeholder="Paste multiple links, one per line (up to {{ batch_link_limit|default(5) }} on your plan)&#10;https://www.tiktok.com/...&#10;https://youtube.com/shorts/...&#10;https://x.com/..." style="width:100%; min-height:100px; background:#121214; border:1px solid #444; border-radius:8px; padding:12px 16px; color:#fff; font-size:13px; outline:none; resize:vertical; font-family:inherit; box-sizing:border-box;"></textarea>
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
                             <small style="color:#666; font-size:11px;">One link per line. Duplicates removed automatically.</small>
                             <button id="batchFetchBtn" onclick="batchFetchVideos()" style="padding:10px 20px; font-size:14px; white-space:nowrap; border-radius:8px;">Fetch All</button>
@@ -1913,7 +1913,7 @@
                 <div id="libraryEmpty" style="display:none; text-align:center; padding:20px;">
                     <div style="font-size:32px; margin-bottom:8px;">📁</div>
                     <p style="color:#ccc; margin-bottom:4px; font-size:15px;">Your library is empty</p>
-                    <p style="color:#666; margin-bottom:12px; font-size:13px;">Import a video from Instagram, TikTok, or YouTube to get started.</p>
+                    <p style="color:#666; margin-bottom:12px; font-size:13px;">Import a video from Instagram, TikTok, YouTube (incl. Shorts), or X to get started.</p>
                     <button onclick="switchTab('download')" style="background:none; border:none; color:var(--accent); cursor:pointer; font-size:13px; padding:0;">Paste a link to get started &rarr;</button>
                 </div>
                 <div class="library-footer" id="libraryFooter" style="display:none;">
@@ -2399,6 +2399,8 @@ let activeReviewFormat = 'vertical_9_16'; // tracks format of current queue item
 // Studio reframe (Commit 2): per (source+format) crop, loaded from /api/source-edits.
 // Vertical-only in v1; square keeps its blur-pad default untouched.
 const SOURCE_EDIT_DEFAULTS = { crop_x: 0.5, crop_y: 0.5, zoom: 1.0, crop_mode: 'fit', flip_h: 0 };
+// Tier-scaled cap on links per Batch (Multi) paste (Explorer 5 → Platinum 20).
+const BATCH_LINK_LIMIT = {{ batch_link_limit|default(5)|int }};
 let currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS };
 let sourceEditSaveTimer = null;     // debounce handle for POST /api/source-edits
 let selectedSources = [];   // Patch 50A: filenames of sources chosen for this render run
@@ -6768,10 +6770,10 @@ function batchFetchVideos() {
         return;
     }
 
-    if (urls.length > 5) {
+    if (urls.length > BATCH_LINK_LIMIT) {
         status.style.display = 'block';
         status.style.color = '#ff6b6b';
-        status.textContent = 'Max 5 links per batch. You pasted ' + urls.length + '.';
+        status.textContent = 'Max ' + BATCH_LINK_LIMIT + ' links per batch on your plan. You pasted ' + urls.length + '. Upgrade for more.';
         return;
     }
 

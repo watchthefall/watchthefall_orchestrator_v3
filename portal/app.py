@@ -415,6 +415,7 @@ def inject_global_context():
     ctx = {'is_admin_user': is_admin(), 'tier': DEFAULT_TIER,
            'theme_tier': DEFAULT_TIER,
            'founding_status': 0,
+           'batch_link_limit': TIER_CONFIG.get(DEFAULT_TIER, {}).get('batch_link_limit', 5),
            'tier_features': get_tier_features(DEFAULT_TIER),
            'all_tier_features': TIER_FEATURES,
            'all_tier_config': TIER_CONFIG,
@@ -431,6 +432,7 @@ def inject_global_context():
         ctx['user_badge'] = badge
         ctx['user_special_status'] = special_status
         ctx['tier_features'] = get_tier_features(tier)
+        ctx['batch_link_limit'] = get_effective_limits(tier, special_status).get('batch_link_limit', 5)
         # Founding members get the GOLD theme, overriding their base-tier colour
         # entirely (theme_tier='Founding'). founding_status is an account marker,
         # not a tier — so a founding Creator still has Creator features but a gold UI.
@@ -3325,7 +3327,8 @@ def process_branded_videos():
 @app.route('/api/videos/fetch', methods=['POST'])
 @login_required
 def fetch_videos_from_urls():
-    """Download videos from URLs (TikTok, Instagram, X) - up to 5 at a time"""
+    """Download videos from URLs (TikTok, Instagram, YouTube incl. Shorts, X;
+    Threads experimental) - up to the tier's batch_link_limit at a time."""
     try:
         # --- Tier enforcement: daily fetch limit ---
         user_id = session.get('user_id')
@@ -3362,9 +3365,12 @@ def fetch_videos_from_urls():
         if not isinstance(urls, list) or len(urls) == 0:
             return jsonify({'success': False, 'error': 'Provide JSON: {"urls": ["url1", "url2", ...]}'}), 400
         
-        if len(urls) > 5:
-            return jsonify({'success': False, 'error': 'Maximum 5 URLs at a time (Render free tier limit)'}), 400
-        
+        _batch_cap = limits.get('batch_link_limit', 5)
+        if len(urls) > _batch_cap:
+            return jsonify({'success': False,
+                            'error': f'Maximum {_batch_cap} links at a time on your plan. Upgrade for more.',
+                            'tier': tier, 'batch_link_limit': _batch_cap}), 400
+
         # Check if user would exceed daily fetch limit
         remaining_fetches = limits['fetches_per_day'] - usage['downloads']
         if remaining_fetches <= 0:
@@ -3389,7 +3395,12 @@ def fetch_videos_from_urls():
                 # Configure yt_dlp with platform-specific options
                 is_instagram = 'instagram.com' in url_input.lower()
                 is_tiktok = 'tiktok.com' in url_input.lower()
-                
+                # Threads is Meta infra with no dedicated yt-dlp extractor (2026.03) —
+                # EXPERIMENTAL: let the generic extractor try, routed through the same
+                # Meta cookies + proxy as Instagram (so it shares the IG unblock path).
+                is_threads = 'threads.net' in url_input.lower() or 'threads.com' in url_input.lower()
+                is_meta = is_instagram or is_threads
+
                 ydl_opts = {
                     'outtmpl': os.path.join(RAW_DIR, '%(id)s.%(ext)s'),
                     'merge_output_format': 'mp4',
@@ -3422,12 +3433,22 @@ def fetch_videos_from_urls():
                         ydl_opts['proxy'] = _ig_proxy
                         print("[FETCH] Instagram routed via IG_PROXY (residential)")
 
+                # Threads (experimental): route through the same Meta proxy if set,
+                # but do NOT apply the Instagram-app headers — with no dedicated
+                # extractor, yt-dlp falls back to the generic one, which needs a
+                # normal browser UA to read the og:video tag off the page.
+                if is_threads:
+                    _ig_proxy = os.environ.get('IG_PROXY', '').strip()
+                    if _ig_proxy:
+                        ydl_opts['proxy'] = _ig_proxy
+                        print("[FETCH] Threads (experimental) routed via IG_PROXY")
+
                 # Apply TikTok impersonation for TikTok URLs
                 # Note: impersonation requires curl_cffi and specific target format
                 # Temporarily disabled until proper integration is tested
                 # if is_tiktok:
                 #     ydl_opts['impersonate'] = ('chrome', '110', 'windows')
-                
+
                 # --- Cookie selection + rotation ----------------------------
                 # Instagram needs session cookies and they expire; we hold a pool
                 # (INSTAGRAM_COOKIES + _1.._10) and rotate least-recently-used,
@@ -3449,7 +3470,7 @@ def fetch_videos_from_urls():
                         print(f"[FETCH] legacy cookie check failed: {_ck_err}")
                     return None
 
-                if is_instagram and cookie_pool.pool_size() > 0:
+                if is_meta and cookie_pool.pool_size() > 0:
                     using_pool = True
                     cookie_candidates = cookie_pool.candidates_lru()
                 else:
