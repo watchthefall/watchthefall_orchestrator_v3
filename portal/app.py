@@ -3400,6 +3400,7 @@ def fetch_videos_from_urls():
                 # Meta cookies + proxy as Instagram (so it shares the IG unblock path).
                 is_threads = 'threads.net' in url_input.lower() or 'threads.com' in url_input.lower()
                 is_meta = is_instagram or is_threads
+                is_youtube = 'youtube.com' in url_input.lower() or 'youtu.be' in url_input.lower()
 
                 ydl_opts = {
                     'outtmpl': os.path.join(RAW_DIR, '%(id)s.%(ext)s'),
@@ -3442,6 +3443,21 @@ def fetch_videos_from_urls():
                     if _ig_proxy:
                         ydl_opts['proxy'] = _ig_proxy
                         print("[FETCH] Threads (experimental) routed via IG_PROXY")
+
+                # YouTube bot-gates datacenter IPs (Render) with "Sign in to confirm
+                # you're not a bot" on the default web client. Try alternate player
+                # clients (tv / web_safari / ios) that often bypass the check without
+                # cookies. Overridable via YT_PLAYER_CLIENTS (comma-separated). If a
+                # residential IG_PROXY is set, route YouTube through it too — the
+                # datacenter IP is the real trigger.
+                if is_youtube:
+                    _yt_clients = [c.strip() for c in os.environ.get(
+                        'YT_PLAYER_CLIENTS', 'tv,web_safari,ios').split(',') if c.strip()]
+                    ydl_opts['extractor_args'] = {'youtube': {'player_client': _yt_clients}}
+                    _ig_proxy = os.environ.get('IG_PROXY', '').strip()
+                    if _ig_proxy:
+                        ydl_opts['proxy'] = _ig_proxy
+                    print(f"[FETCH] YouTube via player_client={_yt_clients}")
 
                 # Apply TikTok impersonation for TikTok URLs
                 # Note: impersonation requires curl_cffi and specific target format
