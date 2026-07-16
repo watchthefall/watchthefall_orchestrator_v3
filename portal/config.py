@@ -87,7 +87,7 @@ TIER_CONFIG = {
     'Studio': {
         'label': 'Studio',
         'price': 14.99,           # full price (post-founding)
-        'founding_price': 9,      # founding member rate (locked 12 months)
+        'founding_price': 9.99,   # founding member rate (locked 12 months)
         'color': '#F5A623',       # orange
         'accent': '#F5A623',
         'badge_image': 'badges/studio.png',
@@ -298,7 +298,7 @@ PAYMENT_LINKS = {
 # PayPal payment links — founding member price (shown while slots remain)
 FOUNDING_PAYMENT_LINKS = {
     'Creator':  'https://www.paypal.com/ncp/payment/2DWH7AN9FW3L2',  # £4.99/mo founding
-    'Studio':   'https://www.paypal.com/ncp/payment/DJY4Q8DPKDULU',  # £9/mo founding
+    'Studio':   'https://www.paypal.com/ncp/payment/DJY4Q8DPKDULU',  # £9.99/mo founding
     'Platinum': 'https://www.paypal.com/ncp/payment/BXWGBCNCXML3S',  # £19.99/mo founding
 }
 
