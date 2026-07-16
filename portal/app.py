@@ -1455,7 +1455,60 @@ def beta_page():
     Logged-in users are redirected to Create."""
     if 'user_id' in session:
         return redirect(url_for('brand_video'))
-    return render_template('beta.html')
+    return render_template('waitlist.html')
+
+
+@app.route('/waitlist/submit', methods=['POST'])
+def waitlist_form_submit():
+    """Server-rendered waitlist submission (Post/Redirect/Get).
+
+    Backs the public waitlist form in waitlist.html. Validates, de-dupes,
+    saves to beta_access, fires the Loops sync, then flashes a message and
+    redirects back to the landing page so the success/error state renders.
+    The AJAX endpoint /api/waitlist is kept for programmatic callers."""
+    import traceback as _tb
+
+    email = (request.form.get('email') or '').strip().lower()
+    creator_name = (request.form.get('creator_name') or '').strip()
+    main_platform = (request.form.get('main_platform') or '').strip()
+    creator_type = (request.form.get('creator_type') or '').strip()
+    discord_username = (request.form.get('discord_username') or '').strip() or None
+    referral_code_used = (request.form.get('referral_code') or '').strip() or None
+
+    # The form collects free-text handles ("@a, @b"). Derive a numeric page
+    # count for the admin ICP filter / CSV, and keep the raw handles in notes
+    # so nothing the applicant typed is dropped.
+    pages_raw = (request.form.get('pages_accounts') or '').strip()
+    handles = [h.strip() for h in pages_raw.split(',') if h.strip()]
+    page_count = str(len(handles)) if handles else ''
+    notes = ('Handles: ' + ', '.join(handles)) if handles else None
+
+    if not email or not creator_name or '@' not in email:
+        flash('Please enter your name and a valid email address.', 'error')
+        return redirect(url_for('beta_page'))
+
+    try:
+        _entry_id, created = create_waitlist_entry(
+            email, creator_name, main_platform, creator_type,
+            page_count, referral_code_used, discord_username, notes=notes,
+        )
+    except Exception:
+        print(f"[WAITLIST] Error on form submission: {_tb.format_exc()}", flush=True)
+        flash('Something went wrong saving your application. Please try again.', 'error')
+        return redirect(url_for('beta_page'))
+
+    if created:
+        print(f"[WAITLIST] New entry: {email} platform={main_platform} "
+              f"type={creator_type} pages={page_count}", flush=True)
+        _loops_sync_contact(
+            email, creator_name,
+            main_platform=main_platform, creator_type=creator_type,
+        )
+        flash("You're on the list. We'll email you when your beta access opens.", 'success')
+    else:
+        flash("You're already on the Brandr beta list — we'll be in touch soon.", 'success')
+
+    return redirect(url_for('beta_page'))
 
 
 def _loops_send_event(email, event_name):

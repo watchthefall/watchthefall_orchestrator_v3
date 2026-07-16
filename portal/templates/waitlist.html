@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join the Brandr Beta — brandr.online</title>
+    <meta name="description" content="A mobile-first branding engine for creators managing pages, clips, brands, and communities. Request early access.">
+    <meta property="og:title" content="Join the Brandr Beta">
+    <meta property="og:description" content="Paste clips. Brand them. Build from there.">
+    <meta property="og:image" content="{{ url_for('static', filename='img/brandr_founding_member_waitlist_card_v2.png') }}">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+
+    <style>
+/* ─────────────────────────────────────────────────────────────
+   BRANDR WAITLIST  ·  v3  — Interactive Theme + Founding Toggle
+   --accent drives the tier colour (Explorer/Creator/Studio/Platinum)
+   --founding is always gold (never changes)
+   ───────────────────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    /* Accent — JS overrides per tier. Default: Explorer green */
+    --accent:       #22C55E;
+    --accent-glow:  rgba(34,197,94,0.25);
+    --accent-ghost: rgba(34,197,94,0.08);
+    --accent-20:    rgba(34,197,94,0.20);
+    --accent-04:    rgba(34,197,94,0.04);
+
+    /* Founding — permanently gold */
+    --founding:       #D4A017;
+    --founding-glow:  rgba(212,160,23,0.28);
+    --founding-ghost: rgba(212,160,23,0.09);
+    --founding-20:    rgba(212,160,23,0.20);
+
+    /* Fixed palette */
+    --bg:        #050507;
+    --bg-alt:    #09090D;
+    --card:      #111118;
+    --card-alt:  #161620;
+    --card-bdr:  rgba(255,255,255,.065);
+    --card-bdr-h:rgba(255,255,255,.11);
+    --white:     #FFFFFF;
+    --mid:       #B0B0B8;
+    --low:       #7A7A84;
+    --xlow:      #3E3E48;
+
+    --discord:    #5865F2;
+    --discord-hov:#4752C4;
+    --success:    rgba(34,197,94,.12);
+    --success-bdr:rgba(34,197,94,.28);
+    --error:      rgba(239,68,68,.12);
+    --error-bdr:  rgba(239,68,68,.3);
+
+    --r-card: 20px;
+    --r-btn:  12px;
+    --r-inp:  11px;
+    --r-pill: 999px;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --col:  580px;
+}
+
+html { font-size: 16px; -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: var(--font);
+    min-height: 100vh;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+a { color: var(--accent); text-decoration: none; transition: opacity .18s; }
+a:hover { opacity: .75; }
+img { display: block; }
+
+.page-wrap {
+    width: 100%;
+    max-width: var(--col);
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+}
+
+/* ── Entrance animations ── */
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.u-fade { animation: fadeUp .5s cubic-bezier(.22,.68,0,1.2) both; will-change: transform, opacity; }
+.u-fade.is-offscreen { animation-play-state: paused; }
+.u-fade[data-delay="1"] { animation-delay: .06s; }
+.u-fade[data-delay="2"] { animation-delay: .12s; }
+.u-fade[data-delay="3"] { animation-delay: .18s; }
+.u-fade[data-delay="4"] { animation-delay: .24s; }
+.u-fade[data-delay="5"] { animation-delay: .30s; }
+.u-fade[data-delay="6"] { animation-delay: .36s; }
+.u-fade[data-delay="7"] { animation-delay: .42s; }
+
+/* ══════════════════════════════════════════
+   HERO
+══════════════════════════════════════════ */
+.hero {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1.75rem 0 .75rem;
+    overflow: visible;
+}
+
+.hero-glow {
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 420px; height: 200px;
+    background: radial-gradient(ellipse at center, var(--accent-glow) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+    transition: background .4s ease;
+}
+
+.hero > * { position: relative; z-index: 1; }
+
+.hero-logo-wrap { width: min(280px, 72vw); margin-bottom: 1.1rem; }
+
+.hero-logo {
+    width: 100%; height: auto;
+    border-radius: 10px;
+    filter: drop-shadow(0 2px 20px var(--accent-glow));
+    transition: opacity .22s ease, filter .4s ease;
+}
+
+/* ── Tier selector + Founding toggle ── */
+.tier-selector {
+    display: flex;
+    gap: .45rem;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.3rem;
+}
+
+.tier-sep {
+    width: 1px; height: 38px;
+    background: rgba(255,255,255,.12);
+    flex-shrink: 0;
+    margin: 0 .2rem;
+    border-radius: 1px;
+}
+
+.tier-btn {
+    position: relative;
+    background: none;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 2px;
+    cursor: pointer;
+    opacity: .32;
+    transition: border-color .25s, opacity .25s, transform .18s, box-shadow .25s;
+    outline: none;
+}
+
+.tier-btn img { width: 62px; height: auto; border-radius: 7px; display: block; pointer-events: none; }
+
+.tier-btn.active {
+    border-color: var(--accent);
+    opacity: 1;
+    transform: scale(1.07);
+    box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.tier-btn:hover:not(.active):not(.founding-btn) { opacity: .65; transform: scale(1.03); }
+
+.founding-btn { opacity: .32; }
+.founding-btn img { width: 52px; height: 52px; object-fit: cover; border-radius: 7px; }
+.founding-btn.founding-active {
+    border-color: var(--founding) !important;
+    opacity: 1;
+    transform: scale(1.07);
+    box-shadow: 0 0 16px var(--founding-glow) !important;
+}
+.founding-btn:hover:not(.founding-active) { opacity: .65; transform: scale(1.03); }
+
+.tier-btn-wrap {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.tier-label {
+    font-size: .55rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--low);
+    white-space: nowrap;
+    margin-top: .35rem;
+    transition: color .3s;
+    pointer-events: none;
+    line-height: 1;
+}
+
+.tier-btn-wrap .tier-btn.active ~ .tier-label            { color: var(--accent); }
+.tier-btn-wrap .founding-btn.founding-active ~ .tier-label { color: var(--founding) !important; }
+
+.hero-eyebrow {
+    font-size: .63rem; font-weight: 600;
+    letter-spacing: .2em; color: var(--low);
+    text-transform: uppercase;
+    margin-top: 1rem; margin-bottom: 1rem;
+}
+
+.hero-headline {
+    font-size: clamp(2rem, 8vw, 2.9rem);
+    font-weight: 800; line-height: 1.12;
+    letter-spacing: -.03em; color: var(--white);
+    margin-bottom: 1rem;
+}
+
+.hero-description {
+    font-size: .975rem; color: var(--mid);
+    max-width: 360px; line-height: 1.7;
+    margin-bottom: 1.35rem;
+}
+
+.invite-badge {
+    display: inline-flex; align-items: center; gap: .45em;
+    padding: .32em .9em;
+    border: 1px solid var(--accent-20);
+    background: var(--accent-ghost);
+    border-radius: var(--r-pill);
+    font-size: .62rem; font-weight: 700;
+    letter-spacing: .17em; color: var(--accent);
+    text-transform: uppercase; user-select: none;
+    transition: border-color .3s, background .3s, color .3s;
+}
+
+.badge-dot {
+    width: 5px; height: 5px;
+    background: var(--accent); border-radius: 50%; flex-shrink: 0;
+    animation: pulse 2.4s ease-in-out infinite; transition: background .3s;
+}
+
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+
+.social-proof {
+    margin-top: .95rem;
+    font-size: .8rem;
+    color: var(--low);
+    max-width: 300px;
+    line-height: 1.5;
+}
+
+/* ── Pills ── */
+.pills-row { display: flex; flex-wrap: wrap; justify-content: center; gap: .55rem; padding: .25rem 0 .5rem; }
+.pill {
+    display: inline-flex; align-items: center; gap: .35em;
+    padding: .38em .85em;
+    background: var(--accent-04);
+    border: 1px solid var(--accent-20);
+    border-radius: var(--r-pill);
+    font-size: .8rem; font-weight: 500; color: var(--mid);
+    white-space: nowrap;
+    transition: background .3s, border-color .3s, color .2s;
+    cursor: default;
+}
+.pill:hover { background: var(--accent-ghost); border-color: var(--accent-20); color: var(--white); }
+
+/* ── Flash / success ── */
+.flash {
+    padding: .85rem 1.1rem;
+    border-radius: var(--r-inp);
+    font-size: .875rem; font-weight: 500; line-height: 1.5;
+}
+.flash-error { background: var(--error); border: 1px solid var(--error-bdr); color: #fca5a5; }
+
+.success-state { display: flex; flex-direction: column; align-items: center; gap: .9rem; }
+.success-banner-img {
+    width: 100%; max-width: 560px;
+    border-radius: 16px;
+    box-shadow: 0 8px 40px var(--founding-glow);
+}
+.success-subtext { font-size: .875rem; color: var(--mid); text-align: center; }
+
+/* ── Cards ── */
+.card {
+    background: var(--card);
+    border: 1px solid var(--card-bdr);
+    border-radius: var(--r-card);
+    padding: 1.75rem;
+    transition: border-color .22s, box-shadow .22s, transform .22s;
+}
+.card:hover { border-color: var(--card-bdr-h); box-shadow: 0 6px 28px rgba(0,0,0,.32); transform: translateY(-1px); }
+
+.beta-status {
+    background: var(--card-alt);
+    border-left: 2.5px solid var(--accent);
+    border-radius: 0 var(--r-card) var(--r-card) 0;
+    padding-left: 1.5rem;
+    transition: border-color .3s;
+}
+.beta-status:hover { transform: none; }
+
+.status-label {
+    display: block; font-size: .63rem; font-weight: 700;
+    letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: .55rem; transition: color .3s;
+}
+.beta-status p { font-size: .875rem; color: var(--mid); line-height: 1.7; }
+.beta-status p + p { margin-top: .35rem; }
+
+/* ── Form ── */
+.form-card h2 { font-size: 1.15rem; font-weight: 700; letter-spacing: -.015em; margin-bottom: 1.4rem; }
+.field { display: flex; flex-direction: column; gap: .3rem; margin-bottom: .95rem; }
+.field:last-of-type { margin-bottom: 0; }
+.field label { font-size: .775rem; font-weight: 600; color: var(--mid); }
+.req { color: var(--accent); transition: color .3s; }
+
+.field input, .field select {
+    width: 100%; background: var(--bg-alt);
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: var(--r-inp);
+    padding: .72rem 1rem;
+    font-family: var(--font); font-size: .9rem; color: var(--white);
+    outline: none;
+    transition: border-color .18s, box-shadow .18s;
+    -webkit-appearance: none; appearance: none;
+}
+.field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%237A7A84' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 1rem center;
+    padding-right: 2.5rem; cursor: pointer;
+}
+.field input:focus, .field select:focus {
+    border-color: var(--accent-20);
+    box-shadow: 0 0 0 3px var(--accent-ghost);
+}
+.field input::placeholder { color: var(--xlow); font-weight: 400; }
+.field-hint { font-size: .72rem; color: var(--low); line-height: 1.45; }
+.form-sep { height: 1px; background: rgba(255,255,255,.055); margin: 1.1rem 0; }
+.form-submit { margin-top: 1.35rem; }
+
+/* ── Buttons ── */
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .5em;
+    width: 100%; padding: .875rem 1.5rem;
+    border: none; border-radius: var(--r-btn);
+    font-family: var(--font); font-size: .925rem; font-weight: 700; letter-spacing: .01em;
+    cursor: pointer; text-decoration: none;
+    transition: filter .18s, transform .14s, box-shadow .3s, background .3s;
+    user-select: none; will-change: transform;
+}
+.btn:active  { transform: scale(.975); }
+.btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+.btn-gold {
+    background: var(--accent);
+    color: var(--btn-text, #021A09);
+    box-shadow: 0 2px 16px var(--accent-glow);
+    transition: filter .18s, transform .14s, box-shadow .3s, background .3s, color .3s;
+}
+.btn-gold:hover { filter: brightness(1.08); box-shadow: 0 5px 24px var(--accent-glow); color: var(--btn-text, #021A09); opacity: 1; }
+
+.btn-discord { background: var(--discord); color: #fff; box-shadow: 0 2px 14px rgba(88,101,242,.2); }
+.btn-discord:hover { background: var(--discord-hov); box-shadow: 0 4px 24px rgba(88,101,242,.35); color: #fff; opacity: 1; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn .btn-spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(0,0,0,.25);
+    border-top-color: rgba(0,0,0,.7);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    flex-shrink: 0;
+}
+
+/* ── Perks ── */
+.perks-card h2 { font-size: 1.05rem; font-weight: 700; letter-spacing: -.015em; margin-bottom: 1.2rem; }
+.perks-list { list-style: none; display: flex; flex-direction: column; gap: .85rem; }
+.perks-list li { display: flex; align-items: flex-start; gap: .8rem; }
+.perk-icon {
+    flex-shrink: 0; width: 34px; height: 34px;
+    background: var(--accent-ghost);
+    border: 1px solid var(--accent-20);
+    border-radius: 9px; display: flex; align-items: center; justify-content: center;
+    margin-top: .05rem; transition: background .3s, border-color .3s;
+}
+.perk-body strong { display: block; font-size: .875rem; font-weight: 600; line-height: 1.35; }
+.perk-body span   { display: block; font-size: .775rem; color: var(--low); margin-top: .1rem; line-height: 1.5; }
+
+.founding-block {
+    display: flex; align-items: center; gap: 1rem;
+    margin-top: 1.25rem; padding: 1rem 1.1rem;
+    background: var(--founding-ghost);
+    border: 1px solid var(--founding-20);
+    border-radius: 14px;
+}
+.founding-block img { width: 64px; height: 64px; object-fit: cover; flex-shrink: 0; border-radius: 8px; }
+.founding-copy strong { display: block; font-size: .85rem; font-weight: 700; color: var(--founding); letter-spacing: .01em; }
+.founding-copy span   { display: block; font-size: .775rem; color: var(--mid); margin-top: .2rem; line-height: 1.5; }
+
+/* ══════════════════════════════════════════
+   PRICING SECTION
+══════════════════════════════════════════ */
+.pricing-section { display: flex; flex-direction: column; gap: .8rem; }
+.pricing-header { text-align: center; }
+.pricing-header h2 { font-size: 1rem; font-weight: 700; letter-spacing: -.015em; margin-bottom: .25rem; }
+.pricing-header p  { font-size: .8rem; color: var(--low); line-height: 1.5; }
+
+.pricing-scroll-wrap {
+    position: relative;
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+}
+
+.pricing-scroll-wrap.ps-hidden { display: none; }
+
+.pricing-scroll {
+    display: flex;
+    gap: .75rem;
+    overflow-x: auto;
+    padding: 0 1.5rem .75rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 6%, black 88%, transparent 100%);
+    mask-image:         linear-gradient(to right, transparent 0%, black 6%, black 88%, transparent 100%);
+    scroll-snap-type: x proximity;
+}
+.pricing-scroll::-webkit-scrollbar { display: none; }
+
+/* Portrait tier cards — width-based */
+.pricing-card-img {
+    flex-shrink: 0;
+    width: 260px;
+    height: auto;
+    border-radius: 14px;
+    box-shadow: 0 4px 22px rgba(0,0,0,.45);
+    transition: transform .22s ease, box-shadow .22s ease, opacity .22s ease, border-color .3s;
+    cursor: pointer;
+    opacity: .5;
+    border: 2px solid transparent;
+    scroll-snap-align: center;
+}
+
+.pricing-card-img.active-card {
+    opacity: 1;
+    border-color: var(--accent);
+    box-shadow: 0 6px 28px var(--accent-glow);
+    transform: scale(1.025) translateY(-3px);
+}
+
+.pricing-card-img:hover:not(.active-card) { opacity: .78; transform: scale(1.01); }
+
+/* Founding info card — landscape, capped width */
+.founding-tier-img {
+    width: min(460px, 80vw) !important;
+    height: auto !important;
+    border: 1px solid var(--founding-20) !important;
+    box-shadow: 0 4px 28px var(--founding-glow) !important;
+    opacity: .88 !important;
+}
+.founding-tier-img:hover { opacity: 1 !important; }
+
+/* ── Carousel arrows ── */
+.carousel-arrow {
+    position: absolute;
+    top: 50%; transform: translateY(calc(-50% - .375rem));
+    z-index: 10;
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: rgba(8,8,14,.75);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,.14);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: rgba(255,255,255,.85);
+    transition: background .18s, border-color .18s, opacity .22s, transform .18s;
+    opacity: .6;
+}
+
+.arrow-prev { left: .7rem; }
+.arrow-next { right: .7rem; }
+
+@media (min-width: 640px) {
+    .carousel-arrow { opacity: .8; }
+    .carousel-arrow:hover {
+        background: rgba(20,20,28,.92);
+        border-color: rgba(255,255,255,.28);
+        color: #fff;
+        transform: translateY(calc(-50% - .375rem)) scale(1.1);
+    }
+}
+@media (max-width: 639px) {
+    .carousel-arrow { width: 30px; height: 30px; opacity: .5; }
+}
+
+.carousel-arrow.arrow-hidden { opacity: 0 !important; pointer-events: none !important; }
+
+/* Pricing notes */
+.pricing-note { text-align: center; font-size: .73rem; color: var(--xlow); padding: 0 .5rem; }
+.pricing-note strong { color: var(--founding); font-weight: 600; }
+.pricing-note em     { color: var(--accent); font-style: normal; font-weight: 600; transition: color .3s; }
+.pricing-note.pn-hidden { display: none; }
+
+/* ── Discord ── */
+.discord-card { background: var(--card-alt); text-align: center; }
+.discord-card h2 { font-size: 1.05rem; font-weight: 700; letter-spacing: -.015em; margin-bottom: .5rem; }
+.discord-card p  { font-size: .875rem; color: var(--mid); line-height: 1.7; max-width: 340px; margin: 0 auto 1.35rem; }
+
+/* ── Footer ── */
+.footer-cta { text-align: center; padding-top: .35rem; font-size: .85rem; color: var(--low); }
+.footer-cta a { color: var(--mid); font-weight: 500; transition: color .18s; }
+.footer-cta a:hover { color: var(--accent); opacity: 1; }
+
+/* ── Responsive ── */
+@media (min-width: 480px) { .hero-headline { font-size: 2.6rem; } }
+@media (min-width: 768px) {
+    .page-wrap { padding: 3.5rem 2rem 6rem; gap: 1.25rem; }
+    .hero { padding: 2rem 0 .75rem; }
+    .hero-logo-wrap { width: 320px; }
+    .tier-btn img { width: 70px; }
+    .hero-glow { width: 520px; height: 220px; }
+    .hero-headline { font-size: 2.9rem; letter-spacing: -.04em; }
+    .card { padding: 2rem; }
+    .beta-status { padding-left: 1.75rem; }
+    .pricing-card-img { width: 280px; }
+    .founding-tier-img { width: min(500px, 82vw) !important; }
+    .field input, .field select { padding: .78rem 1.05rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .u-fade { animation: none !important; }
+    .badge-dot { animation: none; }
+    .btn, .card { transition: none; }
+    .hero-logo, .tier-btn { transition: none; }
+}
+    </style>
+</head>
+<body>
+<main class="page-wrap">
+
+    <!-- ── HERO ── -->
+    <section class="hero u-fade">
+        <div class="hero-glow" id="hero-glow" aria-hidden="true"></div>
+
+        <div class="hero-logo-wrap">
+            <img id="hero-logo" class="hero-logo"
+                src="{{ url_for('static', filename='img/brandr_logo_explorer_stacked.png') }}"
+                alt="Brandr Explorer">
+        </div>
+
+        <div class="tier-selector" id="tier-selector" aria-label="Preview a plan tier">
+            <div class="tier-btn-wrap">
+                <button class="tier-btn active" data-tier="explorer" aria-label="Explorer — free">
+                    <img src="{{ url_for('static', filename='img/brandr_logo_explorer_stacked.png') }}" alt="">
+                </button>
+                <span class="tier-label">Explorer</span>
+            </div>
+            <div class="tier-btn-wrap">
+                <button class="tier-btn" data-tier="creator" aria-label="Creator">
+                    <img src="{{ url_for('static', filename='img/brandr_logo_creator_stacked.png') }}" alt="">
+                </button>
+                <span class="tier-label">Creator</span>
+            </div>
+            <div class="tier-btn-wrap">
+                <button class="tier-btn" data-tier="studio" aria-label="Studio">
+                    <img src="{{ url_for('static', filename='img/brandr_logo_studio_stacked.png') }}" alt="">
+                </button>
+                <span class="tier-label">Studio</span>
+            </div>
+            <div class="tier-btn-wrap">
+                <button class="tier-btn" data-tier="platinum" aria-label="Platinum">
+                    <img src="{{ url_for('static', filename='img/brandr_logo_platinum_stacked.png') }}" alt="">
+                </button>
+                <span class="tier-label">Platinum</span>
+            </div>
+            <div class="tier-sep" aria-hidden="true"></div>
+            <div class="tier-btn-wrap">
+                <button class="tier-btn founding-btn founding-active" id="founding-btn"
+                    aria-label="Toggle founding member pricing" aria-pressed="true">
+                    <img src="{{ url_for('static', filename='img/brandr_founding_member_badge_gold.png') }}" alt="Founding">
+                </button>
+                <span class="tier-label" style="color:var(--founding)">Founding</span>
+            </div>
+        </div>
+
+        <p class="hero-eyebrow">Creator Command Centre</p>
+        <h1 class="hero-headline">Paste clips.<br>Brand them.<br>Build from there.</h1>
+        <p class="hero-description">
+            A mobile-first branding engine for creators managing pages, clips, brands, and communities.
+        </p>
+        <span class="invite-badge" aria-label="Invite only beta">
+            <span class="badge-dot"></span>
+            Invite-Only Beta
+        </span>
+        <p class="social-proof">Join a growing community of multi-page creators building in the beta.</p>
+    </section>
+
+    <!-- ── PILLS ── -->
+    <div class="pills-row u-fade" data-delay="1" aria-label="Key features">
+        <span class="pill">⚡ Fast branding</span>
+        <span class="pill">🎨 Multi-brand workspace</span>
+        <span class="pill">📱 Mobile-first</span>
+    </div>
+
+    <!-- ── FLASH / SUCCESS ── -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            {% if category == 'success' %}
+            <div class="success-state u-fade" data-delay="1">
+                <img
+                    class="success-banner-img"
+                    src="{{ url_for('static', filename='img/brandr_founding_member_waitlist_card_v2.png') }}"
+                    alt="You're on the Brandr waitlist — we'll be in touch soon"
+                    width="560" loading="eager"
+                >
+                <p class="success-subtext">{{ message }}</p>
+            </div>
+            {% else %}
+            <div class="flash flash-error u-fade" data-delay="1" role="alert">{{ message }}</div>
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <!-- ── BETA STATUS ── -->
+    <div class="card beta-status u-fade" data-delay="2">
+        <span class="status-label">Beta Status</span>
+        <p>Brandr currently delivers fast branded video output in vertical 9:16 and square 1:1 — ready for TikTok, Reels, Shorts, and feed.</p>
+        <p>Landscape and YouTube formats are planned.</p>
+    </div>
+
+    <!-- ── FORM ── -->
+    <div class="card form-card u-fade" data-delay="3">
+        <h2>Join the Brandr Beta</h2>
+        <form method="POST" action="{{ url_for('waitlist_form_submit') }}" novalidate id="waitlist-form">
+            {{ csrf_token() if csrf_token is defined else '' }}
+
+            <div class="field">
+                <label for="creator_name">Creator / Business Name <span class="req" aria-hidden="true">*</span></label>
+                <input type="text" id="creator_name" name="creator_name"
+                    placeholder="Your name or brand"
+                    value="{{ form_data.creator_name if form_data else '' }}"
+                    required autocomplete="name" spellcheck="false">
+            </div>
+            <div class="field">
+                <label for="email">Email <span class="req" aria-hidden="true">*</span></label>
+                <input type="email" id="email" name="email"
+                    placeholder="you@example.com"
+                    value="{{ form_data.email if form_data else '' }}"
+                    required autocomplete="email" inputmode="email">
+            </div>
+            <div class="form-sep" role="separator"></div>
+            <div class="field">
+                <label for="main_platform">Main Platform</label>
+                <select id="main_platform" name="main_platform">
+                    <option value="" disabled {% if not form_data or not form_data.main_platform %}selected{% endif %}>Select your main platform</option>
+                    <option value="tiktok"    {% if form_data and form_data.main_platform == 'tiktok' %}selected{% endif %}>TikTok</option>
+                    <option value="instagram" {% if form_data and form_data.main_platform == 'instagram' %}selected{% endif %}>Instagram</option>
+                    <option value="youtube"   {% if form_data and form_data.main_platform == 'youtube' %}selected{% endif %}>YouTube</option>
+                    <option value="facebook"  {% if form_data and form_data.main_platform == 'facebook' %}selected{% endif %}>Facebook</option>
+                    <option value="twitter"   {% if form_data and form_data.main_platform == 'twitter' %}selected{% endif %}>X / Twitter</option>
+                    <option value="multi"     {% if form_data and form_data.main_platform == 'multi' %}selected{% endif %}>Multi-platform</option>
+                    <option value="other"     {% if form_data and form_data.main_platform == 'other' %}selected{% endif %}>Other</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="pages_accounts">Pages / Accounts</label>
+                <input type="text" id="pages_accounts" name="pages_accounts"
+                    placeholder="@yourbrand, @secondpage"
+                    value="{{ form_data.pages_accounts if form_data else '' }}"
+                    spellcheck="false">
+                <span class="field-hint">Comma-separated handles</span>
+            </div>
+            <div class="field">
+                <label for="creator_type">Creator Type</label>
+                <select id="creator_type" name="creator_type">
+                    <option value="" disabled {% if not form_data or not form_data.creator_type %}selected{% endif %}>What best describes you?</option>
+                    <option value="solo"   {% if form_data and form_data.creator_type == 'solo' %}selected{% endif %}>Solo Creator</option>
+                    <option value="multi"  {% if form_data and form_data.creator_type == 'multi' %}selected{% endif %}>Multi-page Operator</option>
+                    <option value="biz"    {% if form_data and form_data.creator_type == 'biz' %}selected{% endif %}>Small Business</option>
+                    <option value="agency" {% if form_data and form_data.creator_type == 'agency' %}selected{% endif %}>Agency / Team</option>
+                    <option value="other"  {% if form_data and form_data.creator_type == 'other' %}selected{% endif %}>Other</option>
+                </select>
+            </div>
+            <div class="form-sep" role="separator"></div>
+            <div class="field">
+                <label for="discord_username">Discord Username</label>
+                <input type="text" id="discord_username" name="discord_username"
+                    placeholder="username or user#0000"
+                    value="{{ form_data.discord_username if form_data else '' }}"
+                    spellcheck="false" autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="referral_code">Referral Code</label>
+                <input type="text" id="referral_code" name="referral_code"
+                    placeholder="Have a code? Enter it here"
+                    value="{{ form_data.referral_code if form_data else '' }}"
+                    spellcheck="false" autocomplete="off">
+            </div>
+            <div class="form-submit">
+                <button type="submit" class="btn btn-gold" id="submit-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    Request Beta Access
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ── PERKS ── -->
+    <div class="card perks-card u-fade" data-delay="4">
+        <h2>What Beta Members Get</h2>
+        <ul class="perks-list">
+            <li>
+                <div class="perk-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                </div>
+                <div class="perk-body">
+                    <strong>Fast branded video output</strong>
+                    <span>9:16 and 1:1 — TikTok, Reels, Shorts, and feed ready to post</span>
+                </div>
+            </li>
+            <li>
+                <div class="perk-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                </div>
+                <div class="perk-body">
+                    <strong>Multi-brand workspace</strong>
+                    <span>Run multiple pages and brands from a single account</span>
+                </div>
+            </li>
+            <li>
+                <div class="perk-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+                </div>
+                <div class="perk-body">
+                    <strong>Mobile-first</strong>
+                    <span>Built for creators who work on the go — no desktop required</span>
+                </div>
+            </li>
+            <li>
+                <div class="perk-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2-3.09 6.26L2 9.27l5 4.87-1.18 6.88L12 17.77l6.18 3.25L17 14.14l5-4.87-6.91-1.01L12 2z"/></svg>
+                </div>
+                <div class="perk-body">
+                    <strong>Founding member pricing</strong>
+                    <span>Founder pricing for life — always below standard rates, even as the product grows</span>
+                </div>
+            </li>
+        </ul>
+
+        <div class="founding-block">
+            <img src="{{ url_for('static', filename='img/brandr_founding_member_badge_gold.png') }}"
+                alt="Brandr Founding Member" loading="lazy">
+            <div class="founding-copy">
+                <strong>Founding Member — Early Access</strong>
+                <span>First in line for every new feature. Founder pricing, locked for life.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── PRICING CARDS ── -->
+    <div class="pricing-section u-fade" data-delay="5">
+        <div class="pricing-header">
+            <h2>Plans unlocked on approval</h2>
+            <p id="pricing-sub-founding">Founding members keep these rates for as long as they stay subscribed.</p>
+            <p id="pricing-sub-full" style="display:none">Regular rates — what everyone pays outside the beta window.</p>
+        </div>
+
+        <!-- FOUNDING carousel (default) -->
+        <div class="pricing-scroll-wrap" id="wrap-founding">
+            <button class="carousel-arrow arrow-prev arrow-hidden" id="arrow-prev-f" aria-label="Previous">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <div class="pricing-scroll" id="scroll-founding">
+                <img class="pricing-card-img founding-tier-img"
+                    src="{{ url_for('static', filename='img/brandr_founding_member_tier_card.png') }}"
+                    alt="Brandr Founding Member — Early Access, Lasting Advantage" loading="lazy">
+                <img class="pricing-card-img active-card" data-tier="explorer"
+                    src="{{ url_for('static', filename='img/brandr_explorer_start_free_card.png') }}"
+                    alt="Brandr Explorer — Start Free" loading="lazy">
+                <img class="pricing-card-img" data-tier="creator"
+                    src="{{ url_for('static', filename='img/brandr_creator_founding_access_card.png') }}"
+                    alt="Brandr Creator — Founding Access £4.99/month" loading="lazy">
+                <img class="pricing-card-img" data-tier="studio"
+                    src="{{ url_for('static', filename='img/brandr_studio_founding_access_card.png') }}"
+                    alt="Brandr Studio — Founding Access £9.99/month" loading="lazy">
+                <img class="pricing-card-img" data-tier="platinum"
+                    src="{{ url_for('static', filename='img/brandr_platinum_founding_access_card.png') }}"
+                    alt="Brandr Platinum — Founding Access £19.99/month" loading="lazy">
+            </div>
+            <button class="carousel-arrow arrow-next" id="arrow-next-f" aria-label="Next">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+        </div>
+
+        <!-- FULL-PRICE carousel (hidden by default) -->
+        <div class="pricing-scroll-wrap ps-hidden" id="wrap-fullprice">
+            <button class="carousel-arrow arrow-prev arrow-hidden" id="arrow-prev-fp" aria-label="Previous">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <div class="pricing-scroll" id="scroll-fullprice">
+                <img class="pricing-card-img active-card" data-tier="explorer"
+                    src="{{ url_for('static', filename='img/brandr_explorer_start_free_card.png') }}"
+                    alt="Brandr Explorer — Always Free" loading="lazy">
+                <img class="pricing-card-img" data-tier="creator"
+                    src="{{ url_for('static', filename='img/brandr_creator_full_price_card.png') }}"
+                    alt="Brandr Creator — £6.99/month" loading="lazy">
+                <img class="pricing-card-img" data-tier="studio"
+                    src="{{ url_for('static', filename='img/brandr_studio_full_price_card.png') }}"
+                    alt="Brandr Studio — £14.99/month" loading="lazy">
+                <img class="pricing-card-img" data-tier="platinum"
+                    src="{{ url_for('static', filename='img/brandr_platinum_full_price_card.png') }}"
+                    alt="Brandr Platinum — £24.99/month" loading="lazy">
+            </div>
+            <button class="carousel-arrow arrow-next" id="arrow-next-fp" aria-label="Next">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+        </div>
+
+        <p class="pricing-note" id="pn-founding">
+            Your founding price is <strong>locked for 12 months</strong> — then you keep founder pricing, always below standard, for life.
+        </p>
+        <p class="pricing-note pn-hidden" id="pn-full">
+            These are regular rates. <em>Join during beta</em> to lock in founding member pricing.
+        </p>
+    </div>
+
+    <!-- ── DISCORD ── -->
+    <div class="card discord-card u-fade" data-delay="6">
+        <h2>Join the Brandr Discord</h2>
+        <p>Beta updates, feature previews, early creator rewards, and the community building around it.</p>
+        <a href="https://discord.gg/ZTEtyQz7V" target="_blank" rel="noopener noreferrer"
+            class="btn btn-discord" aria-label="Join the Brandr Discord server">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057.1 18.081.11 18.104.12 18.12a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+            Join Discord
+        </a>
+    </div>
+
+    <!-- ── FOOTER ── -->
+    <div class="footer-cta u-fade" data-delay="7">
+        <p>Approved?&nbsp;<a href="/auth/register">Create your account</a>&nbsp;or&nbsp;<a href="/auth/login">log in</a>.</p>
+    </div>
+
+</main>
+
+<script>
+(function () {
+    'use strict';
+
+    /* ── Tier definitions ── */
+    var TIERS = {
+        explorer: { color:'#22C55E', glow:'rgba(34,197,94,0.25)',  ghost:'rgba(34,197,94,0.08)',  dim20:'rgba(34,197,94,0.20)',  dim04:'rgba(34,197,94,0.04)',  btnText:'#021A09', logo:'{{ url_for("static", filename="img/brandr_logo_explorer_stacked.png") }}' },
+        creator:  { color:'#A855F7', glow:'rgba(168,85,247,0.25)', ghost:'rgba(168,85,247,0.08)', dim20:'rgba(168,85,247,0.20)', dim04:'rgba(168,85,247,0.04)', btnText:'#1A0328', logo:'{{ url_for("static", filename="img/brandr_logo_creator_stacked.png") }}' },
+        studio:   { color:'#F5A623', glow:'rgba(245,166,35,0.25)', ghost:'rgba(245,166,35,0.08)', dim20:'rgba(245,166,35,0.20)', dim04:'rgba(245,166,35,0.04)', btnText:'#2A1500', logo:'{{ url_for("static", filename="img/brandr_logo_studio_stacked.png") }}' },
+        platinum: { color:'#60A5FA', glow:'rgba(96,165,250,0.25)', ghost:'rgba(96,165,250,0.08)', dim20:'rgba(96,165,250,0.20)', dim04:'rgba(96,165,250,0.04)', btnText:'#011528', logo:'{{ url_for("static", filename="img/brandr_logo_platinum_stacked.png") }}' }
+    };
+
+    var currentTier    = 'explorer';
+    var foundingActive = true;
+    var scrollLocked   = false;
+
+    var root        = document.documentElement;
+    var heroLogo    = document.getElementById('hero-logo');
+    var foundingBtn = document.getElementById('founding-btn');
+    var wrapF  = document.getElementById('wrap-founding');
+    var wrapFP = document.getElementById('wrap-fullprice');
+    var scrollF  = document.getElementById('scroll-founding');
+    var scrollFP = document.getElementById('scroll-fullprice');
+    var apf  = document.getElementById('arrow-prev-f');
+    var anf  = document.getElementById('arrow-next-f');
+    var apfp = document.getElementById('arrow-prev-fp');
+    var anfp = document.getElementById('arrow-next-fp');
+    var subF  = document.getElementById('pricing-sub-founding');
+    var subFP = document.getElementById('pricing-sub-full');
+    var noteF  = document.getElementById('pn-founding');
+    var noteFP = document.getElementById('pn-full');
+
+    function updateArrows(strip, prev, next) {
+        prev.classList.toggle('arrow-hidden', strip.scrollLeft < 8);
+        next.classList.toggle('arrow-hidden', strip.scrollLeft >= strip.scrollWidth - strip.offsetWidth - 8);
+    }
+
+    function centerCard(strip, tierId) {
+        var card = strip.querySelector('[data-tier="' + tierId + '"]');
+        if (!card) return;
+        scrollLocked = true;
+        var t = card.offsetLeft - (strip.offsetWidth / 2) + (card.offsetWidth / 2);
+        strip.scrollTo({ left: Math.max(0, t), behavior: 'smooth' });
+        setTimeout(function () { scrollLocked = false; }, 700);
+    }
+
+    function stepCard(strip, dir) {
+        var cards = Array.from(strip.querySelectorAll('.pricing-card-img'));
+        var center = strip.scrollLeft + strip.offsetWidth / 2;
+        var idx = 0, best = Infinity;
+        cards.forEach(function (c, i) {
+            var d = Math.abs((c.offsetLeft + c.offsetWidth / 2) - center);
+            if (d < best) { best = d; idx = i; }
+        });
+        var target = cards[Math.max(0, Math.min(cards.length - 1, idx + dir))];
+        scrollLocked = true;
+        strip.scrollTo({ left: Math.max(0, target.offsetLeft - (strip.offsetWidth / 2) + (target.offsetWidth / 2)), behavior: 'smooth' });
+        setTimeout(function () { scrollLocked = false; }, 700);
+    }
+
+    function closestTierCard(strip) {
+        var center = strip.scrollLeft + strip.offsetWidth / 2;
+        var closest = null, best = Infinity;
+        strip.querySelectorAll('.pricing-card-img[data-tier]').forEach(function (c) {
+            var d = Math.abs((c.offsetLeft + c.offsetWidth / 2) - center);
+            if (d < best) { best = d; closest = c; }
+        });
+        return closest;
+    }
+
+    function setTier(tierId, fromScroll) {
+        if (!TIERS[tierId]) return;
+        var same = tierId === currentTier;
+        currentTier = tierId;
+        var t = TIERS[tierId];
+        root.style.setProperty('--accent',       t.color);
+        root.style.setProperty('--accent-glow',  t.glow);
+        root.style.setProperty('--accent-ghost', t.ghost);
+        root.style.setProperty('--accent-20',    t.dim20);
+        root.style.setProperty('--accent-04',    t.dim04);
+        root.style.setProperty('--btn-text',     t.btnText);
+        if (!same) {
+            heroLogo.style.opacity = '0';
+            setTimeout(function () { heroLogo.src = t.logo; heroLogo.style.opacity = '1'; }, 200);
+        }
+        document.querySelectorAll('.tier-btn:not(.founding-btn)').forEach(function (b) {
+            b.classList.toggle('active', b.dataset.tier === tierId);
+        });
+        [scrollF, scrollFP].forEach(function (s) {
+            s.querySelectorAll('.pricing-card-img[data-tier]').forEach(function (c) {
+                c.classList.toggle('active-card', c.dataset.tier === tierId);
+            });
+        });
+        if (!fromScroll) centerCard(foundingActive ? scrollF : scrollFP, tierId);
+    }
+
+    function setFounding(active) {
+        foundingActive = active;
+        foundingBtn.classList.toggle('founding-active', active);
+        foundingBtn.setAttribute('aria-pressed', String(active));
+        wrapF.classList.toggle('ps-hidden', !active);
+        wrapFP.classList.toggle('ps-hidden', active);
+        subF.style.display  = active ? '' : 'none';
+        subFP.style.display = active ? 'none' : '';
+        noteF.classList.toggle('pn-hidden', !active);
+        noteFP.classList.toggle('pn-hidden', active);
+        setTimeout(function () {
+            var s = active ? scrollF : scrollFP;
+            var p = active ? apf : apfp;
+            var n = active ? anf : anfp;
+            centerCard(s, currentTier);
+            updateArrows(s, p, n);
+        }, 30);
+    }
+
+    /* ── Wire up controls ── */
+    document.querySelectorAll('.tier-btn:not(.founding-btn)').forEach(function (b) {
+        b.addEventListener('click', function () { setTier(b.dataset.tier, false); });
+    });
+    foundingBtn.addEventListener('click', function () { setFounding(!foundingActive); });
+
+    apf.addEventListener('click',  function () { stepCard(scrollF,  -1); });
+    anf.addEventListener('click',  function () { stepCard(scrollF,  +1); });
+    apfp.addEventListener('click', function () { stepCard(scrollFP, -1); });
+    anfp.addEventListener('click', function () { stepCard(scrollFP, +1); });
+
+    var tF, tFP;
+    scrollF.addEventListener('scroll', function () {
+        updateArrows(scrollF, apf, anf);
+        if (scrollLocked) return;
+        clearTimeout(tF);
+        tF = setTimeout(function () {
+            var c = closestTierCard(scrollF);
+            if (c && c.dataset.tier !== currentTier) setTier(c.dataset.tier, true);
+        }, 80);
+    }, { passive: true });
+    scrollF.querySelectorAll('.pricing-card-img[data-tier]').forEach(function (c) {
+        c.addEventListener('click', function () { setTier(c.dataset.tier, false); });
+    });
+
+    scrollFP.addEventListener('scroll', function () {
+        updateArrows(scrollFP, apfp, anfp);
+        if (scrollLocked) return;
+        clearTimeout(tFP);
+        tFP = setTimeout(function () {
+            var c = closestTierCard(scrollFP);
+            if (c) {
+                if (c.dataset.tier !== currentTier) setTier(c.dataset.tier, true);
+                if (foundingActive) setFounding(false);
+            }
+        }, 80);
+    }, { passive: true });
+    scrollFP.querySelectorAll('.pricing-card-img[data-tier]').forEach(function (c) {
+        c.addEventListener('click', function () { setTier(c.dataset.tier, false); if (foundingActive) setFounding(false); });
+    });
+
+    /* ── Scroll-triggered fade-up ── */
+    if ('IntersectionObserver' in window) {
+        var obs = new IntersectionObserver(function (entries) {
+            entries.forEach(function (e) {
+                if (e.isIntersecting) {
+                    e.target.classList.remove('is-offscreen');
+                    e.target.style.animationPlayState = 'running';
+                    e.target.style.animationDelay = '0s';
+                    obs.unobserve(e.target);
+                }
+            });
+        }, { threshold: 0.08 });
+        document.querySelectorAll('.u-fade').forEach(function (el) {
+            if (el.getBoundingClientRect().top > window.innerHeight) {
+                el.classList.add('is-offscreen');
+                obs.observe(el);
+            }
+        });
+    }
+
+    /* ── Form: spinner on submit ── */
+    var form = document.getElementById('waitlist-form');
+    var submitBtn = document.getElementById('submit-btn');
+    if (form && submitBtn) {
+        form.addEventListener('submit', function (e) {
+            var name  = form.querySelector('[name="creator_name"]').value.trim();
+            var email = form.querySelector('[name="email"]').value.trim();
+            if (!name || !email || !email.includes('@')) { e.preventDefault(); return; }
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span>Submitting…';
+        });
+    }
+
+    /* ── Init ── */
+    setTier('explorer', true);
+    scrollF.scrollLeft = 0;
+    updateArrows(scrollF, apf, anf);
+    updateArrows(scrollFP, apfp, anfp);
+
+})();
+</script>
+
+</body>
+</html>

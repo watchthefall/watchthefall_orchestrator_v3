@@ -785,7 +785,8 @@ def revoke_founding_status(user_id, tier):
 # ========== BETA ACCESS / WAITLIST ==========
 
 def create_waitlist_entry(email, creator_name, main_platform, creator_type,
-                          page_count, referral_code_used, discord_username):
+                          page_count, referral_code_used, discord_username,
+                          notes=None):
     """Insert a new waitlist entry. Returns (id, created) tuple.
     If email already exists, returns (existing_id, False).
     Raises on unexpected errors (caller wraps in try/except)."""
@@ -796,11 +797,12 @@ def create_waitlist_entry(email, creator_name, main_platform, creator_type,
             c.execute('''
                 INSERT INTO beta_access
                     (email, creator_name, main_platform, creator_type,
-                     page_count, referral_code_used, discord_username,
+                     page_count, referral_code_used, discord_username, notes,
                      status, access_level, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 'waitlist', ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'waitlist', ?)
             ''', (email.lower().strip(), creator_name, main_platform, creator_type,
-                  page_count, referral_code_used or None, discord_username or None, now))
+                  page_count, referral_code_used or None, discord_username or None,
+                  notes or None, now))
             conn.commit()
             return c.lastrowid, True
     except sqlite3.IntegrityError:
