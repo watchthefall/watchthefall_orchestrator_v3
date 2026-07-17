@@ -69,7 +69,7 @@ TIER_CONFIG = {
     'Creator': {
         'label': 'Creator',
         'price': 6.99,            # full price (post-founding)
-        'founding_price': 4.99,   # founding member rate (locked 12 months)
+        'founding_price': 4.99,   # founding member rate (exclusive Founder pricing)
         'color': '#A855F7',       # purple
         'accent': '#A855F7',
         'badge_image': 'badges/creator.png',
@@ -87,7 +87,7 @@ TIER_CONFIG = {
     'Studio': {
         'label': 'Studio',
         'price': 14.99,           # full price (post-founding)
-        'founding_price': 9.99,   # founding member rate (locked 12 months)
+        'founding_price': 9.99,   # founding member rate (exclusive Founder pricing)
         'color': '#F5A623',       # orange
         'accent': '#F5A623',
         'badge_image': 'badges/studio.png',
@@ -107,7 +107,7 @@ TIER_CONFIG = {
     'Platinum': {
         'label': 'Platinum',
         'price': 24.99,           # full price (post-founding)
-        'founding_price': 19.99,  # founding member rate (locked 12 months)
+        'founding_price': 19.99,  # founding member rate (exclusive Founder pricing)
         'color': '#C0CFFF',       # icy chrome blue (matches logo)
         'accent': '#C0CFFF',
         'badge_image': 'badges/platinum.png',
