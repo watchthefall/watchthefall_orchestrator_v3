@@ -2028,6 +2028,14 @@
     </div>
 
     <div id="selectionModeHeader">
+        <!-- Per-video loadout header (multi-link only): which video you're picking brands for -->
+        <div id="loadoutHeader" style="display:none; margin-bottom:12px; padding:10px 12px; background:#1a1f2e; border:1px solid #2a2f3e; border-radius:8px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span id="loadoutCounter" style="font-weight:700; color:var(--accent); font-size:14px; white-space:nowrap;">Video 1 of 1</span>
+                <span id="loadoutFilename" style="flex:1; font-size:12px; color:#9ca3af; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+            </div>
+            <div id="loadoutProgressDots" style="display:flex; gap:5px; margin-top:8px;"></div>
+        </div>
         <h3 style="margin-top:0;">Choose brands <span style="color:#666;font-size:13px;font-weight:400;">(up to {{ max_brands_per_job }} per job)</span></h3>
         <p class="review-subcopy" id="brandSelectionHelp" style="margin:0 0 10px;">Pick the brands you want, then review the live 9:16 version before processing. Planned formats stay visible here for what comes next.</p>
     </div>
@@ -2289,6 +2297,17 @@
     
     <!-- Selection Mode Button -->
     <div id="selectionModeActions">
+        <!-- Per-video loadout actions (multi-link only) -->
+        <div id="loadoutActions" style="display:none; margin-top:15px;">
+            <div style="display:flex; gap:8px; margin-bottom:8px;">
+                <button onclick="loadoutSameAsPrevious()" id="loadoutSameBtn" class="btn-secondary" style="flex:1; min-width:0;">Same as previous</button>
+                <button onclick="loadoutApplyToRemaining()" id="loadoutApplyAllBtn" class="btn-secondary" style="flex:1; min-width:0;">Apply to all remaining</button>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button onclick="loadoutPrevious()" id="loadoutPrevBtn" style="flex:0 0 auto; background:transparent; border:1px solid #343948; color:#b6bfd3;">&#9664; Previous</button>
+                <button onclick="confirmCurrentLoadout()" id="loadoutConfirmBtn" style="flex:1; background:var(--accent);">Confirm brands &#9654;</button>
+            </div>
+        </div>
         <button onclick="enterQueueMode()" id="startBrandingBtn" style="background:var(--accent); margin-top:15px;">Start review</button>
     </div>
     
@@ -2404,6 +2423,15 @@ const BATCH_LINK_LIMIT = {{ batch_link_limit|default(5)|int }};
 let currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS };
 let sourceEditSaveTimer = null;     // debounce handle for POST /api/source-edits
 let selectedSources = [];   // Patch 50A: filenames of sources chosen for this render run
+
+// ========== PER-VIDEO LOADOUTS (multi-link brand selection) ==========
+// The video is the primary unit; brands are selections attached to that
+// specific video. Each fetched source gets its own "loadout" (brand list),
+// picked one video at a time before the review cockpit opens. Single-video
+// flow never enters loadout mode and is unchanged.
+let videoLoadouts = [];        // [{ video, brandIds: [], confirmed: bool }]
+let currentLoadoutIndex = -1;  // -1 = loadout mode inactive
+const LOADOUT_STORAGE_KEY = 'brandr_video_loadouts';
 let completedOutputs = []; // accumulates { brand_name, download_url } after each successful brand
 
 const OUTPUT_FORMAT_OPTIONS = {
@@ -4749,36 +4777,55 @@ function enterQueueMode() {
     }
     
     const canonicalBrandIds = getCanonicalSelectedBrandIds();
+    const useLoadouts = isLoadoutMode();
 
-    if (canonicalBrandIds.length === 0) {
+    if (useLoadouts) {
+        // Multi-link loadout mode: the queue comes from per-video selections.
+        // Keep any unconfirmed edits on the video currently on screen first.
+        stashCurrentLoadoutSelection();
+        const unconfirmed = videoLoadouts.filter(l => !l.confirmed || !(l.brandIds || []).length);
+        if (unconfirmed.length > 0) {
+            result.innerHTML = `<div class="status-msg error">Confirm brands for every video first — ${unconfirmed.length} video(s) still need brands</div>`;
+            console.error('[BRANDR] enterQueueMode blocked: unconfirmed loadouts', unconfirmed.map(l => l.video));
+            return;
+        }
+    } else if (canonicalBrandIds.length === 0) {
         result.innerHTML = '<div class="status-msg error">Select at least one brand</div>';
         console.error('[BRANDR] enterQueueMode blocked: No brands selected');
         return;
     }
-    
+
     // Save current active preview brand's slider state first
     if (activePreviewBrandId) {
         brandOverrides[activePreviewBrandId] = captureAndSyncSliders();
     }
 
-    // Build flat queue: video × brand × format (brand-first within each video).
-    // Each item gets its own overrides so every (brand, format) combo is independently editable.
+    // Build the flat render queue of canonical RenderItems (video × brand ×
+    // format), the shape fireRenderForItem() consumes. Each video contributes
+    // its own brand list (its loadout); without loadout mode every source
+    // shares the single grid selection. Ordering is brand-first within each
+    // video — V1×B1×fmt1, V1×B1×fmt2, V1×B2×fmt1, … — so a brand's formats sit
+    // adjacent during review (pairs with the "this brand's formats" copy scope).
     const sources = selectedSources.length > 0
         ? selectedSources
         : (currentFile ? [currentFile] : []);
+    const queuePlan = useLoadouts
+        ? videoLoadouts.map(l => ({ video: l.video, brandIds: l.brandIds }))
+        : sources.map(v => ({ video: v, brandIds: canonicalBrandIds }));
 
     processingQueue = [];
-    for (const vid of sources) {
-        for (const fmt of selectedOutputFormats) {
-            for (const brandId of canonicalBrandIds) {
-                const brandData = brandDataCache[brandId];
-                const brandName = brandData ? brandData.display_name : `Brand #${brandId}`;
+    for (const plan of queuePlan) {
+        for (const brandId of plan.brandIds) {
+            const brandData = brandDataCache[brandId];
+            if (!brandData) continue;
+            const brandName = brandData.display_name || `Brand #${brandId}`;
+            for (const fmt of selectedOutputFormats) {
                 // For non-vertical formats, load format_overrides (not vertical session state)
                 const baseOverrides = fmt === 'vertical_9_16'
                     ? (brandOverrides[brandId] || getFormatDefaults(brandData, fmt))
                     : getFormatDefaults(brandData, fmt);
                 processingQueue.push({
-                    video:          vid,
+                    video:          plan.video,
                     brand_id:       brandId,
                     brand_name:     brandName,
                     format:         fmt,
@@ -4791,8 +4838,14 @@ function enterQueueMode() {
         }
     }
 
+    if (processingQueue.length === 0) {
+        result.innerHTML = '<div class="status-msg error">Select at least one brand</div>';
+        console.error('[BRANDR] enterQueueMode blocked: empty queue');
+        return;
+    }
+
     console.log('[BRANDR] Queue built:', processingQueue.length, 'items',
-        `(${sources.length} video(s) × ${canonicalBrandIds.length} brand(s) × ${selectedOutputFormats.length} format(s))`);
+        `(${queuePlan.length} video(s), brand-first per video, ${selectedOutputFormats.length} format(s))`);
 
     currentQueueIndex = 0;
     activeItemIndex = 0;
@@ -6082,10 +6135,18 @@ function exitQueueMode() {
     document.querySelectorAll('.brand-btn').forEach(btn => {
         btn.classList.remove('active-preview');
     });
-    
+
     // Hide preview target bar
     const previewTargetBar = document.getElementById('previewTargetBar');
     if (previewTargetBar) previewTargetBar.style.display = 'none';
+
+    // Restore per-video loadout selection chrome if the batch loop is active
+    if (isLoadoutMode()) {
+        const loadout = videoLoadouts[currentLoadoutIndex];
+        if (loadout) applyLoadoutSelectionToGrid(loadout.brandIds);
+        updateLoadoutUI();
+        updateConfirmationSummary();
+    }
 }
 
 // ========== DOWNLOAD VIDEO (REMOVED - USE DOWNLOADER) ==========
@@ -6324,6 +6385,10 @@ function selectVideo(filename, meta) {
     if (!selectedSources.includes(filename)) {
         selectedSources = [filename];
     }
+    // Selecting a video outside the current batch ends per-video loadout mode.
+    if (isLoadoutMode() && !videoLoadouts.some(l => l.video === filename)) {
+        clearLoadouts('selected video outside batch');
+    }
     createIntent = null;
     sessionStorage.setItem('lastDownloadFilename', filename);
 
@@ -6486,6 +6551,7 @@ async function handleUpload(file) {
 
 function replaceVideo() {
     resetCreateReviewSession('replace-video');
+    clearLoadouts('replace-video');
     currentFile = null;
     frameData = null;
     document.getElementById('previewSection').style.display = 'none';
@@ -6496,6 +6562,7 @@ function replaceVideo() {
 
 function changeVideo() {
     resetCreateReviewSession('change-video');
+    clearLoadouts('change-video');
     // Clear session storage and current state
     sessionStorage.removeItem('lastDownloadFilename');
     currentFile = null;
@@ -6646,6 +6713,7 @@ function setLinkMode(mode) {
     // Clear tracked videos
     batchSuccessfulVideos = [];
     selectedSources = [];   // Patch 50A: clear source selection when switching link modes
+    clearLoadouts('link mode switched');
 }
 
 function batchFetchVideos() {
@@ -6816,7 +6884,9 @@ function updateBatchSelectionCount() {
     }
 }
 
-// Confirm source selection: collect checked filenames → selectedSources → selectVideo(first).
+// Confirm source selection: collect checked filenames.
+// Single source → normal single-video flow. Multiple sources → per-video
+// loadout selection: each video gets its own brand pass before review.
 function confirmBatchSourceSelection() {
     const checkboxes = document.querySelectorAll('.batch-source-cb');
     const checkedFilenames = Array.from(checkboxes)
@@ -6825,21 +6895,256 @@ function confirmBatchSourceSelection() {
 
     if (checkedFilenames.length === 0) return; // guard (button should be disabled)
 
-    // Patch 50A Bug Fix: selectVideo may call resetCreateReviewSession (when a video is
-    // already active), which clears selectedSources. Capture the array first and restore
-    // it after selectVideo so the multi-source selection survives the reset.
-    const savedSources = checkedFilenames.slice();
+    if (checkedFilenames.length === 1) {
+        clearLoadouts('single-source batch');
+        selectVideo(checkedFilenames[0]);
+        console.log('[BRANDR] Batch source selection confirmed: single source');
+        return;
+    }
 
-    // selectVideo sets currentFile + extracts preview frame for the first source.
-    selectVideo(checkedFilenames[0]);
-
-    // Restore multi-source array after selectVideo (which may have reset it).
-    selectedSources = savedSources;
-
-    console.log('[BRANDR] Batch source selection confirmed:', selectedSources);
+    beginLoadoutSelection(checkedFilenames);
+    console.log('[BRANDR] Batch source selection confirmed:', checkedFilenames.length,
+        'videos — entering per-video loadout selection');
 }
 
 // ========== END Patch 50A: BATCH SOURCE SELECTION HELPERS ==========
+
+// ========== PER-VIDEO LOADOUT SELECTION ==========
+// Deciding WHAT to render happens here (one loadout per video); actually
+// rendering stays downstream in the review cockpit → fireRenderForItem().
+
+function isLoadoutMode() {
+    return currentLoadoutIndex >= 0 && videoLoadouts.length > 0;
+}
+
+function persistLoadouts() {
+    try {
+        sessionStorage.setItem(LOADOUT_STORAGE_KEY, JSON.stringify({
+            loadouts: videoLoadouts,
+            index: currentLoadoutIndex
+        }));
+    } catch (e) { console.warn('[LOADOUT] persist failed:', e); }
+}
+
+function clearLoadouts(reason) {
+    if (isLoadoutMode()) console.log('[LOADOUT] cleared:', reason || 'unspecified');
+    videoLoadouts = [];
+    currentLoadoutIndex = -1;
+    try { sessionStorage.removeItem(LOADOUT_STORAGE_KEY); } catch (e) {}
+    updateLoadoutUI();
+}
+
+// Restore saved loadout selections when the confirmed source set matches
+// (e.g. a mid-loop refresh followed by re-selecting the same batch).
+function restoreSavedLoadouts(sources) {
+    try {
+        const saved = JSON.parse(sessionStorage.getItem(LOADOUT_STORAGE_KEY) || 'null');
+        if (!saved || !Array.isArray(saved.loadouts)) return null;
+        if (saved.loadouts.length !== sources.length) return null;
+        if (!sources.every((v, i) => saved.loadouts[i] && saved.loadouts[i].video === v)) return null;
+        return saved;
+    } catch (e) { return null; }
+}
+
+function beginLoadoutSelection(sources) {
+    const saved = restoreSavedLoadouts(sources);
+    if (saved) {
+        videoLoadouts = saved.loadouts.map(l => ({
+            video: l.video,
+            brandIds: (l.brandIds || []).filter(Number.isInteger),
+            confirmed: !!l.confirmed
+        }));
+        currentLoadoutIndex = Math.min(Math.max(parseInt(saved.index, 10) || 0, 0), videoLoadouts.length - 1);
+        console.log('[LOADOUT] Restored saved selections for', sources.length, 'videos');
+    } else {
+        videoLoadouts = sources.map(v => ({ video: v, brandIds: [], confirmed: false }));
+        currentLoadoutIndex = 0;
+    }
+    persistLoadouts();
+    enterLoadoutVideo(currentLoadoutIndex);
+}
+
+// Switch the selection stage to one video of the batch: load its preview
+// frame and restore its saved brand selection into the grid.
+function enterLoadoutVideo(idx) {
+    currentLoadoutIndex = idx;
+    const loadout = videoLoadouts[idx];
+    if (!loadout) return;
+
+    // selectVideo resets review-session state (including selectedSources) when
+    // a video is already active — restore the multi-source array and this
+    // video's selection after it runs.
+    const savedSources = videoLoadouts.map(l => l.video);
+    selectVideo(loadout.video);
+    selectedSources = savedSources;
+
+    applyLoadoutSelectionToGrid(loadout.brandIds);
+    persistLoadouts();
+    updateLoadoutUI();
+    updateConfirmationSummary();
+}
+
+// Rebuild grid selection state (selectedBrandIds + tile classes) from a brand list.
+function applyLoadoutSelectionToGrid(brandIds) {
+    selectedBrandIds = [];
+    document.querySelectorAll('.brand-btn.selected').forEach(btn => btn.classList.remove('selected'));
+    document.querySelectorAll('.brand-btn.active-preview').forEach(btn => btn.classList.remove('active-preview'));
+    (brandIds || []).forEach(id => {
+        if (!brandDataCache[id]) return;
+        selectedBrandIds.push(id);
+        const tile = document.querySelector(`.brand-btn[data-brand-id="${id}"]`);
+        if (tile) tile.classList.add('selected');
+    });
+    activePreviewBrandId = selectedBrandIds.length ? selectedBrandIds[selectedBrandIds.length - 1] : null;
+    if (activePreviewBrandId) {
+        const tile = document.querySelector(`.brand-btn[data-brand-id="${activePreviewBrandId}"]`);
+        if (tile) tile.classList.add('active-preview');
+        loadBrandAssets(activePreviewBrandId);
+        applyBrandToPreview(brandDataCache[activePreviewBrandId], brandOverrides[activePreviewBrandId]);
+    }
+}
+
+// Validate the current grid selection as a loadout: at least one brand and
+// within the per-job brand cap (the cap applies to EACH video's loadout).
+function validateLoadoutSelection() {
+    const canonical = getCanonicalSelectedBrandIds();
+    if (canonical.length === 0) {
+        return { ok: false, msg: 'Select at least one brand for this video' };
+    }
+    const maxBrands = parseInt(document.getElementById('brandsBox').dataset.maxBrands) || 999;
+    if (canonical.length > maxBrands) {
+        if (typeof openUpgradeModal === 'function') {
+            openUpgradeModal('Brand Limit Reached', `Your plan allows ${maxBrands} brands per video. This video has ${canonical.length} selected.`);
+        }
+        return { ok: false, msg: `Your plan allows ${maxBrands} brands per video` };
+    }
+    return { ok: true, brandIds: canonical };
+}
+
+// Keep the working selection when navigating away without confirming.
+// A confirmed loadout keeps its confirmation unless the selection was emptied.
+function stashCurrentLoadoutSelection() {
+    const loadout = videoLoadouts[currentLoadoutIndex];
+    if (!loadout) return;
+    const canonical = getCanonicalSelectedBrandIds();
+    loadout.brandIds = canonical.slice();
+    if (loadout.confirmed && canonical.length === 0) loadout.confirmed = false;
+    persistLoadouts();
+}
+
+function confirmCurrentLoadout() {
+    const result = document.getElementById('processResult');
+    const check = validateLoadoutSelection();
+    if (!check.ok) {
+        if (result) result.innerHTML = `<div class="status-msg error">${check.msg}</div>`;
+        return;
+    }
+    if (result) result.innerHTML = '';
+
+    const loadout = videoLoadouts[currentLoadoutIndex];
+    loadout.brandIds = check.brandIds.slice();
+    loadout.confirmed = true;
+    persistLoadouts();
+    console.log('[LOADOUT] Confirmed video', currentLoadoutIndex + 1, 'of', videoLoadouts.length,
+        '— brands:', loadout.brandIds);
+
+    if (currentLoadoutIndex < videoLoadouts.length - 1) {
+        enterLoadoutVideo(currentLoadoutIndex + 1);
+    } else {
+        updateLoadoutUI();
+        updateConfirmationSummary();
+    }
+}
+
+function loadoutPrevious() {
+    if (currentLoadoutIndex <= 0) return;
+    stashCurrentLoadoutSelection();
+    enterLoadoutVideo(currentLoadoutIndex - 1);
+}
+
+function loadoutJumpTo(idx) {
+    if (!isLoadoutMode() || idx === currentLoadoutIndex || idx < 0 || idx >= videoLoadouts.length) return;
+    stashCurrentLoadoutSelection();
+    enterLoadoutVideo(idx);
+}
+
+// Copy the previous video's brand selection into the current grid (not yet confirmed).
+function loadoutSameAsPrevious() {
+    if (currentLoadoutIndex <= 0) return;
+    const prev = videoLoadouts[currentLoadoutIndex - 1];
+    applyLoadoutSelectionToGrid(prev.brandIds);
+    updateConfirmationSummary();
+}
+
+// Apply the current selection to this video and every remaining one, confirming all.
+function loadoutApplyToRemaining() {
+    const result = document.getElementById('processResult');
+    const check = validateLoadoutSelection();
+    if (!check.ok) {
+        if (result) result.innerHTML = `<div class="status-msg error">${check.msg}</div>`;
+        return;
+    }
+    if (result) result.innerHTML = '';
+
+    for (let i = currentLoadoutIndex; i < videoLoadouts.length; i++) {
+        videoLoadouts[i].brandIds = check.brandIds.slice();
+        videoLoadouts[i].confirmed = true;
+    }
+    persistLoadouts();
+    console.log('[LOADOUT] Applied selection to videos', currentLoadoutIndex + 1, '–', videoLoadouts.length);
+    updateLoadoutUI();
+    updateConfirmationSummary();
+}
+
+// Sync loadout chrome: header, counter, progress dots, action buttons.
+// "Start review" only appears once every video's loadout is confirmed.
+function updateLoadoutUI() {
+    const header   = document.getElementById('loadoutHeader');
+    const actions  = document.getElementById('loadoutActions');
+    const startBtn = document.getElementById('startBrandingBtn');
+    if (!header || !actions) return;
+
+    if (!isLoadoutMode()) {
+        header.style.display = 'none';
+        actions.style.display = 'none';
+        if (startBtn) startBtn.style.display = '';
+        return;
+    }
+
+    const total = videoLoadouts.length;
+    const idx = currentLoadoutIndex;
+    header.style.display = 'block';
+    actions.style.display = 'block';
+
+    document.getElementById('loadoutCounter').textContent = `Video ${idx + 1} of ${total}`;
+    const basename = (videoLoadouts[idx].video || '').split('/').pop();
+    document.getElementById('loadoutFilename').textContent = basename;
+
+    const dots = document.getElementById('loadoutProgressDots');
+    dots.innerHTML = videoLoadouts.map((l, i) => {
+        const bg = l.confirmed ? 'var(--accent)' : 'rgba(255,255,255,0.12)';
+        const outline = i === idx ? 'box-shadow:0 0 0 2px var(--accent-glow);' : '';
+        return `<span title="Video ${i + 1}${l.confirmed ? ' ✓' : ''}" onclick="loadoutJumpTo(${i})" style="width:10px;height:10px;border-radius:50%;background:${bg};${outline}cursor:pointer;flex-shrink:0;"></span>`;
+    }).join('');
+
+    document.getElementById('loadoutPrevBtn').style.display = idx > 0 ? '' : 'none';
+    document.getElementById('loadoutSameBtn').style.display = idx > 0 ? '' : 'none';
+
+    const remaining = total - idx - 1;
+    const applyBtn = document.getElementById('loadoutApplyAllBtn');
+    applyBtn.style.display = remaining > 0 ? '' : 'none';
+    applyBtn.textContent = `Apply to all remaining (${remaining})`;
+
+    const confirmBtn = document.getElementById('loadoutConfirmBtn');
+    confirmBtn.innerHTML = idx < total - 1
+        ? 'Confirm brands ▶ next video'
+        : 'Confirm brands ✓';
+
+    const allConfirmed = videoLoadouts.every(l => l.confirmed && (l.brandIds || []).length > 0);
+    if (startBtn) startBtn.style.display = allConfirmed ? '' : 'none';
+}
+
+// ========== END PER-VIDEO LOADOUT SELECTION ==========
 
 // ========== BATCH ITEM STATE BADGES ==========
 // Session-only state tracking for batch fetch results
@@ -6919,6 +7224,7 @@ function downloadAllBatchVideos() {
 function clearVideo() {
     // Same as changeVideo but stay on current page
     resetCreateReviewSession('clear-video');
+    clearLoadouts('clear-video');
     sessionStorage.removeItem('lastDownloadFilename');
     currentFile = null;
     selectedSources = [];   // Patch 50A
@@ -6967,7 +7273,13 @@ function updateConfirmationSummary() {
     }
     // ========== END JOB-ITEM MODEL ==========
 
-    if (itemCount === 0) {
+    // Loadout mode: each video has its own brand list, so the render count is
+    // the sum of confirmed per-video selections × formats.
+    const loadoutConfirmedTotal = (!isQueueMode && isLoadoutMode())
+        ? videoLoadouts.reduce((n, l) => n + ((l.confirmed && l.brandIds) ? l.brandIds.length : 0), 0)
+        : 0;
+
+    if (itemCount === 0 && loadoutConfirmedTotal === 0) {
         summaryEl.innerHTML = '<span style="color:#ff9800;">Choose at least one brand to start review</span>';
         return;
     }
@@ -6979,7 +7291,9 @@ function updateConfirmationSummary() {
         ? ((OUTPUT_FORMAT_OPTIONS[selectedOutputFormats[0]] || {}).label || selectedOutputFormats[0])
         : `${fmtCount} formats`;
     const sourceLabel = sourceCount === 1 ? '1 source' : `${sourceCount} sources`;
-    const renderCount = sourceCount * itemCount * fmtCount;
+    const renderCount = loadoutConfirmedTotal > 0
+        ? loadoutConfirmedTotal * fmtCount
+        : sourceCount * itemCount * fmtCount;
 
     const brandWord  = itemCount   === 1 ? 'brand'  : 'brands';
     const renderWord = renderCount === 1 ? 'render' : 'renders';
@@ -6989,7 +7303,9 @@ function updateConfirmationSummary() {
     // Formula line
     html += `<div style="font-size:13px; color:#e5e7eb; margin-bottom:4px;">`;
     html += `<strong>${renderCount} ${renderWord}</strong> &mdash; `;
-    html += `${sourceLabel} &times; ${itemCount} ${brandWord} &times; ${formatLabel}`;
+    html += loadoutConfirmedTotal > 0
+        ? `${sourceLabel} &times; per-video brands &times; ${formatLabel}`
+        : `${sourceLabel} &times; ${itemCount} ${brandWord} &times; ${formatLabel}`;
     html += `</div>`;
 
     // Brand chips — replaces the carousel navigator; shows every queued brand at a glance
@@ -7023,7 +7339,9 @@ function updateConfirmationSummary() {
 
     // Multi-source note
     if (sourceCount > 1) {
-        html += `<div style="margin-top:3px; font-size:11px; color:#9ca3af;">Brand settings from review apply to all ${sourceCount} sources.</div>`;
+        html += loadoutConfirmedTotal > 0
+            ? `<div style="margin-top:3px; font-size:11px; color:#9ca3af;">Each video renders with its own brand selection.</div>`
+            : `<div style="margin-top:3px; font-size:11px; color:#9ca3af;">Brand settings from review apply to all ${sourceCount} sources.</div>`;
     }
 
     // Destination note
