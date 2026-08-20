@@ -5363,8 +5363,23 @@ async function fireRenderForBrand(item) {
     }
 }
 
-// fireRenderForItem — fires exactly ONE format POST for a (brand × format) queue item.
-// Called from approveAndNext(). Non-blocking: polls in background while user reviews next item.
+// Human label for a canonical render item: "video — brand · format".
+// The video prefix appears only when the queue spans more than one source.
+function renderItemLabel(item) {
+    const base = item.brand_name + ' · ' + item.format;
+    const multiVideo = new Set(processingQueue.map(q => q.video).filter(Boolean)).size > 1;
+    if (!multiVideo || !item.video) return base;
+    const srcBasename = item.video.split('/').pop() || item.video;
+    return srcBasename + ' — ' + base;
+}
+
+// fireRenderForItem — THE canonical render submitter.
+// Architectural rule: every render, from any flow (review Approve & Next,
+// batch "Start branding", future automation), must arrive here as a queue item
+// carrying its own video / brand_id / format / source_edit. Deciding WHAT to
+// render happens upstream; this is the only place that actually renders.
+// Resolves when the render settles (done/failed); fire-and-forget callers
+// (approveAndNext) may ignore the returned promise and stay non-blocking.
 async function fireRenderForItem(item) {
     if (item.status === 'processing' || item.status === 'done') {
         console.warn('[FIRE] Skip', item.brand_name, item.format, '— already', item.status);
@@ -5372,7 +5387,11 @@ async function fireRenderForItem(item) {
     }
 
     item.status = 'processing';
-    if ((item.format || 'vertical_9_16') === 'vertical_9_16') {
+    // Snapshot the live canvas source edit only when this item is the one on
+    // screen — batch callers pass items whose own source_edit (or the saved
+    // per-(video, format) edit on the server) must not be overwritten by
+    // another video's canvas state.
+    if (processingQueue[currentQueueIndex] === item && (item.format || 'vertical_9_16') === 'vertical_9_16') {
         snapshotSourceEditToItem();
     }
     renderBrandPills();
@@ -5433,6 +5452,9 @@ async function fireRenderForItem(item) {
             if (postData.error === 'DAILY_LIMIT_REACHED' || postData.error === 'BRANDS_PER_JOB_LIMIT') {
                 openUpgradeModal('Limit reached', postData.message || 'You have reached your plan limit.');
             }
+            // Keep structured fix guidance on the item so the completion panel
+            // can surface it (renderCompletionPanel failMessages).
+            if (postData.fix) { item.fix = postData.fix; item.fix_url = postData.fix_url || null; }
             throw new Error(postData.error || postData.details || 'Render could not be queued');
         }
         job_id = postData.job_id;
@@ -5446,61 +5468,69 @@ async function fireRenderForItem(item) {
         return;
     }
 
-    // Poll until settled
+    // Poll until settled. Wrapped in a promise so batch callers can await the
+    // item's terminal state; approveAndNext() ignores the return value and
+    // stays non-blocking exactly as before.
     const POLL_INTERVAL_MS = 5000;
     const MAX_POLLS = 180;
     let pollCount = 0;
 
-    const poll = async () => {
-        if (pollCount >= MAX_POLLS) {
-            console.error('[FIRE] Poll timeout:', item.brand_name, item.format, job_id);
-            item.status = 'failed';
-            renderBrandPills();
-            checkQueueComplete();
-            return;
-        }
-        pollCount++;
-
-        let pollRes, pollData;
-        try {
-            pollRes  = await fetch(`${apiBase}/api/videos/brand-job/${job_id}`);
-            pollData = await pollRes.json();
-        } catch (netErr) {
-            setTimeout(poll, POLL_INTERVAL_MS);
-            return;
-        }
-
-        if (pollRes.status === 404 || pollData.error) {
-            item.status = 'failed';
-            item.error  = 'Render job lost after server restart. Please retry.';
-            console.warn('[FIRE] Job lost:', job_id, item.format);
-            renderBrandPills();
-            checkQueueComplete();
-            return;
-        }
-
-        if (!pollRes.ok) { setTimeout(poll, POLL_INTERVAL_MS); return; }
-
-        if (pollData.status === 'completed') {
-            if (pollData.outputs && pollData.outputs[0]) {
-                const downloadUrl = pollData.outputs[0].download_url;
-                window.open(downloadUrl, '_blank');
-                completedOutputs.push({ brand_name: item.brand_name + ' · ' + item.format, download_url: downloadUrl });
+    await new Promise((resolve) => {
+        const poll = async () => {
+            if (pollCount >= MAX_POLLS) {
+                console.error('[FIRE] Poll timeout:', item.brand_name, item.format, job_id);
+                item.status = 'failed';
+                renderBrandPills();
+                checkQueueComplete();
+                resolve();
+                return;
             }
-            item.status = 'done';
-            console.log('[FIRE] Done:', item.brand_name, item.format, 'polls:', pollCount);
-            renderBrandPills();
-            checkQueueComplete();
-        } else if (pollData.status === 'failed') {
-            item.status = 'failed';
-            console.error('[FIRE] Failed:', item.brand_name, item.format, pollData.error);
-            renderBrandPills();
-            checkQueueComplete();
-        } else {
-            setTimeout(poll, POLL_INTERVAL_MS);
-        }
-    };
-    setTimeout(poll, POLL_INTERVAL_MS);
+            pollCount++;
+
+            let pollRes, pollData;
+            try {
+                pollRes  = await fetch(`${apiBase}/api/videos/brand-job/${job_id}`);
+                pollData = await pollRes.json();
+            } catch (netErr) {
+                setTimeout(poll, POLL_INTERVAL_MS);
+                return;
+            }
+
+            if (pollRes.status === 404 || pollData.error) {
+                item.status = 'failed';
+                item.error  = 'Render job lost after server restart. Please retry.';
+                console.warn('[FIRE] Job lost:', job_id, item.format);
+                renderBrandPills();
+                checkQueueComplete();
+                resolve();
+                return;
+            }
+
+            if (!pollRes.ok) { setTimeout(poll, POLL_INTERVAL_MS); return; }
+
+            if (pollData.status === 'completed') {
+                if (pollData.outputs && pollData.outputs[0]) {
+                    const downloadUrl = pollData.outputs[0].download_url;
+                    window.open(downloadUrl, '_blank');
+                    completedOutputs.push({ brand_name: renderItemLabel(item), download_url: downloadUrl });
+                }
+                item.status = 'done';
+                console.log('[FIRE] Done:', item.brand_name, item.format, 'polls:', pollCount);
+                renderBrandPills();
+                checkQueueComplete();
+                resolve();
+            } else if (pollData.status === 'failed') {
+                item.status = 'failed';
+                console.error('[FIRE] Failed:', item.brand_name, item.format, pollData.error);
+                renderBrandPills();
+                checkQueueComplete();
+                resolve();
+            } else {
+                setTimeout(poll, POLL_INTERVAL_MS);
+            }
+        };
+        setTimeout(poll, POLL_INTERVAL_MS);
+    });
 }
 
 async function processCurrentBrand() {
@@ -5709,10 +5739,10 @@ async function processCurrentBrand() {
 
 async function processAllBrands() {
     const result = document.getElementById('processResult');
-    
+
     // Save current overrides first
     saveCurrentOverridesFromSliders();
-    
+
     // Reset accumulated outputs for this run
     completedOutputs = [];
 
@@ -5731,7 +5761,7 @@ async function processAllBrands() {
     // Fix A: Reset stale 'processing' items left by a prior aborted render.
     // Navigation/reload aborts in-flight fetches but does not clear localStorage;
     // items stuck at status='processing' would be silently excluded from
-    // pendingBrands below. Reset them to 'pending' so this run picks them up.
+    // pendingItems below. Reset them to 'pending' so this run picks them up.
     // Only 'processing' is reset — skipped/done/failed are intentional states.
     processingQueue.forEach(q => {
         if (q.status === 'processing') {
@@ -5742,10 +5772,9 @@ async function processAllBrands() {
     persistJobItems();
 
     // Everything moves forward by default unless it was skipped.
-    const pendingBrands = processingQueue.filter(q => q.status !== 'skipped' && q.status !== 'done' && q.status !== 'processing');
-    const includedTotal = processingQueue.filter(q => q.status !== 'skipped').length;
+    const pendingItems = processingQueue.filter(q => q.status !== 'skipped' && q.status !== 'done' && q.status !== 'processing');
 
-    if (pendingBrands.length === 0) {
+    if (pendingItems.length === 0) {
         result.innerHTML = '<div class="status-msg info">Everything here is already running, finished, or skipped.</div>';
         return;
     }
@@ -5761,154 +5790,27 @@ async function processAllBrands() {
     `;
 
     const progressEl = result.querySelector('.processing-state-meta');
-    let successCount = 0;
-    let failCount = 0;
-    let failMessages = [];
 
-    // Patch 50A: snapshot sources + formats at run-start.
-    // Loop order: source → brand → format (outermost to innermost).
-    // Each (source, brand, format) triple = one sequential server request.
-    const activeSources = selectedSources.length > 0 ? selectedSources.slice() : [currentFile];
-    const activeFormats = selectedOutputFormats.slice();
-    const multiSource   = activeSources.length > 1;
-    const multiFormat   = activeFormats.length > 1;
-    const totalSteps    = activeSources.length * pendingBrands.length * activeFormats.length;
+    // Canonical render path: every pending queue item is submitted through
+    // fireRenderForItem(), which respects that item's own video / brand_id /
+    // format / source_edit. The queue built by enterQueueMode() is already the
+    // full sources × formats × brands cross-product, so there is exactly one
+    // request per item — no outer source/format loops here (the old ones
+    // re-multiplied the already-multiplied queue and fired duplicate renders,
+    // with duplicate credit charges, on multi-source runs).
+    // Sequential await keeps server load identical to the old one-at-a-time loop.
     let stepIndex = 0;
-
-    // Snapshot the approved/pending brand list BEFORE the source loop.
-    // pendingBrands is already filtered above; we re-use the same array.
-    // Track brands that fail on ANY (source, format) pair.
-    const brandFailedAnySource = new Set();
-
-    for (const src of activeSources) {
-        // Raw filename for progress/output labels (no directory prefix).
-        const srcBasename = src ? src.split('/').pop() || src : '';
-
-        for (const item of pendingBrands) {
-            item.status = 'processing';
-            syncStatusToJobItem(item.brand_id, 'processing');
-            renderBrandPills();
-
-            // Track per-brand outcome across all its formats within this source pass.
-            let brandHadFailureThisPass = false;
-
-            for (const fmt of activeFormats) {
-                stepIndex++;
-                const fmtLabel = (OUTPUT_FORMAT_OPTIONS[fmt] || {}).label || fmt;
-
-                // Build progress label: include source prefix when multiple sources selected.
-                let progressLabel = item.brand_name;
-                if (multiFormat) progressLabel += ` — ${fmtLabel}`;
-                if (multiSource) progressLabel = `${srcBasename} — ${progressLabel}`;
-                if (progressEl) progressEl.textContent = `Processing ${stepIndex} of ${totalSteps}: ${progressLabel}…`;
-
-                try {
-                    const res = await fetch(`${apiBase}/api/videos/process_brands`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            source_path: src,
-                            brand_ids: [item.brand_id],
-                            brands: [item.brand_name],
-                            output_format: fmt,
-                            ...(item.userEdited ? {
-                                watermark_scale: item.overrides.watermark_scale,
-                                watermark_opacity: item.overrides.watermark_opacity,
-                                wm_x: item.overrides.wm_x,
-                                wm_y: item.overrides.wm_y,
-                                logo_scale: item.overrides.logo_scale,
-                                logo_x: item.overrides.logo_x,
-                                logo_y: item.overrides.logo_y,
-                                text_enabled: item.overrides.text_enabled,
-                                text_content: item.overrides.text_content,
-                                text_x: item.overrides.text_x,
-                                text_y: item.overrides.text_y,
-                                text_size: item.overrides.text_size,
-                                text_color: item.overrides.text_color,
-                                text_bg_enabled: item.overrides.text_bg_enabled,
-                                text_bg_opacity: item.overrides.text_bg_opacity
-                            } : {})
-                        })
-                    });
-
-                    let data;
-                    try {
-                        data = await res.json();
-                    } catch {
-                        throw new Error(`Server error ${res.status} — branding failed. Check server logs.`);
-                    }
-
-                    if (!data.success) {
-                        if (data.error === 'DAILY_LIMIT_REACHED' || data.error === 'BRANDS_PER_JOB_LIMIT') {
-                            openUpgradeModal('Limit reached', data.message || 'You have reached your plan limit.');
-                            throw new Error(data.message || 'Plan limit reached');
-                        }
-                        // Fix C: attach actionable fix guidance to the error object so the
-                        // catch block can surface it in the completion panel without exposing
-                        // internal file paths or raw technical strings to the user.
-                        const _apiErr = new Error(data.error || data.details || 'Processing failed');
-                        if (data.fix) _apiErr.fix = data.fix;
-                        if (data.fix_url) _apiErr.fix_url = data.fix_url;
-                        throw _apiErr;
-                    }
-
-                    // This (source, brand, format) triple succeeded.
-                    successCount++;
-
-                    if (data.outputs && data.outputs[0]) {
-                        const downloadUrl = data.outputs[0].download_url;
-                        // Build output label with source + format suffixes as needed.
-                        let outputLabel = item.brand_name;
-                        if (multiFormat) outputLabel += ` — ${fmtLabel}`;
-                        if (multiSource) outputLabel = `${srcBasename} — ${outputLabel}`;
-                        console.log('[BRANDR] Download triggered:', downloadUrl);
-                        window.open(downloadUrl, '_blank');
-                        completedOutputs.push({ brand_name: outputLabel, download_url: downloadUrl });
-                    }
-
-                } catch (err) {
-                    brandHadFailureThisPass = true;
-                    failCount++;
-                    // Build failure label with source + format context.
-                    let failLabel = item.brand_name;
-                    if (multiFormat) failLabel += ` (${fmtLabel})`;
-                    if (multiSource) failLabel = `${srcBasename} — ${failLabel}`;
-                    console.error('[BRANDR] Brand failed:', failLabel, err.message);
-                    // Fix C: collect per-(source, brand, format) fix guidance for the completion panel.
-                    if (err.fix) {
-                        failMessages.push({ brand_name: failLabel, fix: err.fix, fix_url: err.fix_url || null });
-                    }
-                }
-            } // end formats loop
-
-            // If this brand failed on any format within this source pass, record it.
-            if (brandHadFailureThisPass) {
-                brandFailedAnySource.add(item.brand_id);
-            }
-
-            // Update pill display with intermediate status for this source pass.
-            item.status = brandHadFailureThisPass ? 'failed' : 'done';
-            syncStatusToJobItem(item.brand_id, brandHadFailureThisPass ? 'error' : 'completed');
-            renderBrandPills();
-        } // end brands loop
-    } // end sources loop
-
-    // After all (source, brand, format) triples: set definitive brand status.
-    // 'done' only if that brand succeeded on every source×format combination.
-    // 'failed' if it failed on any source×format combination.
-    for (const item of pendingBrands) {
-        const everFailed = brandFailedAnySource.has(item.brand_id);
-        item.status = everFailed ? 'failed' : 'done';
-        syncStatusToJobItem(item.brand_id, everFailed ? 'error' : 'completed');
+    for (const item of pendingItems) {
+        stepIndex++;
+        if (progressEl) progressEl.textContent = `Processing ${stepIndex} of ${pendingItems.length}: ${renderItemLabel(item)}…`;
+        await fireRenderForItem(item);
+        syncStatusToJobItem(item.brand_id, item.status === 'done' ? 'completed' : 'error');
     }
     renderBrandPills();
 
-    try {
-        renderCompletionPanel(result, successCount, failCount, 0, failMessages);
-    } catch (panelErr) {
-        console.error('[BRANDR] renderCompletionPanel error:', panelErr);
-        result.innerHTML = `<div class="status-msg success">🎉 Done! ${successCount} branded. <button onclick="goToLibrary()" style="margin-left:8px;background:transparent;border:1px solid #555;color:#b6bfd3;padding:4px 10px;border-radius:5px;cursor:pointer;">Open Library</button></div>`;
-    }
+    // All items have settled — the final fireRenderForItem() call rendered the
+    // completion panel via checkQueueComplete(). Call once more as a safety net
+    // (e.g. if every pending item short-circuited on its double-fire guard).
     checkQueueComplete();
 }
 
@@ -5962,8 +5864,12 @@ function checkQueueComplete() {
         const done = processingQueue.filter(q => q.status === 'done').length;
         const failed = processingQueue.filter(q => q.status === 'failed').length;
         const skipped = processingQueue.filter(q => q.status === 'skipped').length;
+        // Structured fix guidance captured on failed items by fireRenderForItem
+        const failMessages = processingQueue
+            .filter(q => q.status === 'failed' && q.fix)
+            .map(q => ({ brand_name: renderItemLabel(q), fix: q.fix, fix_url: q.fix_url || null }));
         try {
-            renderCompletionPanel(result, done, failed, skipped);
+            renderCompletionPanel(result, done, failed, skipped, failMessages);
         } catch (panelErr) {
             console.error('[BRANDR] renderCompletionPanel error:', panelErr);
             result.innerHTML = `<div class="status-msg success">🎉 Done! ${done} branded. <button onclick="goToLibrary()" style="margin-left:8px;background:transparent;border:1px solid #555;color:#b6bfd3;padding:4px 10px;border-radius:5px;cursor:pointer;">Open Library</button></div>`;
