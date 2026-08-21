@@ -3737,6 +3737,17 @@ def fetch_videos_from_urls():
                 success_count = sum(1 for r in job['results'] if r.get('success'))
                 print(f"[FETCH] job {job_id[:8]} done: {success_count}/{len(urls)} succeeded", flush=True)
 
+                # Settle the job BEFORE bookkeeping. Both writes below are
+                # non-critical but can block for minutes under SQLite write
+                # contention (busy_timeout 30s x _retry_write's 7 attempts) —
+                # observed live 2026-08-21: downloads finished in ~40s, then
+                # the job sat at "3 of 3 done" for a further 5 minutes before
+                # flipping to completed. The user's videos are ready the
+                # moment the loop ends, so publish that immediately and let
+                # the counters catch up.
+                job['successful'] = success_count
+                job['status'] = 'completed'
+
                 try:
                     log_event('info', None, f'Fetch complete: {success_count}/{len(urls)} successful')
                 except Exception as _log_err:
@@ -3748,14 +3759,15 @@ def fetch_videos_from_urls():
                         increment_downloads(user_id, success_count)
                     except Exception as _inc_err:
                         print(f"[FETCH] increment_downloads warning (non-critical): {_inc_err}", flush=True)
-
-                job['successful'] = success_count
-                job['status'] = 'completed'
             except Exception as _job_err:
                 import traceback
                 traceback.print_exc()
                 job['error'] = str(_job_err)
-                job['status'] = 'failed'
+                # Never downgrade an already-published result: once the
+                # downloads are in and the job is marked completed, a failure
+                # in the trailing bookkeeping must not hide them from the user.
+                if job.get('status') != 'completed':
+                    job['status'] = 'failed'
 
         threading.Thread(target=_run_fetch_job, daemon=True).start()
         print(f"[FETCH] job {job_id[:8]} queued ({len(urls)} URL(s)) — returning immediately", flush=True)
