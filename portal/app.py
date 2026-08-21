@@ -77,6 +77,7 @@ def ensure_video_stream(path):
 
 # Import video processing utilities
 from .video_processor import VideoProcessor, normalize_video
+from . import proxy_service
 from .brand_loader import get_available_brands
 
 # Import configuration
@@ -2388,6 +2389,55 @@ def admin_manage_credits():
                     'credits_per_day': allowance, 'balance': bal})
 
 
+@app.route('/api/admin/proxy-check', methods=['GET'])
+@admin_required
+def admin_proxy_check():
+    """Verify the residential proxy from the live site.
+
+    Fetches an IP-echo service twice THROUGH the proxy: the reported IP proves
+    traffic is exiting via DataImpulse, the country proves targeting works, and
+    two differing IPs prove the gateway is rotating. Never returns credentials.
+    """
+    import requests as _requests
+
+    configured = proxy_service.is_configured()
+    result = {
+        'success': True,
+        'proxy': proxy_service.describe(),      # credential-free
+        'configured': configured,
+        'country_requested': proxy_service.get_country() or 'any',
+    }
+
+    if not configured and not os.environ.get('IG_PROXY', '').strip():
+        result['note'] = 'No proxy configured — Instagram fetches go direct.'
+        return jsonify(result)
+
+    proxy_url = proxy_service.get_meta_proxy()
+    proxies = {'http': proxy_url, 'https': proxy_url}
+    seen = []
+    for _ in range(2):
+        try:
+            r = _requests.get('https://ipinfo.io/json', proxies=proxies, timeout=20)
+            data = r.json()
+            seen.append({'ip': data.get('ip'), 'country': data.get('country'),
+                         'region': data.get('region')})
+        except Exception as e:
+            # redact(): request errors embed the full proxy URL incl. password
+            result['success'] = False
+            result['error'] = proxy_service.redact(str(e))[:300]
+            return jsonify(result), 502
+
+    result['exits'] = seen
+    result['rotating'] = len({s_.get('ip') for s_ in seen}) > 1
+    try:
+        direct = _requests.get('https://ipinfo.io/json', timeout=10).json()
+        result['direct_ip'] = direct.get('ip')
+        result['proxy_is_different_ip'] = direct.get('ip') != seen[0].get('ip')
+    except Exception:
+        result['direct_ip'] = 'unavailable'
+    return jsonify(result)
+
+
 @app.route('/api/admin/render-stats', methods=['GET'])
 @admin_required
 def admin_render_stats():
@@ -2967,9 +3017,14 @@ def process_branded_videos():
                             'Connection': 'keep-alive',
                             'Upgrade-Insecure-Requests': '1',
                         }
-                        _ig_proxy = os.environ.get('IG_PROXY', '').strip()
-                        if _ig_proxy:
-                            ydl_opts['proxy'] = _ig_proxy
+                        # Same residential-proxy path as the main fetch flow so
+                        # this (URL-input) branch can't diverge from it.
+                        _meta_proxy = proxy_service.get_meta_proxy()
+                        if _meta_proxy:
+                            ydl_opts['proxy'] = _meta_proxy
+                            print(f"[PROCESS BRANDS] Instagram fetch using residential proxy — {proxy_service.describe()}")
+                        else:
+                            print("[PROCESS BRANDS] Instagram fetch direct — proxy unavailable")
 
                     # Apply TikTok impersonation for TikTok URLs
                     # Note: impersonation requires curl_cffi and specific target format
@@ -3484,24 +3539,32 @@ def fetch_videos_from_urls():
                         'Connection': 'keep-alive',
                         'Upgrade-Insecure-Requests': '1',
                     }
-                    # Route Instagram through a residential proxy when IG_PROXY is
-                    # set (e.g. http://user:pass@host:port). Off by default —
-                    # Instagram blocks datacenter IPs like Render's, so this is the
-                    # durable fix for those 403s. Inert until the env var is set.
-                    _ig_proxy = os.environ.get('IG_PROXY', '').strip()
-                    if _ig_proxy:
-                        ydl_opts['proxy'] = _ig_proxy
-                        print("[FETCH] Instagram routed via IG_PROXY (residential)")
+                    # Route Instagram through the residential proxy (DataImpulse
+                    # when configured, else legacy IG_PROXY). Instagram blocks
+                    # datacenter IPs like Render's, so this is the durable fix for
+                    # those 403s. Returns None when nothing is configured, in which
+                    # case the fetch stays direct exactly as before.
+                    _meta_proxy = proxy_service.get_meta_proxy()
+                    if _meta_proxy:
+                        ydl_opts['proxy'] = _meta_proxy
+                        print(f"[FETCH] Instagram fetch using residential proxy — {proxy_service.describe()}")
+                    else:
+                        print("[FETCH] Instagram fetch direct — proxy unavailable")
 
                 # Threads (experimental): route through the same Meta proxy if set,
                 # but do NOT apply the Instagram-app headers — with no dedicated
                 # extractor, yt-dlp falls back to the generic one, which needs a
                 # normal browser UA to read the og:video tag off the page.
                 if is_threads:
-                    _ig_proxy = os.environ.get('IG_PROXY', '').strip()
-                    if _ig_proxy:
-                        ydl_opts['proxy'] = _ig_proxy
-                        print("[FETCH] Threads (experimental) routed via IG_PROXY")
+                    # Threads is Meta infrastructure sharing Instagram's IP wall,
+                    # and the pre-existing architecture already routed it through
+                    # the same proxy — keep that pairing.
+                    _meta_proxy = proxy_service.get_meta_proxy()
+                    if _meta_proxy:
+                        ydl_opts['proxy'] = _meta_proxy
+                        print(f"[FETCH] Threads (experimental) using residential proxy — {proxy_service.describe()}")
+                    else:
+                        print("[FETCH] Threads fetch direct — proxy unavailable")
 
                 # YouTube bot-gates datacenter IPs (Render) with "Sign in to confirm
                 # you're not a bot" on the default web client. Try alternate player
@@ -3586,10 +3649,28 @@ def fetch_videos_from_urls():
                         print("[FETCH] No cookie file in use")
 
                     try:
-                        with YoutubeDL(opts) as ydl:
-                            print(f"[FETCH] Downloading: {url_input[:50]}...")
-                            info = ydl.extract_info(url_input, download=True)
-                            filename = ydl.prepare_filename(info)
+                        try:
+                            with YoutubeDL(opts) as ydl:
+                                print(f"[FETCH] Downloading: {url_input[:50]}...")
+                                info = ydl.extract_info(url_input, download=True)
+                                filename = ydl.prepare_filename(info)
+                        except Exception as _proxy_err:
+                            # A broken proxy hop must not become a permanent Brandr
+                            # failure. Retry this same cookie ONCE directly, but only
+                            # for transport-level proxy faults — genuine Instagram
+                            # responses (403 / login-required / empty media) fall
+                            # through untouched to the cookie-rotation logic below.
+                            _err = proxy_service.redact(_strip_ansi(str(_proxy_err)))
+                            if not (opts.get('proxy')
+                                    and proxy_service.is_proxy_transport_error(_err)):
+                                raise
+                            print(f"[FETCH] proxy hop failed ({_err[:120]}) — retrying direct once")
+                            _direct = dict(opts)
+                            _direct.pop('proxy', None)
+                            with YoutubeDL(_direct) as ydl:
+                                info = ydl.extract_info(url_input, download=True)
+                                filename = ydl.prepare_filename(info)
+                            print("[FETCH] direct retry succeeded after proxy failure")
                         if using_pool and _cookie:
                             cookie_pool.mark_success(_cookie)
                             cookie_pool.reset_breaker()  # Instagram is responding again
@@ -3599,7 +3680,9 @@ def fetch_videos_from_urls():
                                 cookie_pool.mark_bad(_b)
                         break
                     except Exception as download_error:
-                        err_text = _strip_ansi(str(download_error))
+                        # redact(): yt-dlp echoes the full proxy URL (with password)
+                        # in some errors — scrub before it reaches logs or the user.
+                        err_text = proxy_service.redact(_strip_ansi(str(download_error)))
                         print(f"[FETCH ERROR] Download failed for {url_input}: {err_text}")
                         info = None
                         if (using_pool and cookie_pool.is_auth_failure(err_text)

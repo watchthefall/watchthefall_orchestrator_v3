@@ -449,3 +449,12 @@ except Exception as _cp_err:
 # Set IG_PROXY=http://user:pass@host:port on Render to route IG requests through it.
 IG_PROXY = os.environ.get('IG_PROXY', '').strip()
 print(f"[CONFIG] IG_PROXY: {'SET' if IG_PROXY else 'not set (Instagram uses Render IP directly)'}")
+
+# DataImpulse residential proxy for Meta (Instagram/Threads) fetching. Takes
+# precedence over IG_PROXY when configured; absent credentials fall back to
+# IG_PROXY and then to direct fetching. describe() is credential-free.
+try:
+    from . import proxy_service
+    print(f"[CONFIG] Meta fetch proxy: {proxy_service.describe()}")
+except Exception as _px_err:
+    print(f"[CONFIG] proxy_service unavailable: {_px_err}")
