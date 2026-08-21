@@ -6766,7 +6766,11 @@ function setLinkMode(mode) {
     // Clear tracked videos
     batchSuccessfulVideos = [];
     selectedSources = [];   // Patch 50A: clear source selection when switching link modes
-    clearLoadouts('link mode switched');
+    // Only abandon loadouts when the loop is actively on screen. A fresh page
+    // always starts in Single mode, so the user's first click on Batch (Multi)
+    // after a reload must NOT wipe the saved loadout state — that click is the
+    // start of the restore path, not a change of mind.
+    if (isLoadoutMode()) clearLoadouts('link mode switched');
 }
 
 function batchFetchVideos() {
