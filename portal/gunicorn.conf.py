@@ -31,14 +31,24 @@ if _requested > 1:
     )
 workers = 1
 
-# Per-worker timeout (seconds)
-# FFmpeg on long videos (60-120s clips) can take 5-15 min on shared CPU.
-# Keep this above FFMPEG_TIMEOUT (840s) so gunicorn doesn't SIGKILL before
-# the subprocess timeout fires — clean Python error is better than silent kill.
-timeout = 900
+# Per-worker timeout (seconds).
+# History: this was 900 to protect in-request FFmpeg renders — but renders
+# and fetches both run in BACKGROUND THREADS now (job + poll), so no request
+# should legitimately run long. 900s meant one wedged request took the whole
+# single-worker site down for 15 minutes before the arbiter killed it
+# (observed repeatedly 2026-08-21: [CRITICAL] WORKER TIMEOUT after every
+# deploy switchover — the dying instance contends the shared SQLite disk and
+# the fresh worker's first DB-touching request hangs). 300s bounds any wedge
+# at 5 minutes while still allowing slow big-file downloads through Flask.
+timeout = 300
 
-# Graceful timeout for worker shutdown (seconds)
-graceful_timeout = 900
+# Graceful timeout for worker shutdown (seconds).
+# Was 900: at deploy switchover the OLD instance lingered up to 15 minutes
+# finishing wedged requests while holding locks on the shared /var/data
+# SQLite — wedging the NEW instance's first requests. 30s makes the old
+# instance release everything promptly; deploys are deliberate, and any
+# in-flight render lost to a deploy shows as a clean "job lost, retry".
+graceful_timeout = 30
 
 # Keep-alive timeout (seconds)
 keepalive = 5
