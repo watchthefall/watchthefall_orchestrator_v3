@@ -1438,6 +1438,12 @@ watermark_jobs = {}
 #   error:        str|None
 brand_render_jobs = {}
 
+# In-memory fetch jobs (same model as brand_render_jobs): long yt-dlp
+# downloads run in a background thread so the web worker returns instantly
+# and Cloudflare's ~100s proxy timeout can never kill a slow batch.
+# Single-worker constraint applies exactly as for renders.
+fetch_jobs = {}
+
 # ============================================================================
 
 @app.route('/')
@@ -3696,33 +3702,67 @@ def fetch_videos_from_urls():
                     'success': False
                 }
         
-        # Download sequentially to keep memory low
-        print(f"[FETCH] download loop start: {len(urls)} URL(s)", flush=True)
-        results = []
-        for url in urls:
-            results.append(download_one(url))
+        # Async fetch (job + poll): downloads run sequentially in a background
+        # thread — the canonical long-running-work model already used for
+        # renders. The HTTP request returns the job id immediately, so the web
+        # worker is never held for the download's duration and Cloudflare's
+        # ~100s proxy timeout can't kill a slow batch mid-flight.
 
-        success_count = sum(1 for r in results if r.get('success'))
-        print(f"[FETCH] download loop done: {success_count}/{len(urls)} succeeded", flush=True)
+        # Prune settled jobs older than an hour so the dict can't grow forever.
+        _now = time.time()
+        for _jid in [k for k, v in fetch_jobs.items()
+                     if _now - v.get('created_at', 0) > 3600]:
+            fetch_jobs.pop(_jid, None)
 
-        try:
-            log_event('info', None, f'Fetch complete: {success_count}/{len(urls)} successful')
-        except Exception as _log_err:
-            print(f"[FETCH] log_event warning: {_log_err}", flush=True)
+        job_id = str(uuid.uuid4())
+        fetch_jobs[job_id] = {
+            'user_id': user_id,
+            'status': 'processing',
+            'total': len(urls),
+            'completed': 0,
+            'results': [],
+            'created_at': _now,
+        }
 
-        # Increment daily download counter for successful downloads (non-critical)
-        if success_count > 0:
+        def _run_fetch_job():
+            job = fetch_jobs.get(job_id)
+            if job is None:
+                return
             try:
-                increment_downloads(user_id, success_count)
-            except Exception as _inc_err:
-                print(f"[FETCH] increment_downloads warning (non-critical): {_inc_err}", flush=True)
+                print(f"[FETCH] job {job_id[:8]} loop start: {len(urls)} URL(s)", flush=True)
+                for url in urls:
+                    job['results'].append(download_one(url))
+                    job['completed'] = len(job['results'])
 
-        print("[FETCH] returning success response", flush=True)
+                success_count = sum(1 for r in job['results'] if r.get('success'))
+                print(f"[FETCH] job {job_id[:8]} done: {success_count}/{len(urls)} succeeded", flush=True)
+
+                try:
+                    log_event('info', None, f'Fetch complete: {success_count}/{len(urls)} successful')
+                except Exception as _log_err:
+                    print(f"[FETCH] log_event warning: {_log_err}", flush=True)
+
+                # Increment daily download counter for successful downloads (non-critical)
+                if success_count > 0:
+                    try:
+                        increment_downloads(user_id, success_count)
+                    except Exception as _inc_err:
+                        print(f"[FETCH] increment_downloads warning (non-critical): {_inc_err}", flush=True)
+
+                job['successful'] = success_count
+                job['status'] = 'completed'
+            except Exception as _job_err:
+                import traceback
+                traceback.print_exc()
+                job['error'] = str(_job_err)
+                job['status'] = 'failed'
+
+        threading.Thread(target=_run_fetch_job, daemon=True).start()
+        print(f"[FETCH] job {job_id[:8]} queued ({len(urls)} URL(s)) — returning immediately", flush=True)
         return jsonify({
             'success': True,
+            'job_id': job_id,
             'total': len(urls),
-            'successful': success_count,
-            'results': results
         })
 
     except Exception as e:
@@ -3735,6 +3775,31 @@ def fetch_videos_from_urls():
 # Process endpoint removed - using client-side Canvas watermarking only
 
 # Status endpoint removed - no server-side job queue
+
+@app.route('/api/videos/fetch-job/<job_id>', methods=['GET'])
+@login_required
+def get_fetch_job_status(job_id):
+    """Poll a background fetch job. Counts stream while processing; full
+    per-URL results are included once the job settles."""
+    job = fetch_jobs.get(job_id)
+    if job is None:
+        return jsonify({
+            'success': False,
+            'error': 'Fetch job not found — the server may have restarted. Please fetch again.',
+        }), 404
+    if job.get('user_id') != session.get('user_id'):
+        return jsonify({'success': False, 'error': 'Not authorized'}), 403
+
+    settled = job['status'] in ('completed', 'failed')
+    return jsonify({
+        'success': True,
+        'status': job['status'],
+        'total': job['total'],
+        'completed': job['completed'],
+        'successful': job.get('successful'),
+        'results': job['results'] if settled else [],
+        'error': job.get('error'),
+    })
 
 @app.route('/api/videos/download/<filename>', methods=['GET'])
 @login_required

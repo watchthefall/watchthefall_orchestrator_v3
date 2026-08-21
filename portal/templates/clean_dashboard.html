@@ -6633,6 +6633,62 @@ function persistFetchedDownload(result, sourceUrl) {
     });
 }
 
+// Start a fetch and resolve when it finishes. The server returns a job_id
+// immediately (downloads run in a background thread — same job model as
+// renders), then we poll /api/videos/fetch-job/<id> until it settles and
+// resolve with the SAME final shape the old synchronous endpoint returned
+// ({success, results, total, successful}) so callers stay unchanged.
+// Pre-flight rejections (limits, bad input) come back without a job_id and
+// are passed straight through for the callers' existing error handling.
+function startFetchAndAwait(urls, onProgress) {
+    return fetch('/api/videos/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: urls })
+    })
+    .then(function(r) { return r.json().then(function(data) { return { httpOk: r.ok, data: data }; }); })
+    .then(function(resp) {
+        var data = resp.data;
+        if (!data.job_id) return data;  // pre-flight error (limits etc.) — pass through
+
+        var POLL_MS = 2500;
+        var MAX_POLLS = 360;  // ~15 min ceiling for the largest batches
+        var polls = 0;
+
+        return new Promise(function(resolve, reject) {
+            var poll = function() {
+                if (++polls > MAX_POLLS) {
+                    reject(new Error('Fetch timed out. Please try again.'));
+                    return;
+                }
+                fetch('/api/videos/fetch-job/' + data.job_id)
+                    .then(function(r) { return r.json().then(function(j) { return { status: r.status, job: j }; }); })
+                    .then(function(pollResp) {
+                        if (pollResp.status === 404) {
+                            reject(new Error('Fetch was interrupted by a server restart. Please try again.'));
+                            return;
+                        }
+                        var job = pollResp.job;
+                        if (!job.success) { reject(new Error(job.error || 'Fetch failed')); return; }
+                        if (job.status === 'completed') {
+                            resolve({ success: true, results: job.results, total: job.total, successful: job.successful });
+                            return;
+                        }
+                        if (job.status === 'failed') { reject(new Error(job.error || 'Fetch failed')); return; }
+                        if (onProgress) onProgress(job.completed, job.total);
+                        setTimeout(poll, POLL_MS);
+                    })
+                    .catch(function(err) {
+                        // Transient network blip — keep polling; the job runs server-side
+                        if (err instanceof TypeError) { setTimeout(poll, POLL_MS); return; }
+                        reject(err);
+                    });
+            };
+            setTimeout(poll, 1500);
+        });
+    });
+}
+
 function inlineFetchVideo() {
     var input = document.getElementById('inlineUrlInput');
     var btn = document.getElementById('inlineFetchBtn');
@@ -6652,22 +6708,8 @@ function inlineFetchVideo() {
     status.style.color = '#888';
     status.textContent = 'Fetching video... this may take a moment.';
 
-    fetch('/api/videos/fetch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: [url] })
-    })
-    .then(function(r) {
-        if (!r.ok) {
-            // Surface HTTP errors (500, 403, etc.) with a clear message
-            return r.json().catch(function() {
-                return { success: false, error: 'Server error (' + r.status + '). Please try again.' };
-            }).then(function(data) {
-                var msg = data.error || ('Server error (' + r.status + '). Please try again.');
-                throw new Error(msg);
-            });
-        }
-        return r.json();
+    startFetchAndAwait([url], function(completed, total) {
+        status.textContent = 'Fetching video... still working.';
     })
     .then(function(data) {
         if (data.success && data.results && data.results[0] && data.results[0].success) {
@@ -6769,12 +6811,9 @@ function batchFetchVideos() {
     status.textContent = 'Fetching ' + urls.length + ' video(s)... this may take a moment.';
     resultsArea.style.display = 'none';
 
-    fetch('/api/videos/fetch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: urls })
+    startFetchAndAwait(urls, function(completed, total) {
+        status.textContent = 'Fetching ' + total + ' video(s)... ' + completed + ' of ' + total + ' done.';
     })
-    .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.error === 'DAILY_LIMIT_REACHED') {
             status.style.color = '#ff6b6b';
@@ -6867,7 +6906,7 @@ function batchFetchVideos() {
     })
     .catch(function(err) {
         status.style.color = '#ff6b6b';
-        status.textContent = 'Network error. Please try again.';
+        status.textContent = (err && err.message) ? err.message : 'Network error. Please try again.';
     })
     .finally(function() {
         btn.disabled = false;

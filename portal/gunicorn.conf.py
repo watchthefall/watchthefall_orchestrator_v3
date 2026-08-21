@@ -43,8 +43,13 @@ graceful_timeout = 900
 # Keep-alive timeout (seconds)
 keepalive = 5
 
-# Worker class (default is sync)
-worker_class = "sync"
+# Worker class: gthread — one PROCESS (the in-memory job dicts stay shared)
+# but several request threads, so one slow request (a large file download, a
+# slow client) can no longer make the whole site unreachable. Long work
+# (renders, fetches) already runs in its own background threads and never
+# holds a request thread beyond job creation.
+worker_class = "gthread"
+threads = 8
 
 # Log level
 loglevel = "info"
