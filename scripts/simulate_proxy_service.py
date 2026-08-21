@@ -97,4 +97,16 @@ for t in ['HTTP Error 403: Forbidden', 'Requested content is not available, rate
           'login required', 'empty media response', 'Video unavailable']:
     check('content error NOT proxy: ' + t[:32], ps.is_proxy_transport_error(t) is False)
 
+print()
+print('[9] Host/port values tolerate dashboard paste formats')
+for raw, want in [('http://gw.dataimpulse.com', 'gw.dataimpulse.com'),
+                  ('https://gw.dataimpulse.com/', 'gw.dataimpulse.com'),
+                  ('gw.dataimpulse.com:823', 'gw.dataimpulse.com'),
+                  ('  gw.dataimpulse.com  ', 'gw.dataimpulse.com'),
+                  ('', '')]:
+    check('host %-30r -> %s' % (raw, want or '(empty)'), ps._normalise_host(raw) == want)
+for raw, want in [('823', '823'), (' 823 ', '823'), ('port 823', '823'),
+                  ('', '823'), ('abc', '823')]:
+    check('port %-12r -> %s' % (raw, want), ps._normalise_port(raw) == want)
+
 print('\n%d assertions passed.' % PASS)

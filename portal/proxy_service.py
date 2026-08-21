@@ -23,8 +23,27 @@ This module imports no project modules, so it is import-safe from config.py.
 import os
 import re
 
-GATEWAY_HOST = os.environ.get('DATAIMPULSE_HOST', 'gw.dataimpulse.com').strip()
-GATEWAY_PORT = os.environ.get('DATAIMPULSE_PORT', '823').strip()
+def _normalise_host(raw):
+    """Tolerate the forms people actually paste from a provider dashboard:
+    'http://gw.dataimpulse.com', 'gw.dataimpulse.com:823', trailing slashes.
+    We only ever want the bare hostname — scheme and port are added by us."""
+    h = (raw or '').strip()
+    if '://' in h:
+        h = h.split('://', 1)[1]
+    h = h.strip('/').split('/')[0]
+    if ':' in h:                      # host:port pasted together
+        h = h.rsplit(':', 1)[0]
+    return h
+
+
+def _normalise_port(raw):
+    """Digits only; fall back to the documented gateway port."""
+    digits = ''.join(ch for ch in (raw or '') if ch.isdigit())
+    return digits or '823'
+
+
+GATEWAY_HOST = _normalise_host(os.environ.get('DATAIMPULSE_HOST', '')) or 'gw.dataimpulse.com'
+GATEWAY_PORT = _normalise_port(os.environ.get('DATAIMPULSE_PORT', ''))
 DEFAULT_COUNTRY = 'gb'
 
 
