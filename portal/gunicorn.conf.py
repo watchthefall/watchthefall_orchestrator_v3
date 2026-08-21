@@ -43,13 +43,15 @@ graceful_timeout = 900
 # Keep-alive timeout (seconds)
 keepalive = 5
 
-# Worker class: gthread — one PROCESS (the in-memory job dicts stay shared)
-# but several request threads, so one slow request (a large file download, a
-# slow client) can no longer make the whole site unreachable. Long work
-# (renders, fetches) already runs in its own background threads and never
-# holds a request thread beyond job creation.
-worker_class = "gthread"
-threads = 8
+# Worker class: sync. gthread was tried 2026-08-21 (deploy 850deb2) and
+# HUNG every handler that does real work — only trivial 302/404s completed;
+# full pages and DB-touching requests never returned. Rolled back the same
+# hour. Root cause not yet isolated (suspect a lock or connection shared
+# across request threads under preload_app). Do NOT re-enable gthread
+# without reproducing and fixing that locally first. The fetch/render
+# paths run in their own background threads, so the sync worker only
+# handles short requests now that fetching is async (job + poll).
+worker_class = "sync"
 
 # Log level
 loglevel = "info"
