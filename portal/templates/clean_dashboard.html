@@ -5003,8 +5003,12 @@ async function switchToBrand(idx) {
     if (current.video && current.video !== currentFile) {
         currentFile = current.video;
         console.log('[BRANDR] switchToBrand: video switched to', currentFile);
-        // Frame data will reload via applyBrandToPreview / loadBrandAssets
         frameData = null;
+        // Re-extract this video's preview frame — nothing else reloads it
+        // (applyBrandToPreview / loadBrandAssets only load brand assets, so
+        // without this the canvas shows "Download a video to preview").
+        // skipCanvasResize: the cockpit canvas is sized by resizeCanvasForFormat.
+        extractFrame(current.video, true);
     }
 
     // Resize canvas to match this item's output format
@@ -6152,7 +6156,7 @@ function exitQueueMode() {
 // ========== DOWNLOAD VIDEO (REMOVED - USE DOWNLOADER) ==========
 // fetchVideo() removed - use Downloader tool instead
 
-async function extractFrame(filename) {
+async function extractFrame(filename, skipCanvasResize) {
     console.log('[BRANDR] extractFrame start — file:', filename);
     try {
         const res = await fetch(`${apiBase}/api/preview/extract-frame`, {
@@ -6164,13 +6168,20 @@ async function extractFrame(filename) {
         const data = await res.json();
 
         if (data.success) {
+            // Staleness guard: if the user switched to another video while this
+            // request was in flight, don't stamp the wrong video's frame.
+            if (currentFile && filename !== currentFile) {
+                console.log('[BRANDR] extractFrame stale (now on', currentFile + ') — ignoring frame for', filename);
+                return;
+            }
             frameData = data.frame_data;
             videoWidth = data.width;
             videoHeight = data.height;
             console.log('[BRANDR] extractFrame success — file:', filename, 'dims:', videoWidth, 'x', videoHeight);
 
-            // Adjust canvas aspect ratio
-            canvas.height = canvas.width * (videoHeight / videoWidth);
+            // Adjust canvas aspect ratio (not in the review cockpit — there the
+            // canvas is sized to the output format by resizeCanvasForFormat)
+            if (!skipCanvasResize) canvas.height = canvas.width * (videoHeight / videoWidth);
 
             updateCanvasPreview();
             renderResultPreviewStrip();
