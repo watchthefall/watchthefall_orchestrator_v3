@@ -2032,8 +2032,15 @@
         <div id="loadoutHeader" style="display:none; margin-bottom:12px; padding:10px 12px; background:#1a1f2e; border:1px solid #2a2f3e; border-radius:8px;">
             <div style="display:flex; align-items:center; gap:10px;">
                 <span id="loadoutCounter" style="font-weight:700; color:var(--accent); font-size:14px; white-space:nowrap;">Video 1 of 1</span>
-                <span id="loadoutFilename" style="flex:1; font-size:12px; color:#9ca3af; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+                <span id="loadoutVideoName" style="flex:1; font-size:14px; font-weight:600; color:#e5e7eb; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+                <button type="button" id="loadoutRenameBtn" onclick="startLoadoutRename()" title="Rename this video"
+                        style="width:auto; flex:0 0 auto; background:transparent; border:1px solid #343948; color:#b6bfd3; border-radius:6px; padding:3px 9px; font-size:11px; cursor:pointer;">&#9998; Rename</button>
             </div>
+            <input type="text" id="loadoutRenameInput" maxlength="80" placeholder="Name this video"
+                   onkeydown="if(event.key==='Enter'){commitLoadoutRename();}else if(event.key==='Escape'){cancelLoadoutRename();}"
+                   onblur="commitLoadoutRename()"
+                   style="display:none; width:100%; margin-top:6px; background:#121214; border:1px solid var(--accent); border-radius:6px; padding:6px 10px; color:#fff; font-size:13px; box-sizing:border-box;">
+            <div id="loadoutFilename" style="margin-top:3px; font-size:11px; color:#6b7280; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
             <div id="loadoutProgressDots" style="display:flex; gap:5px; margin-top:8px;"></div>
         </div>
         <h3 style="margin-top:0;">Choose brands <span style="color:#666;font-size:13px;font-weight:400;">(up to {{ max_brands_per_job }} per job)</span></h3>
@@ -2306,6 +2313,8 @@
             <div style="display:flex; gap:8px;">
                 <button onclick="loadoutPrevious()" id="loadoutPrevBtn" style="flex:0 0 auto; background:transparent; border:1px solid #343948; color:#b6bfd3;">&#9664; Previous</button>
                 <button onclick="confirmCurrentLoadout()" id="loadoutConfirmBtn" style="flex:1; background:var(--accent);">Confirm brands &#9654;</button>
+                <button onclick="loadoutNext()" id="loadoutNextBtn" title="Skip ahead without confirming"
+                        style="flex:0 0 auto; background:transparent; border:1px solid #343948; color:#b6bfd3;">&#9654;</button>
             </div>
         </div>
         <button onclick="enterQueueMode()" id="startBrandingBtn" style="background:var(--accent); margin-top:15px;">Start review</button>
@@ -2465,6 +2474,44 @@ let selectedSources = [];   // Patch 50A: filenames of sources chosen for this r
 let videoLoadouts = [];        // [{ video, brandIds: [], confirmed: bool }]
 let currentLoadoutIndex = -1;  // -1 = loadout mode inactive
 const LOADOUT_STORAGE_KEY = 'brandr_video_loadouts';
+
+// ========== VIDEO IDENTITY ==========
+// filename -> { downloadId, displayName }. A source is otherwise identified only
+// by its platform filename (DcL2rgSqZ3a.mp4), which tells a human nothing about
+// which clip they're branding. downloadId comes back from /api/videos/save-download
+// and is what PUT /api/downloads/<id>/rename needs.
+let videoMeta = {};
+const VIDEO_META_STORAGE_KEY = 'brandr_video_meta';
+
+function persistVideoMeta() {
+    try { sessionStorage.setItem(VIDEO_META_STORAGE_KEY, JSON.stringify(videoMeta)); }
+    catch (e) { console.warn('[VIDEO META] persist failed:', e); }
+}
+
+function recoverVideoMeta() {
+    try { videoMeta = JSON.parse(sessionStorage.getItem(VIDEO_META_STORAGE_KEY) || '{}') || {}; }
+    catch (e) { videoMeta = {}; }
+}
+
+function rememberVideoMeta(filename, downloadId, displayName) {
+    if (!filename) return;
+    const existing = videoMeta[filename] || {};
+    videoMeta[filename] = {
+        downloadId: downloadId != null ? downloadId : existing.downloadId,
+        // Never let an auto-derived name overwrite one the user typed.
+        displayName: existing.userNamed ? existing.displayName : (displayName || existing.displayName || ''),
+        userNamed: !!existing.userNamed
+    };
+    persistVideoMeta();
+}
+
+// Human label for a source, falling back to the bare filename.
+function videoLabel(filename) {
+    if (!filename) return '';
+    const base = filename.split('/').pop();
+    const meta = videoMeta[filename];
+    return (meta && meta.displayName) ? meta.displayName : base;
+}
 let completedOutputs = []; // accumulates { brand_name, download_url } after each successful brand
 
 const OUTPUT_FORMAT_OPTIONS = {
@@ -2839,7 +2886,9 @@ function updateReviewHeader() {
     title.textContent = `Reviewing: ${activeBrandName} · ${fmtLabel}`;
     // Show approved count once at least one item actioned; also show video context for multi-video
     const videos = [...new Set(processingQueue.map(i => i.video).filter(Boolean))];
-    const videoCtx = videos.length > 1 ? ` · Video ${videos.indexOf(current.video) + 1} of ${videos.length}` : '';
+    const videoCtx = videos.length > 1
+        ? ` · Video ${videos.indexOf(current.video) + 1} of ${videos.length} — ${videoLabel(current.video)}`
+        : '';
     meta.textContent = reviewed > 0
         ? (skipped > 0 ? `${reviewed} approved · ${skipped} skipped${videoCtx}` : `${reviewed} approved${videoCtx}`)
         : (videoCtx ? videoCtx.replace(' · ', '') : '');
@@ -4909,6 +4958,7 @@ async function enterQueueMode() {
     console.log('[BRANDR] Queue built:', processingQueue.length, 'items',
         `(${queuePlan.length} video(s), brand-first per video, ${selectedOutputFormats.length} format(s))`);
 
+    showPreviewForLoadout(false);   // restore the canvas before the cockpit claims it
     currentQueueIndex = 0;
     activeItemIndex = 0;
     isQueueMode = true;
@@ -5496,8 +5546,7 @@ function renderItemLabel(item) {
     const base = item.brand_name + ' · ' + item.format;
     const multiVideo = new Set(processingQueue.map(q => q.video).filter(Boolean)).size > 1;
     if (!multiVideo || !item.video) return base;
-    const srcBasename = item.video.split('/').pop() || item.video;
-    return srcBasename + ' — ' + base;
+    return videoLabel(item.video) + ' — ' + base;
 }
 
 // fireRenderForItem — THE canonical render submitter.
@@ -6794,7 +6843,10 @@ function inlineFetchVideo() {
     .then(function(data) {
         if (data.success && data.results && data.results[0] && data.results[0].success) {
             var result = data.results[0];
-            return persistFetchedDownload(result, url).then(function() {
+            return persistFetchedDownload(result, url).then(function(saved) {
+                rememberVideoMeta(result.filename,
+                                  saved ? saved.download_id : null,
+                                  result.display_name);
                 status.style.color = 'var(--accent)';
                 status.textContent = 'Ready! Loading preview...';
                 selectVideo(result.filename, { source_url: url });
@@ -6918,8 +6970,15 @@ function batchFetchVideos() {
         });
 
         return Promise.all(successes.map(function(result) {
-            return persistFetchedDownload(result, result.url).catch(function(err) {
+            return persistFetchedDownload(result, result.url).then(function(saved) {
+                // Keep the download_id — it's what the rename endpoint needs, and it
+                // was previously thrown away here.
+                rememberVideoMeta(result.filename,
+                                  saved ? saved.download_id : null,
+                                  result.display_name);
+            }).catch(function(err) {
                 console.warn('[Library Save] Failed to persist fetched download:', err);
+                rememberVideoMeta(result.filename, null, result.display_name);
             });
         })).then(function() {
             // Show summary status
@@ -7065,6 +7124,7 @@ function clearLoadouts(reason) {
     videoLoadouts = [];
     currentLoadoutIndex = -1;
     try { sessionStorage.removeItem(LOADOUT_STORAGE_KEY); } catch (e) {}
+    showPreviewForLoadout(false);
     updateLoadoutUI();
 }
 
@@ -7232,6 +7292,99 @@ function loadoutApplyToRemaining() {
 
 // Sync loadout chrome: header, counter, progress dots, action buttons.
 // "Start review" only appears once every video's loadout is confirmed.
+// ── Rename the current loadout video ──────────────────────────────────────────
+// Labels the SOURCE clip (not individual outputs), so the name follows the video
+// into review and onto every output it produces. Uses the existing
+// PUT /api/downloads/<id>/rename endpoint — no new backend.
+function startLoadoutRename() {
+    if (!isLoadoutMode()) return;
+    const input = document.getElementById('loadoutRenameInput');
+    const loadout = videoLoadouts[currentLoadoutIndex];
+    if (!input || !loadout) return;
+    input.value = videoLabel(loadout.video);
+    input.style.display = 'block';
+    input.dataset.forVideo = loadout.video;   // guard against the video changing mid-edit
+    input.focus();
+    input.select();
+}
+
+function cancelLoadoutRename() {
+    const input = document.getElementById('loadoutRenameInput');
+    if (input) { input.style.display = 'none'; delete input.dataset.forVideo; }
+}
+
+async function commitLoadoutRename() {
+    const input = document.getElementById('loadoutRenameInput');
+    if (!input || input.style.display === 'none') return;
+    const filename = input.dataset.forVideo;
+    const name = (input.value || '').trim();
+    cancelLoadoutRename();
+    if (!filename || !name || name === videoLabel(filename)) return;
+
+    // Optimistic: the label is cosmetic, so show it immediately and reconcile after.
+    const meta = videoMeta[filename] || {};
+    videoMeta[filename] = { ...meta, displayName: name, userNamed: true };
+    persistVideoMeta();
+    updateLoadoutUI();
+    updateConfirmationSummary();
+
+    const downloadId = meta.downloadId;
+    if (!downloadId) {
+        console.warn('[VIDEO META] no download_id for', filename, '— name kept locally only');
+        return;
+    }
+    try {
+        const res = await fetch(`${apiBase}/api/downloads/${downloadId}/rename`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ display_name: name })
+        });
+        const data = await res.json();
+        if (!data || data.success === false) throw new Error(data && data.error ? data.error : 'rename failed');
+        console.log('[VIDEO META] renamed', filename, '->', name);
+    } catch (e) {
+        console.warn('[VIDEO META] rename not saved to Library:', e);
+    }
+}
+
+function loadoutNext() {
+    if (!isLoadoutMode() || currentLoadoutIndex >= videoLoadouts.length - 1) return;
+    stashCurrentLoadoutSelection();
+    enterLoadoutVideo(currentLoadoutIndex + 1);
+}
+
+// The preview canvas is normally hidden during selection ("one review surface").
+// In the multi-video loadout loop that rule is wrong: choosing brands for
+// `DcL2rgSqZ3a.mp4` with no picture is choosing blind. Move the existing canvas
+// above the brand grid for the duration of the loop, and put it back after.
+let _previewHomeParent = null, _previewHomeNext = null;
+
+function showPreviewForLoadout(show) {
+    const pc = document.getElementById('previewContainer');
+    const brandsBox = document.getElementById('brandsBox');
+    if (!pc || !brandsBox) return;
+    if (show) {
+        if (!_previewHomeParent) {          // remember where it lives, once
+            _previewHomeParent = pc.parentNode;
+            _previewHomeNext = pc.nextSibling;
+        }
+        if (pc.previousElementSibling !== brandsBox.previousElementSibling) {
+            brandsBox.parentNode.insertBefore(pc, brandsBox);
+        }
+        pc.style.display = 'block';
+        resizeCanvasForFormat(selectedOutputFormats[0] || 'vertical_9_16');
+        updateCanvasPreview();
+    } else {
+        pc.style.display = 'none';
+        if (_previewHomeParent) {           // restore original DOM position
+            _previewHomeParent.insertBefore(pc, _previewHomeNext);
+            _previewHomeParent = null;
+            _previewHomeNext = null;
+        }
+    }
+    updateReframeControlVisibility();
+}
+
 function updateLoadoutUI() {
     const header   = document.getElementById('loadoutHeader');
     const actions  = document.getElementById('loadoutActions');
@@ -7251,8 +7404,14 @@ function updateLoadoutUI() {
     actions.style.display = 'block';
 
     document.getElementById('loadoutCounter').textContent = `Video ${idx + 1} of ${total}`;
-    const basename = (videoLoadouts[idx].video || '').split('/').pop();
-    document.getElementById('loadoutFilename').textContent = basename;
+    const vid = videoLoadouts[idx].video || '';
+    const basename = vid.split('/').pop();
+    const label = videoLabel(vid);
+    document.getElementById('loadoutVideoName').textContent = label;
+    // Keep the technical filename visible but subordinate — it still matters for
+    // matching up downloads, it just shouldn't be the thing you brand against.
+    const fnEl = document.getElementById('loadoutFilename');
+    fnEl.textContent = (label === basename) ? '' : basename;
 
     const dots = document.getElementById('loadoutProgressDots');
     dots.innerHTML = videoLoadouts.map((l, i) => {
@@ -7274,8 +7433,13 @@ function updateLoadoutUI() {
         ? 'Confirm brands ▶ next video'
         : 'Confirm brands ✓';
 
+    const nextBtn = document.getElementById('loadoutNextBtn');
+    if (nextBtn) nextBtn.style.display = idx < total - 1 ? '' : 'none';
+
     const allConfirmed = videoLoadouts.every(l => l.confirmed && (l.brandIds || []).length > 0);
     if (startBtn) startBtn.style.display = allConfirmed ? '' : 'none';
+
+    showPreviewForLoadout(true);
 }
 
 // ========== END PER-VIDEO LOADOUT SELECTION ==========
@@ -7379,6 +7543,7 @@ updateCanvasPreview();
 // ========== JOB-ITEM MODEL (Commit 2: recover on init) ==========
 // Recover any persisted job items from sessionStorage
 recoverJobItems();
+recoverVideoMeta();
 console.log('[JobItems] Recovered', jobItems.length, 'items, active index:', activeItemIndex);
 // ========== END JOB-ITEM MODEL ==========
 
