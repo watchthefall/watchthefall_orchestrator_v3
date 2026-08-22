@@ -2379,6 +2379,11 @@ let selectedBrandIds = [];  // Use brand IDs (not names) for selection
 let activePreviewBrandId = null;  // Track which brand's preview is currently shown
 let brandDataCache = {};    // Cache full brand objects by ID
 let frameData = null;
+// Filename whose preview frame is currently being extracted, else null. Lets the
+// canvas distinguish "no video chosen" from "frame still loading" — during a big
+// batch, /api/preview/extract-frame competes with ffmpeg on the single worker, so
+// that wait can be long and "Download a video to preview" is simply untrue.
+let extractingFrameFor = null;
 let watermarkImg = null;
 let logoImg = null;
 let videoWidth = 720;
@@ -3568,7 +3573,10 @@ function updateCanvasPreview() {
         ctx.fillStyle = '#333';
         ctx.font = '14px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('Download a video to preview', canvas.width/2, canvas.height/2);
+        const placeholderMsg = extractingFrameFor
+            ? 'Loading preview…'
+            : (currentFile ? 'Preview unavailable' : 'Download a video to preview');
+        ctx.fillText(placeholderMsg, canvas.width/2, canvas.height/2);
         drawOverlays();
     }
 }
@@ -5026,6 +5034,13 @@ async function switchToBrand(idx) {
         extractFrame(current.video, true);
     }
 
+    // Recover a missing preview frame: covers a failed/aborted extract and the
+    // already-'processing' early-return path below, neither of which crosses a
+    // video boundary. Guarded so repeated navigation can't stack requests.
+    if (!frameData && currentFile && extractingFrameFor !== currentFile) {
+        extractFrame(currentFile, true);
+    }
+
     // Resize canvas to match this item's output format
     activeReviewFormat = current.format || 'vertical_9_16';
     resizeCanvasForFormat(activeReviewFormat);
@@ -6175,6 +6190,8 @@ function exitQueueMode() {
 
 async function extractFrame(filename, skipCanvasResize) {
     console.log('[BRANDR] extractFrame start — file:', filename);
+    extractingFrameFor = filename;
+    updateCanvasPreview();   // repaint now so the placeholder reads "Loading preview…"
     try {
         const res = await fetch(`${apiBase}/api/preview/extract-frame`, {
             method: 'POST',
@@ -6225,6 +6242,13 @@ async function extractFrame(filename, skipCanvasResize) {
     } catch (err) {
         console.error('[BRANDR] extractFrame network error — file:', filename, err);
         updateCanvasPreview();
+    } finally {
+        // Only clear if we're still the latest request — an overlapping extract
+        // for a different file must keep its own "loading" state.
+        if (extractingFrameFor === filename) {
+            extractingFrameFor = null;
+            updateCanvasPreview();
+        }
     }
 }
 
