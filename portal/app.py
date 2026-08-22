@@ -5477,6 +5477,40 @@ def rename_download(download_id):
         'message': 'Display name updated successfully'
     })
 
+@app.route('/api/credits', methods=['GET'])
+@login_required
+def get_my_credits():
+    """Current user's credit balance, for pre-render cost display.
+
+    Until now the balance was only ever visible inside the OUT_OF_CREDITS error,
+    so the UI could not tell anyone what a batch would cost before they committed
+    to it.
+
+    NOTE on semantics: spend_credits() draws subscription -> earned -> purchased,
+    so AFFORDABILITY is `total`. `subscription` alone is today's allowance and is
+    NOT the same thing — a user can hold permanent earned/purchased credits on top
+    of it. Both are returned so the UI can say "12 today + 30 banked" rather than
+    conflating them.
+    """
+    user_id = session.get('user_id')
+    tier = get_user_tier(user_id)
+    try:
+        special_status = get_user_special_status(user_id)
+    except Exception:
+        special_status = None
+    limits = get_effective_limits(tier, special_status)
+    allowance = limits.get('credits_per_day', 0)
+    bal = get_credit_balance(user_id, allowance)
+    return jsonify({
+        'success': True,
+        'total': bal['total'],              # spendable now (what affordability uses)
+        'today': bal['subscription'],       # daily allowance remaining
+        'banked': bal['earned'] + bal['purchased'],   # permanent, survives the day
+        'credits_per_day': allowance,
+        'tier': tier,
+    })
+
+
 @app.route('/api/downloads/recent', methods=['GET'])
 @login_required
 def get_recent_downloads():

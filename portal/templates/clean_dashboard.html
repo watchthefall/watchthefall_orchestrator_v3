@@ -2384,6 +2384,29 @@ let frameData = null;
 // batch, /api/preview/extract-frame competes with ffmpeg on the single worker, so
 // that wait can be long and "Download a video to preview" is simply untrue.
 let extractingFrameFor = null;
+
+// ========== CREDIT STATE ==========
+// Mirrors GET /api/credits. `total` is what a batch is checked against, because
+// spend_credits draws subscription -> earned -> purchased. `today` and `banked`
+// exist so the UI can show them separately instead of implying the daily
+// allowance is the whole balance.
+let creditState = null;   // { total, today, banked, credits_per_day } or null when unknown
+
+async function refreshCredits() {
+    try {
+        const res = await fetch(`${apiBase}/api/credits`);
+        const data = await res.json();
+        if (data && data.success) {
+            creditState = data;
+            updateConfirmationSummary();
+        }
+    } catch (e) {
+        // Non-fatal: cost display degrades to "credits unavailable", and the
+        // server remains the authority on whether a render may proceed.
+        console.warn('[CREDITS] balance unavailable:', e);
+    }
+    return creditState;
+}
 let watermarkImg = null;
 let logoImg = null;
 let videoWidth = 720;
@@ -4774,7 +4797,7 @@ async function loadBrandAssets(brandId) {
 
 // ========== QUEUE MODE FUNCTIONS ==========
 
-function enterQueueMode() {
+async function enterQueueMode() {
     createIntent = 'review';
     updateCreateIntentUI();
     console.log('[BRANDR] === START BRANDING BUTTON CLICKED ===' );
@@ -4864,6 +4887,22 @@ function enterQueueMode() {
     if (processingQueue.length === 0) {
         result.innerHTML = '<div class="status-msg error">Select at least one brand</div>';
         console.error('[BRANDR] enterQueueMode blocked: empty queue');
+        return;
+    }
+
+    // Credit preflight. 1 brand x 1 format = 1 credit, so the queue length IS the
+    // cost. Checked against `total` (spend draws subscription -> earned ->
+    // purchased). A stale balance is refreshed first so we don't block on an old
+    // number; if the balance can't be read we allow it through and let the server
+    // decide, rather than blocking a paying user on a transient failure.
+    await refreshCredits();
+    if (creditState && processingQueue.length > creditState.total) {
+        const need = processingQueue.length;
+        const have = creditState.total;
+        result.innerHTML = `<div class="status-msg error">This batch needs ${need} credits &mdash; you have ${have}. `
+            + `Remove some brands or videos, or come back after your daily credits reset at 00:00 UTC.</div>`;
+        console.error(`[BRANDR] enterQueueMode blocked: needs ${need} credits, have ${have}`);
+        processingQueue = [];
         return;
     }
 
@@ -7334,6 +7373,7 @@ function clearVideo() {
 
 // ========== INIT ==========
 loadBrands();
+refreshCredits();
 updateCanvasPreview();
 
 // ========== JOB-ITEM MODEL (Commit 2: recover on init) ==========
@@ -7391,17 +7431,46 @@ function updateConfirmationSummary() {
         : sourceCount * itemCount * fmtCount;
 
     const brandWord  = itemCount   === 1 ? 'brand'  : 'brands';
-    const renderWord = renderCount === 1 ? 'render' : 'renders';
+    const outputWord = renderCount === 1 ? 'output' : 'outputs';
+
+    // In loadout mode the count only covers CONFIRMED videos, so mid-loop it must
+    // not be described as "N sources x ..." — that read as a contradiction
+    // ("2 renders - 10 sources x per-video brands"). Show progress until every
+    // video is confirmed, then the true total.
+    const loadoutsDone = isLoadoutMode()
+        ? videoLoadouts.filter(l => l.confirmed && (l.brandIds || []).length > 0).length
+        : 0;
+    const loadoutTotal = isLoadoutMode() ? videoLoadouts.length : 0;
+    const midLoop = loadoutConfirmedTotal > 0 && loadoutsDone < loadoutTotal;
 
     let html = '';
 
-    // Formula line
+    // Headline: outputs (and, since 1 brand x 1 format = 1 credit, the cost)
     html += `<div style="font-size:13px; color:#e5e7eb; margin-bottom:4px;">`;
-    html += `<strong>${renderCount} ${renderWord}</strong> &mdash; `;
-    html += loadoutConfirmedTotal > 0
-        ? `${sourceLabel} &times; per-video brands &times; ${formatLabel}`
-        : `${sourceLabel} &times; ${itemCount} ${brandWord} &times; ${formatLabel}`;
+    if (midLoop) {
+        html += `<strong>${renderCount} ${outputWord} so far</strong> &mdash; `;
+        html += `${loadoutsDone} of ${loadoutTotal} videos confirmed`;
+    } else {
+        html += `<strong>${renderCount} ${outputWord}</strong> &middot; `;
+        html += `<strong>${renderCount} ${renderCount === 1 ? 'credit' : 'credits'}</strong> &mdash; `;
+        html += loadoutConfirmedTotal > 0
+            ? `${sourceLabel} &times; per-video brands &times; ${formatLabel}`
+            : `${sourceLabel} &times; ${itemCount} ${brandWord} &times; ${formatLabel}`;
+    }
     html += `</div>`;
+
+    // Balance line — today's allowance and banked credits kept distinct.
+    if (creditState) {
+        const short = renderCount > creditState.total;
+        const parts = [];
+        parts.push(`${creditState.today} today`);
+        if (creditState.banked > 0) parts.push(`${creditState.banked} banked`);
+        html += `<div style="font-size:11px; margin-bottom:3px; color:${short ? '#ff6b6b' : '#9ca3af'};">`;
+        html += short
+            ? `Not enough credits &mdash; needs ${renderCount}, you have ${creditState.total} (${parts.join(' + ')})`
+            : `You have ${creditState.total} credits (${parts.join(' + ')})`;
+        html += `</div>`;
+    }
 
     // Brand chips — replaces the carousel navigator; shows every queued brand at a glance
     {
