@@ -4394,7 +4394,13 @@ async function loadBrands() {
             html += '<div class="brand-assets">';
             if (b.logo_path) html += '<span class="asset-badge">🎨 Logo</span>';
             if (b.watermark_path) html += '<span class="asset-badge">🔍 WM</span>';
-            if (!isReady) html += '<span class="asset-badge" style="background: rgba(255, 152, 0, 0.2); color: #ff9800;">⚠️ Incomplete</span>';
+            if (!isReady) {
+                const missing = [];
+                if (!b.logo_path) missing.push('logo');
+                if (!b.watermark_path) missing.push('watermark');
+                const why = missing.length ? 'Needs ' + missing.join(' + ') : 'Incomplete';
+                html += `<span class="asset-badge" style="background: rgba(255, 152, 0, 0.2); color: #ff9800;">⚠️ ${why}</span>`;
+            }
             html += '</div>';
             html += '</div>';
             
@@ -4410,7 +4416,14 @@ async function loadBrands() {
             btn.innerHTML = html;
             btn.dataset.brandId = b.id;  // Store brand_id (NOT name)
             btn.dataset.ready = isReady;
-            btn.title = isReady ? '' : 'Incomplete: Upload logo or watermark in Manage Brands';
+            if (isReady) {
+                btn.title = '';
+            } else {
+                const missing = [];
+                if (!b.logo_path) missing.push('logo');
+                if (!b.watermark_path) missing.push('watermark');
+                btn.title = `Needs ${missing.join(' + ') || 'setup'} — add it under Brands to use this one.`;
+            }
             btn.onclick = () => selectBrand(b.id, btn, isReady);  // Pass brand_id
             box.appendChild(btn);
         });
