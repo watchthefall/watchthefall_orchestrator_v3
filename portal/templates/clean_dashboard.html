@@ -2328,6 +2328,11 @@
             <button onclick="skipBrand()" class="review-secondary">Use defaults</button>
             <button onclick="approveAndNext()" id="approveNextBtn" class="review-primary">Approve &amp; Next</button>
         </div>
+        <!-- Per-ITEM transient notices live here, never in #processResult, which is
+             owned by BATCH-level status (streaming card + completion panel). Writing
+             item text into #processResult used to wipe the batch card on every
+             navigation, leaving a long render with no visible progress. -->
+        <div id="reviewItemNotice" style="margin-top:6px;"></div>
         <div class="review-footer-actions">
             <button onclick="processAllBrands()" id="processAllBtn" class="btn-secondary">Start branding</button>
             <button onclick="exitQueueMode()" class="review-linkish">Back to brands</button>
@@ -2830,6 +2835,14 @@ function updateReviewHeader() {
     updateReviewActionState();
 }
 
+// Per-item review notice. Deliberately separate from #processResult so that
+// batch status (rendering card / completion panel) is never clobbered by a
+// message about a single queue item.
+function setReviewItemNotice(html) {
+    const el = document.getElementById('reviewItemNotice');
+    if (el) el.innerHTML = html || '';
+}
+
 function updateReviewActionState() {
     // Phase 17: renders fire on approve — the "Start branding" gate button is
     // permanently hidden during the review cockpit. processAllBrands() is still
@@ -2863,6 +2876,7 @@ function renderReviewCompletionState() {
     // Hide Approve/Skip/Previous — only the Start-branding CTA is relevant now
     const reviewActionsRow = document.querySelector('#queueModeActions .review-actions');
     if (reviewActionsRow) reviewActionsRow.style.display = 'none';
+    setReviewItemNotice('');   // batch committed: per-item notices no longer apply
 
     updateReviewActionState();
     const total = processingQueue.length;
@@ -2922,6 +2936,7 @@ function renderStreamingCompletionState() {
     document.body.classList.remove('review-cockpit-active');
     const reviewActionsRow = document.querySelector('#queueModeActions .review-actions');
     if (reviewActionsRow) reviewActionsRow.style.display = 'none';
+    setReviewItemNotice('');   // batch committed: per-item notices no longer apply
 
     // Collapse pre-render selection UI — no longer actionable once rendering starts.
     // Leaving these visible while "Rendering in background..." is shown below is confusing.
@@ -5029,7 +5044,7 @@ async function switchToBrand(idx) {
     if (current.status === 'processing') {
         renderBrandPills();
         updateReviewHeader();
-        document.getElementById('processResult').innerHTML = '<div class="status-msg info">This item is currently processing...</div>';
+        setReviewItemNotice('<div class="status-msg info">This item is currently processing…</div>');
         return;
     }
 
@@ -5054,8 +5069,9 @@ async function switchToBrand(idx) {
     // Load brand assets
     await loadBrandAssets(current.brand_id);
 
-    // Clear transient review message
-    document.getElementById('processResult').innerHTML = '';
+    // Clear the transient per-item notice only — the batch card in #processResult
+    // must survive navigation between items.
+    setReviewItemNotice('');
     updateReviewHeader();
 }
 
@@ -6085,6 +6101,7 @@ function cancelQueue() {
 
 function exitQueueMode() {
     isQueueMode = false;
+    setReviewItemNotice('');
     syncReviewViewportState();
     
     // Show selection mode, hide queue mode
