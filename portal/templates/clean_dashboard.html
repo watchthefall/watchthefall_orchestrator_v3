@@ -2504,14 +2504,24 @@ function recoverVideoMeta() {
     catch (e) { videoMeta = {}; }
 }
 
-function rememberVideoMeta(filename, downloadId, displayName) {
+function rememberVideoMeta(filename, downloadId, displayName, nameIsCustom) {
     if (!filename) return;
     const existing = videoMeta[filename] || {};
+    // userNamed is authoritative from the SERVER (downloads.name_is_custom) when
+    // supplied, falling back to what this session knows. Session storage alone is
+    // lost on reload, which is how an auto-derived name could once have silently
+    // overwritten a name the user chose.
+    const userNamed = (nameIsCustom !== undefined && nameIsCustom !== null)
+        ? !!nameIsCustom
+        : !!existing.userNamed;
+    // A user-chosen name always wins over an auto-derived one.
+    const nextName = userNamed
+        ? (existing.displayName || displayName || '')
+        : (displayName || existing.displayName || '');
     videoMeta[filename] = {
         downloadId: downloadId != null ? downloadId : existing.downloadId,
-        // Never let an auto-derived name overwrite one the user typed.
-        displayName: existing.userNamed ? existing.displayName : (displayName || existing.displayName || ''),
-        userNamed: !!existing.userNamed
+        displayName: nextName,
+        userNamed: userNamed
     };
     persistVideoMeta();
 }
@@ -7374,7 +7384,7 @@ async function applyVideoRename(filename, name) {
     if (!filename || !name) return;
     const meta = videoMeta[filename] || {};
     videoMeta[filename] = { ...meta, displayName: name, userNamed: true };
-    persistVideoMeta();
+    persistVideoMeta();   // server-side name_is_custom is set by the PUT below
     updateLoadoutUI();
     updateSelectedVideoCard();
     updateConfirmationSummary();
@@ -7409,7 +7419,7 @@ async function ensureVideoMeta(filename) {
         const data = await fetch(`${apiBase}/api/downloads/recent?limit=50`).then(r => r.json());
         const row = (data.downloads || []).find(d => d.filename === filename);
         if (row) {
-            rememberVideoMeta(filename, row.id, row.display_name);
+            rememberVideoMeta(filename, row.id, row.display_name, row.name_is_custom);
             updateSelectedVideoCard();
         }
     } catch (e) {
@@ -7425,8 +7435,10 @@ function updateSelectedVideoCard() {
     const nameEl = document.getElementById('selectedVideoName');
     const fileEl = document.getElementById('selectedFilename');
     if (nameEl) nameEl.textContent = label;
-    // Keep provenance visible but subordinate to the human name.
-    if (fileEl) fileEl.textContent = (label === base) ? base : 'Original: ' + base;
+    // Keep provenance visible but subordinate to the human name. When there is no
+    // friendly name the name line IS the filename, so repeating it underneath just
+    // prints it twice.
+    if (fileEl) fileEl.textContent = (label === base) ? '' : 'Original: ' + base;
 }
 
 function startSourceRename() {

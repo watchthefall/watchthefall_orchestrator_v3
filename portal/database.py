@@ -251,6 +251,18 @@ def init_db():
         except Exception:
             pass  # Column already exists
 
+        # name_is_custom: 1 only when a HUMAN named this source. save_download
+        # defaults display_name to the filename and auto-derived titles also land
+        # in display_name, so display_name alone cannot tell us whether a person
+        # chose it. Without a persisted flag, a session reset loses that fact and
+        # an auto-derived name could later overwrite the user's chosen one.
+        # Invariant: once a human names a source, Brandr must never rename it back.
+        try:
+            c.execute('ALTER TABLE downloads ADD COLUMN name_is_custom INTEGER DEFAULT 0')
+            conn.commit()
+        except Exception:
+            pass  # Column already exists
+
         # Add bookmarked column to branded_outputs if it doesn't exist
         try:
             c.execute('ALTER TABLE branded_outputs ADD COLUMN bookmarked INTEGER DEFAULT 0')
@@ -1892,9 +1904,11 @@ def update_display_name(download_id, user_id, display_name):
         if not c.fetchone():
             return False
         
+        # Setting name_is_custom here is the whole point: this endpoint is only
+        # reached by a deliberate user rename, so the flag records intent, not text.
         c.execute('''
             UPDATE downloads 
-            SET display_name = ? 
+            SET display_name = ?, name_is_custom = 1 
             WHERE id = ? AND user_id = ?
         ''', (display_name, download_id, user_id))
         

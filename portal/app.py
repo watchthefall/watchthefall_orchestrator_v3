@@ -3896,6 +3896,82 @@ def get_fetch_job_status(job_id):
         'error': job.get('error'),
     })
 
+# -- Friendly download naming (presentation only) ------------------------------
+# The stored output_filename, the file on disk, video_id and source_download_id
+# are all IMMUTABLE identity and are never touched by any of this. The only
+# thing that changes is the name the browser saves the file as.
+
+_FS_ILLEGAL = ':*?"<>|'   # plus the two path separators, handled separately
+
+
+def _sanitise_download_stem(name, fallback):
+    """Make a user-supplied name safe to use as a filename stem.
+
+    Handles the genuinely nasty cases: path traversal ('../../evil'), reserved
+    filesystem characters, control characters, and names that sanitise down to
+    nothing. Unicode letters are preserved - werkzeug emits an RFC 5987
+    filename* parameter, so accented characters survive the header intact.
+    """
+    import unicodedata
+    raw = (name or '').strip()
+    # Kill path structure outright - never let a name escape a directory.
+    raw = raw.replace(chr(92), '/').split('/')[-1]
+    # Whitespace-ish control chars are SEPARATORS, not noise: a tab between two
+    # words must become a hyphen, not glue them together. Convert those first,
+    # then drop the remaining control characters (NUL, BEL and friends), which
+    # are invalid in headers and carry no meaning.
+    for _ws in (chr(9), chr(10), chr(13), chr(11), chr(12)):
+        raw = raw.replace(_ws, ' ')
+    raw = ''.join(ch for ch in raw if unicodedata.category(ch) != 'Cc')
+    for ch in _FS_ILLEGAL:
+        raw = raw.replace(ch, '')
+    raw = ' '.join(raw.split())     # collapse runs of whitespace
+    raw = raw.replace(' ', '-')     # spaces -> hyphens, per the naming convention
+    raw = raw.strip('.-_')          # no leading dots (hidden files) or stray separators
+    raw = raw[:60].strip('.-_')     # bound length, re-trim after cutting
+    return raw or fallback
+
+
+def _friendly_download_name(stored_filename, user_id):
+    """Return the name to save a branded output as, or None to keep the stored one.
+
+    Resolves output -> source -> human name via the link that already exists:
+        branded_outputs.output_filename
+          -> branded_outputs.source_download_id
+          -> downloads.display_name (only when name_is_custom)
+    No string-parsing of '{video_id}_{brand}_{format}.mp4' - a brand name
+    containing an underscore would make that ambiguous and quietly wrong.
+    Gated on name_is_custom so an auto-derived title never silently renames a
+    user's download; with no human name, behaviour is exactly as before.
+    """
+    try:
+        with get_connection() as conn:
+            row = conn.execute(
+                'SELECT b.brand_name, b.output_format, d.display_name, d.name_is_custom '
+                'FROM branded_outputs b '
+                'JOIN downloads d ON d.id = b.source_download_id '
+                'WHERE b.output_filename = ? AND b.user_id = ? '
+                'ORDER BY b.created_at DESC LIMIT 1',
+                (stored_filename, user_id)
+            ).fetchone()
+        if not row or not row['name_is_custom'] or not row['display_name']:
+            return None
+        stem = _sanitise_download_stem(row['display_name'], '')
+        if not stem:
+            return None
+        parts = [stem]
+        if row['brand_name']:
+            parts.append(_sanitise_download_stem(row['brand_name'], 'brand'))
+        if row['output_format']:
+            parts.append(row['output_format'])
+        ext = os.path.splitext(stored_filename)[1] or '.mp4'
+        return '_'.join(parts) + ext
+    except Exception as e:
+        # Naming is cosmetic - never let it break a download.
+        print(f'[DOWNLOAD] friendly-name lookup failed for {stored_filename}: {e}', flush=True)
+        return None
+
+
 @app.route('/api/videos/download/<filename>', methods=['GET'])
 @login_required
 def download_video(filename):
@@ -3951,8 +4027,18 @@ def download_video(filename):
         print(f'[DOWNLOAD] Serving {filename} ({file_size} bytes) from {filepath}')
 
         directory = os.path.dirname(os.path.abspath(filepath))
-        response = send_from_directory(directory, filename, as_attachment=True)
-        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        # download_name changes ONLY what the browser saves the file as. The file
+        # on disk keeps its deterministic {video_id}_{brand}_{format}.mp4 name, so
+        # stored references, the Library and the DB fallback all keep working - and
+        # because it is computed per request, renaming applies retroactively to
+        # outputs that already exist.
+        friendly = _friendly_download_name(filename, user_id)
+        if friendly:
+            print(f'[DOWNLOAD] serving {filename} as "{friendly}"', flush=True)
+        # werkzeug emits both filename= and filename*=UTF-8'' so non-ASCII names
+        # survive; hand-rolling the header would lose that.
+        response = send_from_directory(directory, filename, as_attachment=True,
+                                       download_name=(friendly or filename))
         response.headers['Content-Type'] = 'video/mp4'
         response.headers['Cache-Control'] = 'no-cache'
         print(f'[DOWNLOAD] Response status: 200 for {filename}')
