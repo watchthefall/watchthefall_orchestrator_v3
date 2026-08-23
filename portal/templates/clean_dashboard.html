@@ -4452,6 +4452,17 @@ async function loadBrands() {
     }
 }
 
+// #processResult is written by several places (selection errors, batch status,
+// the completion panel) but NOTHING clears a selection error once the user fixes
+// it. Result: "Select at least one brand" sat on screen while a brand WAS
+// selected and the summary correctly read "1 output - 1 credit" — which has been
+// misread as a state desync. The state was always right; the message was stale.
+// Clear only error messages, never a completion panel or batch status card.
+function clearStaleSelectionError() {
+    const el = document.getElementById('processResult');
+    if (el && el.querySelector('.status-msg.error')) el.innerHTML = '';
+}
+
 function selectBrand(brandId, btnEl, isReady) {
     // Block incomplete brands
     if (!isReady) {
@@ -4462,6 +4473,8 @@ function selectBrand(brandId, btnEl, isReady) {
         return;
     }
     
+    clearStaleSelectionError();
+
     const idx = selectedBrandIds.indexOf(brandId);
     const wasSelected = idx > -1;
     
@@ -5696,6 +5709,21 @@ async function fireRenderForItem(item) {
             }
 
             if (!pollRes.ok) { setTimeout(poll, POLL_INTERVAL_MS); return; }
+
+            // resumeStuckPolls() (fired by visibilitychange, e.g. tabbing away and
+            // back mid-render) may already have polled this same job, recorded its
+            // output and settled the item. It guards against us with this exact
+            // check; without the mirror image here the two chains BOTH record the
+            // completion and one render shows up twice in the results list.
+            // Observed live 2026-08-22: 1 source x 1 brand x 1 format produced one
+            // render, one credit and one file — but two result rows.
+            if ((pollData.status === 'completed' || pollData.status === 'failed')
+                    && item.status !== 'processing') {
+                console.log('[FIRE] Item already settled by the resume chain — not recording twice:',
+                            item.brand_name, item.format);
+                resolve();
+                return;
+            }
 
             if (pollData.status === 'completed') {
                 if (pollData.outputs && pollData.outputs[0]) {
