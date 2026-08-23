@@ -3935,11 +3935,16 @@ def _sanitise_download_stem(name, fallback):
 def _friendly_download_name(stored_filename, user_id):
     """Return the name to save a branded output as, or None to keep the stored one.
 
-    Resolves output -> source -> human name via the link that already exists:
+    Resolves output -> source -> human name:
         branded_outputs.output_filename
-          -> branded_outputs.source_download_id
+          -> branded_outputs.source_filename
           -> downloads.display_name (only when name_is_custom)
-    No string-parsing of '{video_id}_{brand}_{format}.mp4' - a brand name
+
+    NOTE: joins on source_filename, NOT source_download_id. That column exists in
+    the schema but is NEVER populated (see get_branded_outputs_for_user:
+    "source_download_id is always NULL"), so joining on it silently matches
+    nothing. Filename matching is what the rest of the codebase already does.
+    Still no string-parsing of '{video_id}_{brand}_{format}.mp4' - a brand name
     containing an underscore would make that ambiguous and quietly wrong.
     Gated on name_is_custom so an auto-derived title never silently renames a
     user's download; with no human name, behaviour is exactly as before.
@@ -3949,9 +3954,10 @@ def _friendly_download_name(stored_filename, user_id):
             row = conn.execute(
                 'SELECT b.brand_name, b.output_format, d.display_name, d.name_is_custom '
                 'FROM branded_outputs b '
-                'JOIN downloads d ON d.id = b.source_download_id '
+                'JOIN downloads d ON d.filename = b.source_filename '
+                '                AND d.user_id = b.user_id '
                 'WHERE b.output_filename = ? AND b.user_id = ? '
-                'ORDER BY b.created_at DESC LIMIT 1',
+                'ORDER BY b.created_at DESC, d.created_at DESC LIMIT 1',
                 (stored_filename, user_id)
             ).fetchone()
         if not row or not row['name_is_custom'] or not row['display_name']:
