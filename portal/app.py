@@ -1422,6 +1422,45 @@ def debug_health():
 
 # Global conversion lock - only one FFmpeg process at a time (Render free tier 512MB RAM)
 conversion_lock = threading.Lock()
+
+# ---------------------------------------------------------------------------
+# Bounded render concurrency
+#
+# 2026-08-23. On 21 Aug at 22:31 UTC the instance was killed by the OOM killer
+# ("used over 2GB" — that is the Standard plan's RAM, nothing to do with the
+# 5 GB disk). The access log shows ~19 process_brands submissions inside ~30
+# seconds, and 19 distinct job ids all returning 404 immediately afterwards:
+# the in-memory job registry was empty because the process had restarted.
+#
+# Cause: every POST spawned an unguarded daemon Thread straight into FFmpeg.
+# config.py has carried per-tier 'concurrent_jobs' (1/3/5/10/20) and
+# 'max_concurrent_jobs' since forever, but NOTHING reads them, and
+# conversion_lock was defined and never acquired. So the ceiling on concurrent
+# FFmpeg processes was however many requests the user happened to send —
+# reliably exhaustible by construction rather than under unusual load.
+#
+# This is a MACHINE-WIDE bound, deliberately not the per-tier one: a single
+# Platinum user at concurrent_jobs=20 would kill a 2 GB box on their own, so
+# per-tier limits cannot be what keeps the service alive. On 1 CPU, extra
+# concurrent encodes buy almost no throughput anyway — they just timeshare the
+# core while each holds its own memory.
+#
+# Env-tunable so the ceiling can be raised on a bigger instance with a restart
+# (~1 min) instead of a full deploy (~5.5 min).
+try:
+    MAX_CONCURRENT_RENDERS = max(1, int(os.environ.get('MAX_CONCURRENT_RENDERS', '2')))
+except (TypeError, ValueError):
+    MAX_CONCURRENT_RENDERS = 2
+
+# Longest a job will sit waiting for a slot before giving up cleanly. A slot is
+# held for at most NORMALIZE_TIMEOUT (300s) + FFMPEG_TIMEOUT (840s) = 19 min,
+# so a queue can be slow but cannot wedge forever.
+RENDER_QUEUE_TIMEOUT = 1800
+
+_render_slots = threading.BoundedSemaphore(MAX_CONCURRENT_RENDERS)
+_render_depth_lock = threading.Lock()
+_render_waiting = 0   # observability only — never gates anything
+
 conversion_in_progress = {'active': False, 'start_time': None}
 
 # Job status dictionary for async watermark conversions
@@ -2661,6 +2700,35 @@ def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
     """
     from .config import STORAGE_ROOT
     job = brand_render_jobs[job_id]
+
+    # Wait for a render slot before touching FFmpeg. The job stays 'queued'
+    # while waiting, which the poll endpoint already reports and the frontend
+    # already tolerates (it polls until completed/failed), so nothing upstream
+    # needs to change. Threads block here cheaply; FFmpeg processes do not.
+    global _render_waiting
+    with _render_depth_lock:
+        _render_waiting += 1
+        waiting_now = _render_waiting
+    if waiting_now > 1:
+        print(f"[RENDER-QUEUE] {job_id[:8]} waiting for a slot "
+              f"({waiting_now} waiting, limit {MAX_CONCURRENT_RENDERS})", flush=True)
+    queued_at = time.time()
+    got_slot = _render_slots.acquire(timeout=RENDER_QUEUE_TIMEOUT)
+    with _render_depth_lock:
+        _render_waiting -= 1
+
+    if not got_slot:
+        job['status']       = 'failed'
+        job['error']        = 'Server busy — render queue timed out. Please try again.'
+        job['completed_at'] = time.time()
+        print(f"[RENDER-QUEUE] {job_id[:8]} GAVE UP after "
+              f"{time.time() - queued_at:.0f}s waiting for a slot", flush=True)
+        return
+
+    waited = time.time() - queued_at
+    if waited > 1:
+        print(f"[RENDER-QUEUE] {job_id[:8]} acquired slot after {waited:.0f}s", flush=True)
+
     job['status']     = 'processing'
     job['started_at'] = time.time()
 
@@ -2871,6 +2939,11 @@ def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
             log_event('error', None, f'Async branding job {job_id[:8]} exception: {str(e)}')
         except Exception:
             pass
+
+    finally:
+        # Always give the slot back — a leak here would starve every later
+        # render, which is worse than the unbounded behaviour this replaces.
+        _render_slots.release()
 
 
 @app.route('/api/videos/process_brands', methods=['POST'])
