@@ -1942,13 +1942,24 @@
 
     <!-- Selected Video Info: shown after a video is picked -->
     <div id="selectedVideoInfo" style="display:none;">
-        <div class="selected-video-display">
+        <div class="selected-video-display" style="align-items:flex-start; gap:10px;">
+            <!-- Thumbnail: the frame is already extracted on select, so this costs
+                 nothing extra and stops the user having to recognise a video by an
+                 opaque platform id like DWtkfp1ABmJ.mp4 -->
+            <img id="selectedThumb" alt="" style="display:none; width:56px; height:74px; object-fit:cover; border-radius:6px; flex:0 0 auto; background:#121214; border:1px solid #2a2f3e;">
             <span class="source-icon" id="selectedSourceIcon"></span>
-            <div class="selected-video-meta">
-                <span class="selected-filename" id="selectedFilename"></span>
+            <div class="selected-video-meta" style="min-width:0; flex:1;">
+                <span class="selected-filename" id="selectedVideoName" style="font-weight:600;"></span>
+                <span class="selected-source" id="selectedFilename"></span>
                 <span class="selected-source" id="selectedSource"></span>
             </div>
+            <button type="button" id="selectedRenameBtn" onclick="startSourceRename()" title="Name this video"
+                    style="width:auto; flex:0 0 auto; background:transparent; border:1px solid #343948; color:#b6bfd3; border-radius:6px; padding:3px 9px; font-size:11px; cursor:pointer;">&#9998; Rename</button>
         </div>
+        <input type="text" id="selectedRenameInput" maxlength="80" placeholder="Name this video"
+               onkeydown="if(event.key==='Enter'){commitSourceRename();}else if(event.key==='Escape'){cancelSourceRename();}"
+               onblur="commitSourceRename()"
+               style="display:none; width:100%; margin-top:6px; background:#121214; border:1px solid var(--accent); border-radius:6px; padding:6px 10px; color:#fff; font-size:13px; box-sizing:border-box;">
         <div class="selected-video-actions">
             <button id="changeVideoBtn" onclick="changeVideo()" class="btn-primary" style="font-size:12px; padding:6px 10px;">Change Video</button>
             <button id="libraryBtn" onclick="goToLibrary()" class="btn-secondary" style="font-size:12px; padding:6px 10px;">Library</button>
@@ -6340,6 +6351,22 @@ async function extractFrame(filename, skipCanvasResize) {
             frameData = data.frame_data;
             videoWidth = data.width;
             videoHeight = data.height;
+
+            // Same frame doubles as the Selected Video thumbnail — no extra request.
+            const _thumbEl = document.getElementById('selectedThumb');
+            if (_thumbEl && currentFile === filename) {
+                _thumbEl.src = data.frame_data;
+                _thumbEl.style.display = 'block';
+            }
+            const _srcEl = document.getElementById('selectedSource');
+            if (_srcEl && currentFile === filename && data.width && data.height) {
+                const _dims = `${data.width} × ${data.height}`;
+                if (_srcEl.textContent && _srcEl.textContent.indexOf('×') === -1) {
+                    _srcEl.textContent = _dims + ' · ' + _srcEl.textContent;
+                } else if (!_srcEl.textContent) {
+                    _srcEl.textContent = _dims;
+                }
+            }
             console.log('[BRANDR] extractFrame success — file:', filename, 'dims:', videoWidth, 'x', videoHeight);
 
             // Adjust canvas aspect ratio (not in the review cockpit — there the
@@ -6604,9 +6631,14 @@ function selectVideo(filename, meta) {
     const info = document.getElementById('selectedVideoInfo');
     info.style.display = 'block';
 
-    // Populate selected display
+    // Populate selected display. The human name leads; the platform filename
+    // stays visible underneath as provenance.
     document.getElementById('selectedSourceIcon').textContent = getPlatformIcon(meta.source_url);
-    document.getElementById('selectedFilename').textContent = filename;
+    const _thumb = document.getElementById('selectedThumb');
+    if (_thumb) { _thumb.style.display = 'none'; _thumb.removeAttribute('src'); }
+    cancelSourceRename();
+    updateSelectedVideoCard();
+    ensureVideoMeta(filename);   // backfill download_id for Library-picked videos
     const sourceUrl = meta.source_url || '';
     if (sourceUrl && !sourceUrl.startsWith('upload://')) {
         const truncated = sourceUrl.length > 50 ? sourceUrl.substring(0, 50) + '...' : sourceUrl;
@@ -7333,6 +7365,96 @@ function loadoutApplyToRemaining() {
 
 // Sync loadout chrome: header, counter, progress dots, action buttons.
 // "Start review" only appears once every video's loadout is confirmed.
+// ── Renaming (shared) ─────────────────────────────────────────────────────────
+// The friendly name belongs to the SOURCE video, so every output it produces
+// inherits it. Optimistic: the label is cosmetic, so show it at once and
+// reconcile with the server after. Never renames anything on disk or in the
+// filesystem — display_name is metadata beside the immutable filename.
+async function applyVideoRename(filename, name) {
+    if (!filename || !name) return;
+    const meta = videoMeta[filename] || {};
+    videoMeta[filename] = { ...meta, displayName: name, userNamed: true };
+    persistVideoMeta();
+    updateLoadoutUI();
+    updateSelectedVideoCard();
+    updateConfirmationSummary();
+
+    const downloadId = meta.downloadId;
+    if (!downloadId) {
+        console.warn('[VIDEO META] no download_id for', filename, '— name kept locally only');
+        return;
+    }
+    try {
+        const res = await fetch(`${apiBase}/api/downloads/${downloadId}/rename`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ display_name: name })
+        });
+        const data = await res.json();
+        if (!data || data.success === false) throw new Error(data && data.error ? data.error : 'rename failed');
+        console.log('[VIDEO META] renamed', filename, '->', name);
+    } catch (e) {
+        console.warn('[VIDEO META] rename not saved to Library:', e);
+    }
+}
+
+// A video chosen from the Library (rather than just fetched) has no cached
+// download_id, so rename would be local-only. Backfill it from the downloads
+// record once, so renaming works the same however the video got here.
+async function ensureVideoMeta(filename) {
+    if (!filename) return;
+    const meta = videoMeta[filename];
+    if (meta && meta.downloadId) return;
+    try {
+        const data = await fetch(`${apiBase}/api/downloads/recent?limit=50`).then(r => r.json());
+        const row = (data.downloads || []).find(d => d.filename === filename);
+        if (row) {
+            rememberVideoMeta(filename, row.id, row.display_name);
+            updateSelectedVideoCard();
+        }
+    } catch (e) {
+        console.warn('[VIDEO META] backfill failed for', filename, e);
+    }
+}
+
+// ── Selected Video card (single-video flow) ──────────────────────────────────
+function updateSelectedVideoCard() {
+    if (!currentFile) return;
+    const base = currentFile.split('/').pop();
+    const label = videoLabel(currentFile);
+    const nameEl = document.getElementById('selectedVideoName');
+    const fileEl = document.getElementById('selectedFilename');
+    if (nameEl) nameEl.textContent = label;
+    // Keep provenance visible but subordinate to the human name.
+    if (fileEl) fileEl.textContent = (label === base) ? base : 'Original: ' + base;
+}
+
+function startSourceRename() {
+    if (!currentFile) return;
+    const input = document.getElementById('selectedRenameInput');
+    if (!input) return;
+    input.value = videoLabel(currentFile);
+    input.style.display = 'block';
+    input.dataset.forVideo = currentFile;
+    input.focus();
+    input.select();
+}
+
+function cancelSourceRename() {
+    const input = document.getElementById('selectedRenameInput');
+    if (input) { input.style.display = 'none'; delete input.dataset.forVideo; }
+}
+
+async function commitSourceRename() {
+    const input = document.getElementById('selectedRenameInput');
+    if (!input || input.style.display === 'none') return;
+    const filename = input.dataset.forVideo;
+    const name = (input.value || '').trim();
+    cancelSourceRename();
+    if (!filename || !name || name === videoLabel(filename)) return;
+    await applyVideoRename(filename, name);
+}
+
 // ── Rename the current loadout video ──────────────────────────────────────────
 // Labels the SOURCE clip (not individual outputs), so the name follows the video
 // into review and onto every output it produces. Uses the existing
@@ -7361,31 +7483,7 @@ async function commitLoadoutRename() {
     const name = (input.value || '').trim();
     cancelLoadoutRename();
     if (!filename || !name || name === videoLabel(filename)) return;
-
-    // Optimistic: the label is cosmetic, so show it immediately and reconcile after.
-    const meta = videoMeta[filename] || {};
-    videoMeta[filename] = { ...meta, displayName: name, userNamed: true };
-    persistVideoMeta();
-    updateLoadoutUI();
-    updateConfirmationSummary();
-
-    const downloadId = meta.downloadId;
-    if (!downloadId) {
-        console.warn('[VIDEO META] no download_id for', filename, '— name kept locally only');
-        return;
-    }
-    try {
-        const res = await fetch(`${apiBase}/api/downloads/${downloadId}/rename`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ display_name: name })
-        });
-        const data = await res.json();
-        if (!data || data.success === false) throw new Error(data && data.error ? data.error : 'rename failed');
-        console.log('[VIDEO META] renamed', filename, '->', name);
-    } catch (e) {
-        console.warn('[VIDEO META] rename not saved to Library:', e);
-    }
+    await applyVideoRename(filename, name);
 }
 
 function loadoutNext() {
