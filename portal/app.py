@@ -2477,6 +2477,64 @@ def admin_proxy_check():
     return jsonify(result)
 
 
+@app.route('/api/admin/cookie-health', methods=['GET'])
+@admin_required
+def admin_cookie_health():
+    """Per-cookie health for the Instagram pool.
+
+    Instagram sessions expire silently: the pool rotates on auth failure, trips a
+    breaker when every cookie fails, and returns a friendly error — all of which
+    works, but the only signal reaching a human is a [COOKIE ALERT] line in logs
+    nobody is watching. cookie_pool.health_snapshot() has existed unexposed since
+    the pool was built; this surfaces it so dead cookies are found here rather
+    than by a paying user failing to import.
+
+    Never returns cookie CONTENTS — only filenames and counters.
+    """
+    from . import cookie_pool          # module-local import, as elsewhere in this file
+    try:
+        snapshot = cookie_pool.health_snapshot()
+        size = cookie_pool.pool_size()
+        breaker = cookie_pool.breaker_open()
+
+        # A cookie is "suspect" once it has failed at all, and effectively out of
+        # service while cooling down. Summarised here so the caller does not have
+        # to interpret the raw counters.
+        cooling = [c for c in snapshot if c.get('cooling_down')]
+        failing = [c for c in snapshot if (c.get('fails') or 0) > 0]
+        healthy = [c for c in snapshot if not c.get('cooling_down')
+                   and not (c.get('fails') or 0)]
+
+        if size == 0:
+            verdict = 'NO COOKIES — Instagram import cannot work'
+        elif breaker:
+            verdict = ('BREAKER OPEN — every cookie auth-failed recently; '
+                       'Instagram import is paused')
+        elif not healthy:
+            verdict = 'ALL COOKIES SUSPECT — refresh the pool'
+        elif len(healthy) == 1 and size > 1:
+            verdict = 'ONLY ONE HEALTHY COOKIE — refresh the others'
+        elif len(healthy) == 1:
+            verdict = 'SINGLE COOKIE, currently healthy — no redundancy'
+        else:
+            verdict = 'OK'
+
+        return jsonify({
+            'success': True,
+            'verdict': verdict,
+            'pool_size': size,
+            'healthy': len(healthy),
+            'failing': len(failing),
+            'cooling_down': len(cooling),
+            'breaker_open': breaker,
+            'breaker_remaining_s': cookie_pool.breaker_remaining() if breaker else 0,
+            'cookies': snapshot,
+        })
+    except Exception as e:
+        print(f'[COOKIE-HEALTH] failed: {e}', flush=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/admin/render-stats', methods=['GET'])
 @admin_required
 def admin_render_stats():
