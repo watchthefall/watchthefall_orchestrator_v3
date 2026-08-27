@@ -6,8 +6,12 @@ services:
     buildCommand: "pip install -r requirements.txt"
     startCommand: "gunicorn -c portal/gunicorn.conf.py portal.app:app"
     envVars:
+      # Keep in step with .python-version (the authoritative declaration).
+      # yt-dlp deprecated Python 3.10 (2026-08); it is the live Instagram
+      # ingestion dependency and is deliberately unpinned, so staying on a
+      # runtime it is dropping would quietly cut off IG extraction updates.
       - key: PYTHON_VERSION
-        value: 3.10.6
+        value: 3.11.9
       - key: RENDER
         value: "true"
       - key: ENV
