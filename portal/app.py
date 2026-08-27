@@ -2500,35 +2500,53 @@ def admin_cookie_health():
         # A cookie is "suspect" once it has failed at all, and effectively out of
         # service while cooling down. Summarised here so the caller does not have
         # to interpret the raw counters.
+        # These counters live in memory and RESET ON EVERY RESTART — and Brandr
+        # redeploys often. A cookie that has not been used since boot is therefore
+        # UNPROVEN, not healthy: a long-dead session looks identical to a good one
+        # until something actually tries to use it. Reporting those as "healthy"
+        # would make this endpoint false reassurance, which is worse than having
+        # no endpoint at all.
         cooling = [c for c in snapshot if c.get('cooling_down')]
         failing = [c for c in snapshot if (c.get('fails') or 0) > 0]
-        healthy = [c for c in snapshot if not c.get('cooling_down')
-                   and not (c.get('fails') or 0)]
+        unproven = [c for c in snapshot if c.get('last_used_ago_s') is None
+                    and not (c.get('fails') or 0)]
+        proven = [c for c in snapshot if c.get('last_used_ago_s') is not None
+                  and not (c.get('fails') or 0) and not c.get('cooling_down')]
 
         if size == 0:
             verdict = 'NO COOKIES — Instagram import cannot work'
         elif breaker:
             verdict = ('BREAKER OPEN — every cookie auth-failed recently; '
                        'Instagram import is paused')
-        elif not healthy:
+        elif len(unproven) == size:
+            verdict = ('UNKNOWN — no cookie has been used since the last restart, '
+                       'so nothing here is evidence of health. Run an Instagram '
+                       'import, then check again.')
+        elif not proven and not unproven:
             verdict = 'ALL COOKIES SUSPECT — refresh the pool'
-        elif len(healthy) == 1 and size > 1:
-            verdict = 'ONLY ONE HEALTHY COOKIE — refresh the others'
-        elif len(healthy) == 1:
-            verdict = 'SINGLE COOKIE, currently healthy — no redundancy'
+        elif not proven:
+            verdict = ('NO PROVEN COOKIE — every cookie tried since restart has '
+                       'failed; the rest are untested. Refresh the pool.')
+        elif len(proven) == 1 and size > 1:
+            verdict = ('ONLY ONE PROVEN COOKIE (%d untested, %d failing) — '
+                       'refresh the others' % (len(unproven), len(failing)))
+        elif len(proven) == 1:
+            verdict = 'SINGLE COOKIE, working — no redundancy'
         else:
-            verdict = 'OK'
+            verdict = 'OK — %d cookies proven working since restart' % len(proven)
 
         return jsonify({
             'success': True,
             'verdict': verdict,
             'pool_size': size,
-            'healthy': len(healthy),
+            'proven_working': len(proven),      # used since restart, no failures
+            'unproven': len(unproven),          # untested since restart — NOT healthy
             'failing': len(failing),
             'cooling_down': len(cooling),
+            'counters_reset_at_restart': True,  # so a reader never over-trusts this
             'breaker_open': breaker,
             'breaker_remaining_s': cookie_pool.breaker_remaining() if breaker else 0,
-            'cookies': snapshot,
+            'pool': snapshot,
         })
     except Exception as e:
         print(f'[COOKIE-HEALTH] failed: {e}', flush=True)
