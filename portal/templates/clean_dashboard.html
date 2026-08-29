@@ -1231,12 +1231,25 @@
         margin-top: 0;
         padding-top: 0;
     }
+    /* Space taken by the fixed nav + sticky review header + sticky action bar.
+       Measured at runtime by syncReviewChrome(); this is the fallback. */
+    :root { --review-chrome: 330px; }
+
     #brandReviewLane.review-active #previewContainer {
         order: 3;
-        width: clamp(260px, 42vw, 340px);
+        /* INVARIANT: wherever Brandr asks you to approve a branded output, the
+           whole frame must be visible with nothing sticky covering it.
+           Height is the scarce axis on a phone, so constrain height and let
+           width follow. Deriving height from a clamped width (the previous
+           rule) forced 260px wide -> 462px tall, which is taller than the gap
+           between the sticky header and the sticky action bar — so the frame
+           could never be fully visible at any scroll position. */
+        height: min(calc(100dvh - var(--review-chrome)), calc(100vh - var(--review-chrome)));
+        max-height: calc(100dvh - var(--review-chrome));
+        min-height: 200px;   /* last-resort floor if chrome is pathologically tall */
         aspect-ratio: 9 / 16;
+        width: auto;
         max-width: 100%;
-        /* No max-height — aspect-ratio derives height from width, preserving 9:16 */
         margin: 2px auto 0;
         align-self: start;
     }
@@ -1247,6 +1260,10 @@
         overflow: auto;
     }
     /* #confirmationSummary suppressed during review-active via shared display:none block above */
+    #brandReviewLane.review-active #copyAdjustRow {
+        order: 5;          /* between the tweaks and the sticky action bar */
+        margin-top: 2px;
+    }
     #brandReviewLane.review-active #queueModeActions {
         order: 6;
         position: sticky;
@@ -2332,8 +2349,7 @@
     </div>
     
     <!-- Queue Mode Actions (hidden by default) -->
-    <div id="queueModeActions" style="display:none;">
-        <div id="copyAdjustRow" style="display:none; margin-bottom:8px; padding:8px 10px; background:#1a1f2e; border-radius:7px; border:1px solid #2a2f3e;">
+    <div id="copyAdjustRow" style="display:none; margin-bottom:8px; padding:8px 10px; background:#1a1f2e; border-radius:7px; border:1px solid #2a2f3e;">
             <div style="font-size:11px; color:#888; margin-bottom:6px;">Apply these settings to:</div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
                 <label style="font-size:12px; color:#b0b8cc; cursor:pointer; display:flex; align-items:center; gap:4px;"><input type="radio" name="copyScope" value="none" checked style="accent-color:var(--accent);"> This item only</label>
@@ -2343,6 +2359,7 @@
             </div>
             <span id="copyConfirmMsg" style="font-size:11px; color:#4ade80; opacity:0; transition:opacity 0.4s; display:block; margin-top:4px;"></span>
         </div>
+    <div id="queueModeActions" style="display:none;">
         <div class="review-actions">
             <button onclick="reviewPrevious()" class="review-quiet">Previous</button>
             <button onclick="skipBrand()" class="review-secondary">Use defaults</button>
@@ -3081,6 +3098,9 @@ function enterProcessingState() {
     [
         'queueModeActions', 'overrideControls', 'previewContainer', 'queueModeHeader',
         'outputFormatsSection', 'createIntentFork', 'confirmationSummary',
+        // copyAdjustRow used to be a child of queueModeActions and was hidden with
+        // it. It now sits above the sticky bar, so it needs hiding explicitly.
+        'copyAdjustRow',
     ].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
@@ -5184,6 +5204,10 @@ async function switchToBrand(idx) {
     await loadSourceEditForItem(current);
     updateCanvasPreview();
 
+    // Header height changes with the title, and the scope row appears/disappears —
+    // both alter the sticky chrome, so re-measure before the user looks at it.
+    scheduleChromeSync();
+
     // Always show scope row when in queue mode; hide only on last item
     const copyRow = document.getElementById('copyAdjustRow');
     if (copyRow) {
@@ -6275,6 +6299,8 @@ function exitQueueMode() {
     document.getElementById('selectionModeActions').style.display = 'block';
     document.getElementById('queueModeHeader').style.display = 'none';
     document.getElementById('queueModeActions').style.display = 'none';
+    const _car = document.getElementById('copyAdjustRow');   // sibling now, hide explicitly
+    if (_car) _car.style.display = 'none';
     document.getElementById('overrideControls').style.display = 'none';  // Hide sliders
     
     // Show video source section again
@@ -7375,6 +7401,55 @@ function loadoutApplyToRemaining() {
 
 // Sync loadout chrome: header, counter, progress dots, action buttons.
 // "Start review" only appears once every video's loadout is confirmed.
+// ── Review viewport: protect the preview ──────────────────────────────────────
+// INVARIANT: wherever Brandr asks you to approve a branded output, the whole
+// frame must be visible with nothing sticky covering it.
+//
+// The two sticky elements (#queueModeHeader at the top, #queueModeActions at the
+// bottom) are not fixed heights — the header carries the video title, which wraps
+// to two or three lines depending on the clip. A hardcoded reserve would be wrong
+// for exactly the long-title cases where space is tightest, so measure it.
+function syncReviewChrome() {
+    const lane = document.getElementById('brandReviewLane');
+    if (!lane || !lane.classList.contains('review-active')) return;
+
+    const header = document.getElementById('queueModeHeader');
+    const actions = document.getElementById('queueModeActions');
+    const nav = document.querySelector('.top-nav, nav, header');
+
+    const h = (el) => (el && el.offsetParent !== null) ? el.getBoundingClientRect().height : 0;
+    // Nav is fixed at the top; the header sticks below it; the action bar sticks
+    // to the bottom. Everything else can scroll under them safely.
+    const reserved = h(nav) + h(header) + h(actions) + 48;  // 48 = breathing room
+
+    // Floor only. An UPPER cap here would be backwards: capping the reserve makes
+    // the preview TALLER exactly when chrome is tallest, which is the case that
+    // breaks the invariant. If space is genuinely tight the preview's CSS
+    // min-height takes over and the page scrolls — degraded, but never a frame
+    // hidden behind a sticky bar without the user being able to reach it.
+    const clamped = Math.max(220, reserved);
+    document.documentElement.style.setProperty('--review-chrome', clamped + 'px');
+}
+
+// Re-measure whenever the sticky elements can change size: item navigation
+// (title length changes), rotation, and browser-chrome show/hide on scroll.
+let _chromeRaf = null;
+function scheduleChromeSync() {
+    if (_chromeRaf) cancelAnimationFrame(_chromeRaf);
+    _chromeRaf = requestAnimationFrame(syncReviewChrome);
+}
+window.addEventListener('resize', scheduleChromeSync);
+window.addEventListener('orientationchange', scheduleChromeSync);
+if (window.ResizeObserver) {
+    const _ro = new ResizeObserver(scheduleChromeSync);
+    document.addEventListener('DOMContentLoaded', () => {
+        ['queueModeHeader', 'queueModeActions'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) _ro.observe(el);
+        });
+    });
+}
+
 // ── Renaming (shared) ─────────────────────────────────────────────────────────
 // The friendly name belongs to the SOURCE video, so every output it produces
 // inherits it. Optimistic: the label is cosmetic, so show it at once and
