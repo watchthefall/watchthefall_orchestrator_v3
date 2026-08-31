@@ -446,7 +446,10 @@
     }
     .brand-btn {
         position: relative;
-        padding: 12px 8px;
+        /* Bottom padding reserves the strip the PREVIEWING bar occupies. Applied
+           to every tile, not just the active one, so switching preview never
+           reflows the grid row. */
+        padding: 12px 8px 26px;
         background: #222;
         border: 2px solid #333;
         border-radius: 8px;
@@ -483,11 +486,23 @@
         margin-top: 4px;
         font-size: 10px;
     }
+    /* Gold means SELECTED and nothing else. These badges sit on every complete
+       brand — 22 of 25 — so rendering them in the accent made the whole grid
+       gold and left selection with no colour of its own to signal with. They
+       carry no information when present and everything when absent, so they are
+       muted here and the missing-asset case gets its own treatment below. */
     .brand-btn .asset-badge {
-        background: var(--accent-soft);
-        color: var(--accent);
+        background: rgba(255, 255, 255, 0.06);
+        color: #949bab;
         padding: 2px 6px;
         border-radius: 3px;
+    }
+    /* Warning, deliberately rose rather than amber: amber reads as a dimmer
+       gold, which is exactly the confusion being fixed. */
+    .brand-btn .asset-badge.badge-missing {
+        background: rgba(224, 112, 95, 0.16);
+        color: #e0705f;
+        font-weight: 600;
     }
     .brand-btn .check-icon {
         position: absolute;
@@ -525,7 +540,7 @@
     /* Override badge on brand tiles */
     .brand-btn .override-badge {
         position: absolute;
-        bottom: 5px;
+        bottom: 22px;      /* clear of the reserved PREVIEWING strip */
         right: 5px;
         font-size: 9px;
         padding: 1px 6px;
@@ -548,6 +563,11 @@
         display: none;
     }
     /* Preview indicator label */
+    /* The bar spans the full width at the bottom of the tile, so it sat on top
+       of the asset badges and cut the "Defaults" badge in half. Rather than
+       move it somewhere equally crowded, the strip it occupies is now reserved
+       on EVERY tile (see .brand-btn padding-bottom), so nothing is ever under
+       it and no row reflows when the previewed brand changes. */
     .brand-btn .preview-indicator {
         display: none;
         position: absolute;
@@ -564,11 +584,19 @@
         padding: 2px 0;
         border-radius: 0 0 6px 6px;
     }
+    /* Was #3a2a00 / #665500 / #ff9800 — an amber tile with an amber border,
+       perceptually the same family as the gold accent. In one screenful, two
+       broken brands and one SELECTED brand were all gold; you could only tell
+       them apart by reading the badge text. An unusable brand should read as
+       inert, not as a rival highlight.
+       opacity is 1, not 0.7: dimming is done with colour instead, so the
+       "Needs logo" message — the one actionable thing on the tile — stays
+       legible rather than being faded out with everything else. */
     .brand-btn.brand-incomplete {
-        background: #3a2a00;
-        border-color: #665500;
-        color: #ff9800;
-        opacity: 0.7;
+        background: #1e1e24;
+        border-color: #33333d;
+        color: #868d9c;
+        opacity: 1;
         cursor: not-allowed;
     }
     .brand-btn:not(.brand-incomplete):hover {
@@ -4440,7 +4468,7 @@ async function loadBrands() {
                 if (!b.logo_path) missing.push('logo');
                 if (!b.watermark_path) missing.push('watermark');
                 const why = missing.length ? 'Needs ' + missing.join(' + ') : 'Incomplete';
-                html += `<span class="asset-badge" style="background: rgba(255, 152, 0, 0.2); color: #ff9800;">⚠️ ${why}</span>`;
+                html += `<span class="asset-badge badge-missing">⚠️ ${why}</span>`;
             }
             html += '</div>';
             html += '</div>';
