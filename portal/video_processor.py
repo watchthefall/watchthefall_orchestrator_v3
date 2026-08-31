@@ -5,6 +5,8 @@ Handles multi-brand export with safe zones and brightness-based watermark adjust
 import os
 import shutil
 import subprocess
+import threading
+import uuid as _uuid
 import json
 import time
 import uuid
@@ -34,6 +36,59 @@ NICE_PREFIX = [_NICE_BIN, '-n', FFMPEG_NICE] if _NICE_BIN else []
 if not _NICE_BIN:
     print('[NICE] `nice` not found — FFmpeg will run at normal priority', flush=True)
 
+# ── Normalize cache: one encode per distinct media transformation ─────────────
+# Every submit site sends a single brand_id, so a 5-brand x 2-format batch is 10
+# separate jobs — and each one used to normalize the same source independently.
+# Measured 31 Aug: normalize took ~110s against renders of 105s/102s, i.e. about
+# half the total work, repeated identically per job.
+#
+# The identity is the FFmpeg command itself rather than a hand-listed set of
+# parameters. A parameter list is the design where forgetting a field means one
+# brand silently inherits another's framing; an identical command provably
+# produces identical output, and it cannot drift when a new transform flag is
+# added later.
+#
+# Excluded from the identity, because they do not change the media:
+#   - the executable path (may differ between environments)
+#   - the `nice` wrapper (scheduling priority, not a transformation)
+#   - the output path (what we are computing)
+# Everything else is retained: input path, filters, crop/zoom/flip, dimensions,
+# frame rate, codecs, pixel format, audio handling, and any flag added in future.
+NORMALIZE_CACHE_VERSION = 'v1'   # bump to invalidate every cached file at once
+
+_OUTPUT_PLACEHOLDER = '<<NORMALIZE_OUTPUT>>'
+
+_norm_locks = {}
+_norm_locks_guard = threading.Lock()
+
+
+def _normalize_identity(cmd):
+    """Stable key for the media transformation this command performs.
+
+    cmd[0] is the executable and cmd[-1] is the output placeholder; both are
+    dropped. The `nice` prefix is added after this point, so it is never part of
+    the hash — changing FFMPEG_NICE must not throw away the cache.
+    """
+    import hashlib
+    payload = '\x1f'.join(str(a) for a in cmd[1:-1])
+    digest = hashlib.sha256(payload.encode('utf-8')).hexdigest()[:16]
+    return f'{NORMALIZE_CACHE_VERSION}-{digest}'
+
+
+def _lock_for(key):
+    """One lock per identity, so a second job waits rather than duplicating work."""
+    with _norm_locks_guard:
+        lk = _norm_locks.get(key)
+        if lk is None:
+            lk = threading.Lock()
+            # Bound the dict: unique (source, format, edit) combinations accumulate
+            # over a long-lived process. Locks nobody holds are safe to forget.
+            if len(_norm_locks) > 512:
+                for k in [k for k, v in _norm_locks.items() if not v.locked()]:
+                    _norm_locks.pop(k, None)
+            _norm_locks[key] = lk
+        return lk
+
 # Import configuration
 try:
     from config import FFMPEG_BIN, FFPROBE_BIN, PROJECT_ROOT
@@ -44,10 +99,13 @@ except ImportError:
     PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def _normalized_output_path(input_path: str, output_format: str, job_id: Optional[str]) -> str:
+def _normalized_output_path(input_path: str, output_format: str, cache_key: Optional[str]) -> str:
     base, _ext = os.path.splitext(input_path)
-    safe_job_id = ''.join(ch for ch in str(job_id or uuid.uuid4()) if ch.isalnum() or ch in ('-', '_'))[:36]
-    return f"{base}_normalized_{output_format}_{safe_job_id}.mp4"
+    # Content-keyed, not job-keyed: a file named after the job that happened to
+    # create it can never be reused by another job. Keeps the *_normalized_*.mp4
+    # shape the cleanup sweep globs for.
+    safe_key = ''.join(ch for ch in str(cache_key or uuid.uuid4()) if ch.isalnum() or ch in ('-', '_'))[:40]
+    return f"{base}_normalized_{output_format}_{safe_key}.mp4"
 
 
 def _even_dimension(value: float) -> int:
@@ -159,7 +217,9 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16',
         Path to normalized video file (or original if normalization fails)
     """
     try:
-        fixed_path = _normalized_output_path(input_path, output_format, job_id)
+        # Built against a placeholder so the command can be hashed before the
+        # output path exists — the path is derived FROM the hash.
+        fixed_path = _OUTPUT_PLACEHOLDER
         print(f"[NORMALIZE] Normalizing video to clean 8-bit H264 SDR: {input_path}")
 
         NORMALIZE_TIMEOUT = 300  # 5 min — normalization is just scale+re-encode, not overlay rendering
@@ -247,30 +307,63 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16',
                 fixed_path
             ]
 
-        cmd = NICE_PREFIX + cmd
-        print(f"[NORMALIZE] Running command (timeout={NORMALIZE_TIMEOUT}s): {' '.join(cmd)}")
-        result = subprocess.run(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=NORMALIZE_TIMEOUT
-        )
+        # ---- cache identity -------------------------------------------------
+        cache_key  = _normalize_identity(cmd)          # excludes exe + output path
+        fixed_path = _normalized_output_path(input_path, output_format, cache_key)
+        # cmd[-1] is still the placeholder here; it is set to the temp path at the
+        # point of encoding, so a cache hit never touches it.
 
-        if result.returncode == 0 and os.path.exists(fixed_path):
-            file_size = os.path.getsize(fixed_path) / (1024 * 1024)
-            print(f"[NORMALIZE] Successfully normalized video: {fixed_path} ({file_size:.2f}MB)")
+        # Fast path: somebody already performed this exact transformation.
+        if os.path.isfile(fixed_path):
+            print(f"[NORMALIZE CACHE] HIT {cache_key} -> {os.path.basename(fixed_path)}", flush=True)
             return fixed_path
-        else:
-            print(f"[NORMALIZE] Failed to normalize video (code={result.returncode}). stderr: {(result.stderr or '')[-1000:]}")
-            if output_format == 'vertical_9_16' and source_edit:
-                print(
-                    "[NORMALIZE-REFRAME WARNING] Source reframe normalization failed; "
-                    "falling back to original input, so render may not match preview."
-                )
-            if os.path.exists(fixed_path):
-                os.remove(fixed_path)  # Clean up failed output
-            return input_path
+
+        lock = _lock_for(cache_key)
+        if not lock.acquire(blocking=False):
+            print(f"[NORMALIZE CACHE] WAIT {cache_key} — another render is producing it", flush=True)
+            lock.acquire()
+        try:
+            # Re-check under the lock: whoever we waited for has now finished.
+            if os.path.isfile(fixed_path):
+                print(f"[NORMALIZE CACHE] HIT {cache_key} (after wait)", flush=True)
+                return fixed_path
+
+            print(f"[NORMALIZE CACHE] MISS {cache_key} — encoding", flush=True)
+
+            # Encode to a temp name, then rename atomically. A half-written file
+            # must never be visible at the cache path: another job checking for a
+            # HIT would hand FFmpeg a truncated input. The .tmp suffix also keeps
+            # it out of the sweep's *_normalized_*.mp4 glob while it is being written.
+            tmp_path = f"{fixed_path}.{_uuid.uuid4().hex}.tmp"
+            cmd[-1]  = tmp_path
+            run_cmd  = NICE_PREFIX + cmd
+
+            print(f"[NORMALIZE] Running command (timeout={NORMALIZE_TIMEOUT}s): {' '.join(run_cmd)}")
+            result = subprocess.run(
+                run_cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=NORMALIZE_TIMEOUT
+            )
+
+            if result.returncode == 0 and os.path.exists(tmp_path):
+                os.replace(tmp_path, fixed_path)       # atomic publish
+                file_size = os.path.getsize(fixed_path) / (1024 * 1024)
+                print(f"[NORMALIZE] Successfully normalized video: {fixed_path} ({file_size:.2f}MB)")
+                return fixed_path
+            else:
+                print(f"[NORMALIZE] Failed to normalize video (code={result.returncode}). stderr: {(result.stderr or '')[-1000:]}")
+                if output_format == 'vertical_9_16' and source_edit:
+                    print(
+                        "[NORMALIZE-REFRAME WARNING] Source reframe normalization failed; "
+                        "falling back to original input, so render may not match preview."
+                    )
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)                # never publish a failed encode
+                return input_path
+        finally:
+            lock.release()
     except subprocess.TimeoutExpired:
         print(f"[NORMALIZE] Normalization timed out after {NORMALIZE_TIMEOUT}s — using original file")
         return input_path

@@ -2160,8 +2160,14 @@ def sweep_normalized_temp_files(max_age_minutes=30):
         protected = frozenset()
 
     skipped = 0
+    # Also sweep abandoned cache temps. normalize_video encodes to
+    # "<cache path>.<uuid>.tmp" and renames atomically on success, so a .tmp left
+    # behind means the process died mid-encode. They match no other glob, so
+    # without this they would accumulate on the disk forever.
+    candidates = (glob.glob(os.path.join(RAW_DIR, '*_normalized_*.mp4'))
+                  + glob.glob(os.path.join(RAW_DIR, '*_normalized_*.tmp')))
     try:
-        for path in glob.glob(os.path.join(RAW_DIR, '*_normalized_*.mp4')):
+        for path in candidates:
             try:
                 if os.path.abspath(path) in protected:
                     skipped += 1
