@@ -332,9 +332,19 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16',
 
             # Encode to a temp name, then rename atomically. A half-written file
             # must never be visible at the cache path: another job checking for a
-            # HIT would hand FFmpeg a truncated input. The .tmp suffix also keeps
-            # it out of the sweep's *_normalized_*.mp4 glob while it is being written.
-            tmp_path = f"{fixed_path}.{_uuid.uuid4().hex}.tmp"
+            # HIT would hand FFmpeg a truncated input.
+            #
+            # The temp MUST keep the .mp4 extension. FFmpeg infers the muxer from
+            # the output extension, so a name ending .tmp fails outright with
+            # "Unable to find a suitable output format" — and normalize_video then
+            # falls back to the un-reframed original, producing a render at the
+            # SOURCE aspect ratio that does not match the preview the user approved.
+            # Ending in .mp4 does put temps inside the sweep's *_normalized_*.mp4
+            # glob, but the sweep is age-based (30 min) and an encode is capped at
+            # NORMALIZE_TIMEOUT (5 min), so a temp can never grow old enough to be
+            # swept while it is still being written.
+            _stem, _ext = os.path.splitext(fixed_path)
+            tmp_path = f"{_stem}.{_uuid.uuid4().hex}.tmp{_ext or '.mp4'}"
             cmd[-1]  = tmp_path
             run_cmd  = NICE_PREFIX + cmd
 

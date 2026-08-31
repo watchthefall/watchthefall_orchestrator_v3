@@ -188,6 +188,35 @@ try:
     assert not os.path.exists(fpath), 'failed encode leaked a cache entry'
     ok('failed encode leaves no cache entry to be reused')
 
+    print('\n[REGRESSION: the temp path must still be an .mp4]')
+    # FFmpeg infers the muxer from the output extension. A temp ending in .tmp
+    # fails with "Unable to find a suitable output format", and normalize_video
+    # then falls back to the UN-REFRAMED original — a render at the source aspect
+    # ratio that does not match the preview the user approved. Shipped once on
+    # 31 Aug; every render in that window came out at the wrong aspect.
+    src_txt = io.open(os.path.join('portal', 'video_processor.py'), encoding='utf-8').read()
+    m = re.search(r'_stem, _ext = os\.path\.splitext\(fixed_path\)\s*\n\s*tmp_path = f"([^"]+)"', src_txt)
+    assert m, 'temp path construction not found — has it been rewritten?'
+    template = m.group(1)
+
+    canonical = '/raw/clip_normalized_vertical_9_16_v1-abc123.mp4'
+    _stem, _ext = os.path.splitext(canonical)
+    built = (template
+             .replace('{_stem}', _stem)
+             .replace('{_uuid.uuid4().hex}', 'deadbeef')
+             .replace("{_ext or '.mp4'}", _ext or '.mp4'))
+    assert os.path.splitext(built)[1] == '.mp4', \
+        'temp does not end in .mp4 — FFmpeg cannot infer the muxer: %s' % built
+    ok('temp keeps an .mp4 extension', os.path.basename(built))
+    assert built != canonical, 'temp path collides with the canonical path'
+    ok('temp is distinct from the canonical path')
+    assert '.tmp' in built, 'temp is no longer identifiable as a temp'
+    ok('temp is still identifiable as a temp')
+    # An encode is capped at 5 min; the sweep only deletes at 30 min, so a temp
+    # inside the .mp4 glob can never age out while it is still being written.
+    assert re.search(r'NORMALIZE_TIMEOUT = (\d+)', src_txt).group(1) == '300'
+    ok('encode timeout 300s is well inside the 30-min sweep cutoff')
+
     print('\n%d assertions passed.' % PASS)
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
