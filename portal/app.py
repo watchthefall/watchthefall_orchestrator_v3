@@ -78,6 +78,7 @@ def ensure_video_stream(path):
 # Import video processing utilities
 from .video_processor import VideoProcessor, normalize_video
 from . import proxy_service
+from . import normalized_cache
 from .brand_loader import get_available_brands
 
 # Import configuration
@@ -2815,15 +2816,31 @@ def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
     job['status']     = 'processing'
     job['started_at'] = time.time()
 
+    # Set before the try so the finally can release it even if normalize raises.
+    _claimed_normalized = None
+
     try:
-        # Normalize video (fixes corrupted timestamps, enforces output dimensions)
+        # Normalize video (fixes corrupted timestamps, enforces output dimensions),
+        # then take a reference so the 30-minute sweep cannot delete it underneath
+        # this render. Retried once: between producing/finding the file and
+        # claiming it, a sweep may have removed it — a race that only becomes
+        # reachable once normalized files are shared between jobs. Regenerating
+        # costs one encode; handing a dead path to FFmpeg kills the render.
         print(f"[RENDER-ASYNC] {job_id[:8]} normalizing video: {video_filepath}")
-        normalized_video_path = normalize_video(
-            video_filepath,
-            output_format=output_format,
-            source_edit=source_edit,
-            job_id=job_id,
-        )
+        for _attempt in (1, 2):
+            normalized_video_path = normalize_video(
+                video_filepath,
+                output_format=output_format,
+                source_edit=source_edit,
+                job_id=job_id,
+            )
+            if normalized_cache.claim(normalized_video_path):
+                _claimed_normalized = normalized_video_path
+                break
+            print(f"[RENDER-ASYNC] {job_id[:8]} normalized file vanished before claim "
+                  f"(attempt {_attempt}/2) — regenerating", flush=True)
+        else:
+            raise RuntimeError('normalized input disappeared twice before it could be claimed')
         print(f"[RENDER-ASYNC] {job_id[:8]} using normalized: {normalized_video_path}")
 
         processor    = VideoProcessor(normalized_video_path, OUTPUT_DIR)
@@ -3024,6 +3041,10 @@ def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
             pass
 
     finally:
+        # Drop the normalized-file reference first: holding it after the render
+        # has finished would keep a dead file pinned against the sweep forever.
+        if _claimed_normalized:
+            normalized_cache.release(_claimed_normalized)
         # Always give the slot back — a leak here would starve every later
         # render, which is worse than the unbounded behaviour this replaces.
         _render_slots.release()

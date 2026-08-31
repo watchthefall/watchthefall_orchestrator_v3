@@ -2145,9 +2145,27 @@ def sweep_normalized_temp_files(max_age_minutes=30):
 
     cutoff = time.time() - max_age_minutes * 60
     deleted = 0
+
+    # Never delete a normalized file a render is currently using. The docstring
+    # above assumes these files are private to one short-lived render; that stops
+    # being true once they are shared between jobs, so the reference registry is
+    # the authority on what is still in use. Failing open (empty set) preserves
+    # the old behaviour rather than blocking cleanup entirely.
+    try:
+        from . import normalized_cache
+        protected = normalized_cache.protected_paths()
+    except Exception as e:
+        print(f"[NORMALIZE SWEEP] could not read reference registry ({e}) — "
+              f"sweeping unprotected")
+        protected = frozenset()
+
+    skipped = 0
     try:
         for path in glob.glob(os.path.join(RAW_DIR, '*_normalized_*.mp4')):
             try:
+                if os.path.abspath(path) in protected:
+                    skipped += 1
+                    continue
                 if os.path.isfile(path) and os.path.getmtime(path) < cutoff:
                     os.remove(path)
                     deleted += 1
@@ -2155,6 +2173,8 @@ def sweep_normalized_temp_files(max_age_minutes=30):
                 print(f"[NORMALIZE SWEEP] could not delete {path}: {e}")
     except Exception as e:
         print(f"[NORMALIZE SWEEP] sweep error: {e}")
+    if skipped:
+        print(f"[NORMALIZE SWEEP] skipped {skipped} file(s) still referenced by a render")
     return deleted
 
 # ============================================================================
