@@ -76,7 +76,8 @@ def ensure_video_stream(path):
         return False
 
 # Import video processing utilities
-from .video_processor import VideoProcessor, normalize_video
+from .video_processor import (VideoProcessor, normalize_video,
+                              probe_dimensions, EXPECTED_OUTPUT_DIMS)
 from . import proxy_service
 from . import normalized_cache
 from .brand_loader import get_available_brands
@@ -2943,14 +2944,31 @@ def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
                 except Exception as _te:
                     print(f"[RENDER-EVENT] telemetry skipped: {_te}")
 
+                # Measure what was ACTUALLY produced. These used to be hardcoded from
+                # the requested format, so the DB certified 720x1280 for a file that
+                # was really 1280x720 (31 Aug) — the record agreed with the request
+                # instead of the reality, which is how that incident stayed hidden.
+                _bw, _bh = probe_dimensions(output_path)
+                _expected = EXPECTED_OUTPUT_DIMS.get(output_format)
+                if _bw and _bh and _expected and (_bw, _bh) != _expected:
+                    # Measured, and wrong. The format is a contract; a file that
+                    # breaks it must not be presented as a finished render, and
+                    # must not reach the charge-on-success path below.
+                    raise RuntimeError(
+                        f"output is {_bw}x{_bh} but {output_format} requires "
+                        f"{_expected[0]}x{_expected[1]} — refusing to record it"
+                    )
+                if not (_bw and _bh):
+                    # Probe failed. That is a METADATA failure, not evidence the
+                    # media is wrong — the file already passed _validate_output
+                    # (real video stream, positive duration). Record nothing rather
+                    # than failing a render that is probably fine.
+                    print(f"[RENDER-ASYNC] {job_id[:8]} could not measure output "
+                          f"dimensions — recording without them", flush=True)
+                _bar = round(_bw / _bh, 4) if (_bw and _bh) else None
+
                 # Best-effort: persist branded output record
                 try:
-                    if output_format == 'vertical_9_16':
-                        _bw, _bh, _bar = 720, 1280, 0.5625
-                    elif output_format == 'square_1_1':
-                        _bw, _bh, _bar = 720, 720, 1.0
-                    else:
-                        _bw, _bh, _bar = None, None, None
                     save_branded_output(
                         user_id=user_id,
                         source_filename=os.path.basename(video_filepath),

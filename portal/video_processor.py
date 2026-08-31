@@ -99,6 +99,52 @@ except ImportError:
     PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+class NormalizationError(RuntimeError):
+    """Normalization could not produce the required file.
+
+    Raised instead of silently returning the original input. The old behaviour —
+    fall back to the un-reframed source and carry on — converted a technical
+    failure into a SUCCESSFUL-LOOKING but semantically wrong product result:
+    on 31 Aug a vertical_9_16 request produced a 1280x720 landscape file, which
+    then reached the charge-on-success path and cost the user a credit.
+    A failed render is recoverable; a wrong one that claims success is not.
+    """
+
+
+# Dimensions each live output format is contractually required to produce.
+# Used to verify the FINISHED file rather than trusting the request.
+EXPECTED_OUTPUT_DIMS = {
+    'vertical_9_16': (720, 1280),
+    'square_1_1':    (720, 720),
+}
+
+
+def probe_dimensions(path):
+    """Measured (width, height) of a finished file, or (None, None).
+
+    Deliberately separate from _validate_output's boolean contract, and
+    deliberately non-fatal on its own: a probe that cannot read the file is a
+    METADATA failure, not evidence the media is wrong. The caller decides.
+    """
+    try:
+        cmd = [FFPROBE_BIN, '-v', 'quiet', '-print_format', 'json',
+               '-show_streams', path]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        if result.returncode != 0:
+            print(f"[PROBE] ffprobe failed (code={result.returncode}) — {path}", flush=True)
+            return None, None
+        for s in json.loads(result.stdout or '{}').get('streams', []):
+            if s.get('codec_type') == 'video':
+                w, h = s.get('width'), s.get('height')
+                if w and h:
+                    return int(w), int(h)
+        print(f"[PROBE] no video stream with dimensions — {path}", flush=True)
+        return None, None
+    except Exception as e:
+        print(f"[PROBE] dimension probe failed: {e} — {path}", flush=True)
+        return None, None
+
+
 def _normalized_output_path(input_path: str, output_format: str, cache_key: Optional[str]) -> str:
     base, _ext = os.path.splitext(input_path)
     # Content-keyed, not job-keyed: a file named after the job that happened to
@@ -371,15 +417,22 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16',
                     )
                 if os.path.exists(tmp_path):
                     os.remove(tmp_path)                # never publish a failed encode
-                return input_path
+                # FATAL. Returning input_path here used to hand the brand render an
+                # un-reframed source at the WRONG aspect ratio, which then rendered
+                # "successfully" and charged a credit. Fail loudly instead.
+                raise NormalizationError(
+                    f'normalize failed (code={result.returncode}) for {output_format}: '
+                    f'{(result.stderr or "")[-300:]}'
+                )
         finally:
             lock.release()
+    except NormalizationError:
+        raise
     except subprocess.TimeoutExpired:
-        print(f"[NORMALIZE] Normalization timed out after {NORMALIZE_TIMEOUT}s — using original file")
-        return input_path
+        raise NormalizationError(
+            f'normalization timed out after {NORMALIZE_TIMEOUT}s for {output_format}')
     except Exception as e:
-        print(f"[NORMALIZE] Error during normalization: {e}")
-        return input_path
+        raise NormalizationError(f'normalization error for {output_format}: {e}')
 
 
 class VideoProcessor:

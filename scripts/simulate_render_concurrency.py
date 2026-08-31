@@ -17,8 +17,16 @@ src = io.open('portal/app.py', encoding='utf-8').read()
 # --- the code under test must actually be wired up -------------------------
 assert '_render_slots.acquire(' in src, 'worker never acquires a slot'
 assert '_render_slots.release()' in src, 'worker never releases a slot'
-assert re.search(r'finally:\s*\n\s*#[^\n]*\n\s*#[^\n]*\n\s*_render_slots\.release\(\)', src), \
-    'release is not in a finally block — an exception would leak the slot'
+# Check the PROPERTY (release happens in a finally), not the exact formatting — an
+# earlier version matched a fixed number of comment lines and broke the moment
+# another cleanup step was added to the same finally block.
+_rel = src.index('_render_slots.release()')
+_before = src[:_rel]
+_fin = _before.rfind('finally:')
+assert _fin != -1, 'no finally: precedes the slot release'
+_between = _before[_fin:]
+assert 'def ' not in _between and 'except ' not in _between, \
+    'release is not inside the finally block — an exception would leak the slot'
 
 limit = int(re.search(r"MAX_CONCURRENT_RENDERS\s*=\s*max\(1,\s*int\(os\.environ\.get\("
                       r"'MAX_CONCURRENT_RENDERS',\s*'(\d+)'\)\)\)", src).group(1))
