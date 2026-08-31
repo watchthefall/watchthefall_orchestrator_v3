@@ -486,9 +486,11 @@
         margin-top: 4px;
         font-size: 10px;
     }
-    /* Gold means SELECTED and nothing else. These badges sit on every complete
-       brand — 22 of 25 — so rendering them in the accent made the whole grid
-       gold and left selection with no colour of its own to signal with. They
+    /* The ACCENT means SELECTED and nothing else. (It is not always gold: the
+       theme is per-tier — mint/purple/orange/pale-blue/gold — so any rule that
+       reasons about "gold" is wrong on four themes out of six.) These badges sit
+       on every complete brand — 22 of 25 — so rendering them in the accent made
+       the whole grid one colour and left selection nothing to signal with. They
        carry no information when present and everything when absent, so they are
        muted here and the missing-asset case gets its own treatment below. */
     .brand-btn .asset-badge {
@@ -497,11 +499,15 @@
         padding: 2px 6px;
         border-radius: 3px;
     }
-    /* Warning, deliberately rose rather than amber: amber reads as a dimmer
-       gold, which is exactly the confusion being fixed. */
+    /* Reuses the app's established error colour (.status-msg.error #fca5a5),
+       deliberately RED rather than amber. Amber is not merely "a dimmer gold" —
+       Studio's accent is literally #F5A623, so the old #ff9800 warning was
+       almost exactly that tier's selection colour. A red at hue ~0 stays clear
+       of every tier accent (mint 136, purple 278, orange 38, pale blue 225,
+       gold 44/45). */
     .brand-btn .asset-badge.badge-missing {
-        background: rgba(224, 112, 95, 0.16);
-        color: #e0705f;
+        background: rgba(248, 113, 113, 0.16);
+        color: #fca5a5;
         font-weight: 600;
     }
     .brand-btn .check-icon {
@@ -585,10 +591,12 @@
         border-radius: 0 0 6px 6px;
     }
     /* Was #3a2a00 / #665500 / #ff9800 — an amber tile with an amber border,
-       perceptually the same family as the gold accent. In one screenful, two
-       broken brands and one SELECTED brand were all gold; you could only tell
-       them apart by reading the badge text. An unusable brand should read as
-       inert, not as a rival highlight.
+       perceptually the same family as the accent. In one screenful, two broken
+       brands and one SELECTED brand were all the same colour; you could only
+       tell them apart by reading the badge text. Worse on Studio, whose accent
+       is #F5A623 — near-identical to the old #ff9800 warning. The replacement
+       is a pure neutral with no hue, so it cannot collide with ANY tier theme.
+       An unusable brand should read as inert, not as a rival highlight.
        opacity is 1, not 0.7: dimming is done with colour instead, so the
        "Needs logo" message — the one actionable thing on the tile — stays
        legible rather than being faded out with everything else. */
