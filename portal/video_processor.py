@@ -3,11 +3,36 @@ Video Processor - Apply template, logo, and watermark with adaptive opacity
 Handles multi-brand export with safe zones and brightness-based watermark adjustment
 """
 import os
+import shutil
 import subprocess
 import json
 import time
 import uuid
 from typing import Dict, List, Optional
+
+# ── FFmpeg runs BELOW the web worker's priority ───────────────────────────────
+# The box is 1 CPU. FFmpeg already self-limits with -threads 1, but one thread is
+# the whole machine, so the gunicorn worker and FFmpeg compete for the same core
+# and FFmpeg wins by default. Observed 31 Aug: Render's /health probe arrives
+# every 5s for 13 minutes, then goes SILENT for a full 60s the instant a render
+# starts (~12 probes missed), resuming only once the encode is under way. Access
+# logs are written on completion, so the 200s that follow are late answers to
+# probes Render had already timed out at 5s. That is the same starvation that
+# killed the instance on 26 Aug ("health check failed (timed out after 5 seconds)").
+#
+# `nice` fixes the cause rather than the symptom: the kernel gives the CPU to the
+# web worker whenever it wants it and leaves the rest to FFmpeg. Renders get
+# marginally slower; the service stays answerable throughout.
+#
+# Prefixing the command is deliberate over preexec_fn=os.nice: renders run inside
+# threads, and preexec_fn forks from a multithreaded process, which Python's own
+# docs flag as unsafe. Resolved once at import so a missing binary degrades to
+# today's behaviour instead of failing every render.
+FFMPEG_NICE = os.environ.get('FFMPEG_NICE', '10')
+_NICE_BIN = shutil.which('nice')
+NICE_PREFIX = [_NICE_BIN, '-n', FFMPEG_NICE] if _NICE_BIN else []
+if not _NICE_BIN:
+    print('[NICE] `nice` not found — FFmpeg will run at normal priority', flush=True)
 
 # Import configuration
 try:
@@ -222,6 +247,7 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16',
                 fixed_path
             ]
 
+        cmd = NICE_PREFIX + cmd
         print(f"[NORMALIZE] Running command (timeout={NORMALIZE_TIMEOUT}s): {' '.join(cmd)}")
         result = subprocess.run(
             cmd,
@@ -1012,7 +1038,7 @@ class VideoProcessor:
 
         last_error = ''
         for attempt_idx, (label, audio_flags) in enumerate(audio_attempts, 1):
-            cmd = base_cmd + audio_flags + tail_cmd
+            cmd = NICE_PREFIX + base_cmd + audio_flags + tail_cmd
             print(f"[RENDER] Starting FFmpeg for brand='{brand_name}' "
                   f"(audio={label}, attempt {attempt_idx}/{len(audio_attempts)})")
             print(f"[RENDER] Input:   {self.video_path}")
