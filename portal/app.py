@@ -2269,9 +2269,16 @@ def health_check():
     - No os.walk on storage dirs (O(n) in file count — removed)
     """
     import shutil
+    import sys
     from .config import DB_PATH
 
     info = {'status': 'healthy', 'message': 'Brandr is running'}
+
+    # Runtime version, reported so it never has to be inferred again. yt-dlp is
+    # the live Instagram dependency and is deliberately unpinned; it has already
+    # deprecated 3.10. Working out which runtime is live previously meant hunting
+    # for the absence of a warning line in a fetch log — this makes it a fact.
+    info['python'] = sys.version.split()[0]
 
     # Disk space — single syscall, always fast
     try:
