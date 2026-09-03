@@ -4449,7 +4449,7 @@ def extract_frame():
             '-print_format', 'json',
             '-show_streams', video_path
         ]
-        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
         probe_data = json.loads(probe_result.stdout)
         
         width, height = 720, 1280  # Default
@@ -4480,10 +4480,32 @@ def extract_frame():
             temp_frame
         ]
         
-        subprocess.run(extract_cmd, capture_output=True)
-        
-        if not os.path.exists(temp_frame):
-            return jsonify({'success': False, 'error': 'Failed to extract frame'}), 500
+        # Surface WHY it failed. This ran with no timeout and never looked at the
+        # return code — it only checked whether the temp file appeared — so every
+        # failure collapsed to a generic 500 with FFmpeg's actual diagnosis
+        # discarded. That turned a one-line answer into a four-probe hunt when a
+        # valid-looking square output would not decode (1 Sep). This endpoint is
+        # diagnostic infrastructure; it has to report what went wrong.
+        try:
+            _res = subprocess.run(extract_cmd, capture_output=True, text=True, timeout=60)
+        except subprocess.TimeoutExpired:
+            print(f'[EXTRACT-FRAME] TIMEOUT after 60s — {video_path}', flush=True)
+            return jsonify({'success': False, 'error': 'Frame extraction timed out',
+                            'detail': 'ffmpeg did not finish within 60s'}), 500
+
+        if _res.returncode != 0 or not os.path.exists(temp_frame):
+            _err = (_res.stderr or '').strip()
+            print('[EXTRACT-FRAME] FAILED code=%s - %s' % (_res.returncode, video_path),
+                  flush=True)
+            print(_err[-1500:], flush=True)
+            return jsonify({
+                'success': False,
+                'error': 'Failed to extract frame',
+                'code': _res.returncode,
+                # Last few lines only: enough to identify the fault, without
+                # returning a wall of FFmpeg banner output.
+                'detail': ' | '.join([l for l in _err.splitlines() if l.strip()][-4:])[:400],
+            }), 500
         
         # Read frame and encode as base64
         with open(temp_frame, 'rb') as f:
