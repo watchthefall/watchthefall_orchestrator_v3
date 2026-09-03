@@ -224,17 +224,45 @@ def _build_vertical_reframe_filter(input_path: str, source_edit: Optional[Dict])
         "[NORMALIZE-REFRAME] vertical_9_16 "
         f"src={vw}x{vh} target={target_w}x{target_h} "
         f"mode={crop_mode} crop=({crop_x:.3f},{crop_y:.3f}) zoom={zoom:.3f} "
-        f"scaled={sw}x{sh} overlay=({ox},{oy}) fps={fps:.3f}"
+        f"scaled={sw}x{sh} overlay=({ox},{oy}) fps={fps:.3f} "
+        f"bg={'none' if (sw >= target_w and sh >= target_h) else 'blur-pad'}"
     )
 
     # Flip mirrors the raw source BEFORE scale/overlay, so pan position is
     # unchanged and only the content is mirrored (matches the canvas preview).
     flip_pre = "hflip," if source_edit.get('flip_h') else ""
 
+    # Background: blur-pad rather than black bars, but ONLY when bars would
+    # actually be visible.
+    #
+    # A landscape source in a 9:16 canvas used to offer a brutal choice: Fit gave
+    # video plus a black void, Fill cropped ~68% of the frame width away. A
+    # blurred extension of the source itself keeps the whole frame AND fills the
+    # canvas, which is what every social tool does. The 1:1 path has done this
+    # since it was written (gblur sigma=25) — 9:16 was simply never brought into
+    # line, so the two live formats had different Fit philosophies by accident.
+    #
+    # gblur costs CPU, and CPU is this box's bottleneck, so it is skipped
+    # entirely when the scaled source already covers the canvas (Fill, or a
+    # source whose aspect already matches). An invisible background is not worth
+    # a blur pass.
+    covers_canvas = sw >= target_w and sh >= target_h
+    if covers_canvas:
+        return (
+            f"color=c=black:s={target_w}x{target_h}:r={fps:.6f}[base];"
+            f"[0:v]{flip_pre}scale={sw}:{sh}[src_scaled];"
+            f"[base][src_scaled]overlay={ox}:{oy}:shortest=1[out]"
+        )
+
+    # split=2 happens AFTER the flip so the blurred backdrop is mirrored with the
+    # foreground; otherwise a flipped video sits on an unflipped ghost of itself.
     return (
-        f"color=c=black:s={target_w}x{target_h}:r={fps:.6f}[base];"
-        f"[0:v]{flip_pre}scale={sw}:{sh}[src_scaled];"
-        f"[base][src_scaled]overlay={ox}:{oy}:shortest=1[out]"
+        f"[0:v]{flip_pre}split=2[fg][bg_raw];"
+        f"[bg_raw]scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
+        f"crop={target_w}:{target_h}:(iw-{target_w})/2:(ih-{target_h})/2,"
+        f"gblur=sigma=25[bg];"
+        f"[fg]scale={sw}:{sh}[fg_scaled];"
+        f"[bg][fg_scaled]overlay={ox}:{oy}:shortest=1[out]"
     )
 
 
