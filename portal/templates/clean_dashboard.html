@@ -2087,8 +2087,13 @@
                 <span>Square 1:1</span>
                 <span class="output-format-state live">Live</span>
             </button>
+            <button type="button" class="output-format-pill" data-format-key="landscape_16_9" onclick="toggleOutputFormat('landscape_16_9')">
+                <span class="output-format-pill-tag">16:9</span>
+                <span>Landscape 16:9</span>
+                <span class="output-format-state live">Live</span>
+            </button>
         </div>
-        <div class="output-format-note" id="outputFormatSummary">Select one or both formats to include in this render.</div>
+        <div class="output-format-note" id="outputFormatSummary">Select one or more formats to include in this render.</div>
     </div>
 
     <div id="selectionModeHeader">
@@ -3965,7 +3970,7 @@ function drawOverlays() {
 // the backend square path ignored those values entirely until now, so enabling
 // the gesture there would have moved the preview, saved the value, and rendered
 // centred anyway — the UI asserting something the pipeline never honoured.
-const REFRAMABLE_FORMATS = new Set(['vertical_9_16', 'square_1_1']);
+const REFRAMABLE_FORMATS = new Set(['vertical_9_16', 'square_1_1', 'landscape_16_9']);
 function isReframable(fmt) {
     return REFRAMABLE_FORMATS.has(fmt || activeReviewFormat);
 }

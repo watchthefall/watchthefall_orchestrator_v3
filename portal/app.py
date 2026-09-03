@@ -2592,7 +2592,7 @@ def admin_render_stats():
 
 
 # ── Source reframe/crop edits (Studio content edit, per source+format) ──────────
-SOURCE_EDIT_FORMATS = {'vertical_9_16', 'square_1_1'}
+SOURCE_EDIT_FORMATS = {'vertical_9_16', 'square_1_1', 'landscape_16_9'}
 SOURCE_EDIT_CROP_MODES = {'fit', 'fill'}
 
 
@@ -3111,14 +3111,24 @@ def process_branded_videos():
 
         data = request.get_json(force=True) or {}
 
-        SUPPORTED_OUTPUT_FORMATS = {'vertical_9_16', 'square_1_1'}
+        # Deliberately NOT derived from EXPECTED_OUTPUT_DIMS: a format gains a
+        # dimension contract while it is being built, and that must not make it
+        # user-reachable on its own. Reachability is the last step, by hand.
+        SUPPORTED_OUTPUT_FORMATS = {'vertical_9_16', 'square_1_1', 'landscape_16_9'}
+        SUPPORTED_FORMAT_LABELS = {
+            'vertical_9_16': 'Vertical 9:16',
+            'square_1_1': 'Square 1:1',
+            'landscape_16_9': 'Landscape 16:9',
+        }
         output_format = data.get('output_format', 'vertical_9_16')
         if output_format not in SUPPORTED_OUTPUT_FORMATS:
+            _supported = sorted(SUPPORTED_OUTPUT_FORMATS)
             return jsonify({
                 'success': False,
                 'error': 'OUTPUT_FORMAT_UNSUPPORTED',
-                'message': f'Output format "{output_format}" is not yet supported. Supported: Vertical 9:16, Square 1:1.',
-                'supported_formats': ['vertical_9_16', 'square_1_1']
+                'message': f'Output format "{output_format}" is not yet supported. '
+                           f'Supported: {", ".join(SUPPORTED_FORMAT_LABELS[f] for f in _supported)}.',
+                'supported_formats': _supported
             }), 400
 
         url = data.get('url')

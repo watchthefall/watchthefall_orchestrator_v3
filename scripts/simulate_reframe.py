@@ -118,7 +118,13 @@ sq = VP[VP.index("elif output_format == 'square_1_1'"):]
 # Anchor to line start at exactly 8 spaces: the branch now contains an inner
 # 12-space `else:`, and an unanchored search matches that first, silently
 # truncating the slice before the blur-pad filter it is meant to check.
-sq = sq[:sq.index(chr(10) + ' ' * 8 + 'else:')]
+# End the slice at the next sibling branch, whichever it is. Anchoring on
+# `else:` alone meant that adding any `elif` after the square branch silently
+# swallowed it into this slice -- which is exactly what adding landscape_16_9
+# did, tripping the single-cmd assertion below on an unrelated branch.
+_ends = [m.start() for m in re.finditer(chr(10) + ' ' * 8 + r'(?:elif |else:)', sq)]
+assert _ends, 'could not find the end of the square branch'
+sq = sq[:_ends[0]]
 assert '_build_reframe_filter(' in sq, 'square path still ignores crop_x/crop_y/zoom'
 ok('square path calls the reframe filter')
 assert '720, 720' in sq, 'square passes the wrong target size'
@@ -171,8 +177,16 @@ ok('1:1 crop_x pans horizontally', '%d -> %d' % (sq_l['ox'], sq_r['ox']))
 
 print('\n[frontend gating is a named predicate, not scattered comparisons]')
 UI = io.open(os.path.join('portal', 'templates', 'clean_dashboard.html'), encoding='utf-8').read()
-assert "REFRAMABLE_FORMATS = new Set(['vertical_9_16', 'square_1_1'])" in UI
-ok('both live formats are reframable in the UI')
+# Membership, not the exact literal: pinning the whole line meant that adding
+# a third reframable format failed this assertion even though the property it
+# cares about -- every live format is reframable -- had just become MORE true.
+_rf = re.search(r'REFRAMABLE_FORMATS = new Set\(\[([^\]]*)\]\)', UI)
+assert _rf, 'REFRAMABLE_FORMATS is no longer a named set'
+_rf_members = set(re.findall(r"'([a-z0-9_]+)'", _rf.group(1)))
+for _fmt in ('vertical_9_16', 'square_1_1', 'landscape_16_9'):
+    assert _fmt in _rf_members, '%s is not reframable in the UI' % _fmt
+ok('all %d live formats are reframable in the UI' % len(_rf_members),
+   ', '.join(sorted(_rf_members)))
 assert "activeReviewFormat !== 'vertical_9_16'" not in UI, 'a hardcoded format gate survived'
 ok('no hardcoded vertical-only gates remain')
 

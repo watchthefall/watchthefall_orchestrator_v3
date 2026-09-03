@@ -371,6 +371,7 @@
     <div class="v2-format-tabs" id="v2FormatTabs">
         <button class="v2-format-tab active" data-format="vertical_9_16" onclick="switchFormat('vertical_9_16')">Vertical 9:16</button>
         <button class="v2-format-tab" data-format="square_1_1"     onclick="switchFormat('square_1_1')">Square 1:1 <span class="format-badge-live">Active</span></button>
+        <button class="v2-format-tab" data-format="landscape_16_9" onclick="switchFormat('landscape_16_9')">Landscape 16:9</button>
     </div>
     <p class="v2-format-sub">Choose a format for your brand preview and render.</p>
 
@@ -4136,7 +4137,7 @@ function renderWorkspace(brand) {
                 <span class="v2-status-dot">·</span>
                 <span>Default layout saved</span>
                 <span class="v2-status-dot">·</span>
-                <span>4 formats follow default</span>
+                <span>${LIVE_FORMAT_KEYS.length - 1} other formats follow default</span>
             </div>
         </div>
 
@@ -4446,6 +4447,9 @@ function _applyFormatLayout(format, init) {
         _refreshCompositionControls();
     }
 }
+
+/** Formats that actually render. Keep in step with SUPPORTED_OUTPUT_FORMATS. */
+const LIVE_FORMAT_KEYS = ['vertical_9_16', 'square_1_1', 'landscape_16_9'];
 
 /** Human-readable label for a format key. */
 function _formatLabel(format) {

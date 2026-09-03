@@ -57,9 +57,14 @@ print('\n[2. dimensions are measured, not assumed]')
 assert 'def probe_dimensions' in VP
 ok('probe_dimensions exists')
 assert "EXPECTED_OUTPUT_DIMS = {" in VP
-for fmt, dims in [("'vertical_9_16': (720, 1280)", '9:16'), ("'square_1_1':    (720, 720)", '1:1')]:
-    assert fmt in VP, fmt
-    ok('format contract declared for %s' % dims)
+# Matched by regex, not by exact column alignment: this assertion has broken
+# twice now purely because a dict was re-spaced. A format's CONTRACT is the
+# key and the numbers, never the whitespace between them.
+for key, w, h, dims in [('vertical_9_16', 720, 1280, '9:16'),
+                        ('square_1_1', 720, 720, '1:1'),
+                        ('landscape_16_9', 1280, 720, '16:9')]:
+    assert re.search(r"'%s'\s*:\s*\(\s*%d\s*,\s*%d\s*\)" % (key, w, h), VP), key
+    ok('format contract declared for %s (%dx%d)' % (dims, w, h))
 
 # The old code assigned dimensions from the REQUEST. That is the line that let a
 # 1280x720 file be recorded as 720x1280.

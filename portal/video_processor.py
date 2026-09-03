@@ -116,6 +116,12 @@ class NormalizationError(RuntimeError):
 EXPECTED_OUTPUT_DIMS = {
     'vertical_9_16': (720, 1280),
     'square_1_1':    (720, 720),
+    # 1280x720 rather than the 720-wide convention: 720x405 (404 after
+    # even-rounding) is too small to be a credible YouTube deliverable. Same
+    # target pixel count as vertical, which removes the obvious output-side
+    # cost objection -- it is NOT a claim that render time is equal, since that
+    # also depends on source resolution, scaling direction and filter cost.
+    'landscape_16_9': (1280, 720),
 }
 
 
@@ -408,6 +414,47 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16',
             cmd = [
                 FFMPEG_BIN, "-y", "-threads", "1", "-i", input_path,
                 "-filter_complex", _fc,
+                "-filter_threads", "1",
+                "-map", "[out]",
+                "-map", "0:a?",
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+                "-threads", "1",
+                "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-b:a", "128k",
+                "-movflags", "+faststart",
+                fixed_path
+            ]
+        elif output_format == 'landscape_16_9':
+            # Unlike the 1:1 branch there is no legacy filter to stay
+            # byte-identical to and no shipped cache entries to invalidate --
+            # this format has never rendered -- so it goes straight through the
+            # generalised reframe filter with no special-case duplicate.
+            #
+            # Default is Fit, matching 9:16 and 1:1: the whole source stays
+            # visible and exposed canvas is blur-padded. Fill is reachable, but
+            # is not the default, because filling a 16:9 canvas from a vertical
+            # source discards roughly two thirds of the frame. That is a choice
+            # for the user to make deliberately, not one to make silently on
+            # their behalf.
+            _ls_edit = source_edit or {
+                'crop_x': 0.5, 'crop_y': 0.5, 'zoom': 1.0,
+                'crop_mode': 'fit', 'flip_h': 0,
+            }
+            _ls_reframe = _build_reframe_filter(
+                input_path, _ls_edit, 1280, 720, 'landscape_16_9')
+            if not _ls_reframe:
+                # Unreachable via the API (the resolver clamps crop_mode to
+                # fit/fill), but falling through to the width-only fallback
+                # would emit a non-1280x720 file that only the dimension check
+                # would catch. Fail here instead, where the cause is knowable.
+                raise NormalizationError(
+                    'could not build landscape_16_9 reframe filter for '
+                    f'{input_path} (edit={_ls_edit})')
+            print("[NORMALIZE] output_format=landscape_16_9 target=1280x720 strategy=reframe")
+
+            cmd = [
+                FFMPEG_BIN, "-y", "-threads", "1", "-i", input_path,
+                "-filter_complex", _ls_reframe,
                 "-filter_threads", "1",
                 "-map", "[out]",
                 "-map", "0:a?",
