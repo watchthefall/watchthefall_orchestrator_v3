@@ -189,7 +189,37 @@ def _source_video_geometry(input_path: str) -> Dict:
     return {'width': width, 'height': height, 'fps': fps}
 
 
-def _build_vertical_reframe_filter(input_path: str, source_edit: Optional[Dict]) -> Optional[str]:
+def _is_default_reframe(source_edit: Optional[Dict]) -> bool:
+    """True when the user has not actually moved anything.
+
+    Used to keep untouched jobs on their existing, proven filter. Any change
+    here alters the normalize command, which changes the cache key and forces a
+    re-encode of work that was already correct — so "no adjustment" must mean
+    "byte-identical to before".
+    """
+    if not isinstance(source_edit, dict):
+        return True
+    try:
+        return (
+            abs(float(source_edit.get('crop_x', 0.5)) - 0.5) < 1e-9
+            and abs(float(source_edit.get('crop_y', 0.5)) - 0.5) < 1e-9
+            and abs(float(source_edit.get('zoom', 1.0)) - 1.0) < 1e-9
+            and str(source_edit.get('crop_mode', 'fit')) == 'fit'
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+def _build_reframe_filter(input_path: str, source_edit: Optional[Dict],
+                          target_w: int = 720, target_h: int = 1280,
+                          label: str = 'vertical_9_16') -> Optional[str]:
+    """Reframe filter for ANY target size.
+
+    The geometry was never vertical-specific — only the hardcoded 720x1280 was.
+    Generalising lets the square path honour crop_x/crop_y/zoom instead of
+    ignoring them, which it did silently: a 1:1 user could drag the frame, watch
+    the preview move, see the value persist, and get a centred render anyway.
+    """
     if not source_edit:
         return None
 
@@ -200,7 +230,6 @@ def _build_vertical_reframe_filter(input_path: str, source_edit: Optional[Dict])
 
     geom = _source_video_geometry(input_path)
     vw, vh = geom['width'], geom['height']
-    target_w, target_h = 720, 1280
 
     def _clamp(value, lo, hi, default):
         try:
@@ -221,7 +250,7 @@ def _build_vertical_reframe_filter(input_path: str, source_edit: Optional[Dict])
     fps = geom['fps']
 
     print(
-        "[NORMALIZE-REFRAME] vertical_9_16 "
+        f"[NORMALIZE-REFRAME] {label} "
         f"src={vw}x{vh} target={target_w}x{target_h} "
         f"mode={crop_mode} crop=({crop_x:.3f},{crop_y:.3f}) zoom={zoom:.3f} "
         f"scaled={sw}x{sh} overlay=({ox},{oy}) fps={fps:.3f} "
@@ -308,7 +337,8 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16',
             reframe_filter = None
             if source_edit:
                 try:
-                    reframe_filter = _build_vertical_reframe_filter(input_path, source_edit)
+                    reframe_filter = _build_reframe_filter(
+                        input_path, source_edit, 720, 1280, 'vertical_9_16')
                 except Exception as reframe_error:
                     print(
                         "[NORMALIZE-REFRAME WARNING] Failed to build source reframe filter; "
@@ -343,17 +373,38 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16',
                     fixed_path
                 ]
         elif output_format == 'square_1_1':
-            # Blur-pad: blurred 720×720 background + foreground scaled to fit, centered.
-            # Preserves full source frame — no cropping of faces/text.
-            _fc = (
-                f"[0:v]{flip_pre}split=2[fg][bg_raw];"
-                "[bg_raw]scale=720:720:force_original_aspect_ratio=increase,"
-                "crop=720:720:(iw-720)/2:(ih-720)/2,"
-                "gblur=sigma=25[bg];"
-                "[fg]scale=720:720:force_original_aspect_ratio=decrease[fg_scaled];"
-                "[bg][fg_scaled]overlay=(W-w)/2:(H-h)/2[out]"
-            )
-            print(f"[NORMALIZE] output_format=square_1_1 target=720x720 strategy=blur-pad")
+            # Honour the user's reframe when they have actually set one. Until
+            # now this branch ignored crop_x/crop_y/zoom/crop_mode entirely —
+            # only flip_h got through — so a 1:1 drag moved the preview, saved a
+            # value, and rendered centred regardless.
+            #
+            # An UNTOUCHED job deliberately keeps the original hardcoded filter
+            # below rather than the generalised one. The two differ by ~1px in
+            # the scaled overlay (even-dimension rounding), which is invisible
+            # but would change the normalize command, invalidate every cached
+            # square entry, and re-encode work that was already correct.
+            _sq_reframe = None
+            if source_edit and not _is_default_reframe(source_edit):
+                _sq_reframe = _build_reframe_filter(
+                    input_path, source_edit, 720, 720, 'square_1_1')
+
+            if _sq_reframe:
+                _fc = _sq_reframe
+                print("[NORMALIZE] output_format=square_1_1 target=720x720 strategy=reframe")
+            else:
+                # Untouched: the original blur-pad, byte-identical to before.
+                # Blurred 720x720 background + foreground scaled to fit, centered.
+                # Preserves the full source frame — no cropping of faces/text.
+                _fc = (
+                    f"[0:v]{flip_pre}split=2[fg][bg_raw];"
+                    "[bg_raw]scale=720:720:force_original_aspect_ratio=increase,"
+                    "crop=720:720:(iw-720)/2:(ih-720)/2,"
+                    "gblur=sigma=25[bg];"
+                    "[fg]scale=720:720:force_original_aspect_ratio=decrease[fg_scaled];"
+                    "[bg][fg_scaled]overlay=(W-w)/2:(H-h)/2[out]"
+                )
+                print(f"[NORMALIZE] output_format=square_1_1 target=720x720 strategy=blur-pad")
+
             cmd = [
                 FFMPEG_BIN, "-y", "-threads", "1", "-i", input_path,
                 "-filter_complex", _fc,

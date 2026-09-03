@@ -2154,10 +2154,12 @@
         <div style="display:inline-flex; align-items:center; gap:2px; background:#202531; border:1px solid #343948; border-radius:999px; padding:2px;">
             <button id="sourceFitBtn" type="button" onclick="setSourceCropMode('fit')" title="Show the full source inside the canvas" style="width:auto; flex:0 0 auto; background:transparent; color:#d7dce6; border:none; border-radius:999px; padding:5px 10px; font-weight:700; cursor:pointer;">Fit</button>
             <button id="sourceFillBtn" type="button" onclick="setSourceCropMode('fill')" title="Fill the canvas with a centered crop" style="width:auto; flex:0 0 auto; background:transparent; color:#8b93a7; border:none; border-radius:999px; padding:5px 10px; font-weight:700; cursor:pointer;">Fill</button>
+            <button id="sourceManualBtn" type="button" onclick="toggleManualReframe()" title="Drag the video to choose which part fills the frame" style="width:auto; flex:0 0 auto; background:transparent; color:#8b93a7; border:none; border-radius:999px; padding:5px 10px; font-weight:700; cursor:pointer;">Manual</button>
         </div>
         <div style="display:inline-flex; align-items:center; gap:2px; background:#202531; border:1px solid #343948; border-radius:999px; padding:2px;">
             <button type="button" onclick="adjustSourceZoom(0.8)" title="Zoom out" style="width:26px; height:26px; background:transparent; color:#d7dce6; border:none; border-radius:999px; font-size:16px; font-weight:700; line-height:1; cursor:pointer; flex:0 0 auto;">−</button>
-            <span id="reframeZoomLabel" style="min-width:40px; text-align:center; color:#d7dce6; font-weight:600;">100%</span>
+            <span id="reframeHint" style="display:none; flex-basis:100%; text-align:center; font-size:11px; color:var(--accent); margin-top:2px;">Drag the video to reposition · pinch or use − / + to zoom</span>
+        <span id="reframeZoomLabel" style="min-width:40px; text-align:center; color:#d7dce6; font-weight:600;">100%</span>
             <button type="button" onclick="adjustSourceZoom(1.25)" title="Zoom in" style="width:26px; height:26px; background:transparent; color:#d7dce6; border:none; border-radius:999px; font-size:16px; font-weight:700; line-height:1; cursor:pointer; flex:0 0 auto;">+</button>
         </div>
         <button type="button" onclick="setSourceCropY(0)" style="width:auto; flex:0 0 auto; background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:5px 11px; font-weight:600; cursor:pointer;">Top</button>
@@ -3958,6 +3960,16 @@ function drawOverlays() {
     }
 }
 
+// Formats whose normalize path actually honours crop_x/crop_y/zoom. Gating on a
+// named predicate rather than repeating `!== 'vertical_9_16'` in eight places:
+// the backend square path ignored those values entirely until now, so enabling
+// the gesture there would have moved the preview, saved the value, and rendered
+// centred anyway — the UI asserting something the pipeline never honoured.
+const REFRAMABLE_FORMATS = new Set(['vertical_9_16', 'square_1_1']);
+function isReframable(fmt) {
+    return REFRAMABLE_FORMATS.has(fmt || activeReviewFormat);
+}
+
 // ========== POINTER DRAG SUPPORT (Logo, Text & Source Reframe) ==========
 const activeReframePointers = new Map();
 let sourceGestureMode = null; // null | 'pan' | 'pinch'
@@ -3994,7 +4006,7 @@ function persistSourceReframe() {
 }
 
 function adjustSourceZoom(factor) {
-    if (activeReviewFormat !== 'vertical_9_16') return;
+    if (!isReframable()) return;
     currentSourceEdit.zoom = clampSourceZoom((Number(currentSourceEdit.zoom) || 1) * factor);
     updateCanvasPreview();
     persistSourceReframe();
@@ -4002,7 +4014,7 @@ function adjustSourceZoom(factor) {
 }
 
 function setSourceCropY(value) {
-    if (activeReviewFormat !== 'vertical_9_16') return;
+    if (!isReframable()) return;
     currentSourceEdit.crop_y = Math.max(0, Math.min(1, Number(value)));
     updateCanvasPreview();
     persistSourceReframe();
@@ -4010,11 +4022,33 @@ function setSourceCropY(value) {
 }
 
 function setSourceCropMode(mode) {
-    if (activeReviewFormat !== 'vertical_9_16') return;
+    if (!isReframable()) return;
     currentSourceEdit.crop_mode = mode === 'fill' ? 'fill' : 'fit';
     updateCanvasPreview();
     persistSourceReframe();
     updateReframeModeControls();
+}
+
+// Manual is a UI state, not a crop_mode. The backend validates crop_mode against
+// {fit, fill} and silently falls back to the legacy centre-cover on anything
+// else, so sending 'manual' would quietly discard the user's framing. Fit/Fill
+// remain the mode; Manual reveals the pan/pinch gesture that already worked but
+// was completely undiscoverable — there was no cursor change, no hint, nothing.
+let manualReframeHint = false;
+
+function toggleManualReframe() {
+    if (!isReframable()) return;
+    manualReframeHint = !manualReframeHint;
+    updateReframeModeControls();
+}
+
+// Manual also lights up on its own once the framing has actually been moved,
+// so the control reflects reality rather than only what was last clicked.
+function isManuallyFramed() {
+    const e = currentSourceEdit || {};
+    return Math.abs((+e.crop_x || 0.5) - 0.5) > 1e-6
+        || Math.abs((+e.crop_y || 0.5) - 0.5) > 1e-6
+        || Math.abs((+e.zoom || 1) - 1) > 1e-6;
 }
 
 function updateReframeModeControls() {
@@ -4028,6 +4062,21 @@ function updateReframeModeControls() {
     if (fillBtn) {
         fillBtn.style.background = mode === 'fill' ? '#b9c8ff' : 'transparent';
         fillBtn.style.color = mode === 'fill' ? '#111827' : '#8b93a7';
+    }
+
+    // Manual reads as active when the hint is on OR the framing has actually
+    // been moved — the state should describe the output, not the last click.
+    const manualOn = manualReframeHint || isManuallyFramed();
+    const manualBtn = document.getElementById('sourceManualBtn');
+    if (manualBtn) {
+        manualBtn.style.background = manualOn ? 'var(--accent)' : 'transparent';
+        manualBtn.style.color = manualOn ? '#121214' : '#8b93a7';
+    }
+    const hint = document.getElementById('reframeHint');
+    if (hint) hint.style.display = manualOn ? 'block' : 'none';
+    // The canvas is the control; say so with the cursor.
+    if (typeof canvas !== 'undefined' && canvas) {
+        canvas.style.cursor = (manualOn && isReframable()) ? 'grab' : '';
     }
 }
 
@@ -4186,7 +4235,7 @@ function dragOverlay(pos) {
 }
 
 function handleCanvasPointerDown(e) {
-    if (activeReviewFormat !== 'vertical_9_16' && !hitTestOverlay(getCanvasCoords(e))) return;
+    if (!isReframable() && !hitTestOverlay(getCanvasCoords(e))) return;
     e.preventDefault();
     const pos = getCanvasCoords(e);
     activeReframePointers.set(e.pointerId, { id: e.pointerId, x: pos.x, y: pos.y });
@@ -4200,7 +4249,7 @@ function handleCanvasPointerDown(e) {
         return;
     }
 
-    if (activeReviewFormat !== 'vertical_9_16' || !frameData) return;
+    if (!isReframable() || !frameData) return;
     if (!sourceGestureActive) {
         startSourcePan(e.pointerId, pos);
     } else if (activeReframePointers.size >= 2) {
@@ -4219,7 +4268,7 @@ function handleCanvasPointerMove(e) {
         return;
     }
 
-    if (activeReviewFormat !== 'vertical_9_16' || !sourceGestureActive) return;
+    if (!isReframable() || !sourceGestureActive) return;
     if (activeReframePointers.size >= 2) {
         if (sourceGestureMode !== 'pinch') startSourcePinch();
         applySourcePinch();
@@ -4379,7 +4428,7 @@ function updateReframeControlVisibility() {
     if (!el) return;
     const pc = document.getElementById('previewContainer');
     const previewVisible = pc && pc.style.display !== 'none';
-    el.style.display = (previewVisible && activeReviewFormat === 'vertical_9_16') ? 'flex' : 'none';
+    el.style.display = (previewVisible && isReframable()) ? 'flex' : 'none';
     // Flip control is format-agnostic — show it for any format while previewing.
     const flipEl = document.getElementById('flipControl');
     if (flipEl) flipEl.style.display = previewVisible ? 'flex' : 'none';
@@ -5674,7 +5723,7 @@ async function fireRenderForItem(item) {
     // screen — batch callers pass items whose own source_edit (or the saved
     // per-(video, format) edit on the server) must not be overwritten by
     // another video's canvas state.
-    if (processingQueue[currentQueueIndex] === item && (item.format || 'vertical_9_16') === 'vertical_9_16') {
+    if (processingQueue[currentQueueIndex] === item && isReframable(item.format || 'vertical_9_16')) {
         snapshotSourceEditToItem();
     }
     renderBrandPills();

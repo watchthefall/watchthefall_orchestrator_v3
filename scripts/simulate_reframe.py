@@ -111,4 +111,75 @@ vert_filter = SRC[SRC.index('split=2[fg][bg_raw]') - 200:SRC.index('split=2[fg][
 assert '{flip_pre}split=2' in vert_filter, vert_filter[-80:]
 ok('flip is applied before split', 'backdrop mirrors with the foreground')
 
+
+print('\n[1:1 now honours reframe — it previously ignored it entirely]')
+VP = SRC
+sq = VP[VP.index("elif output_format == 'square_1_1'"):]
+# Anchor to line start at exactly 8 spaces: the branch now contains an inner
+# 12-space `else:`, and an unanchored search matches that first, silently
+# truncating the slice before the blur-pad filter it is meant to check.
+sq = sq[:sq.index(chr(10) + ' ' * 8 + 'else:')]
+assert '_build_reframe_filter(' in sq, 'square path still ignores crop_x/crop_y/zoom'
+ok('square path calls the reframe filter')
+assert '720, 720' in sq, 'square passes the wrong target size'
+ok('square passes a 720x720 target')
+
+print('\n[REGRESSION: an untouched 1:1 job must be byte-identical]')
+assert '_is_default_reframe(source_edit)' in sq, 'no default guard — every square job would re-encode'
+ok('default edits keep the original filter')
+# The original blur-pad string must survive verbatim, or cached square entries
+# are invalidated and already-correct work is re-encoded for a ~1px difference.
+for frag in ('force_original_aspect_ratio=increase',
+             'crop=720:720:(iw-720)/2:(ih-720)/2',
+             'gblur=sigma=25',
+             'force_original_aspect_ratio=decrease',
+             'overlay=(W-w)/2:(H-h)/2[out]'):
+    assert frag in sq, 'original blur-pad altered: %s' % frag
+ok('original blur-pad filter preserved verbatim', '5 fragments intact')
+assert sq.count('cmd = [') == 1, 'more than one cmd assignment — the branch can overwrite itself'
+ok('exactly one cmd assignment in the square branch')
+
+print('\n[the default guard is strict about what "untouched" means]')
+def is_default(e):
+    if not isinstance(e, dict):
+        return True
+    try:
+        return (abs(float(e.get('crop_x', .5)) - .5) < 1e-9
+                and abs(float(e.get('crop_y', .5)) - .5) < 1e-9
+                and abs(float(e.get('zoom', 1.)) - 1.) < 1e-9
+                and str(e.get('crop_mode', 'fit')) == 'fit')
+    except (TypeError, ValueError):
+        return False
+assert is_default(None) and is_default({}) 
+ok('no edit / empty edit counts as default')
+assert is_default({'crop_x': .5, 'crop_y': .5, 'zoom': 1.0, 'crop_mode': 'fit'})
+ok('explicit defaults count as default')
+for changed in ({'crop_x': .3}, {'crop_y': .8}, {'zoom': 1.5}, {'crop_mode': 'fill'}):
+    e = {'crop_x': .5, 'crop_y': .5, 'zoom': 1.0, 'crop_mode': 'fit'}
+    e.update(changed)
+    assert not is_default(e), 'change ignored: %r' % changed
+    ok('%s makes it non-default' % list(changed)[0])
+
+print('\n[square geometry through the generalised filter]')
+sq_fit = reframe(1920, 1080, 'fit', target_w=720, target_h=720)
+assert sq_fit['bg'] == 'blur-pad', sq_fit
+ok('landscape -> 1:1 Fit blur-pads', 'scaled %dx%d' % (sq_fit['sw'], sq_fit['sh']))
+sq_l = reframe(1920, 1080, 'fill', crop_x=0.0, target_w=720, target_h=720)
+sq_r = reframe(1920, 1080, 'fill', crop_x=1.0, target_w=720, target_h=720)
+assert sq_l['ox'] > sq_r['ox'], (sq_l['ox'], sq_r['ox'])
+ok('1:1 crop_x pans horizontally', '%d -> %d' % (sq_l['ox'], sq_r['ox']))
+
+print('\n[frontend gating is a named predicate, not scattered comparisons]')
+UI = io.open(os.path.join('portal', 'templates', 'clean_dashboard.html'), encoding='utf-8').read()
+assert "REFRAMABLE_FORMATS = new Set(['vertical_9_16', 'square_1_1'])" in UI
+ok('both live formats are reframable in the UI')
+assert "activeReviewFormat !== 'vertical_9_16'" not in UI, 'a hardcoded format gate survived'
+ok('no hardcoded vertical-only gates remain')
+
+print('\n[Manual is a UI state, never a crop_mode]')
+assert "crop_mode = 'manual'" not in UI and '"manual"' not in UI.replace('toggleManualReframe', '')
+ok('manual is never sent as a crop_mode', 'backend only accepts fit/fill')
+assert 'function toggleManualReframe' in UI and 'function isManuallyFramed' in UI
+ok('Manual toggles a hint and derives from actual framing')
+
 print('\n%d assertions passed.' % PASS)
