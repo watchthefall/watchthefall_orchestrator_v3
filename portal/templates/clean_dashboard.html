@@ -4366,8 +4366,11 @@ async function saveSourceEditNow() {
     const item = (typeof processingQueue !== 'undefined') ? processingQueue[currentQueueIndex] : null;
     const src = (item && item.video) || currentFile;
     const fmt = (item && item.format) || activeReviewFormat;
-    // Crop is vertical-only, but flip applies to any format — save for both.
-    if (!src || (fmt !== 'vertical_9_16' && fmt !== 'square_1_1')) return;
+    // Reframe applies to every reframable format; flip applies to all. Gating on
+    // the predicate keeps this in step with the backend's SOURCE_EDIT_FORMATS
+    // instead of drifting from it, which is how 1:1 reframe came to be saved,
+    // honoured by the renderer, and silently dropped in between.
+    if (!src || !isReframable(fmt)) return;
     try {
         await fetch(`${apiBase}/api/source-edits`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -4386,7 +4389,7 @@ async function saveSourceEditNow() {
 async function loadSourceEditForItem(item) {
     const src = (item && item.video) || currentFile;
     const fmt = (item && item.format) || activeReviewFormat;
-    if (!src || (fmt !== 'vertical_9_16' && fmt !== 'square_1_1')) {
+    if (!src || !isReframable(fmt)) {
         currentSourceEdit = { ...SOURCE_EDIT_DEFAULTS };
         updateReframeModeControls();
         updateFlipButtonState();
@@ -5359,26 +5362,29 @@ function getDefaultOverrides() {
     };
 }
 
+// Canvas geometry per output format. Mirrors EXPECTED_OUTPUT_DIMS in
+// video_processor.py -- video w/h MUST match it or the preview lies about what
+// will be rendered. Adding a format here plus a pill is all the review screen
+// needs; the previous if/else meant a third format silently previewed as 9:16.
+const FORMAT_GEOMETRY = {
+    vertical_9_16:  { canvasW: 360, canvasH: 640, videoW: 720,  videoH: 1280, aspect: '9 / 16' },
+    square_1_1:     { canvasW: 360, canvasH: 360, videoW: 720,  videoH: 720,  aspect: '1 / 1'  },
+    landscape_16_9: { canvasW: 640, canvasH: 360, videoW: 1280, videoH: 720,  aspect: '16 / 9' }
+};
+
 // Resize canvas to match output format dimensions for accurate preview
 function resizeCanvasForFormat(fmt) {
     if (!canvas) return;
-    if (fmt === 'square_1_1') {
-        canvas.width  = 360;
-        canvas.height = 360;
-        videoWidth  = 720;
-        videoHeight = 720;
-    } else {
-        // Default: vertical 9:16
-        canvas.width  = 360;
-        canvas.height = 640;
-        videoWidth  = 720;
-        videoHeight = 1280;
-    }
+    const geo = FORMAT_GEOMETRY[fmt] || FORMAT_GEOMETRY.vertical_9_16;
+    canvas.width  = geo.canvasW;
+    canvas.height = geo.canvasH;
+    videoWidth    = geo.videoW;
+    videoHeight   = geo.videoH;
     // Match the preview box to the output aspect so a square render shows in a
     // square "pill" instead of a square canvas stranded in a 9:16 box (which
     // left a dark void below it). Inline style overrides both CSS breakpoints.
     const pc = document.getElementById('previewContainer');
-    if (pc) pc.style.aspectRatio = (fmt === 'square_1_1') ? '1 / 1' : '9 / 16';
+    if (pc) pc.style.aspectRatio = geo.aspect;
     updateReframeControlVisibility();
     updateCanvasPreview();
 }
