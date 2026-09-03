@@ -2621,8 +2621,14 @@ def _validate_source_edit_request(user_id, source_filename, output_format):
 
 def _resolve_render_source_edit(user_id, source_filename, output_format, payload_edit):
     """Return a clamped source-edit dict for render, or None.
-    Crop/reframe apply to vertical_9_16 only; flip_h applies to ALL formats, so
-    non-vertical returns a flip-only edit (or None when not flipped)."""
+
+    Crop/reframe apply to every format the renderer can reframe -- the same set
+    that /api/source-edits accepts (SOURCE_EDIT_FORMATS). Keying both sides off
+    one set is deliberate: this gate previously hardcoded vertical_9_16, so a
+    square edit was accepted, persisted, honoured by video_processor's square
+    branch -- and then discarded here, one call before the renderer saw it.
+    flip_h applies to ALL formats, so a format with no reframe branch still
+    returns a flip-only edit (or None when not flipped)."""
     edit = payload_edit if isinstance(payload_edit, dict) else None
     if edit is None and source_filename:
         try:
@@ -2637,8 +2643,8 @@ def _resolve_render_source_edit(user_id, source_filename, output_format, payload
 
     flip_h = 1 if edit.get('flip_h') else 0
 
-    if output_format != 'vertical_9_16':
-        # Non-vertical: no crop/reframe yet, but flip still applies.
+    if output_format not in SOURCE_EDIT_FORMATS:
+        # No reframe-capable renderer branch for this format; flip still applies.
         return {'flip_h': flip_h} if flip_h else None
 
     crop_mode = edit.get('crop_mode', SOURCE_EDIT_DEFAULTS.get('crop_mode', 'fit'))
