@@ -659,6 +659,9 @@ def _run_migrations():
         # Migration: Add founding/beta package columns to users table
         for col_sql in [
             "ALTER TABLE users ADD COLUMN founding_status INTEGER DEFAULT 0",
+            # Paid tiers only. Explorer ignores it -- the Brandr outro is
+            # mandatory there and is not a preference.
+            "ALTER TABLE users ADD COLUMN keep_brandr_outro INTEGER DEFAULT 0",
             "ALTER TABLE users ADD COLUMN founding_status_granted_at TEXT DEFAULT NULL",
             "ALTER TABLE users ADD COLUMN founding_discount_percent REAL DEFAULT NULL",
             "ALTER TABLE users ADD COLUMN bonus_tier_until TEXT DEFAULT NULL",
@@ -1169,6 +1172,20 @@ def get_all_referral_codes():
 # video_processor.conform_bookend, keyed on the conform command itself. Policy
 # columns belong to the product pass, not to the seam that proves the plumbing.
 # ---------------------------------------------------------------------------
+
+def set_keep_brandr_outro(user_id, enabled):
+    """Set the paid-tier preference for appending Brandr's promotional outro.
+
+    Explorer is not represented here: the Brandr outro is mandatory on free
+    renders, so there is nothing to store. The route refuses the change instead.
+    """
+    def _do(conn):
+        conn.execute('UPDATE users SET keep_brandr_outro = ? WHERE id = ?',
+                     (1 if enabled else 0, user_id))
+        conn.commit()
+        return True
+    return _retry_write(_do)
+
 
 def init_bookend_assets():
     """Create the bookend_assets table."""

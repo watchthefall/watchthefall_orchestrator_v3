@@ -107,6 +107,7 @@ from .database import (
     get_all_invite_codes, get_all_referral_codes,
     init_source_edits, get_source_edit, upsert_source_edit, SOURCE_EDIT_DEFAULTS,
     init_bookend_assets, save_bookend_asset, get_bookend_asset, list_bookend_assets,
+    set_keep_brandr_outro,
 )
 
 
@@ -2673,6 +2674,89 @@ def _validate_source_edit_request(user_id, source_filename, output_format):
     return None, None
 
 
+def _account_outro_flags(user_id):
+    """(tier, founding_status, keep_brandr_outro) for one account."""
+    tier = get_user_tier(user_id) or 'Explorer'
+    founding = False
+    keep = False
+    try:
+        with get_connection() as conn:
+            row = conn.execute(
+                'SELECT founding_status, keep_brandr_outro FROM users WHERE id = ?',
+                (user_id,)).fetchone()
+        if row:
+            founding = bool(row['founding_status'])
+            keep = bool(row['keep_brandr_outro'])
+    except Exception as e:
+        print(f"[OUTRO] flag lookup failed for user={user_id}: {e}", flush=True)
+    return tier, founding, keep
+
+
+def resolve_outro_for_render(user_id, requested_asset_id):
+    """Which outro this render ends with. Returns (path_or_None, error_response_or_None).
+
+    The resolution order, highest authority first:
+
+      1. EXPLORER FLOOR -- Brandr's outro, always. Not a setting, not overridable,
+         and a requested asset does not beat it. Explorer output carries Brandr
+         branding; removing it is what upgrading buys.
+      2. An explicitly requested asset (paid tiers), ownership-scoped in SQL.
+      3. The account's keep_brandr_outro preference (paid tiers, default off).
+      4. Nothing -- the render takes exactly the path it took before bookends
+         existed.
+
+    Resolved BEFORE the job is queued so a bad request fails fast with a message
+    rather than inside a background thread after work has begun.
+    """
+    from .config import brandr_outro_path
+
+    tier, founding, keep_brandr = _account_outro_flags(user_id)
+
+    # 1. Explorer floor.
+    if tier == 'Explorer':
+        path = brandr_outro_path(tier, founding)
+        if not path:
+            # Never fail a render over a missing promotional asset -- that would
+            # punish the user for our packaging mistake. Render without it and
+            # make the gap loud in the logs instead.
+            print("[OUTRO] Explorer outro asset MISSING — rendering without it", flush=True)
+            return None, None
+        print(f"[OUTRO] Explorer: Brandr outro (mandatory) — {os.path.basename(path)}",
+              flush=True)
+        return path, None
+
+    # 2. Their own asset.
+    if requested_asset_id not in (None, '', 0):
+        try:
+            asset_id = int(requested_asset_id)
+        except (TypeError, ValueError):
+            return None, (jsonify({'success': False,
+                                   'error': 'outro_asset_id must be an integer'}), 400)
+        asset = get_bookend_asset(asset_id, user_id)   # ownership-scoped in SQL
+        if not asset:
+            return None, (jsonify({'success': False,
+                                   'error': 'Outro asset not found'}), 404)
+        if not os.path.isfile(asset['file_path']):
+            return None, (jsonify({'success': False,
+                                   'error': 'Outro asset file is missing'}), 404)
+        print(f"[OUTRO] {tier}: own asset {asset_id} "
+              f"('{asset['display_name']}')", flush=True)
+        return asset['file_path'], None
+
+    # 3. Opted in to Brandr's outro.
+    if keep_brandr:
+        path = brandr_outro_path(tier, founding)
+        if path:
+            print(f"[OUTRO] {tier}: Brandr outro (opted in) — "
+                  f"{os.path.basename(path)}", flush=True)
+            return path, None
+        print(f"[OUTRO] {tier}: opted in but asset missing — rendering without",
+              flush=True)
+
+    # 4. Nothing.
+    return None, None
+
+
 def _resolve_render_source_edit(user_id, source_filename, output_format, payload_edit):
     """Return a clamped source-edit dict for render, or None.
 
@@ -3671,29 +3755,13 @@ def process_branded_videos():
         # The browser connection is released; the render continues on the server regardless of
         # whether the client tab stays open.
         single_brand_name = resolved_brands[0].get('display_name') or resolved_brands[0].get('name') if resolved_brands else ''
-        # Optional bookend. Nullable and off by default: with no outro_asset_id
-        # the render takes exactly the path it took before this existed. Resolved
-        # HERE, before the job is queued, so a bad id fails fast with a message
-        # instead of blowing up inside a background thread after work has begun.
-        outro_path = None
-        _outro_asset_id = data.get('outro_asset_id')
-        if _outro_asset_id not in (None, '', 0):
-            try:
-                _asset_id = int(_outro_asset_id)
-            except (TypeError, ValueError):
-                return jsonify({'success': False,
-                                'error': 'outro_asset_id must be an integer'}), 400
-            # Ownership-scoped: naming another account's asset id must not work.
-            _asset = get_bookend_asset(_asset_id, user_id)
-            if not _asset:
-                return jsonify({'success': False,
-                                'error': 'Outro asset not found'}), 404
-            if not os.path.isfile(_asset['file_path']):
-                return jsonify({'success': False,
-                                'error': 'Outro asset file is missing'}), 404
-            outro_path = _asset['file_path']
-            print(f"[PROCESS BRANDS] outro asset {_asset_id} "
-                  f"('{_asset['display_name']}') selected", flush=True)
+        # Which outro, if any. Explorer always gets Brandr's; paid tiers get their
+        # own asset, or Brandr's if they opted in, or none. See
+        # resolve_outro_for_render for the full order.
+        outro_path, _outro_err = resolve_outro_for_render(
+            user_id, data.get('outro_asset_id'))
+        if _outro_err:
+            return _outro_err
 
         source_filename_for_edit = os.path.basename(video_filepath)
         source_edit = _resolve_render_source_edit(
@@ -5830,6 +5898,42 @@ def save_video_download():
         'download_id': download_id,
         'message': 'Download saved successfully'
     })
+
+
+@app.route('/api/account/brandr-outro', methods=['GET', 'POST'])
+@login_required
+def brandr_outro_preference():
+    """Read or set whether Brandr's promotional outro is appended.
+
+    Explorer cannot change this: the Brandr outro is included on free renders and
+    removing it is what upgrading buys. The endpoint says so plainly rather than
+    silently accepting a setting it will ignore.
+    """
+    user_id = session['user_id']
+    tier, founding, keep = _account_outro_flags(user_id)
+    locked = (tier == 'Explorer')
+
+    if request.method == 'GET':
+        return jsonify({'success': True, 'tier': tier, 'enabled': True if locked else keep,
+                        'locked': locked,
+                        'message': ('Free renders include a short Brandr outro. '
+                                    'Upgrade to remove it.') if locked else None})
+
+    if locked:
+        return jsonify({'success': False,
+                        'error': 'Free renders always include the Brandr outro. '
+                                 'Upgrade to remove it.',
+                        'code': 'EXPLORER_LOCKED'}), 403
+
+    data = request.get_json(force=True) or {}
+    enabled = 1 if data.get('enabled') else 0
+    try:
+        set_keep_brandr_outro(user_id, enabled)
+    except Exception as e:
+        print(f"[OUTRO] could not save preference for user={user_id}: {e}", flush=True)
+        return jsonify({'success': False, 'error': 'Could not save that setting'}), 500
+    print(f"[OUTRO] user={user_id} ({tier}) keep_brandr_outro -> {enabled}", flush=True)
+    return jsonify({'success': True, 'enabled': bool(enabled), 'locked': False})
 
 
 @app.route('/api/assets/bookend', methods=['POST'])

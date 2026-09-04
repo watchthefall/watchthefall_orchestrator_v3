@@ -283,6 +283,36 @@ ADMIN_EMAILS = [
 # ============================================================================
 # First MAX_SLOTS_PER_TIER paying users per tier lock in FOUNDING_PRICE for
 # LOCK_MONTHS. After slots fill, new users pay the full TIER_CONFIG price.
+# Brandr's own promotional outros. These are BRANDR assets, not customer
+# assets -- deliberately kept out of bookend_assets, which is scoped to a
+# user_id and would make a shared system asset awkward to own. They are files
+# on disk referenced by path; compose_bookends does not care where a path came
+# from, so nothing about the engine changes.
+#
+# Colour identifies the TIER the outro is shown for. It is Brandr branding, not
+# the customer's -- a Creator is never obliged to end their videos with a purple
+# Brandr card, they only see one if they opt in.
+BRANDR_OUTRO_DIR = os.path.join(PORTAL_ROOT, 'static', 'brandr_outros')
+BRANDR_OUTROS = {
+    'Explorer': 'outro_explorer_primary.mp4',
+    'Creator':  'outro_creator_primary.mp4',
+    'Studio':   'outro_studio_primary.mp4',
+    'Platinum': 'outro_platinum_primary.mp4',
+    'Elite':    'outro_platinum_primary.mp4',   # no Elite asset; Platinum is closest
+}
+# Founding members see the founder-coloured outro whatever tier they hold.
+BRANDR_OUTRO_FOUNDER = 'outro_founder_primary.mp4'
+
+
+def brandr_outro_path(tier, founding_status=False):
+    """Absolute path to Brandr's promotional outro for this account, or None."""
+    name = BRANDR_OUTRO_FOUNDER if founding_status else BRANDR_OUTROS.get(tier)
+    if not name:
+        return None
+    path = os.path.join(BRANDR_OUTRO_DIR, name)
+    return path if os.path.isfile(path) else None
+
+
 FOUNDING_MEMBER_CONFIG = {
     'max_slots_per_tier': 20,
     'lock_months': 12,

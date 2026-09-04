@@ -87,15 +87,20 @@ i_thread = route.index('threading.Thread')
 assert i_resolve < i_thread
 ok('the asset is resolved before the job is queued',
    'a bad id cannot blow up inside a background thread')
-resolve_block = route[i_resolve:i_thread]
-assert 'get_bookend_asset(_asset_id, user_id)' in resolve_block
-ok('resolution is ownership-scoped')
-assert "'Outro asset not found'" in resolve_block and '404' in resolve_block
+# These assert the PROPERTY, not where it lives. An earlier version pinned the
+# ownership check to an inline block in process_brands and broke the moment the
+# logic moved into resolve_outro_for_render -- while the property itself still
+# held. Location is not the contract.
+resolver = APP[APP.index('def resolve_outro_for_render('):]
+resolver = resolver[:resolver.index(chr(10) + 'def ')]
+assert 'get_bookend_asset(asset_id, user_id)' in resolver
+ok('resolution is ownership-scoped', 'wherever the resolver lives')
+assert "'Outro asset not found'" in resolver and '404' in resolver
 ok('an unknown or unowned id is refused')
-assert 'os.path.isfile' in resolve_block
+assert 'os.path.isfile' in resolver
 ok('a row pointing at a missing file is refused too')
-assert 'outro_path = None' in resolve_block
-ok('outro_path defaults to None', 'no id means the existing path exactly')
+assert 'return None, None' in resolver
+ok('resolves to nothing when nothing applies', 'the pre-bookend path exactly')
 
 print('\n[the plumbing actually reaches the renderer]')
 assert 'source_edit=None, outro_path=None' in APP
@@ -106,13 +111,22 @@ ok('it is forwarded to process_brand')
 assert 'intro_path: Optional[str] = None' in VP
 ok('process_brand still accepts intro_path too', 'unused by this slice')
 
-print('\n[nothing about policy, credits, queueing or concurrency changed]')
+print('\n[asset STORAGE stays free of policy]')
+# HISTORICAL NOTE. These guards originally asserted that the whole seam carried
+# no policy at all, which was true of slice B and deliberately stopped being true
+# in 0b97163, where the Explorer floor and the paid-tier preference were added on
+# purpose. Asserting "no Explorer default" now would claim something false about
+# the system, so the guard has been narrowed to what still holds and still
+# matters: policy lives in the RESOLVER, never in asset storage or upload.
 for forbidden in ('tier_required', 'default_for_tier', 'outro_enabled'):
     assert forbidden not in APP, forbidden
-ok('no tier entitlement logic')
-assert 'Explorer' not in APP[APP.index('def upload_bookend_asset():'):
-                             APP.index('def list_bookend_assets_api():')]
-ok('no Explorer default')
+ok('no tier columns crept into the schema', 'entitlement stays in config.py')
+upload_and_list = APP[APP.index('def upload_bookend_asset():'):
+                      APP.index('def list_bookend_assets_api():')]
+assert 'Explorer' not in upload_and_list and 'tier' not in upload_and_list
+ok('uploading an asset knows nothing about tiers', 'storage is not policy')
+assert 'keep_brandr_outro' not in upload_and_list
+ok('nor about the Brandr-outro preference')
 # The charge site is still exactly one, still after validation.
 assert APP.count('spend_credits(user_id, 1, _allowance)') == 1
 ok('still exactly one charge site', 'no new credit semantics')
