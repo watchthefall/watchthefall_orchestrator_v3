@@ -252,6 +252,343 @@ def probe_media(path, timeout: int = MEDIA_PROBE_TIMEOUT):
     return True, '', meta
 
 
+# ============================ INTRO / OUTRO COMPOSITION ======================
+#
+# THE CONTRACT, established by experiment on 4 Sep 2026 rather than assumed.
+#
+# Stream-copy concat IS reliable -- 227 frames = 150 + 77 exactly, full decode
+# with zero stderr, +0.024s duration drift -- but ONLY when every segment shares
+# one encoding contract. The dangerous part is what happens otherwise: concat
+# does not refuse mismatched inputs, it silently produces a plausible file.
+#
+#   48kHz branded + 44.1kHz outro, not conformed
+#       -> concat exit 0, decode clean, dimensions right, total duration right
+#       -> audio stream 6.983s against a 7.567s video: the outro plays ~8.8%
+#          fast and the last 0.58s is silent. RMS across the junction looks
+#          perfectly continuous.
+#
+#   branded with no audio + outro with audio
+#       -> concat exit 0, decode clean
+#       -> the outro's audio track is silently DROPPED
+#
+# normalize_video never pins -ar and real sources are a mix of 44100 and 48000,
+# so the first case is production-real. Hence: conform everything, and verify
+# the ARTIFACT rather than the exit code.
+CONFORM_CACHE_VERSION = 'v1'
+CONCAT_AUDIO_RATE = 44100
+CONCAT_AUDIO_CHANNELS = 2
+CONCAT_AUDIO_BITRATE = '128k'
+CONCAT_FPS = 30
+COMPOSE_DURATION_TOLERANCE = 0.35      # composed total vs sum of segments
+COMPOSE_AV_SKEW_TOLERANCE = 0.50       # audio vs video, BOTH directions
+COMPOSE_ENCODE_TIMEOUT = 300
+COMPOSE_DECODE_TIMEOUT = 300
+
+
+class CompositionError(RuntimeError):
+    """Intro/outro composition failed or produced an artifact off contract.
+
+    Fatal by design, like NormalizationError: a composed output that is wrong is
+    worse than one that never appeared, because the wrong one reaches the user
+    and costs a credit.
+    """
+
+
+def _stream_summary(path):
+    """(video_stream, audio_stream, format_dict) from one ffprobe call."""
+    try:
+        r = subprocess.run(
+            [FFPROBE_BIN, '-v', 'error', '-print_format', 'json',
+             '-show_format', '-show_streams', path],
+            capture_output=True, text=True, timeout=60)
+        if r.returncode != 0:
+            return None, None, {}
+        info = json.loads(r.stdout or '{}')
+    except Exception as e:
+        print(f"[COMPOSE] probe failed: {e} - {path}", flush=True)
+        return None, None, {}
+    streams = info.get('streams') or []
+    video = next((x for x in streams
+                  if x.get('codec_type') == 'video'
+                  and not (x.get('disposition') or {}).get('attached_pic')), None)
+    audio = next((x for x in streams if x.get('codec_type') == 'audio'), None)
+    return video, audio, (info.get('format') or {})
+
+
+def _as_seconds(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def media_duration(path):
+    """Best available duration in seconds, or 0.0."""
+    video, _audio, fmt = _stream_summary(path)
+    return max(_as_seconds(fmt.get('duration')),
+               _as_seconds((video or {}).get('duration')))
+
+
+def _conformed_path(asset_path, output_format, key):
+    base, _ext = os.path.splitext(asset_path)
+    safe = ''.join(c for c in str(key) if c.isalnum() or c in ('-', '_'))[:40]
+    return f"{base}_conformed_{output_format}_{safe}.mp4"
+
+
+def conform_bookend(asset_path, output_format, target_w, target_h):
+    """Bring an intro/outro asset onto the concat contract. Cached per (asset, format).
+
+    The shipped assets are HEVC at 1048x1920 or 1060x1920 -- widths that are not
+    even consistent with each other -- against renders that are H.264 at
+    720x1280 / 720x720 / 1280x720. Conforming is therefore mandatory, not an
+    optimisation, and geometry reuses _build_reframe_filter (Fit + blur-pad) so a
+    bookend is fitted exactly the way every other aspect mismatch in Brandr is.
+
+    Audio is GUARANTEED on the output: an asset without a track gets synthesised
+    silence, because a segment missing audio makes concat drop the other
+    segment's audio entirely rather than fail.
+    """
+    if not asset_path or not os.path.exists(asset_path):
+        raise CompositionError(f'bookend asset missing: {asset_path}')
+
+    ok, reason, _meta = probe_media(asset_path)
+    if not ok:
+        raise CompositionError(f'bookend asset unusable ({reason}): {asset_path}')
+
+    _v, audio, _f = _stream_summary(asset_path)
+    fit = {'crop_x': 0.5, 'crop_y': 0.5, 'zoom': 1.0, 'crop_mode': 'fit', 'flip_h': 0}
+    reframe = _build_reframe_filter(asset_path, fit, target_w, target_h,
+                                    f'bookend_{output_format}')
+    if not reframe:
+        raise CompositionError(f'could not build conform filter for {asset_path}')
+
+    if audio is not None:
+        cmd = [FFMPEG_BIN, '-y', '-threads', '1', '-i', asset_path,
+               '-filter_complex', reframe, '-filter_threads', '1',
+               '-map', '[out]', '-map', '0:a']
+    else:
+        cmd = [FFMPEG_BIN, '-y', '-threads', '1', '-i', asset_path,
+               '-f', 'lavfi', '-i', f'anullsrc=r={CONCAT_AUDIO_RATE}:cl=stereo',
+               '-filter_complex', reframe, '-filter_threads', '1',
+               '-map', '[out]', '-map', '1:a', '-shortest']
+    cmd += ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
+            '-pix_fmt', 'yuv420p', '-r', str(CONCAT_FPS), '-threads', '1',
+            '-c:a', 'aac', '-b:a', CONCAT_AUDIO_BITRATE,
+            '-ar', str(CONCAT_AUDIO_RATE), '-ac', str(CONCAT_AUDIO_CHANNELS),
+            '-movflags', '+faststart']
+
+    # _normalize_identity returns 'v<n>-<hash>'; take just the hash so the key
+    # reads v1-<hash> rather than v1-v1-<hash>. The conform cache carries its OWN
+    # version so it can be invalidated without disturbing normalized files.
+    _digest = _normalize_identity(cmd + ['<out>']).rsplit('-', 1)[-1]
+    key = f'{CONFORM_CACHE_VERSION}-{_digest}'
+    dest = _conformed_path(asset_path, output_format, key)
+
+    if os.path.exists(dest):
+        print(f"[CONFORM] HIT {key} - {os.path.basename(dest)}", flush=True)
+        return dest
+
+    with _lock_for(key):
+        if os.path.exists(dest):          # someone else finished while we waited
+            print(f"[CONFORM] HIT (after wait) {key}", flush=True)
+            return dest
+        tmp = f'{os.path.splitext(dest)[0]}.{_uuid.uuid4().hex}.tmp.mp4'
+        run_cmd = NICE_PREFIX + cmd + [tmp]
+        print(f"[CONFORM] MISS {key} - conforming {os.path.basename(asset_path)} "
+              f"to {output_format} {target_w}x{target_h}", flush=True)
+        try:
+            r = subprocess.run(run_cmd, capture_output=True, text=True,
+                               timeout=COMPOSE_ENCODE_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            _discard_work_file(tmp)
+            raise CompositionError(f'conform timed out for {asset_path}')
+        if r.returncode != 0 or not os.path.exists(tmp):
+            _discard_work_file(tmp)
+            raise CompositionError(
+                f'conform failed (code={r.returncode}) for {asset_path}: '
+                f'{(r.stderr or "")[-300:]}')
+        os.replace(tmp, dest)             # atomic publish, same as everywhere else
+        print(f"[CONFORM] published {os.path.basename(dest)}", flush=True)
+    return dest
+
+
+def conform_branded_for_concat(branded_path, work_stem):
+    """Give the branded segment concat-compatible audio. NEVER re-encodes video.
+
+    Returns (path, created) -- `created` says whether a new file was made, so the
+    caller knows what to clean up. When the audio already matches the contract
+    the original path is returned untouched and nothing is spent.
+    """
+    _video, audio, _fmt = _stream_summary(branded_path)
+    matches = (audio is not None
+               and int(_as_seconds(audio.get('sample_rate'))) == CONCAT_AUDIO_RATE
+               and int(audio.get('channels') or 0) == CONCAT_AUDIO_CHANNELS)
+    if matches:
+        print(f"[COMPOSE] branded audio already on contract "
+              f"({CONCAT_AUDIO_RATE}Hz x{CONCAT_AUDIO_CHANNELS}) - copying as-is",
+              flush=True)
+        return branded_path, False
+
+    out = f'{work_stem}.segment.{_uuid.uuid4().hex}.tmp.mp4'
+    if audio is None:
+        # No audio at all -- the drop-audio rung of the render ladder fired.
+        # Synthesise silence so concat cannot drop the bookend's audio instead.
+        print("[COMPOSE] branded segment has NO audio - synthesising silence", flush=True)
+        cmd = [FFMPEG_BIN, '-y', '-i', branded_path,
+               '-f', 'lavfi', '-i', f'anullsrc=r={CONCAT_AUDIO_RATE}:cl=stereo',
+               '-map', '0:v', '-map', '1:a', '-shortest']
+    else:
+        print(f"[COMPOSE] branded audio is {audio.get('sample_rate')}Hz "
+              f"x{audio.get('channels')} - re-encoding AUDIO ONLY", flush=True)
+        cmd = [FFMPEG_BIN, '-y', '-i', branded_path]
+    cmd += ['-c:v', 'copy',
+            '-c:a', 'aac', '-b:a', CONCAT_AUDIO_BITRATE,
+            '-ar', str(CONCAT_AUDIO_RATE), '-ac', str(CONCAT_AUDIO_CHANNELS),
+            '-movflags', '+faststart', out]
+    try:
+        r = subprocess.run(NICE_PREFIX + cmd, capture_output=True, text=True,
+                           timeout=COMPOSE_ENCODE_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        _discard_work_file(out)
+        raise CompositionError('branded-segment audio conform timed out')
+    if r.returncode != 0 or not os.path.exists(out):
+        _discard_work_file(out)
+        raise CompositionError(
+            f'branded-segment audio conform failed (code={r.returncode}): '
+            f'{(r.stderr or "")[-300:]}')
+    return out, True
+
+
+def concat_copy(segments, out_path):
+    """concat demuxer + -c copy. The branded video's pixels are never re-encoded."""
+    listing = f'{os.path.splitext(out_path)[0]}.{_uuid.uuid4().hex}.concat.txt'
+    quote = chr(39)
+    try:
+        with open(listing, 'w', encoding='utf-8') as fh:
+            for seg in segments:
+                # The concat demuxer treats ' as a quote character. Our own names
+                # never contain one, but escaping now costs nothing and removes a
+                # class of failure if asset naming ever changes.
+                safe = os.path.abspath(seg).replace(chr(92), '/')
+                safe = safe.replace(quote, quote + chr(92) + quote + quote)
+                fh.write('file ' + quote + safe + quote + chr(10))
+        cmd = NICE_PREFIX + [FFMPEG_BIN, '-y', '-f', 'concat', '-safe', '0',
+                             '-i', listing, '-c', 'copy',
+                             '-movflags', '+faststart', out_path]
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True,
+                               timeout=COMPOSE_ENCODE_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            raise CompositionError('concat timed out')
+        if r.returncode != 0 or not os.path.exists(out_path):
+            raise CompositionError(
+                f'concat failed (code={r.returncode}): {(r.stderr or "")[-300:]}')
+    finally:
+        _discard_work_file(listing)
+    return out_path
+
+
+def verify_composition(path, expected_duration, target_w, target_h):
+    """The artifact contract. Raises CompositionError on any breach.
+
+    Every check here exists because something that passes the OTHER checks can
+    still be wrong. The 48kHz experiment produced a file with a valid container,
+    a clean full decode, exact dimensions and the correct TOTAL duration whose
+    audio was nonetheless 0.58s short of its video. Only comparing the two
+    stream durations against each other catches that.
+    """
+    video, audio, fmt = _stream_summary(path)
+    if video is None:
+        raise CompositionError('composed output has no video stream')
+
+    w, h = video.get('width'), video.get('height')
+    if (w, h) != (target_w, target_h):
+        raise CompositionError(
+            f'composed output is {w}x{h} but the format requires {target_w}x{target_h}')
+
+    v_dur = max(_as_seconds(fmt.get('duration')), _as_seconds(video.get('duration')))
+    if v_dur <= 0:
+        raise CompositionError('composed output has no usable duration')
+
+    if abs(v_dur - expected_duration) > COMPOSE_DURATION_TOLERANCE:
+        raise CompositionError(
+            f'composed duration {v_dur:.3f}s differs from the expected '
+            f'{expected_duration:.3f}s by more than {COMPOSE_DURATION_TOLERANCE}s '
+            f'- a segment is probably missing')
+
+    if audio is None:
+        raise CompositionError('composed output lost its audio track')
+    a_dur = _as_seconds(audio.get('duration')) or _as_seconds(fmt.get('duration'))
+    # BOUNDED BOTH WAYS. A short audio stream means a sample-rate mismatch played
+    # a segment at the wrong speed; a long one is the same fault in reverse.
+    # Checking only the floor would accept the mirror image of the bug.
+    if abs(a_dur - v_dur) > COMPOSE_AV_SKEW_TOLERANCE:
+        raise CompositionError(
+            f'audio runs {a_dur:.3f}s against {v_dur:.3f}s of video '
+            f'(skew {a_dur - v_dur:+.3f}s) - segments are not on one audio contract')
+
+    # Decode every frame. ffprobe reads headers; only a decode reads the picture
+    # data, and this project has already shipped one file whose header was
+    # perfect and whose bitstream was shredded.
+    try:
+        r = subprocess.run([FFMPEG_BIN, '-v', 'error', '-i', path, '-f', 'null', '-'],
+                           capture_output=True, text=True, timeout=COMPOSE_DECODE_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        raise CompositionError('composed output could not be decoded within '
+                               f'{COMPOSE_DECODE_TIMEOUT}s')
+    if r.returncode != 0 or (r.stderr or '').strip():
+        raise CompositionError(
+            f'composed output does not decode cleanly: {(r.stderr or "")[-300:]}')
+
+    print(f"[COMPOSE] verified {w}x{h} video={v_dur:.3f}s audio={a_dur:.3f}s "
+          f"(expected {expected_duration:.3f}s) - full decode clean", flush=True)
+    return {'width': w, 'height': h, 'duration': v_dur, 'audio_duration': a_dur}
+
+
+def compose_bookends(branded_path, out_path, output_format, target_w, target_h,
+                     intro_path=None, outro_path=None):
+    """branded [+ intro] [+ outro] -> one validated MP4 at out_path.
+
+    Order is deterministic: intro, branded, outro. Nothing is published here --
+    the caller owns the atomic publish, so a composition that fails leaves the
+    previously delivered artifact untouched.
+    """
+    if not intro_path and not outro_path:
+        raise CompositionError('compose_bookends called with no bookends')
+
+    work_stem = os.path.splitext(out_path)[0]
+    temporaries = []
+    try:
+        segment, created = conform_branded_for_concat(branded_path, work_stem)
+        if created:
+            temporaries.append(segment)
+
+        parts, expected = [], 0.0
+        if intro_path:
+            intro = conform_bookend(intro_path, output_format, target_w, target_h)
+            parts.append(intro)
+            expected += media_duration(intro)
+        parts.append(segment)
+        expected += media_duration(segment)
+        if outro_path:
+            outro = conform_bookend(outro_path, output_format, target_w, target_h)
+            parts.append(outro)
+            expected += media_duration(outro)
+
+        print(f"[COMPOSE] {len(parts)} segments, expected total {expected:.3f}s",
+              flush=True)
+        concat_copy(parts, out_path)
+        verify_composition(out_path, expected, target_w, target_h)
+        return out_path
+    except Exception:
+        # Never leave a half-composed artifact where the caller might publish it.
+        _discard_work_file(out_path)
+        raise
+    finally:
+        for tmp in temporaries:
+            _discard_work_file(tmp)
+
+
 def _discard_work_file(path: Optional[str]) -> None:
     """Remove an unpublished render temp file; never raise from a failure path."""
     if not path:
@@ -1346,7 +1683,9 @@ class VideoProcessor:
         return filter_complex
     
     def process_brand(self, brand_config: Dict, logo_settings: Optional[Dict] = None,
-                     video_id: str = 'video', output_format: str = 'vertical_9_16') -> str:
+                     video_id: str = 'video', output_format: str = 'vertical_9_16',
+                     intro_path: Optional[str] = None,
+                     outro_path: Optional[str] = None) -> str:
         """
         Process video with brand overlays
         
@@ -1499,6 +1838,35 @@ class VideoProcessor:
                 if label == 'drop-audio':
                     print(f"[RENDER WARN] brand='{brand_name}' rendered WITHOUT audio "
                           f"after audio copy + re-encode both failed")
+                # Intro/outro composition, if any. It happens HERE -- after the
+                # branded encode has probed clean, before validation of the final
+                # artifact and before publication -- because composing after the
+                # publish would mutate a delivered file, which is exactly the
+                # defect the work-path change closed.
+                #
+                # Target dimensions come from MEASURING the branded output rather
+                # than from EXPECTED_OUTPUT_DIMS, so a bookend is conformed to
+                # what was actually produced instead of what was requested.
+                publish_path = work_path
+                composed_path = None
+                if intro_path or outro_path:
+                    _bw, _bh = probe_dimensions(work_path)
+                    if not _bw or not _bh:
+                        _discard_work_file(work_path)
+                        raise CompositionError(
+                            'cannot compose: branded output dimensions unreadable')
+                    composed_path = (f"{os.path.splitext(work_path)[0]}"
+                                     f".composed.{_uuid.uuid4().hex}.tmp.mp4")
+                    try:
+                        compose_bookends(work_path, composed_path, output_format,
+                                         _bw, _bh, intro_path, outro_path)
+                    except Exception:
+                        # compose_bookends already removed its own output; the
+                        # branded intermediate is ours to clean up.
+                        _discard_work_file(work_path)
+                        raise
+                    publish_path = composed_path
+
                 # Atomic publish: os.replace is atomic within a filesystem, so a
                 # reader either sees the previous file or this one, never a blend.
                 #
@@ -1509,14 +1877,19 @@ class VideoProcessor:
                 # 5 GB disk. (POSIX rename(2) does not fail this way, but the
                 # render must not depend on that to avoid leaking storage.)
                 try:
-                    os.replace(work_path, output_path)
+                    os.replace(publish_path, output_path)
                 except OSError as publish_error:
-                    _discard_work_file(work_path)
+                    _discard_work_file(publish_path)
+                    if composed_path:
+                        _discard_work_file(work_path)
                     raise Exception(
                         f"render succeeded but publishing failed for brand "
                         f"'{brand_name}': {publish_error}"
                     ) from publish_error
-                print(f"[RENDER] Published {work_path} -> {output_path}")
+                if composed_path:
+                    # The branded intermediate has served its purpose.
+                    _discard_work_file(work_path)
+                print(f"[RENDER] Published {publish_path} -> {output_path}")
                 print(f"[RENDER] Completed brand='{brand_name}' in {processing_time:.1f}s "
                       f"({output_size//1024}KB, audio={label})")
                 return output_path

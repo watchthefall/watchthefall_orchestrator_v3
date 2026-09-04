@@ -64,12 +64,17 @@ ok('validation probes the file THIS job wrote')
 assert 'self._validate_output(output_path)' not in body
 ok('validation never probes the shared destination')
 
-assert 'os.replace(work_path, output_path)' in body
+# publish_path is work_path unless intro/outro composition produced a second
+# work file. Either way the delivered path is only ever reached by os.replace
+# from an isolated file this job owns.
+assert 'publish_path = work_path' in body
+ok('the published file defaults to this job own work file')
+assert 'os.replace(publish_path, output_path)' in body
 ok('publish is atomic', 'os.replace')
 
 # Publish must happen only after the file probes valid, or an invalid encode
 # would replace a good delivered artifact.
-pub = body.index('os.replace(work_path, output_path)')
+pub = body.index('os.replace(publish_path, output_path)')
 val = body.index('output_valid = self._validate_output(work_path)')
 gate = body.index('if output_valid:')
 assert val < gate < pub, (val, gate, pub)
@@ -79,17 +84,26 @@ ok('publish happens only inside the valid branch')
 # under a name sweep_normalized_temp_files never globs (it only matches
 # '*_normalized_*' inside RAW_DIR), so anything stranded here is stranded for
 # good on a 5 GB disk.
-assert body.count('_discard_work_file(work_path)') == 3
-ok('all three non-publishing exits clean up',
-   'timeout + attempts exhausted + failed publish')
+# Asserted as a PROPERTY, not a count. An earlier version pinned the number at
+# 3 and broke the moment intro/outro composition added legitimate cleanup paths
+# -- the same brittleness that bit simulate_render_concurrency when another
+# cleanup step joined its finally block.
+for exit_marker in ('FFmpeg timed out', 'All audio strategies exhausted'):
+    idx = body.index(exit_marker)
+    window = body[max(0, idx - 800):idx + 300]
+    assert '_discard_work_file(work_path)' in window, exit_marker
+ok('render timeout and exhausted attempts both clean up')
+assert body.count('_discard_work_file(work_path)') >= 3
+ok('every non-publishing exit discards',
+   '%d discard sites' % body.count('_discard_work_file(work_path)'))
 assert 'def _discard_work_file' in SRC and 'except OSError' in SRC
 ok('cleanup helper never raises from a failure path')
 
 # The publish itself is the third exit: a failure there would otherwise leave a
 # fully-rendered file with no owner and no sweeper.
-pub_guard = body[body.index('try:\n                    os.replace'):]
+pub_guard = body[body.index('try:\n                    os.replace(publish_path'):]
 pub_guard = pub_guard[:pub_guard.index('print(f"[RENDER] Published')]
-assert 'except OSError' in pub_guard and '_discard_work_file(work_path)' in pub_guard
+assert 'except OSError' in pub_guard and '_discard_work_file(publish_path)' in pub_guard
 ok('a failed publish discards rather than strands')
 
 
