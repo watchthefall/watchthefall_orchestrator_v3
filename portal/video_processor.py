@@ -151,6 +151,107 @@ def probe_dimensions(path):
         return None, None
 
 
+MEDIA_PROBE_TIMEOUT = 30
+
+
+def probe_media(path, timeout: int = MEDIA_PROBE_TIMEOUT):
+    """Admissibility gate for a file ENTERING the pipeline.
+
+    Establishes four things: ffprobe can read the container, a real video stream
+    exists, it has usable dimensions, and the duration is positive.
+
+    Deliberately does NOT decode frames. Frame decoding is expensive and the
+    normalize/render stages already own it -- and they now fail loudly rather
+    than silently substituting the source (NormalizationError, 31 Aug). The job
+    here is only to stop a file that can NEVER render from becoming a Library
+    entry the user can select, so the failure lands at upload with a reason
+    instead of minutes later with "render failed".
+
+    Deliberately separate from probe_dimensions(), whose contract is the
+    opposite: a probe failure there is a METADATA problem about an output that
+    already passed validation, so it is non-fatal. Here a probe failure IS the
+    verdict about an unknown input.
+
+    Returns (ok: bool, reason: str, meta: dict). `reason` is user-facing.
+    """
+    meta = {}
+    if not path or not os.path.exists(path):
+        return False, 'the file could not be found after upload', meta
+    try:
+        if os.path.getsize(path) == 0:
+            return False, 'the file is empty', meta
+    except OSError:
+        return False, 'the file could not be read', meta
+
+    cmd = [FFPROBE_BIN, '-v', 'error', '-print_format', 'json',
+           '-show_format', '-show_streams', path]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # Bounded on purpose: this box runs a single worker, so an unbounded
+        # probe on a pathological file would pin it.
+        print(f"[MEDIA-PROBE] timed out after {timeout}s — {path}", flush=True)
+        return False, f'the file could not be inspected within {timeout} seconds', meta
+    except Exception as e:
+        print(f"[MEDIA-PROBE] probe error: {e} — {path}", flush=True)
+        return False, 'the file could not be inspected', meta
+
+    if result.returncode != 0:
+        tail = (result.stderr or '').strip().splitlines()[-1:] or ['']
+        print(f"[MEDIA-PROBE] reject: ffprobe code={result.returncode} — {tail[0]}", flush=True)
+        return False, 'this is not a readable video file', meta
+
+    try:
+        info = json.loads(result.stdout or '{}')
+    except ValueError:
+        return False, 'this is not a readable video file', meta
+
+    streams = info.get('streams') or []
+    # An MP3 with cover art carries a video stream whose disposition is
+    # attached_pic -- a still image, not footage. Excluded, or an audio file
+    # renamed to .mp4 would sail through this gate.
+    video = next((s for s in streams
+                  if s.get('codec_type') == 'video'
+                  and not (s.get('disposition') or {}).get('attached_pic')), None)
+    if video is None:
+        print(f"[MEDIA-PROBE] reject: no video stream — {path}", flush=True)
+        return False, 'this file has no video track', meta
+
+    width, height = video.get('width'), video.get('height')
+    try:
+        width, height = int(width), int(height)
+    except (TypeError, ValueError):
+        width = height = 0
+    if width <= 0 or height <= 0:
+        print(f"[MEDIA-PROBE] reject: bad dimensions {width}x{height} — {path}", flush=True)
+        return False, 'this video has no usable dimensions', meta
+
+    def _as_seconds(value):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
+
+    # Either source is acceptable: some containers carry duration only on the
+    # format, some only on the stream.
+    duration = max(_as_seconds((info.get('format') or {}).get('duration')),
+                   _as_seconds(video.get('duration')))
+    if duration <= 0:
+        print(f"[MEDIA-PROBE] reject: duration={duration} — {path}", flush=True)
+        return False, 'this video has no usable duration', meta
+
+    meta = {
+        'width': width,
+        'height': height,
+        'duration': round(duration, 3),
+        'codec': video.get('codec_name'),
+        'has_audio': any(s.get('codec_type') == 'audio' for s in streams),
+    }
+    print(f"[MEDIA-PROBE] accept: {width}x{height} {duration:.1f}s "
+          f"codec={meta['codec']} audio={meta['has_audio']} — {path}", flush=True)
+    return True, '', meta
+
+
 def _discard_work_file(path: Optional[str]) -> None:
     """Remove an unpublished render temp file; never raise from a failure path."""
     if not path:

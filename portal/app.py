@@ -77,7 +77,7 @@ def ensure_video_stream(path):
 
 # Import video processing utilities
 from .video_processor import (VideoProcessor, normalize_video,
-                              probe_dimensions, EXPECTED_OUTPUT_DIMS)
+                              probe_dimensions, probe_media, EXPECTED_OUTPUT_DIMS)
 from . import proxy_service
 from . import normalized_cache
 from .brand_loader import get_available_brands
@@ -5779,6 +5779,21 @@ def save_video_download():
     if not os.path.isfile(real_file_path):
         return jsonify({'error': 'File does not exist at specified path'}), 400
 
+    # Same content gate as /api/videos/upload, so EVERY route into the Library
+    # is content-validated rather than just the one. Unlike upload, this file was
+    # not created by this request -- it is an existing file in RAW_DIR/OUTPUT_DIR
+    # -- so a rejection refuses the RECORD and deliberately leaves the file
+    # alone. Deleting someone else's media because a probe failed would be a far
+    # worse outcome than a stray Library entry.
+    _ok, _reason, _meta = probe_media(real_file_path)
+    if not _ok:
+        print(f"[SAVE-DOWNLOAD] rejected {filename} — {_reason}", flush=True)
+        return jsonify({
+            'success': False,
+            'error': f"Sorry — {_reason}.",
+            'code': 'INVALID_MEDIA',
+        }), 400
+
     download_id = save_download(user_id, source_url, filename, real_file_path, display_name)
     
     return jsonify({
@@ -5831,6 +5846,34 @@ def upload_video():
         os.remove(file_path)
         return jsonify({'error': f'File exceeds maximum size of {MAX_UPLOAD_SIZE // (1024*1024)}MB'}), 400
     
+    # Content gate. The extension check above proves nothing about the bytes:
+    # anything renamed to .mp4 got a Library entry, became selectable, and only
+    # failed minutes later inside normalize with "render failed". No credit was
+    # ever charged (normalization failure is fatal since ce8da46), but the user
+    # learned about it in the worst possible place.
+    #
+    # Container/stream probe ONLY -- no frame decoding. Decoding is expensive and
+    # the render stage already owns it; this just stops a file that can never
+    # render from entering the pipeline at all.
+    _ok, _reason, _meta = probe_media(file_path)
+    if not _ok:
+        # Never leave a rejected upload on a 5 GB disk.
+        try:
+            os.remove(file_path)
+        except OSError as _rm_err:
+            print(f"[UPLOAD] could not remove rejected file: {_rm_err}", flush=True)
+        print(f"[UPLOAD] rejected '{file.filename}' — {_reason}", flush=True)
+        # 'error' carries the human sentence because that is this route's
+        # existing convention AND what the uploader renders:
+        #     reject(new Error(data.error || 'Upload failed'))
+        # Putting a code there would have shown the user "INVALID_MEDIA".
+        # The machine-readable code goes alongside it.
+        return jsonify({
+            'success': False,
+            'error': f"Sorry — {_reason}. Please upload a video file.",
+            'code': 'INVALID_MEDIA',
+        }), 400
+
     # Save download record so it appears in Library
     user_id = session['user_id']
     source_url = f"upload://{file.filename}"  # Mark as upload source
