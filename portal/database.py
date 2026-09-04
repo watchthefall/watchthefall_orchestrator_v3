@@ -732,11 +732,19 @@ def get_all_founding_slots():
 def claim_founding_slot(tier, user_id):
     """Mark user as a founding member for tier and increment the slot counter.
     Safe to call even if the user already has founding_status — idempotent.
-    Returns the expires_at ISO string."""
-    from .config import FOUNDING_MEMBER_CONFIG, TIER_CONFIG
-    from datetime import datetime, timedelta
-    lock_months = FOUNDING_MEMBER_CONFIG.get('lock_months', 12)
-    expires_at = (datetime.utcnow() + timedelta(days=lock_months * 30)).isoformat()
+    Returns the granted_at ISO string.
+
+    NOTE: founding status does NOT expire, so nothing here writes an expiry.
+    The old version stamped bonus_tier_until with a 12-month lock, which was
+    both the wrong commercial model and an outright bug: bonus_tier_until is
+    a SHARED column also used by beta grants, invite redemptions and referral
+    rewards that stack (see extend_bonus_tier). Granting founder status
+    silently overwrote whatever a user had earned there.
+
+    The per-tier counter is kept as a RECORD of who claimed founder status.
+    It is no longer a cap -- see FOUNDING_MEMBER_CONFIG."""
+    from .config import TIER_CONFIG
+    from datetime import datetime
     now = datetime.utcnow().isoformat()
     # Calculate discount percent for record-keeping
     tier_cfg = TIER_CONFIG.get(tier, {})
@@ -750,10 +758,9 @@ def claim_founding_slot(tier, user_id):
                 '''UPDATE users
                    SET founding_status = 1,
                        founding_status_granted_at = ?,
-                       founding_discount_percent = ?,
-                       bonus_tier_until = ?
+                       founding_discount_percent = ?
                    WHERE id = ? AND founding_status = 0''',
-                (now, discount_pct, expires_at, user_id)
+                (now, discount_pct, user_id)
             )
             if c.rowcount > 0:
                 # Only increment counter when a new founding member is created
@@ -765,7 +772,7 @@ def claim_founding_slot(tier, user_id):
             conn.commit()
     except Exception as e:
         print(f'[DATABASE] claim_founding_slot error user={user_id} tier={tier}: {e}')
-    return expires_at
+    return now
 
 
 def revoke_founding_status(user_id, tier):
@@ -779,8 +786,7 @@ def revoke_founding_status(user_id, tier):
                 '''UPDATE users
                    SET founding_status = 0,
                        founding_status_granted_at = NULL,
-                       founding_discount_percent = NULL,
-                       bonus_tier_until = NULL
+                       founding_discount_percent = NULL
                    WHERE id = ? AND founding_status = 1''',
                 (user_id,)
             )

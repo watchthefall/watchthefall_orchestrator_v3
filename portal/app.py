@@ -412,12 +412,12 @@ init_bookend_assets()
 @app.context_processor
 def inject_global_context():
     """Inject admin flag, tier, badge info, feature gates, and founding slots into all templates."""
-    from .database import get_all_founding_slots
-    from .config import FOUNDING_MEMBER_CONFIG, FOUNDING_PAYMENT_LINKS as _fpl
-    max_slots = FOUNDING_MEMBER_CONFIG.get('max_slots_per_tier', 100)
-    slots_used = get_all_founding_slots()
-    founding_slots_remaining = {t: max(0, max_slots - slots_used.get(t, 0))
-                                 for t in FOUNDING_MEMBER_CONFIG.get('eligible_tiers', [])}
+    from .config import (FOUNDING_WINDOW_END, founding_window_open,
+                         founding_days_remaining,
+                         FOUNDING_PAYMENT_LINKS as _fpl)
+    # Founding is a DEADLINE, not a quota: no slot counting, no scarcity math.
+    founding_open = founding_window_open()
+    founding_days_left = founding_days_remaining()
     ctx = {'is_admin_user': is_admin(), 'tier': DEFAULT_TIER,
            'theme_tier': DEFAULT_TIER,
            'founding_status': 0,
@@ -425,8 +425,9 @@ def inject_global_context():
            'tier_features': get_tier_features(DEFAULT_TIER),
            'all_tier_features': TIER_FEATURES,
            'all_tier_config': TIER_CONFIG,
-           'founding_slots_remaining': founding_slots_remaining,
-           'founding_max_slots': max_slots,
+           'founding_open': founding_open,
+           'founding_days_left': founding_days_left,
+           'founding_window_end': FOUNDING_WINDOW_END,
            'founding_payment_links': _fpl,
            }
     user_id = session.get('user_id')
@@ -2014,20 +2015,16 @@ def admin_set_tier():
             return jsonify({'success': False, 'error': 'User not found'}), 404
 
     # Only grant founding status when explicitly requested by the admin
-    from .database import get_founding_slots_used, claim_founding_slot
+    from .database import claim_founding_slot
     from .config import FOUNDING_MEMBER_CONFIG
     founding_granted = False
     eligible = FOUNDING_MEMBER_CONFIG.get('eligible_tiers', [])
-    max_slots = FOUNDING_MEMBER_CONFIG.get('max_slots_per_tier', 100)
 
     if grant_founder:
         if new_tier not in eligible:
             return jsonify({'success': False,
                             'error': f'{new_tier} is not eligible for Founder Status (Explorer and Elite are excluded).'}), 400
-        slots_used = get_founding_slots_used(new_tier)
-        if slots_used >= max_slots:
-            return jsonify({'success': False,
-                            'error': f'No founding slots remaining for {new_tier} ({slots_used}/{max_slots} used).'}), 400
+        # No quota to exhaust -- an admin grant can always succeed.
         claim_founding_slot(new_tier, user_id)
         founding_granted = True
 
@@ -2385,24 +2382,29 @@ def health_check():
 @login_required
 def upgrade_link(tier_name):
     """Return the best available PayPal payment link for a tier.
-    Prefers the founding member rate while slots remain; falls back to regular price."""
-    from .database import get_founding_slots_used
-    from .config import FOUNDING_MEMBER_CONFIG, FOUNDING_PAYMENT_LINKS
-    max_slots = FOUNDING_MEMBER_CONFIG.get('max_slots_per_tier', 100)
+
+    The founding rate is offered while the founding WINDOW is open, and also
+    to an existing founder after it closes -- a founder changing tier keeps
+    founder pricing on the new tier rather than being penalised for moving.
+    Continuity of subscription is not knowable from PayPal links; Stripe will
+    supply it. Until then an existing founder is treated as continuous.
+    """
+    from .config import (FOUNDING_MEMBER_CONFIG, FOUNDING_PAYMENT_LINKS,
+                         founding_window_open, founding_days_remaining)
     eligible = FOUNDING_MEMBER_CONFIG.get('eligible_tiers', [])
-    # Try founding link first if slots available
-    if tier_name in eligible:
-        slots_used = get_founding_slots_used(tier_name)
-        if slots_used < max_slots:
-            founding_link = FOUNDING_PAYMENT_LINKS.get(tier_name, '')
-            if founding_link:
-                return jsonify({
-                    'success': True,
-                    'url': founding_link,
-                    'tier': tier_name,
-                    'founding': True,
-                    'slots_remaining': max_slots - slots_used,
-                })
+    is_founder = bool(_account_outro_flags(session.get('user_id'))[1])
+    if tier_name in eligible and (founding_window_open() or is_founder):
+        founding_link = FOUNDING_PAYMENT_LINKS.get(tier_name, '')
+        if founding_link:
+            return jsonify({
+                'success': True,
+                'url': founding_link,
+                'tier': tier_name,
+                'founding': True,
+                'reason': 'founder' if (is_founder and not founding_window_open())
+                          else 'window_open',
+                'days_remaining': founding_days_remaining(),
+            })
     # Fall back to regular price
     link = get_payment_link(tier_name)
     if not link:

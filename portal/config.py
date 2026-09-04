@@ -2,6 +2,7 @@
 Portal Configuration
 """
 import os
+from datetime import date
 
 # Portal paths
 PORTAL_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -63,7 +64,7 @@ TIER_CONFIG = {
         'branding_jobs_per_day': 15,
         'max_brands_per_job': 1,
         'max_outputs_per_job': 1,  # Explorer has 1 brand config, so max 1 brand per job
-        'max_brand_configs': 1,
+        'max_brand_configs': 3,
         'concurrent_jobs': 1,
         'max_render_bookmarks': 5,   # renders saved from 24h expiry
     },
@@ -81,7 +82,7 @@ TIER_CONFIG = {
         'branding_jobs_per_day': 60,
         'max_brands_per_job': 8,
         'max_outputs_per_job': 20,  # Beta-v1 aligned
-        'max_brand_configs': 5,
+        'max_brand_configs': 7,
         'concurrent_jobs': 3,
         'max_render_bookmarks': 25,
     },
@@ -99,7 +100,7 @@ TIER_CONFIG = {
         'branding_jobs_per_day': 120,
         'max_brands_per_job': 20,
         'max_outputs_per_job': 60,  # Beta-v1 aligned
-        'max_brand_configs': -1,  # unlimited
+        'max_brand_configs': 10,
         'concurrent_jobs': 5,
         'priority_processing': True,
         'max_render_bookmarks': 50,
@@ -119,7 +120,7 @@ TIER_CONFIG = {
         'branding_jobs_per_day': 300,
         'max_brands_per_job': 50,
         'max_outputs_per_job': 150,  # Beta-v1 aligned
-        'max_brand_configs': -1,
+        'max_brand_configs': 50,
         'concurrent_jobs': 10,
         'priority_processing': True,
         'max_render_bookmarks': -1,  # unlimited
@@ -162,7 +163,7 @@ TIER_FEATURES = {
         'max_downloads_per_day': 25,
         'max_branding_jobs_per_day': 15,
         'max_brands_per_job': 1,
-        'max_brand_configs_total': 1,
+        'max_brand_configs_total': 3,
         'max_concurrent_jobs': 1,
         'max_render_bookmarks': 5,
         'result_preview_strip_enabled': False,
@@ -177,7 +178,7 @@ TIER_FEATURES = {
         'max_downloads_per_day': 100,
         'max_branding_jobs_per_day': 60,
         'max_brands_per_job': 8,
-        'max_brand_configs_total': 5,
+        'max_brand_configs_total': 7,
         'max_concurrent_jobs': 3,
         'max_render_bookmarks': 25,
         'result_preview_strip_enabled': True,
@@ -192,7 +193,7 @@ TIER_FEATURES = {
         'max_downloads_per_day': 200,
         'max_branding_jobs_per_day': 120,
         'max_brands_per_job': 20,
-        'max_brand_configs_total': -1,
+        'max_brand_configs_total': 10,
         'max_concurrent_jobs': 5,
         'max_render_bookmarks': 50,
         'result_preview_strip_enabled': True,
@@ -207,7 +208,7 @@ TIER_FEATURES = {
         'max_downloads_per_day': 500,
         'max_branding_jobs_per_day': 300,
         'max_brands_per_job': 50,
-        'max_brand_configs_total': -1,
+        'max_brand_configs_total': 50,
         'max_concurrent_jobs': 10,
         'max_render_bookmarks': -1,
         'result_preview_strip_enabled': True,
@@ -279,10 +280,8 @@ ADMIN_EMAILS = [
 ]
 
 # ============================================================================
-# FOUNDING MEMBER PROGRAMME
+# BRANDR PROMOTIONAL OUTROS
 # ============================================================================
-# First MAX_SLOTS_PER_TIER paying users per tier lock in FOUNDING_PRICE for
-# LOCK_MONTHS. After slots fill, new users pay the full TIER_CONFIG price.
 # Brandr's own promotional outros. These are BRANDR assets, not customer
 # assets -- deliberately kept out of bookend_assets, which is scoped to a
 # user_id and would make a shared system asset awkward to own. They are files
@@ -313,11 +312,73 @@ def brandr_outro_path(tier, founding_status=False):
     return path if os.path.isfile(path) else None
 
 
+# ============================================================================
+# FOUNDING MEMBER PROGRAMME
+# ============================================================================
+# A DEADLINE, NOT A QUOTA. Anyone who starts a paid subscription on or before
+# FOUNDING_WINDOW_END pays the founding rate for their tier.
+#
+# The previous model capped founders at 20 per tier for 12 months. Both halves
+# were wrong commercially:
+#
+#   * A hard per-tier quota creates a perverse incentive -- it caps the number
+#     of early paying customers we are allowed to win, and turns a marketing
+#     offer into an arbitrary rejection for the 21st person to say yes.
+#   * A 12-month lock meant the founding PRICE expired. Founder status is the
+#     permanent entitlement; the founding price is what keeps them subscribed.
+#     Expiring it re-prices our earliest supporters upward at exactly the
+#     moment they have the most alternatives.
+#
+# The window is public and dated so it is honest scarcity: it really does end,
+# and nobody is turned away before it does.
+FOUNDING_WINDOW_END = date(2026, 12, 31)
+
 FOUNDING_MEMBER_CONFIG = {
-    'max_slots_per_tier': 20,
-    'lock_months': 12,
+    'window_end': FOUNDING_WINDOW_END.isoformat(),
     'eligible_tiers': ['Creator', 'Studio', 'Platinum'],
 }
+
+
+def founding_window_open(today=None):
+    """True while the founding rate is still available to NEW subscribers."""
+    return (today or date.today()) <= FOUNDING_WINDOW_END
+
+
+def founding_days_remaining(today=None):
+    """Days left in the founding window; 0 once it has closed."""
+    return max(0, (FOUNDING_WINDOW_END - (today or date.today())).days)
+
+
+def price_for_tier(tier, founding_status=False, subscription_active=False,
+                   today=None):
+    """The monthly price this account should actually be charged for `tier`.
+
+    One function so checkout, the upgrade modal and any future Stripe price
+    lookup cannot disagree about what someone owes.
+
+      * While the window is open, everyone gets the founding rate.
+      * After it closes, an existing founder who has stayed CONTINUOUSLY
+        subscribed keeps the founding rate -- including for a DIFFERENT tier
+        if they move. That is the subtle case: changing tier must not quietly
+        cost a founder their founding pricing, or the tier ladder punishes
+        our earliest customers for growing.
+      * A founder who lapsed pays full price on their next subscription. The
+        status is permanent; the price is a reward for continuity.
+
+    `subscription_active` is supplied by the billing layer. Until Stripe lands
+    there is no continuity signal, so callers pass it explicitly rather than
+    letting a default silently grant the discount.
+    """
+    cfg = TIER_CONFIG.get(tier, {})
+    full = cfg.get('price', 0)
+    founding = cfg.get('founding_price', full)
+    if tier not in FOUNDING_MEMBER_CONFIG['eligible_tiers']:
+        return full
+    if founding_window_open(today):
+        return founding
+    if founding_status and subscription_active:
+        return founding
+    return full
 
 # PayPal payment links — regular price (shown when founding slots exhausted)
 PAYMENT_LINKS = {
