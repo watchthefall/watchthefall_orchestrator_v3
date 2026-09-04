@@ -1159,6 +1159,83 @@ def get_all_referral_codes():
 # Per (user, source video, output format) reframe/crop settings for Studio.
 # Content edit — NOT a brand edit. One row per user+source+format.
 
+# ---------------------------------------------------------------------------
+# Bookend assets (intro/outro source files).
+#
+# DELIBERATELY MINIMAL. This table exists so composition can be invoked and
+# proven in production -- it is not the finished bookend system. No `kind`, no
+# `enabled`, no `scope`, no `tier_required`, no `default_for_tier`, no per-format
+# variant rows: conformed variants are derived and cached on disk by
+# video_processor.conform_bookend, keyed on the conform command itself. Policy
+# columns belong to the product pass, not to the seam that proves the plumbing.
+# ---------------------------------------------------------------------------
+
+def init_bookend_assets():
+    """Create the bookend_assets table."""
+    try:
+        with get_connection() as conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS bookend_assets (
+                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id      INTEGER NOT NULL,
+                    display_name TEXT    NOT NULL,
+                    file_path    TEXT    NOT NULL,
+                    created_at   TEXT    NOT NULL
+                )
+            ''')
+            conn.execute(
+                'CREATE INDEX IF NOT EXISTS idx_bookend_assets_user '
+                'ON bookend_assets(user_id)')
+            conn.commit()
+    except Exception as e:
+        print(f'[DATABASE] init_bookend_assets error: {e}', flush=True)
+
+
+def save_bookend_asset(user_id, display_name, file_path):
+    """Record an uploaded bookend asset. Returns its id."""
+    def _do(conn):
+        c = conn.cursor()
+        c.execute(
+            'INSERT INTO bookend_assets (user_id, display_name, file_path, created_at) '
+            'VALUES (?, ?, ?, ?)',
+            (user_id, display_name, file_path, datetime.now().isoformat()))
+        conn.commit()
+        return c.lastrowid
+    return _retry_write(_do)
+
+
+def get_bookend_asset(asset_id, user_id):
+    """Fetch one asset, SCOPED TO ITS OWNER. Returns a dict or None.
+
+    The user_id filter is load-bearing: without it, any logged-in user could
+    name another account's asset id and have it composed into their render.
+    """
+    try:
+        with get_connection() as conn:
+            row = conn.execute(
+                'SELECT id, user_id, display_name, file_path, created_at '
+                'FROM bookend_assets WHERE id = ? AND user_id = ?',
+                (asset_id, user_id)).fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f'[DATABASE] get_bookend_asset error: {e}', flush=True)
+        return None
+
+
+def list_bookend_assets(user_id):
+    """All of this user's bookend assets, newest first."""
+    try:
+        with get_connection() as conn:
+            rows = conn.execute(
+                'SELECT id, display_name, file_path, created_at '
+                'FROM bookend_assets WHERE user_id = ? ORDER BY id DESC',
+                (user_id,)).fetchall()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f'[DATABASE] list_bookend_assets error: {e}', flush=True)
+        return []
+
+
 def init_source_edits():
     """Create the source_edits table (per-user reframe/crop per source+format)."""
     try:

@@ -106,6 +106,7 @@ from .database import (
     create_referral_code, get_referral_code, credit_referral_reward,
     get_all_invite_codes, get_all_referral_codes,
     init_source_edits, get_source_edit, upsert_source_edit, SOURCE_EDIT_DEFAULTS,
+    init_bookend_assets, save_bookend_asset, get_bookend_asset, list_bookend_assets,
 )
 
 
@@ -404,6 +405,7 @@ init_users_db()
 init_founding_slots()
 init_invite_codes()
 init_source_edits()
+init_bookend_assets()
 
 
 @app.context_processor
@@ -2836,7 +2838,7 @@ def downloader_dashboard():
 
 def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
                      data, user_id, output_format, sec_logo_resolved_path, video_id,
-                     source_edit=None):
+                     source_edit=None, outro_path=None):
     """Background thread: run FFmpeg render for one or more brands.
     Updates brand_render_jobs[job_id] in place. No Flask request context.
     Phase 18 — called from process_branded_videos() after all validation passes.
@@ -3002,7 +3004,9 @@ def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
             try:
                 import time as _rt
                 _t0 = _rt.time()
-                output_path = processor.process_brand(merged_config, video_id=video_id, output_format=output_format)
+                output_path = processor.process_brand(
+                    merged_config, video_id=video_id, output_format=output_format,
+                    outro_path=outro_path)
                 _render_secs = _rt.time() - _t0
                 print(f"[RENDER-ASYNC] {job_id[:8]} brand '{brand_name}' done in {_render_secs:.1f}s")
                 output_paths.append(output_path)
@@ -3667,6 +3671,30 @@ def process_branded_videos():
         # The browser connection is released; the render continues on the server regardless of
         # whether the client tab stays open.
         single_brand_name = resolved_brands[0].get('display_name') or resolved_brands[0].get('name') if resolved_brands else ''
+        # Optional bookend. Nullable and off by default: with no outro_asset_id
+        # the render takes exactly the path it took before this existed. Resolved
+        # HERE, before the job is queued, so a bad id fails fast with a message
+        # instead of blowing up inside a background thread after work has begun.
+        outro_path = None
+        _outro_asset_id = data.get('outro_asset_id')
+        if _outro_asset_id not in (None, '', 0):
+            try:
+                _asset_id = int(_outro_asset_id)
+            except (TypeError, ValueError):
+                return jsonify({'success': False,
+                                'error': 'outro_asset_id must be an integer'}), 400
+            # Ownership-scoped: naming another account's asset id must not work.
+            _asset = get_bookend_asset(_asset_id, user_id)
+            if not _asset:
+                return jsonify({'success': False,
+                                'error': 'Outro asset not found'}), 404
+            if not os.path.isfile(_asset['file_path']):
+                return jsonify({'success': False,
+                                'error': 'Outro asset file is missing'}), 404
+            outro_path = _asset['file_path']
+            print(f"[PROCESS BRANDS] outro asset {_asset_id} "
+                  f"('{_asset['display_name']}') selected", flush=True)
+
         source_filename_for_edit = os.path.basename(video_filepath)
         source_edit = _resolve_render_source_edit(
             user_id,
@@ -3703,6 +3731,7 @@ def process_branded_videos():
                 sec_logo_resolved_path,
                 video_id,
                 source_edit,
+                outro_path,
             ),
             daemon=True
         ).start()
@@ -5801,6 +5830,77 @@ def save_video_download():
         'download_id': download_id,
         'message': 'Download saved successfully'
     })
+
+
+@app.route('/api/assets/bookend', methods=['POST'])
+@login_required
+def upload_bookend_asset():
+    """Upload an intro/outro source asset.
+
+    Same content gate as /api/videos/upload -- extension proves nothing about
+    the bytes, and an asset that cannot be probed cannot be conformed either, so
+    the failure belongs here rather than mid-render. Assets live in their own
+    directory so they never appear in the Library as source videos.
+    """
+    from .config import BOOKENDS_DIR, ALLOWED_EXTENSIONS, MAX_UPLOAD_SIZE
+
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': 'No file provided'}), 400
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'success': False, 'error': 'No file selected'}), 400
+
+    ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+    if ext not in ALLOWED_EXTENSIONS:
+        return jsonify({'success': False,
+                        'error': f'Invalid file type. Allowed: {", ".join(ALLOWED_EXTENSIONS)}'}), 400
+
+    os.makedirs(BOOKENDS_DIR, exist_ok=True)
+    safe_filename = f"{uuid.uuid4().hex}.{ext}"
+    file_path = os.path.join(BOOKENDS_DIR, safe_filename)
+    try:
+        file.save(file_path)
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Failed to save file: {str(e)}'}), 500
+
+    if not os.path.exists(file_path):
+        return jsonify({'success': False, 'error': 'File was not saved successfully'}), 500
+    if os.path.getsize(file_path) > MAX_UPLOAD_SIZE:
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+        return jsonify({'success': False,
+                        'error': f'File exceeds maximum size of {MAX_UPLOAD_SIZE // (1024*1024)}MB'}), 400
+
+    _ok, _reason, _meta = probe_media(file_path)
+    if not _ok:
+        try:
+            os.remove(file_path)
+        except OSError as _rm:
+            print(f"[BOOKEND] could not remove rejected asset: {_rm}", flush=True)
+        print(f"[BOOKEND] rejected '{file.filename}' - {_reason}", flush=True)
+        return jsonify({'success': False,
+                        'error': f"Sorry - {_reason}. Please upload a video file.",
+                        'code': 'INVALID_MEDIA'}), 400
+
+    asset_id = save_bookend_asset(session['user_id'], file.filename, file_path)
+    print(f"[BOOKEND] stored asset {asset_id} '{file.filename}' "
+          f"{_meta['width']}x{_meta['height']} {_meta['duration']}s", flush=True)
+    return jsonify({'success': True, 'asset_id': asset_id,
+                    'display_name': file.filename,
+                    'width': _meta['width'], 'height': _meta['height'],
+                    'duration': _meta['duration'], 'has_audio': _meta['has_audio']})
+
+
+@app.route('/api/assets/bookend', methods=['GET'])
+@login_required
+def list_bookend_assets_api():
+    """This user's bookend assets. Needed to select one; nothing more."""
+    assets = list_bookend_assets(session['user_id'])
+    return jsonify({'success': True,
+                    'assets': [{'id': a['id'], 'display_name': a['display_name'],
+                                'created_at': a['created_at']} for a in assets]})
 
 
 @app.route('/api/videos/upload', methods=['POST'])
