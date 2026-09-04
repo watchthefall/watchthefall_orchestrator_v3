@@ -1280,12 +1280,27 @@
            rule) forced 260px wide -> 462px tall, which is taller than the gap
            between the sticky header and the sticky action bar — so the frame
            could never be fully visible at any scroll position. */
-        height: min(calc(100dvh - var(--review-chrome)), calc(100vh - var(--review-chrome)));
-        max-height: calc(100dvh - var(--review-chrome));
-        min-height: 200px;   /* last-resort floor if chrome is pathologically tall */
-        aspect-ratio: 9 / 16;
-        width: auto;
+        /* Derive WIDTH from the available height and the format's aspect, then
+           clamp by the available width. Because width <= availableHeight * aspect,
+           height (= width / aspect) is automatically <= availableHeight, so the
+           invariant above still holds without pinning `height` directly.
+
+           The previous rule fixed `height` from the viewport, hardcoded
+           aspect-ratio: 9/16 and left `width: auto`. resizeCanvasForFormat
+           overrides aspect-ratio inline per format, but `height` stayed
+           viewport-tall and `max-width: 100%` clamped the derived width — so a
+           1:1 or 16:9 canvas rendered at the TOP of a 9:16-tall box with a large
+           black void beneath it. Desktop escaped it only because the >=1100px
+           rule sets height: auto.
+
+           --preview-aspect is set by resizeCanvasForFormat alongside
+           aspect-ratio; the value here is the 9:16 default before JS runs. The
+           200px floor moved to width, which is now the driving axis. */
+        --preview-aspect: 0.5625;
+        width: min(100%, max(200px, calc((100dvh - var(--review-chrome)) * var(--preview-aspect))));
         max-width: 100%;
+        height: auto;
+        aspect-ratio: 9 / 16;
         margin: 2px auto 0;
         align-self: start;
     }
@@ -3774,6 +3789,39 @@ function drawReframedSource(img) {
     canvas._srcVis = { W, H, sw, sh, crop_mode: cropMode };
 }
 
+// Which mask should the preview clip the logo with?
+//
+// This used to be `(brandDataCache[activePreviewBrandId] || {}).logo_shape ||
+// 'original'`, and the fallback was the problem: every stored logo_normalized.png
+// is FULLY OPAQUE (verified 4 Sep -- corner alpha 255, 0% transparent pixels on
+// all 25 brands), so 'original' draws the raw black rectangle. A cache miss did
+// not degrade to a slightly-wrong preview, it degraded to the worst possible one,
+// and only intermittently -- which is why the square logo appeared on mobile and
+// not on desktop for the same brand.
+//
+// The review cockpit always knows the brand of the item it is showing, so fall
+// back to that before falling back to a constant. If neither resolves, keep
+// 'original' (guessing a mask would be worse than not applying one) but say so
+// in the console rather than failing silently.
+function resolveLogoShapeForPreview() {
+    let brandId = activePreviewBrandId;
+    if (!brandDataCache[brandId] && typeof processingQueue !== 'undefined') {
+        const current = processingQueue[currentQueueIndex];
+        if (current && Number.isInteger(current.brand_id)) {
+            brandId = current.brand_id;
+            console.warn(`[SHAPE] activePreviewBrandId=${activePreviewBrandId} not in cache; `
+                         + `using the reviewed item's brand ${brandId}`);
+        }
+    }
+    const brand = brandDataCache[brandId];
+    if (!brand) {
+        console.warn(`[SHAPE] no brand resolved (activePreviewBrandId=${activePreviewBrandId}) `
+                     + `— drawing the logo UNMASKED, which shows its background`);
+        return 'original';
+    }
+    return brand.logo_shape || 'original';
+}
+
 function drawOverlays() {
     const wmScale = watermarkUiToRenderScale(parseInt(document.getElementById('wmScale').value));
     const wmOpacity = parseInt(document.getElementById('wmOpacity').value) / 100;
@@ -3829,7 +3877,7 @@ function drawOverlays() {
         ctx.translate(-centerX, -centerY);
 
         // Apply logo shape clip (circle / square / original)
-        const logoShape = (brandDataCache[activePreviewBrandId] && brandDataCache[activePreviewBrandId].logo_shape) || 'original';
+        const logoShape = resolveLogoShapeForPreview();
         if (logoShape === 'circle') {
             ctx.beginPath();
             ctx.arc(centerX, centerY, Math.min(logoW, logoH) / 2, 0, Math.PI * 2);
@@ -5384,7 +5432,13 @@ function resizeCanvasForFormat(fmt) {
     // square "pill" instead of a square canvas stranded in a 9:16 box (which
     // left a dark void below it). Inline style overrides both CSS breakpoints.
     const pc = document.getElementById('previewContainer');
-    if (pc) pc.style.aspectRatio = geo.aspect;
+    if (pc) {
+        pc.style.aspectRatio = geo.aspect;
+        // The review layout sizes width from available height x aspect, so it
+        // needs the ratio as a NUMBER too — aspect-ratio alone cannot be used
+        // inside calc().
+        pc.style.setProperty('--preview-aspect', String(geo.videoW / geo.videoH));
+    }
     updateReframeControlVisibility();
     updateCanvasPreview();
 }
@@ -6447,6 +6501,19 @@ function exitQueueMode() {
     // Hide preview target bar
     const previewTargetBar = document.getElementById('previewTargetBar');
     if (previewTargetBar) previewTargetBar.style.display = 'none';
+
+    // Hide the preview canvas. enterQueueMode() shows it and this function is
+    // its counterpart, but it restored eight other elements and never this one
+    // -- so the canvas kept its inline display:block and followed the user back
+    // to the brand grid, still showing the last item reviewed.
+    //
+    // It cannot simply be left visible: the block above has just cleared
+    // selectedBrandIds and activePreviewBrandId, so the frame on screen belongs
+    // to a brand that is no longer selected. Showing a live preview during
+    // selection is a real and wanted feature, but it needs the selection state
+    // to survive, which is a separate change.
+    const _previewContainer = document.getElementById('previewContainer');
+    if (_previewContainer) _previewContainer.style.display = 'none';
 
     // Restore per-video loadout selection chrome if the batch loop is active
     if (isLoadoutMode()) {
