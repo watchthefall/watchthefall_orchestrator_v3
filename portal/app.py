@@ -1460,6 +1460,58 @@ except (TypeError, ValueError):
 RENDER_QUEUE_TIMEOUT = 1800
 
 _render_slots = threading.BoundedSemaphore(MAX_CONCURRENT_RENDERS)
+
+# Per-account render admission, sitting IN FRONT of the machine-wide semaphore.
+#
+# MAX_CONCURRENT_RENDERS protects the BOX (CPU, RAM, FFmpeg processes) but says
+# nothing about WHOSE renders those are. With 2 machine slots and no per-account
+# control, one account could hold both for hours -- a Platinum job may legally
+# queue max_outputs_per_job=150 renders, ~110 minutes on one slot at the measured
+# ~44s median -- while every other account waited the full RENDER_QUEUE_TIMEOUT
+# and then failed. That is a fairness failure, not a capacity failure.
+#
+# ORDER MATTERS: the account slot is taken BEFORE the machine slot. The reverse
+# would let a job hold a scarce machine slot while blocked on its own account's
+# limit, turning a fairness control into self-inflicted starvation. Acquiring
+# account -> machine consistently also means there is no lock-order inversion.
+#
+# Deliberately NOT changed here: RENDER_QUEUE_TIMEOUT stays at 1800s. The two
+# acquisitions share that single budget rather than each getting their own, so
+# the total time a caller can wait is exactly what it was before.
+MAX_RENDERS_PER_ACCOUNT = max(1, int(os.environ.get('MAX_RENDERS_PER_ACCOUNT', '1')))
+_account_render_cv = threading.Condition()
+_account_render_active = {}   # user_id -> in-flight render count
+
+
+def _acquire_account_render_slot(user_id, timeout):
+    """Reserve this account's share of the renderer. True if admitted."""
+    if user_id is None:
+        # Nothing to attribute it to; the machine semaphore still applies.
+        return True
+    deadline = time.monotonic() + timeout
+    with _account_render_cv:
+        while _account_render_active.get(user_id, 0) >= MAX_RENDERS_PER_ACCOUNT:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return False
+            _account_render_cv.wait(remaining)
+        _account_render_active[user_id] = _account_render_active.get(user_id, 0) + 1
+        return True
+
+
+def _release_account_render_slot(user_id):
+    """Give the account's slot back. Never raises; must run on every exit."""
+    if user_id is None:
+        return
+    with _account_render_cv:
+        remaining = _account_render_active.get(user_id, 0) - 1
+        if remaining > 0:
+            _account_render_active[user_id] = remaining
+        else:
+            # Drop the key entirely so the dict cannot grow with every user
+            # who has ever rendered.
+            _account_render_active.pop(user_id, None)
+        _account_render_cv.notify_all()
 _render_depth_lock = threading.Lock()
 _render_waiting = 0   # observability only — never gates anything
 
@@ -2804,11 +2856,31 @@ def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
         print(f"[RENDER-QUEUE] {job_id[:8]} waiting for a slot "
               f"({waiting_now} waiting, limit {MAX_CONCURRENT_RENDERS})", flush=True)
     queued_at = time.time()
-    got_slot = _render_slots.acquire(timeout=RENDER_QUEUE_TIMEOUT)
+    _budget_started = time.monotonic()
+
+    # 1) This account's own share, so one account cannot take the whole machine.
+    got_account = _acquire_account_render_slot(user_id, RENDER_QUEUE_TIMEOUT)
+    if not got_account:
+        with _render_depth_lock:
+            _render_waiting -= 1
+        job['status']       = 'failed'
+        job['error']        = 'Server busy — render queue timed out. Please try again.'
+        job['completed_at'] = time.time()
+        print(f"[RENDER-QUEUE] {job_id[:8]} GAVE UP after "
+              f"{time.time() - queued_at:.0f}s waiting for an account slot "
+              f"(limit {MAX_RENDERS_PER_ACCOUNT} per account)", flush=True)
+        return
+
+    # 2) A machine slot, from whatever is left of the SAME 30-minute budget.
+    _remaining = RENDER_QUEUE_TIMEOUT - (time.monotonic() - _budget_started)
+    got_slot = _render_slots.acquire(timeout=max(0.0, _remaining))
     with _render_depth_lock:
         _render_waiting -= 1
 
     if not got_slot:
+        # Hand the account slot back, or this account is throttled by a render
+        # that never started.
+        _release_account_render_slot(user_id)
         job['status']       = 'failed'
         job['error']        = 'Server busy — render queue timed out. Please try again.'
         job['completed_at'] = time.time()
@@ -3069,9 +3141,15 @@ def _do_brand_render(job_id, video_filepath, url_was_remote, resolved_brands,
         # has finished would keep a dead file pinned against the sweep forever.
         if _claimed_normalized:
             normalized_cache.release(_claimed_normalized)
-        # Always give the slot back — a leak here would starve every later
+        # Always give the slots back — a leak here would starve every later
         # render, which is worse than the unbounded behaviour this replaces.
+        # Released in reverse acquisition order: machine slot, then account.
+        # This finally covers success, render failure, normalization failure,
+        # validation failure, FFmpeg timeout and any unhandled exception; the
+        # two queue-timeout paths above return before reaching it and release
+        # explicitly.
         _render_slots.release()
+        _release_account_render_slot(user_id)
 
 
 @app.route('/api/videos/process_brands', methods=['POST'])
