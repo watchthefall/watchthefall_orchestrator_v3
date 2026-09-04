@@ -151,6 +151,18 @@ def probe_dimensions(path):
         return None, None
 
 
+def _discard_work_file(path: Optional[str]) -> None:
+    """Remove an unpublished render temp file; never raise from a failure path."""
+    if not path:
+        return
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+            print(f"[RENDER] Discarded unpublished work file: {path}")
+    except OSError as e:
+        print(f"[RENDER] Could not remove work file {path}: {e}")
+
+
 def _normalized_output_path(input_path: str, output_format: str, cache_key: Optional[str]) -> str:
     base, _ext = os.path.splitext(input_path)
     # Content-keyed, not job-keyed: a file named after the job that happened to
@@ -1257,7 +1269,31 @@ class VideoProcessor:
         print(f"[DEBUG] Output path: {output_path}")
         
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        print(f"[DEBUG] Writing branded video to: {output_path}")
+
+        # Render to a UNIQUE work path, publish atomically at the end.
+        #
+        # output_filename is deterministic — {video_id}_{brand}_{format}.mp4 —
+        # which is right for the DELIVERED artifact but wrong as a working path.
+        # Two concurrent renders of the same (video, brand, format) both opened
+        # this file with -y and interleaved their writes. _validate_output then
+        # probed a file the other job was still writing, so a render could be
+        # certified, recorded in branded_outputs and charged a credit while its
+        # bytes were still changing underneath. That is the same class of defect
+        # as the 31 Aug incident: an internal assumption -- "the file I validated
+        # is the file that persists" -- masquerading as success.
+        #
+        # normalize_video has published atomically since 31 Aug; the brand render
+        # never did. Concurrent jobs now each build their own file and the last
+        # publish wins WHOLE, so the delivered artifact is always a complete,
+        # validated encode rather than a mix of two.
+        #
+        # The extension MUST survive into the temp name. FFmpeg infers its muxer
+        # from it, and a path ending '.tmp' fails outright -- that exact mistake
+        # silently produced a landscape file for a vertical request on 31 Aug.
+        _out_stem, _out_ext = os.path.splitext(output_path)
+        work_path = f"{_out_stem}.{_uuid.uuid4().hex}.tmp{_out_ext or '.mp4'}"
+        print(f"[DEBUG] Writing branded video to: {work_path}")
+        print(f"[DEBUG] Will publish to: {output_path}")
         
         # Build filter complex
         filter_complex = self.build_filter_complex(brand_config, logo_settings)
@@ -1304,7 +1340,7 @@ class VideoProcessor:
             '-crf', '23',
             '-preset', 'veryfast',   # was 'fast' — ~2x faster, fits within request window
         ]
-        tail_cmd = ['-movflags', '+faststart', output_path]
+        tail_cmd = ['-movflags', '+faststart', work_path]
 
         # Audio strategy tiers. The input is already normalized to clean AAC 128k upstream
         # (see normalize_video), so a stream copy is both higher quality and avoids the AAC
@@ -1339,15 +1375,17 @@ class VideoProcessor:
             except subprocess.TimeoutExpired:
                 processing_time = time.time() - start_time
                 print(f"[RENDER ERROR] FFmpeg timed out after {processing_time:.0f}s for brand='{brand_name}'")
-                print(f"[RENDER ERROR] Output path: {output_path}")
+                print(f"[RENDER ERROR] Work path: {work_path}")
+                _discard_work_file(work_path)
                 raise Exception(
                     f"FFmpeg timed out after {FFMPEG_TIMEOUT//60} minutes for brand '{brand_name}'. "
                     f"Try a shorter clip (under 60 seconds)."
                 )
 
             processing_time = time.time() - start_time
-            output_valid = self._validate_output(output_path)
-            output_size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
+            # Validate the file THIS job wrote, not the shared destination.
+            output_valid = self._validate_output(work_path)
+            output_size = os.path.getsize(work_path) if os.path.exists(work_path) else 0
             print(f"[RENDER] FFmpeg returned code={result.returncode} in {processing_time:.1f}s (audio={label})")
             print(f"[RENDER] Output valid={output_valid} size={output_size} bytes")
 
@@ -1360,6 +1398,24 @@ class VideoProcessor:
                 if label == 'drop-audio':
                     print(f"[RENDER WARN] brand='{brand_name}' rendered WITHOUT audio "
                           f"after audio copy + re-encode both failed")
+                # Atomic publish: os.replace is atomic within a filesystem, so a
+                # reader either sees the previous file or this one, never a blend.
+                #
+                # Guarded because a failure here would otherwise strand the work
+                # file forever: sweep_normalized_temp_files only globs
+                # '*_normalized_*' inside RAW_DIR, and these live in OUTPUT_DIR
+                # under a different name, so nothing would ever collect them on a
+                # 5 GB disk. (POSIX rename(2) does not fail this way, but the
+                # render must not depend on that to avoid leaking storage.)
+                try:
+                    os.replace(work_path, output_path)
+                except OSError as publish_error:
+                    _discard_work_file(work_path)
+                    raise Exception(
+                        f"render succeeded but publishing failed for brand "
+                        f"'{brand_name}': {publish_error}"
+                    ) from publish_error
+                print(f"[RENDER] Published {work_path} -> {output_path}")
                 print(f"[RENDER] Completed brand='{brand_name}' in {processing_time:.1f}s "
                       f"({output_size//1024}KB, audio={label})")
                 return output_path
@@ -1370,7 +1426,9 @@ class VideoProcessor:
             print(f"[RENDER ERROR] stderr tail: {last_error}")
 
         # All audio strategies exhausted and the output never probed valid — the failure
-        # is not audio-related (bad filter, missing input, disk, etc.).
+        # is not audio-related (bad filter, missing input, disk, etc.). Nothing is
+        # published, so the previously delivered artifact (if any) is left intact.
+        _discard_work_file(work_path)
         raise Exception(
             f"FFmpeg error for brand '{brand_name}' after {len(audio_attempts)} attempts: {last_error}"
         )
