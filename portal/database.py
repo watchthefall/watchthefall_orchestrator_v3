@@ -1617,20 +1617,33 @@ def get_all_brand_configs():
 # ============================================================================
 
 def get_brand(brand_id=None, name=None, user_id=None):
-    """Get a brand by ID or name. When user_id is provided, enforces ownership."""
+    """Get a brand by ID or name. When user_id is provided, enforces ownership.
+
+    Soft-deleted brands are NEVER returned. delete_brand() sets is_active = 0,
+    and get_all_brands()/get_user_brand_count() have always filtered on it, but
+    this function did not -- so a deleted brand stayed fetchable by id and by
+    name, and therefore stayed renderable. Ownership was enforced; existence
+    was not.
+
+    is_active keeps its existing single meaning here: 0 == deleted/soft-deleted.
+    It is deliberately NOT the future downgrade 'locked' state, which is a
+    separate concept (stored, recoverable, user-selectable) and will arrive as
+    its own columns. Callers that specifically want a soft-deleted row use
+    find_inactive_brand(), which is unchanged.
+    """
     with get_connection() as conn:
         c = conn.cursor()
         
         if brand_id:
             if user_id is not None:
-                c.execute('SELECT * FROM brands WHERE id = ? AND (user_id = ? OR is_system = 1)', (brand_id, user_id))
+                c.execute('SELECT * FROM brands WHERE id = ? AND (user_id = ? OR is_system = 1) AND is_active = 1', (brand_id, user_id))
             else:
-                c.execute('SELECT * FROM brands WHERE id = ?', (brand_id,))
+                c.execute('SELECT * FROM brands WHERE id = ? AND is_active = 1', (brand_id,))
         elif name:
             if user_id is not None:
-                c.execute('SELECT * FROM brands WHERE name = ? AND (user_id = ? OR user_id IS NULL)', (name, user_id))
+                c.execute('SELECT * FROM brands WHERE name = ? AND (user_id = ? OR user_id IS NULL) AND is_active = 1', (name, user_id))
             else:
-                c.execute('SELECT * FROM brands WHERE name = ?', (name,))
+                c.execute('SELECT * FROM brands WHERE name = ? AND is_active = 1', (name,))
         else:
             return None
         
