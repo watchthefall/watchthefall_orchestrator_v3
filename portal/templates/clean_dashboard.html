@@ -5725,10 +5725,19 @@ async function fireRenderForBrand(item) {
                 return;
             }
 
-            // Job disappeared (server restart / memory loss) — fail fast
-            if (pollRes.status === 404 || pollData.error) {
+            // Only a 404 means the job disappeared (server restart / memory loss).
+            if (pollRes.status === 404) {
                 if (!item.error) item.error = 'Render job lost after server restart. Please retry this brand.';
                 console.warn('[FIRE] Job lost:', job_id, format);
+                failedCount++;
+                onFormatSettled();
+                return;
+            }
+
+            // A 200 carrying an error is a real render failure — keep its message.
+            if (pollData.error) {
+                item.error = pollData.error;
+                console.error('[FIRE] Render failed:', job_id, format, pollData.error);
                 failedCount++;
                 onFormatSettled();
                 return;
@@ -8271,9 +8280,17 @@ async function resumeStuckPolls() {
                         pRes  = await fetch(`${apiBase}/api/videos/brand-job/${job_id}`);
                         pData = await pRes.json();
                     } catch (e) { setTimeout(poll, POLL_INTERVAL_MS); return; }
-                    if (pRes.status === 404 || pData.error) {
+                    if (pRes.status === 404) {
                         item.status = 'failed';
                         item.error  = 'Render job lost. Please retry.';
+                        renderBrandPills();
+                        checkQueueComplete();
+                        return;
+                    }
+                    if (pData.error) {
+                        item.status = 'failed';
+                        item.error  = pData.error;
+                        console.error('[POLL] Render failed:', item.brand_name, pData.error);
                         renderBrandPills();
                         checkQueueComplete();
                         return;
