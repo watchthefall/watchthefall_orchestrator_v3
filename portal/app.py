@@ -2914,9 +2914,28 @@ def api_output_contract():
 @app.route('/portal/downloader_dashboard')
 @login_required
 def downloader_dashboard():
-    user_id = session.get('user_id')
-    tier = get_user_tier(user_id)
-    return render_template("downloader_dashboard.html", tier=tier)
+    """Retired: redirect to Create, the single rendering surface.
+
+    This page was a second, unlinked route into the render API and it was
+    wrong in two ways at once:
+
+      * It posted EVERY selected brand in one request
+        (body: {url, brands: [...]}), and process_brands charges one credit
+        per REQUEST, not per brand. So it produced up to 8 / 20 / 50 renders
+        for a single credit depending on tier -- a metering hole that only
+        existed on this page.
+      * It then checked `data.success && data.outputs`, which the API has not
+        returned since rendering became async (the response is
+        {job_id, status:'queued'}). Every successful queue therefore displayed
+        to the user as "Branding failed."
+
+    Nothing links here -- no template, no nav, no script -- so it was
+    reachable only by typing the URL. Redirecting matches how /portal/download
+    was retired and removes the alternate path without deleting the template
+    or touching the render API. It is deliberately NOT repaired into a second
+    rendering system: Create is the one submit surface.
+    """
+    return redirect(url_for('brand_video'))
 
 # ============================================================================
 # API: VIDEO PROCESSING
