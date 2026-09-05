@@ -35,6 +35,37 @@ def safe_path_segment(value, fallback='item'):
     return seg[:64] or fallback
 
 
+_FFMPEG_BANNER_PREFIXES = (
+    'ffmpeg version', 'built with', 'configuration:', '  lib',
+    'Input #', 'Output #', 'Stream mapping:', '  Stream #',
+    '  Metadata:', '    Metadata:', '    encoder', '    handler_name',
+    '    vendor_id', '  Duration:', 'Side data:', 'Press [q]',
+    'frame=', 'size=', 'video:',
+)
+
+
+def ffmpeg_error_summary(stderr, limit=600):
+    """Return the lines of FFmpeg stderr that say what went WRONG.
+
+    The caller used to keep stderr[-1500:], but FFmpeg prints a ~1.4 KB build
+    banner ("--enable-libx264 --enable-...") before anything useful, so the
+    tail was almost entirely configuration and the diagnosis was pushed out.
+    Observed 5 Sep 2026: a 1564-character render error made up almost wholly
+    of --enable flags, with the actual cause -- "Failed to avformat_open_input
+    'C'" -- only just surviving at the very end.
+
+    Drop the known-noise lines and keep the last few of what remains, so the
+    cause survives instead of the banner. Falls back to the raw tail if
+    filtering leaves nothing, because a truncated message still beats none.
+    """
+    lines = [l.rstrip() for l in (stderr or '').splitlines() if l.strip()]
+    if not lines:
+        return ''
+    kept = [l for l in lines if not l.startswith(_FFMPEG_BANNER_PREFIXES)]
+    text = '\n'.join(kept[-6:]) if kept else '\n'.join(lines[-4:])
+    return text[-limit:]
+
+
 def ffmpeg_filter_path(path):
     """Make a filesystem path safe to interpolate into an FFmpeg FILTERGRAPH.
 
@@ -1972,7 +2003,7 @@ class VideoProcessor:
                       f"({output_size//1024}KB, audio={label})")
                 return output_path
 
-            last_error = (result.stderr or '')[-1500:]
+            last_error = ffmpeg_error_summary(result.stderr)
             print(f"[RENDER ERROR] Attempt {attempt_idx} (audio={label}) failed for "
                   f"brand='{brand_name}' code={result.returncode}")
             print(f"[RENDER ERROR] stderr tail: {last_error}")

@@ -5917,10 +5917,29 @@ async function _fireRenderForItemInner(item) {
                 return;
             }
 
-            if (pollRes.status === 404 || pollData.error) {
+            // A 404 means the job id is genuinely gone from the server's
+            // in-memory dict -- the only case that is really "lost".
+            //
+            // A 200 carrying an error is a REAL render failure, and that
+            // message is the most useful thing we have. Collapsing both into
+            // one branch told every user to retry a render that could never
+            // succeed, and hid the cause from support: three renders failing
+            // on an FFmpeg filtergraph path bug were all reported as "job lost
+            // after server restart", when no restart had occurred.
+            if (pollRes.status === 404) {
                 item.status = 'failed';
                 item.error  = 'Render job lost after server restart. Please retry.';
                 console.warn('[FIRE] Job lost:', job_id, item.format);
+                renderBrandPills();
+                checkQueueComplete();
+                resolve();
+                return;
+            }
+
+            if (pollData.error) {
+                item.status = 'failed';
+                item.error  = pollData.error;
+                console.error('[FIRE] Render failed:', job_id, item.format, pollData.error);
                 renderBrandPills();
                 checkQueueComplete();
                 resolve();
@@ -8189,10 +8208,21 @@ async function resumeStuckPolls() {
                 return;
             }
 
-            if (pollRes.status === 404 || pollData.error) {
+            // Same split as the live poll above: only a 404 is a lost job.
+            if (pollRes.status === 404) {
                 item.status = 'failed';
                 item.error  = 'Render job lost after server restart. Please retry.';
                 console.warn('[RESUME] Job lost:', item.jobId, item.brand_name);
+                renderBrandPills();
+                checkQueueComplete();
+                item._resumeActive = false;
+                return;
+            }
+
+            if (pollData.error) {
+                item.status = 'failed';
+                item.error  = pollData.error;
+                console.error('[RESUME] Render failed:', item.jobId, item.brand_name, pollData.error);
                 renderBrandPills();
                 checkQueueComplete();
                 item._resumeActive = false;
