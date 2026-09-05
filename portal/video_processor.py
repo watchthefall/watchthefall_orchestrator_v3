@@ -35,6 +35,40 @@ def safe_path_segment(value, fallback='item'):
     return seg[:64] or fallback
 
 
+def ffmpeg_filter_path(path):
+    """Make a filesystem path safe to interpolate into an FFmpeg FILTERGRAPH.
+
+    A filtergraph is not a shell. Inside it ':' separates filter options and
+    '\\' is the escape character, so a Windows absolute path interpolated raw --
+    movie='C:\\Users\\PC\\...\\logo.png' -- is parsed as the filename 'C'
+    followed by nonsense options. Observed exactly that on 5 Sep 2026:
+
+        [Parsed_movie_0] Failed to avformat_open_input 'C'
+        [AVFilterGraph] Error initializing filters
+
+    Every brand render therefore failed on Windows, while Linux was unaffected
+    because '/var/data/storage/...' contains neither character.
+
+    Three substitutions, in this order:
+      1. '\\' -> '/'   FFmpeg accepts forward slashes on Windows, and this
+                        removes the escape-character hazard before we add any.
+      2. "'"  -> "\\'"  the path is interpolated inside single quotes.
+      3. ':'  -> '\\:'  the drive colon (and any other colon) must not be read
+                        as an option separator.
+
+    On Linux a normal path contains none of the three, so the returned string
+    is byte-identical to the input and the emitted FFmpeg command does not
+    change. That matters beyond tidiness: command identity is the normalize
+    cache key, and production caches must not be invalidated by this fix.
+    """
+    return (
+        str(path)
+        .replace('\\', '/')
+        .replace("'", "\\'")
+        .replace(':', '\\:')
+    )
+
+
 def assert_within(root, candidate):
     """Raise unless `candidate` resolves inside `root`. Last line of defence."""
     root_real = os.path.realpath(root)
@@ -1455,7 +1489,7 @@ class VideoProcessor:
             print(f"[VISUAL_PRESET] Watermark positioned: width={wm_target_w}px, center=({wm_cx_px},{wm_cy_px}), opacity={wm_opacity:.2f}")
             print(f"[WM RENDER] computed size={wm_target_w}x(auto) overlay={wm_x_expr},{wm_y_expr}")
 
-            filters.append(f"movie='{watermark_path}',scale={wm_target_w}:-1,format=rgba,colorchannelmixer=aa={wm_opacity}[watermark]")
+            filters.append(f"movie='{ffmpeg_filter_path(watermark_path)}',scale={wm_target_w}:-1,format=rgba,colorchannelmixer=aa={wm_opacity}[watermark]")
             filters.append(f"[{current_input}][watermark]overlay={wm_x_expr}:{wm_y_expr}[v1]")
             current_input = 'v1'
         else:
@@ -1491,12 +1525,12 @@ class VideoProcessor:
 
                 # Apply scale -> rotate -> shape -> opacity in sequence
                 shape_filter = f",{geq_circle}" if logo_shape == 'circle' else ''
-                filters.append(f"movie='{logo_path}',scale={logo_target_w}:-1,format=rgba,rotate={rotation_rad}:ow=hypot(iw,ih):oh=ow:fillcolor=0x00000000{shape_filter}[logo_rotated]")
+                filters.append(f"movie='{ffmpeg_filter_path(logo_path)}',scale={logo_target_w}:-1,format=rgba,rotate={rotation_rad}:ow=hypot(iw,ih):oh=ow:fillcolor=0x00000000{shape_filter}[logo_rotated]")
                 filters.append(f"[logo_rotated]colorchannelmixer=aa={logo_opacity}[logo]")
             else:
                 # No rotation - simple path; apply shape before opacity
                 shape_filter = f",{geq_circle}" if logo_shape == 'circle' else ''
-                filters.append(f"movie='{logo_path}',scale={logo_target_w}:-1,format=rgba{shape_filter},colorchannelmixer=aa={logo_opacity}[logo]")
+                filters.append(f"movie='{ffmpeg_filter_path(logo_path)}',scale={logo_target_w}:-1,format=rgba{shape_filter},colorchannelmixer=aa={logo_opacity}[logo]")
 
             filters.append(f"[{current_input}][logo]overlay={logo_x_expr}:{logo_y_expr}[v2]")
             current_input = 'v2'
@@ -1531,10 +1565,10 @@ class VideoProcessor:
             if sec_rotation != 0:
                 rotation_rad = (sec_rotation * 3.14159265359) / 180.0
                 print(f"[VISUAL_PRESET] SecLogo rotation: {sec_rotation}° = {rotation_rad:.4f} radians")
-                filters.append(f"movie='{sec_logo_path}',scale={sec_target_w}:-1,format=rgba,rotate={rotation_rad}:ow=hypot(iw,ih):oh=ow:fillcolor=0x00000000[sec_logo_r]")
+                filters.append(f"movie='{ffmpeg_filter_path(sec_logo_path)}',scale={sec_target_w}:-1,format=rgba,rotate={rotation_rad}:ow=hypot(iw,ih):oh=ow:fillcolor=0x00000000[sec_logo_r]")
                 filters.append(f"[sec_logo_r]colorchannelmixer=aa={sec_opacity}[sec_logo]")
             else:
-                filters.append(f"movie='{sec_logo_path}',scale={sec_target_w}:-1,format=rgba,colorchannelmixer=aa={sec_opacity}[sec_logo]")
+                filters.append(f"movie='{ffmpeg_filter_path(sec_logo_path)}',scale={sec_target_w}:-1,format=rgba,colorchannelmixer=aa={sec_opacity}[sec_logo]")
             
             filters.append(f"[{current_input}][sec_logo]overlay={sec_x_expr}:{sec_y_expr}[{next_v}]")
             current_input = next_v
@@ -1621,7 +1655,7 @@ class VideoProcessor:
             overlay_x = -offset_x
             overlay_y = -offset_y
             opacity = self.WATERMARK_OPACITY
-            filters.append(f"movie='{watermark_path}',scale={scaled_width}:{scaled_height},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{opacity}*alpha(X,Y)'[watermark]")
+            filters.append(f"movie='{ffmpeg_filter_path(watermark_path)}',scale={scaled_width}:{scaled_height},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='{opacity}*alpha(X,Y)'[watermark]")
             filters.append(f"[{current_input}][watermark]overlay={overlay_x}:{overlay_y}[v1]")
             current_input = 'v1'
             print(f"[DEBUG] Watermark overlay added (overscaled {scaled_width}x{scaled_height} @ {int(self.WATERMARK_SCALE*100)}%, {int(opacity*100)}% opacity)")
@@ -1641,7 +1675,7 @@ class VideoProcessor:
             logo_y = f"H-h-{padding}"
             
             # Add colorkey filter to remove black background if present
-            filters.append(f"movie='{logo_path}',scale={logo_width}:-1,format=rgba,colorkey=black:0.1:0.1[logo]")
+            filters.append(f"movie='{ffmpeg_filter_path(logo_path)}',scale={logo_width}:-1,format=rgba,colorkey=black:0.1:0.1[logo]")
             filters.append(f"[{current_input}][logo]overlay={logo_x}:{logo_y}[v2]")
             current_input = 'v2'
             print(f"[DEBUG] Logo overlay added (bottom-right, {self.LOGO_SCALE*100:.0f}% width, {padding}px padding)")
