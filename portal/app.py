@@ -4725,13 +4725,17 @@ def extract_frame():
 @login_required
 def get_watermark_preview(brand_name):
     """Serve watermark PNG for canvas preview"""
-    from .video_processor import VideoProcessor
+    from .video_processor import VideoProcessor, safe_path_segment
     
-    # Get orientation from query param (default Vertical_HD)
-    orientation = request.args.get('orientation', 'Vertical_HD')
+    # Both halves of this path come from the request (brand_name from the URL,
+    # orientation from the query string) and were joined onto WATERMARKS_DIR
+    # unchecked. Canonicalise them the same way the render path does; every real
+    # brand name and every real orientation value is unchanged by this.
+    orientation = safe_path_segment(request.args.get('orientation', 'Vertical_HD'), 'Vertical_HD')
+    safe_brand = safe_path_segment(brand_name, 'brand')
     
     # Clean brand name
-    clean_brand = brand_name.replace('WTF', '').strip()
+    clean_brand = safe_brand.replace('WTF', '').strip()
     
     # Build watermark path
     watermark_dir = os.path.join(VideoProcessor.WATERMARKS_DIR, orientation)
@@ -4740,7 +4744,7 @@ def get_watermark_preview(brand_name):
         f"{clean_brand}_watermark.png",
         f"{clean_brand.lower()}_watermark.png",
         f"{clean_brand.capitalize()}_watermark.png",
-        f"{brand_name}_watermark.png",
+        f"{safe_brand}_watermark.png",
     ]
     
     for pattern in patterns:
@@ -4755,9 +4759,10 @@ def get_watermark_preview(brand_name):
 @login_required
 def get_logo_preview(brand_name):
     """Serve logo PNG for canvas preview"""
-    from .video_processor import VideoProcessor
+    from .video_processor import VideoProcessor, safe_path_segment
     
-    logo_filename = f"{brand_name}_logo.png"
+    # brand_name comes straight from the URL and is joined onto LOGOS_DIR.
+    logo_filename = f"{safe_path_segment(brand_name, 'brand')}_logo.png"
     logo_path = os.path.join(VideoProcessor.LOGOS_DIR, logo_filename)
     
     if os.path.exists(logo_path):
