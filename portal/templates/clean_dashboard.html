@@ -5777,7 +5777,31 @@ function renderItemLabel(item) {
 // render happens upstream; this is the only place that actually renders.
 // Resolves when the render settles (done/failed); fire-and-forget callers
 // (approveAndNext) may ignore the returned promise and stay non-blocking.
+// Render items that are in flight IN THIS PAGE SESSION.
+//
+// Membership is by object identity against processingQueue entries, and the
+// set lives only in memory. That is exactly the distinction processAllBrands
+// needs: an item stranded at status='processing' by a reload or navigation
+// cannot be in this set (the set died with the old page), while an item whose
+// render is genuinely running right now always is.
+const _inFlightRenderItems = new Set();
+
 async function fireRenderForItem(item) {
+    // The double-fire guard lives here, in front of the in-flight bookkeeping,
+    // so a second call for the same item is refused before it can be recorded.
+    if (item.status === 'processing' || item.status === 'done') {
+        console.warn('[FIRE] Skip', item.brand_name, item.format, '- already', item.status);
+        return;
+    }
+    _inFlightRenderItems.add(item);
+    try {
+        return await _fireRenderForItemInner(item);
+    } finally {
+        _inFlightRenderItems.delete(item);
+    }
+}
+
+async function _fireRenderForItemInner(item) {
     if (item.status === 'processing' || item.status === 'done') {
         console.warn('[FIRE] Skip', item.brand_name, item.format, '— already', item.status);
         return;
@@ -6175,8 +6199,22 @@ async function processAllBrands() {
     // items stuck at status='processing' would be silently excluded from
     // pendingItems below. Reset them to 'pending' so this run picks them up.
     // Only 'processing' is reset — skipped/done/failed are intentional states.
+    //
+    // ...but ONLY when the render is not actually running. Resetting an item
+    // that is genuinely in flight cleared fireRenderForItem's own double-fire
+    // guard, so this run re-submitted a render that was already going: a second
+    // request, a second output file, and a second credit for the same item.
+    // That was reachable from the UI -- approve some items, "Use defaults" on
+    // the last, and the completion card's "Start branding" lands here while the
+    // earlier renders are still polling (1-5 minutes).
+    //
+    // _inFlightRenderItems is the discriminator: memory-only, so it is empty
+    // after a reload (stale items still get recovered, which is the point of
+    // Fix A) and populated for anything running now (which is left alone).
+    // The reset is therefore idempotent: running this twice in a row cannot
+    // move an item out of 'processing' while its render is live.
     processingQueue.forEach(q => {
-        if (q.status === 'processing') {
+        if (q.status === 'processing' && !_inFlightRenderItems.has(q)) {
             q.status = 'pending';
             syncStatusToJobItem(q.brand_id, 'pending');
         }
