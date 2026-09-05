@@ -17,6 +17,11 @@ production.
    the user_id filter below it was effectively unreachable.
 6. /portal/downloader_dashboard batched every brand into one 1-credit request
    and reported every success as a failure.
+7. Filesystem paths were interpolated raw into the FFmpeg filtergraph, so on
+   Windows movie='C:\\...' parsed as the filename 'C' and every brand render
+   failed. (Found by running the app locally, 5 Sep 2026.)
+8. Polling reported every render failure as "job lost after server restart",
+   discarding the real FFmpeg error that was in the response.
 
 Real functions, AST-extracted from source and executed against stubs. The
 get_brand block runs its real SQL against an in-memory SQLite. No Flask, no
@@ -27,6 +32,7 @@ project database, no FFmpeg, no browser:
 import ast
 import io
 import os
+import re
 import sqlite3
 from contextlib import contextmanager
 
@@ -35,6 +41,18 @@ DB = io.open(os.path.join('portal', 'database.py'), encoding='utf-8').read()
 VP = io.open(os.path.join('portal', 'video_processor.py'), encoding='utf-8').read()
 UI = io.open(os.path.join('portal', 'templates', 'clean_dashboard.html'),
              encoding='utf-8').read()
+
+def banner_prefixes():
+    """The real banner-prefix tuple, read from the module rather than
+    duplicated here, so this suite cannot drift from what the code filters.
+    Resolved lazily: if the helper is missing, section 8 should fail with a
+    sentence that says so, not the whole suite at import with a ValueError."""
+    assert '_FFMPEG_BANNER_PREFIXES' in VP, \
+        'video_processor.py has no _FFMPEG_BANNER_PREFIXES - the banner filter is gone'
+    ns = {}
+    exec(compile(VP[VP.index('_FFMPEG_BANNER_PREFIXES'):VP.index('def ffmpeg_error_summary')],
+                 '<banner>', 'exec'), ns)
+    return ns['_FFMPEG_BANNER_PREFIXES']
 
 PASS = 0
 
@@ -270,5 +288,90 @@ fire = UI[UI.index('async function _fireRenderForItemInner(item) {'):]
 fire = fire[:fire.index('async function processCurrentBrand()')]
 assert 'brand_ids:     [item.brand_id],' in fire
 ok('the live submit path still sends one brand per request')
+
+
+# ------------------------------------- 7. filtergraph paths are escaped ----
+print('\n[7. a Windows path cannot break the filtergraph]')
+
+vns2 = {'os': os, 're': __import__('re')}
+ffmpeg_filter_path = extract(VP, 'ffmpeg_filter_path', vns2)
+
+win = r"C:\Users\PC\Desktop\wtf_brandr_app\portal\private\storage\brands\1\1\logo.png"
+esc = ffmpeg_filter_path(win)
+# NOT "no backslashes": the helper deliberately ADDS them as escape
+# characters. What must be gone is the backslash as a PATH SEPARATOR.
+assert '/Users/PC/' in esc, esc
+ok('path separators become forward slashes')
+assert not re.search(r'\\(?![:\'])', esc), 'a backslash remains that is not an escape'
+ok('every remaining backslash is an escape for : or \'')
+assert esc.startswith(r'C\:'), esc
+ok('the drive colon is escaped', esc[:12])
+# The exact failure mode: an UNescaped ':' ends the filename at 'C'.
+_re = re
+assert not _re.search(r'(?<!\\):', esc), 'an unescaped colon remains -> filename truncates to C'
+ok('no unescaped colon remains anywhere', 'the defect')
+assert ffmpeg_filter_path("/tmp/a'b.png") == "/tmp/a\\'b.png"
+ok("a quote in the path is escaped too")
+
+# Production safety: a normal Linux path must be returned BYTE-IDENTICAL,
+# because the emitted command is the normalize cache key.
+for linux in ('/var/data/storage/brands/1/1/logo_normalized.png',
+              '/var/data/storage/brands/12/34/watermark.png',
+              '/tmp/with space/logo.png'):
+    assert ffmpeg_filter_path(linux) == linux, linux
+ok('Linux paths are unchanged, so cache keys are not invalidated', '3 paths')
+
+# Every movie= site must go through the helper -- a new one added raw reopens it.
+raw = _re.findall(r"movie='\{(?!ffmpeg_filter_path)", VP)
+assert not raw, '%d movie= interpolation(s) bypass ffmpeg_filter_path' % len(raw)
+ok('no movie= interpolation bypasses the helper')
+assert VP.count('ffmpeg_filter_path(') >= 8   # 7 call sites + the definition
+ok('all seven movie= sites use it', '%d references' % VP.count('ffmpeg_filter_path('))
+
+
+# ---------------------------- 8. real render errors reach the user ---------
+print('\n[8. a failed render says why it failed]')
+
+ffmpeg_error_summary = extract(VP, 'ffmpeg_error_summary',
+                               {'os': os, '_FFMPEG_BANNER_PREFIXES': banner_prefixes()})
+REAL = """ffmpeg version 8.1 Copyright (c) 2000-2025 the FFmpeg developers
+built with gcc 15.2.0 (Rev8, Built by MSYS2 project)
+configuration: --enable-gpl --enable-libx264 --enable-libaom --enable-mediafoundation
+  libavutil      60.  5.100 /  60.  5.100
+  libavfilter    11. 14.100 / 11. 14.100
+[Parsed_movie_0 @ 00000200a7f2c140] Failed to avformat_open_input 'C'
+[AVFilterGraph @ 00000200a7f29380] Error initializing filters
+Error : No such file or directory"""
+summary = ffmpeg_error_summary(REAL)
+assert 'avformat_open_input' in summary, 'the diagnosis was dropped'
+ok('the actual cause survives')
+assert '--enable-' not in summary, 'the build banner is still being reported'
+ok('the build banner does not', 'the defect')
+assert 'libavfilter' not in summary and 'ffmpeg version' not in summary
+ok('version and library lines are dropped too')
+assert ffmpeg_error_summary('') == ''
+ok('empty stderr yields empty, not a crash')
+assert ffmpeg_error_summary('configuration: --enable-gpl').strip() != ''
+ok('banner-only stderr still returns something rather than nothing')
+
+# Client: 404 and "the server told us it failed" must be different branches.
+for label, marker in (('live poll', "console.warn('[FIRE] Job lost:"),
+                      ('resume path', "console.warn('[RESUME] Job lost:")):
+    blk = UI[UI.index(marker) - 700: UI.index(marker) + 1400]
+    assert 'pollRes.status === 404 || pollData.error' not in blk, \
+        '%s still collapses 404 and a real error into one branch' % label
+    ok('%s no longer collapses the two cases' % label, 'the defect')
+    assert 'if (pollRes.status === 404)' in blk, label
+    ok('%s keeps a dedicated 404 = lost-job branch' % label)
+    assert re.search(r'item\.error\s*=\s*pollData\.error;', blk), label
+    ok('%s surfaces the server error verbatim' % label)
+
+# The restart wording must never be attached to a real error again.
+restart_msg = "Render job lost after server restart. Please retry."
+for m in _re.finditer(_re.escape(restart_msg), UI):
+    before = UI[max(0, m.start() - 400): m.start()]
+    assert 'pollRes.status === 404' in before or 'jobId' in before, \
+        'the restart message is reachable from a non-404 path'
+ok('the restart message is only reachable from a 404')
 
 print('\n%d assertions passed.' % PASS)
