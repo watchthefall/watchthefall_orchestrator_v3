@@ -8,9 +8,44 @@ import subprocess
 import threading
 import uuid as _uuid
 import json
+import re
 import time
 import uuid
 from typing import Dict, List, Optional
+
+# ── Filesystem-safe name segments ─────────────────────────────────────────────
+# A brand name is user-supplied text (POST /api/brands accepts it verbatim) and
+# it is interpolated into the branded output filename. Joined onto the output
+# directory unchecked, a name like '../../x' escaped the storage root -- and
+# process_brand() calls os.makedirs() on the dirname, so it created the
+# directories on the way out too.
+#
+# The fix is canonical construction, not a traversal blacklist. Anything outside
+# [A-Za-z0-9._-] becomes '-', then leading/trailing dots and dashes are stripped,
+# so '..', 'a/b', '..\\a' and 'C:\\x' can only ever collapse into one inert
+# segment. Every brand name currently in production is alphanumeric and passes
+# through byte-identical, so existing output filenames do not change.
+_SAFE_SEGMENT_RE = re.compile(r'[^A-Za-z0-9._-]+')
+
+
+def safe_path_segment(value, fallback='item'):
+    """Collapse arbitrary text into a single filesystem-safe path segment."""
+    seg = _SAFE_SEGMENT_RE.sub('-', str(value if value is not None else ''))
+    seg = seg.strip('.-')          # no leading dot: no '..', no hidden files
+    return seg[:64] or fallback
+
+
+def assert_within(root, candidate):
+    """Raise unless `candidate` resolves inside `root`. Last line of defence."""
+    root_real = os.path.realpath(root)
+    cand_real = os.path.realpath(candidate)
+    if cand_real != root_real and not cand_real.startswith(root_real + os.sep):
+        raise ValueError(
+            'refusing to write outside the storage root: %r escapes %r'
+            % (cand_real, root_real)
+        )
+    return cand_real
+
 
 # ── FFmpeg runs BELOW the web worker's priority ───────────────────────────────
 # The box is 1 CPU. FFmpeg already self-limits with -threads 1, but one thread is
@@ -1699,8 +1734,17 @@ class VideoProcessor:
         """
         start_time = time.time()
         brand_name = brand_config.get('name', 'brand')
-        output_filename = f"{video_id}_{brand_name}_{output_format}.mp4"
+        # Build the filename from SAFE segments. brand_name is user-supplied and
+        # reached os.path.join()/os.makedirs() unchecked; video_id is server-side
+        # but goes through the same door, so both are canonicalised here rather
+        # than trusted. Legitimate names are unaffected (see safe_path_segment).
+        safe_brand = safe_path_segment(brand_name, 'brand')
+        safe_video_id = safe_path_segment(video_id, 'video')
+        output_filename = f"{safe_video_id}_{safe_brand}_{output_format}.mp4"
         output_path = os.path.join(self.output_dir, output_filename)
+        # Independent of the sanitiser above: whatever we are about to create,
+        # write and publish must resolve inside the output directory.
+        assert_within(self.output_dir, output_path)
         
         print(f"[DEBUG] Processing brand: {brand_name}")
         print(f"[DEBUG] Video ID: {video_id}")
