@@ -2420,7 +2420,7 @@
     <div id="queueModeActions" style="display:none;">
         <div class="review-actions">
             <button onclick="reviewPrevious()" class="review-quiet">Previous</button>
-            <button onclick="skipBrand()" class="review-secondary">Use defaults</button>
+            <button onclick="useDefaultsAndNext()" class="review-secondary">Use defaults</button>
             <button onclick="approveAndNext()" id="approveNextBtn" class="review-primary">Approve &amp; Next</button>
         </div>
         <!-- Per-ITEM transient notices live here, never in #processResult, which is
@@ -6396,33 +6396,63 @@ async function downloadAllCompletedOutputs() {
     }
 }
 
-async function skipBrand() {
+// "Use defaults" RENDERS this item with the brand's saved settings.
+//
+// It used to set status='skipped' and fire nothing at all, while the button
+// said "Use defaults" and the toast said "Using defaults for X" -- so the one
+// control a user reaches for when they want a brand rendered untouched was the
+// one control that produced no output. The item was then excluded from every
+// downstream count, so nothing anywhere reported the missing render.
+//
+// This is now Approve with the styling tweaks discarded: same single
+// fireRenderForItem() call, same one-request-per-(brand x format) shape, same
+// charge-on-success semantics. Only the overrides differ.
+//
+// Source framing is deliberately NOT reset here. Reframe is a separate control
+// group from QUICK TWEAKS, and silently undoing a user's pan/zoom would be a
+// second surprise of exactly the kind this fix removes.
+async function useDefaultsAndNext() {
+    if (!isQueueMode) return;
     const current = processingQueue[currentQueueIndex];
+    if (!current) return;
     const result = document.getElementById('processResult');
-    const skippedBrandName = current.brand_name;
-    current.status = 'skipped';
-    current.reviewDecision = 'skipped';
-    
+    const brandLabel = current.brand_name;
+
+    // Reset to the brand's saved defaults for this format. userEdited=false is
+    // what actually makes the server use the stored brand config: the payload
+    // only carries override fields when the item was edited.
+    const brandData = brandDataCache[current.brand_id];
+    current.overrides = { ...getFormatDefaults(brandData, current.format || 'vertical_9_16') };
+    current.userEdited = false;
+    current.reviewDecision = 'defaults';
+    if (current.status === 'editing' || current.status === 'skipped') current.status = 'pending';
+
     // ========== JOB-ITEM MODEL (Commit 5: sync status to jobItems) ==========
     if (currentFile && current.brand_id) {
         syncQueueItemToJobItem(current);
     }
     // ========== END JOB-ITEM MODEL ==========
-    
+
     renderBrandPills();
     updateReviewHeader();
-    
-    // Find next pending brand
-    const nextIdx = findNextPendingBrand();
-    if (nextIdx !== -1) {
-        await switchToBrand(nextIdx);
-        if (result) {
-            result.innerHTML = `<div class="status-msg info">Using defaults for ${skippedBrandName}. Moving to next item.</div>`;
-        }
+
+    // Fire exactly one render for this (brand x format) item -- same path as approve.
+    fireRenderForItem(current);
+
+    if (result) {
+        result.innerHTML = `<div class="status-msg info">Rendering ${brandLabel} with its saved defaults.</div>`;
+    }
+
+    if (currentQueueIndex < processingQueue.length - 1) {
+        switchToBrand(currentQueueIndex + 1);
     } else {
-        renderReviewCompletionState();
+        renderStreamingCompletionState();
     }
 }
+
+// Back-compat alias: skipBrand() no longer skips. Kept so any stale inline
+// handler or cached page calls the corrected path rather than a missing one.
+const skipBrand = useDefaultsAndNext;
 
 function advanceQueue() {
     // Legacy function - find next pending brand
