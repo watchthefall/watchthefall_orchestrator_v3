@@ -22,6 +22,9 @@ production.
    failed. (Found by running the app locally, 5 Sep 2026.)
 8. Polling reported every render failure as "job lost after server restart",
    discarding the real FFmpeg error that was in the response.
+9. The composition decode check failed on ANY stderr, so a null-MUXER timestamp
+   complaint about its own throwaway output rejected composed files that were
+   complete and decodable. Source-specific, so it looked random.
 
 Real functions, AST-extracted from source and executed against stubs. The
 get_brand block runs its real SQL against an in-memory SQLite. No Flask, no
@@ -41,6 +44,16 @@ DB = io.open(os.path.join('portal', 'database.py'), encoding='utf-8').read()
 VP = io.open(os.path.join('portal', 'video_processor.py'), encoding='utf-8').read()
 UI = io.open(os.path.join('portal', 'templates', 'clean_dashboard.html'),
              encoding='utf-8').read()
+
+def _muxer_noise():
+    """The real _DECODE_MUXER_NOISE tuple, read from the module."""
+    assert '_DECODE_MUXER_NOISE' in VP, \
+        'video_processor.py has no _DECODE_MUXER_NOISE - the decode filter is gone'
+    ns = {}
+    exec(compile(VP[VP.index('_DECODE_MUXER_NOISE'):VP.index('def decode_stderr_faults')],
+                 '<noise>', 'exec'), ns)
+    return ns['_DECODE_MUXER_NOISE']
+
 
 def banner_prefixes():
     """The real banner-prefix tuple, read from the module rather than
@@ -373,5 +386,55 @@ for m in _re.finditer(_re.escape(restart_msg), UI):
     assert 'pollRes.status === 404' in before or 'jobId' in before, \
         'the restart message is reachable from a non-404 path'
 ok('the restart message is only reachable from a 404')
+
+
+# ------------------------------- 9. the decode check tests DECODING --------
+print('\n[9. a sound composed file is not rejected by muxer noise]')
+
+decode_stderr_faults = extract(VP, 'decode_stderr_faults',
+                               {'_DECODE_MUXER_NOISE': _muxer_noise()})
+
+NOISE = ('[null @ 0x1] Application provided invalid, non monotonically '
+         'increasing dts to muxer in stream 0: 68 >= 68')
+assert decode_stderr_faults(NOISE) == [], 'the muxer complaint is still fatal'
+ok('a null-muxer DTS complaint is not a decode fault', 'the defect')
+assert decode_stderr_faults('') == []
+ok('empty stderr is clean')
+
+# Strictness must survive: these are real faults and must still fail.
+for fault in ('[h264 @ 0x1] Invalid data found when processing input',
+              '[h264 @ 0x1] error while decoding MB 12 3',
+              '[mov,mp4 @ 0x1] moov atom not found',
+              'Output file is empty, nothing was encoded'):
+    assert decode_stderr_faults(fault), 'a real decode fault is being ignored: %s' % fault
+ok('real decode faults still fail the check', '4 phrases')
+
+mixed = NOISE + '\n[h264 @ 0x1] error while decoding MB 12 3'
+assert decode_stderr_faults(mixed) == ['[h264 @ 0x1] error while decoding MB 12 3']
+ok('a real fault mixed with noise still fails, noise stripped')
+
+# The ignore list must stay narrow -- it may never grow to swallow corruption.
+for forbidden in ('Invalid data', 'error while decoding', 'moov atom',
+                  'corrupt', 'nothing was encoded'):
+    assert not any(forbidden.lower() in n.lower() for n in _muxer_noise()), forbidden
+ok('the ignore list cannot swallow corruption', '5 phrases checked')
+
+vc = VP[VP.index('def verify_composition('):]
+vc = vc[:vc.index('\ndef ', 10)]
+assert 'decode_stderr_faults(r.stderr)' in vc
+ok('verify_composition uses the fault filter')
+assert 'r.returncode != 0' in vc
+ok('a non-zero exit still fails, filter or no filter')
+# Every other contract check is untouched -- this fix must not relax them.
+for contract in ('composed output has no video stream',
+                 'but the format requires',
+                 'a segment is probably missing',
+                 'composed output lost its audio track',
+                 'segments are not on one audio contract'):
+    assert contract in vc, 'a composition contract check was lost: %s' % contract
+ok('dimensions, duration, audio and skew contracts all intact', '5 checks')
+# The ignored line must still be logged, not silently dropped.
+assert 'muxer noise ignored' in vc
+ok('ignored noise is logged rather than hidden')
 
 print('\n%d assertions passed.' % PASS)

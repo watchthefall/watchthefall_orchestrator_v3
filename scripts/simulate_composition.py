@@ -67,6 +67,9 @@ WANT = ('CONFORM_CACHE_VERSION', 'CONCAT_AUDIO_RATE', 'CONCAT_AUDIO_CHANNELS',
         'CONCAT_AUDIO_BITRATE', 'CONCAT_FPS', 'COMPOSE_DURATION_TOLERANCE',
         'COMPOSE_AV_SKEW_TOLERANCE', 'COMPOSE_ENCODE_TIMEOUT',
         'COMPOSE_DECODE_TIMEOUT', 'CompositionError', '_as_seconds',
+        # verify_composition's decode check delegates to these, so the suite
+        # must exercise the REAL filter rather than stub it out.
+        '_DECODE_MUXER_NOISE', 'decode_stderr_faults',
         'verify_composition')
 for node in ast.parse(VP).body:
     nm = None

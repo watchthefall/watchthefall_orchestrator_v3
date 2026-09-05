@@ -588,6 +588,41 @@ def concat_copy(segments, out_path):
     return out_path
 
 
+# Lines the decode check must NOT treat as corruption.
+#
+# verify_composition decodes the composed file to the null muxer. Its purpose is
+# to prove the INPUT decodes -- ffprobe reads headers, only a decode reads the
+# picture data. But it failed on ANY stderr, including complaints the null MUXER
+# makes about the throwaway output it is asked to write.
+#
+# Observed 5 Sep 2026: a composed file with correct dimensions, correct total
+# duration, correct A/V skew and exit code 0 was rejected with
+#
+#   [null @ ...] Application provided invalid, non monotonically increasing dts
+#   to muxer in stream 0: 68 >= 68
+#
+# Two frames share a DTS at a segment junction. That is a container nicety on a
+# file nothing keeps, and it is emitted while WRITING null output -- it is not
+# evidence that the composed video failed to decode. Treating it as fatal failed
+# renders whose output was sound, and it did so per-source, so it looked random.
+#
+# Everything else still fails the check: a non-zero exit, and any other stderr
+# line. Truncation, corrupt bitstreams, missing segments and lost audio are all
+# caught here or by the duration/skew contracts above, which are untouched.
+_DECODE_MUXER_NOISE = (
+    'non monotonically increasing dts',
+    'Non-monotonic DTS',
+    'Non-monotonous DTS',
+)
+
+
+def decode_stderr_faults(stderr):
+    """Return the stderr lines that indicate a real decode fault (may be empty)."""
+    lines = [l.strip() for l in (stderr or '').splitlines() if l.strip()]
+    return [l for l in lines
+            if not any(noise in l for noise in _DECODE_MUXER_NOISE)]
+
+
 def verify_composition(path, expected_duration, target_w, target_h):
     """The artifact contract. Raises CompositionError on any breach.
 
@@ -636,9 +671,16 @@ def verify_composition(path, expected_duration, target_w, target_h):
     except subprocess.TimeoutExpired:
         raise CompositionError('composed output could not be decoded within '
                                f'{COMPOSE_DECODE_TIMEOUT}s')
-    if r.returncode != 0 or (r.stderr or '').strip():
+    faults = decode_stderr_faults(r.stderr)
+    if r.returncode != 0 or faults:
         raise CompositionError(
-            f'composed output does not decode cleanly: {(r.stderr or "")[-300:]}')
+            'composed output does not decode cleanly: '
+            + ('\n'.join(faults)[-300:] or (r.stderr or '')[-300:]))
+    if (r.stderr or '').strip():
+        # Ignored, but never silent: a junction timestamp quirk is worth seeing
+        # in the logs even though it does not make the artifact defective.
+        print(f"[COMPOSE] decode clean; muxer noise ignored: "
+              f"{(r.stderr or '').strip().splitlines()[-1][:160]}", flush=True)
 
     print(f"[COMPOSE] verified {w}x{h} video={v_dur:.3f}s audio={a_dur:.3f}s "
           f"(expected {expected_duration:.3f}s) - full decode clean", flush=True)
