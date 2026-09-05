@@ -4601,6 +4601,29 @@ def extract_frame():
         # Sanitize filename to prevent path traversal
         filename = os.path.basename(filename)
 
+        # ── Ownership gate ────────────────────────────────────────────────────
+        # This endpoint used to look on disk FIRST and only consult the
+        # user-scoped downloads table if nothing was found there. Because the
+        # common case is that the file IS on disk, the user_id filter below was
+        # effectively unreachable: any logged-in user who knew or guessed a
+        # filename got a decoded frame -- and the true dimensions -- of another
+        # account's source video or branded output.
+        #
+        # /api/videos/download/<filename> has always gated on
+        # user_can_download_filename(); this route simply omitted it. Same check,
+        # same helper, applied before anything touches the filesystem.
+        #
+        # The helper denies by default (unknown file and unowned file both return
+        # False), so this cannot be used to probe which filenames exist.
+        from .database import user_can_download_filename
+        req_user_id = session.get('user_id')
+        if not user_can_download_filename(req_user_id, filename):
+            print(f'[EXTRACT-FRAME] denied: user={req_user_id} may not read {filename}')
+            return jsonify({
+                'success': False,
+                'error': 'You do not have access to this file'
+            }), 403
+
         # Find the video file — search all known locations in priority order
         from .config import UPLOAD_DIR
         from .database import get_connection
@@ -4615,7 +4638,6 @@ def extract_frame():
         # P1 fix: filter by user_id so users cannot extract frames from other users' files
         if video_path is None:
             try:
-                req_user_id = session.get('user_id')
                 with get_connection() as conn:
                     c = conn.cursor()
                     c.execute(
