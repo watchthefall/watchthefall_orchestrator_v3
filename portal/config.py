@@ -550,6 +550,15 @@ try:
 except Exception as _cp_err:
     print(f"[CONFIG] Cookie pool bootstrap skipped: {_cp_err}")
 
+# Bootstrap the YouTube cookie POOL (YOUTUBE_COOKIES + YOUTUBE_COOKIES_1..10).
+# Kept separate from Instagram: cookie health, cooldowns and auth signatures are
+# platform-specific, and the raw env values remain the only source of truth.
+try:
+    from . import youtube_cookie_pool
+    youtube_cookie_pool.bootstrap_pool(COOKIE_DIR)
+except Exception as _ytcp_err:
+    print(f"[CONFIG] YouTube cookie pool bootstrap skipped: {_ytcp_err}")
+
 # Optional residential proxy for Instagram (durable fix for datacenter-IP 403s).
 # Set IG_PROXY=http://user:pass@host:port on Render to route IG requests through it.
 IG_PROXY = os.environ.get('IG_PROXY', '').strip()

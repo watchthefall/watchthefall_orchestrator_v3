@@ -2,6 +2,10 @@
 cookies.txt
 cookies/cookies.txt
 portal/data/cookies.txt
+# Runtime cookie files written from env vars by the cookie pools. The env
+# var is the source of truth; these are derived copies and are credentials.
+portal/data/pool/
+portal/data/youtube_pool/
 portal/private/
 *.db
 !cookies/cookies_example.txt

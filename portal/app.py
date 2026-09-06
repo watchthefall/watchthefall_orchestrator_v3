@@ -3977,8 +3977,14 @@ def fetch_videos_from_urls():
                 # you're not a bot" on the default web client. Try alternate player
                 # clients (tv / web_safari / ios) that often bypass the check without
                 # cookies. Overridable via YT_PLAYER_CLIENTS (comma-separated). If a
-                # residential IG_PROXY is set, route YouTube through it too — the
+                # residential IG_PROXY is set, route YouTube through it too -- the
                 # datacenter IP is the real trigger.
+                #
+                # When YOUTUBE_COOKIES* is configured, a separate pool (below) adds
+                # cookies as a FALLBACK behind these clients -- it does not replace
+                # them. The proxy story is unchanged: this explicit IG_PROXY line is
+                # the only proxy YouTube ever uses, because proxy_service is
+                # deliberately Meta-scoped and was not broadened.
                 if is_youtube:
                     _yt_clients = [c.strip() for c in os.environ.get(
                         'YT_PLAYER_CLIENTS', 'tv,web_safari,ios').split(',') if c.strip()]
@@ -3995,12 +4001,13 @@ def fetch_videos_from_urls():
                 #     ydl_opts['impersonate'] = ('chrome', '110', 'windows')
 
                 # --- Cookie selection + rotation ----------------------------
-                # Instagram needs session cookies and they expire; we hold a pool
-                # (INSTAGRAM_COOKIES + _1.._10) and rotate least-recently-used,
-                # failing over on auth errors. Non-Instagram sources fall back to
-                # the single legacy cookies.txt (behaviour unchanged).
+                # Instagram and YouTube have separate pools: different env vars,
+                # different auth-failure signatures and independent cooldowns.
+                # Non-pooled sources fall back to the single legacy cookies.txt
+                # (behaviour unchanged).
                 from .config import COOKIE_FILE as _legacy_cookie_file
                 from . import cookie_pool
+                from . import youtube_cookie_pool
 
                 def _legacy_cookie_candidate():
                     """The single portal/data/cookies.txt if it carries cookie data."""
@@ -4015,9 +4022,33 @@ def fetch_videos_from_urls():
                         print(f"[FETCH] legacy cookie check failed: {_ck_err}")
                     return None
 
+                active_cookie_pool = None
+                pool_label = None
                 if is_meta and cookie_pool.pool_size() > 0:
+                    active_cookie_pool = cookie_pool
+                    pool_label = 'Instagram'
+                elif is_youtube and youtube_cookie_pool.pool_size() > 0:
+                    active_cookie_pool = youtube_cookie_pool
+                    pool_label = 'YouTube'
+
+                if active_cookie_pool:
                     using_pool = True
-                    cookie_candidates = cookie_pool.candidates_lru()
+                    cookie_candidates = active_cookie_pool.candidates_lru()
+                    if is_youtube:
+                        # YouTube is NOT Instagram. Instagram cannot be fetched
+                        # without a live session cookie, so an exhausted pool is
+                        # a genuine dead end. YouTube fetches fine without any
+                        # cookie most of the time -- the alternate player_client
+                        # above is the primary mechanism and cookies are the
+                        # fallback for the bot gate.
+                        #
+                        # So configuring YOUTUBE_COOKIES must never REMOVE the
+                        # cookieless path that works today. A last candidate of
+                        # None means: every cookie stale, or every cookie cooling
+                        # down (candidates_lru() returns [] and this is the only
+                        # candidate left), still degrades to the plain fetch
+                        # rather than to a hard failure.
+                        cookie_candidates = cookie_candidates + [None]
                 else:
                     using_pool = False
                     _legacy = _legacy_cookie_candidate()
@@ -4026,7 +4057,7 @@ def fetch_videos_from_urls():
                 # Circuit breaker: if the whole pool just failed (Instagram IP
                 # block), skip entirely instead of firing a request per cookie and
                 # digging the block deeper. Returns the friendly error instantly.
-                if using_pool and cookie_pool.breaker_open():
+                if is_meta and using_pool and cookie_pool.breaker_open():
                     _mins = max(1, cookie_pool.breaker_remaining() // 60)
                     print(f"[COOKIE POOL] breaker open — skipping Instagram fetch for "
                           f"{url_input[:50]} (~{_mins}min left)", flush=True)
@@ -4049,9 +4080,9 @@ def fetch_videos_from_urls():
                         opts['cookiefile'] = _cookie
                         _label = os.path.basename(_cookie)
                         print(f"[FETCH] Using cookie: {_label}"
-                              + (f" (pool {_idx + 1}/{len(cookie_candidates)})" if using_pool else ""))
+                              + (f" ({pool_label} pool {_idx + 1}/{len(cookie_candidates)})" if using_pool else ""))
                         if using_pool:
-                            cookie_pool.mark_used(_cookie)
+                            active_cookie_pool.mark_used(_cookie)
                     else:
                         print("[FETCH] No cookie file in use")
 
@@ -4078,13 +4109,20 @@ def fetch_videos_from_urls():
                                 info = ydl.extract_info(url_input, download=True)
                                 filename = ydl.prepare_filename(info)
                             print("[FETCH] direct retry succeeded after proxy failure")
-                        if using_pool and _cookie:
-                            cookie_pool.mark_success(_cookie)
-                            cookie_pool.reset_breaker()  # Instagram is responding again
-                            # A later cookie worked, so the earlier failures were
-                            # genuinely dead cookies — cool them down.
+                        if using_pool:
+                            if _cookie:
+                                active_cookie_pool.mark_success(_cookie)
+                                if is_meta:
+                                    cookie_pool.reset_breaker()  # Instagram is responding again
+                            # Something later in the list worked, so the earlier
+                            # failures were genuinely dead cookies — cool them
+                            # down. That includes the YouTube case where the
+                            # thing that worked was the cookieless attempt: a
+                            # cookie that auth-failed where NO cookie succeeded
+                            # is worse than no cookie. Instagram never has a
+                            # cookieless candidate, so its behaviour is unchanged.
                             for _b in tried_bad:
-                                cookie_pool.mark_bad(_b)
+                                active_cookie_pool.mark_bad(_b)
                         break
                     except Exception as download_error:
                         # redact(): yt-dlp echoes the full proxy URL (with password)
@@ -4092,13 +4130,13 @@ def fetch_videos_from_urls():
                         err_text = proxy_service.redact(_strip_ansi(str(download_error)))
                         print(f"[FETCH ERROR] Download failed for {url_input}: {err_text}")
                         info = None
-                        if (using_pool and cookie_pool.is_auth_failure(err_text)
+                        if (using_pool and active_cookie_pool.is_auth_failure(err_text)
                                 and _idx < len(cookie_candidates) - 1):
                             print(f"[FETCH] auth failure on {os.path.basename(_cookie)} "
                                   f"— rotating to next cookie")
                             tried_bad.append(_cookie)
                             continue
-                        if using_pool and cookie_pool.is_auth_failure(err_text):
+                        if using_pool and active_cookie_pool.is_auth_failure(err_text):
                             break  # last cookie also auth-failed → all failed
                         # Non-auth error (private/removed post, network, unsupported)
                         # — another cookie won't help. Surface it as before.
@@ -4115,10 +4153,20 @@ def fetch_videos_from_urls():
                     # (private post OR whole pool stale), so we do NOT cool every
                     # cookie down — but alert loudly and show one friendly error.
                     if using_pool:
-                        print(f"[COOKIE ALERT] all {cookie_pool.pool_size()} pooled "
-                              f"cookie(s) failed auth for {url_input} — refresh the "
-                              f"pool if this persists")
-                        cookie_pool.trip_breaker()  # stop hammering IG for a while
+                        print(f"[COOKIE ALERT] all {active_cookie_pool.pool_size()} pooled "
+                              f"{pool_label} cookie(s) failed auth for {url_input} — "
+                              f"refresh the pool if this persists")
+                        if is_meta:
+                            cookie_pool.trip_breaker()  # stop hammering IG for a while
+                    if is_youtube:
+                        return {
+                            'url': url_input,
+                            'error': ("YouTube couldn't be reached for this link right now. "
+                                      "It may need refreshed YouTube cookies, or YouTube may "
+                                      "be temporarily blocking downloads. Please try again "
+                                      "shortly or try another link."),
+                            'success': False,
+                        }
                     return {
                         'url': url_input,
                         'error': ("Instagram couldn't be reached for this link right now. "
