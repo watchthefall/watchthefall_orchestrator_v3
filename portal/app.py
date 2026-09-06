@@ -6518,7 +6518,8 @@ def schedule_cleanup():
     import time
     import threading
     from .database import (cleanup_old_downloads, cleanup_old_branded_outputs,
-                           sweep_normalized_temp_files)
+                           sweep_normalized_temp_files,
+                           sweep_conformed_bookend_files)
 
     SWEEP_INTERVAL = 30 * 60     # 30 min — normalized temp sweep cadence
     FULL_CLEANUP_EVERY = 12      # full age-based cleanup every 12 sweeps (~6h)
@@ -6532,6 +6533,13 @@ def schedule_cleanup():
                 swept = sweep_normalized_temp_files(30)
                 if swept:
                     print(f"[CLEANUP] Swept {swept} stale normalized temp files")
+
+                # Same cadence, different retention: conformed bookend variants
+                # are reused across renders, so only abandoned temps go on the
+                # 30-minute clock; published entries retire after 30 idle days.
+                conformed = sweep_conformed_bookend_files(30, 30)
+                if conformed:
+                    print(f"[CLEANUP] Swept {conformed} conformed bookend file(s)")
 
                 # Periodic (~6h): age-based cleanup of downloads + expired renders.
                 if tick % FULL_CLEANUP_EVERY == 0:

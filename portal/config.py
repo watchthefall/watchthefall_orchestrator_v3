@@ -19,6 +19,11 @@ RAW_DIR = os.path.join(STORAGE_ROOT, 'raw')  # Downloaded original videos
 OUTPUT_DIR = os.path.join(STORAGE_ROOT, 'outputs')  # Branded videos
 BRANDS_DIR = os.path.join(STORAGE_ROOT, 'brands')  # User brand assets
 BOOKENDS_DIR = os.path.join(STORAGE_ROOT, 'bookends')  # Intro/outro source assets
+# Conformed bookend variants (derived media, not source assets).
+# Deliberately NOT beside the asset: Brandr's own outros live under
+# portal/static/brandr_outros/, so deriving the cache path from the asset
+# wrote generated .mp4s into the SERVED STATIC TREE and into the repo.
+CONFORMED_DIR = os.path.join(STORAGE_ROOT, 'bookend_cache')
 
 # Legacy directories (local dev only)
 UPLOAD_DIR = os.path.join(PORTAL_ROOT, 'uploads')  # Legacy uploads
@@ -496,7 +501,7 @@ def get_payment_link(tier_name, founding=False):
     return PAYMENT_LINKS.get(tier_name, '')
 
 # Ensure directories exist
-for directory in [STORAGE_ROOT, RAW_DIR, OUTPUT_DIR, BRANDS_DIR, BOOKENDS_DIR, UPLOAD_DIR, TEMP_DIR, LOG_DIR, os.path.dirname(DB_PATH)]:
+for directory in [STORAGE_ROOT, RAW_DIR, OUTPUT_DIR, BRANDS_DIR, BOOKENDS_DIR, CONFORMED_DIR, UPLOAD_DIR, TEMP_DIR, LOG_DIR, os.path.dirname(DB_PATH)]:
     os.makedirs(directory, exist_ok=True)
 
 # Log resolved paths (helps debug persistence issues)

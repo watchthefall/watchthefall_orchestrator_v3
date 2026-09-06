@@ -25,6 +25,10 @@ production.
 9. The composition decode check failed on ANY stderr, so a null-MUXER timestamp
    complaint about its own throwaway output rejected composed files that were
    complete and decodable. Source-specific, so it looked random.
+10. Conformed bookend variants were cached BESIDE the source asset, which for
+    Brandr's own outros is portal/static/brandr_outros/ -- generated media
+    written into the served static tree and into the repository, swept by
+    nothing, one more file per render.
 
 Real functions, AST-extracted from source and executed against stubs. The
 get_brand block runs its real SQL against an in-memory SQLite. No Flask, no
@@ -436,5 +440,94 @@ ok('dimensions, duration, audio and skew contracts all intact', '5 checks')
 # The ignored line must still be logged, not silently dropped.
 assert 'muxer noise ignored' in vc
 ok('ignored noise is logged rather than hidden')
+
+
+# ------------------------- 10. derived bookend media stays out of static ---
+print('\n[10. conformed bookend variants are cached, not scattered]')
+
+import tempfile
+
+def _load_with_conformed_dir(name, cache_dir, extra=None, source=None):
+    """Extract a function whose body does `from .config import CONFORMED_DIR`.
+
+    The relative import cannot resolve outside the package, so it is rewritten
+    to bind the test's own directory. Everything else is the real source.
+    """
+    src_text = VP if source is None else source
+    tree = ast.parse(src_text)
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            src = ast.get_source_segment(src_text, node)
+            assert 'from .config import CONFORMED_DIR' in src, \
+                '%s no longer reads CONFORMED_DIR - is it writing beside the asset again?' % name
+            src = src.replace('from .config import CONFORMED_DIR',
+                              'CONFORMED_DIR = %r' % cache_dir)
+            ns = {'os': os, 'time': __import__('time'), 'glob': __import__('glob')}
+            ns.update(extra or {})
+            exec(compile(src, '<%s>' % name, 'exec'), ns)
+            return ns[name]
+    raise AssertionError('function not found: %s' % name)
+
+CACHE = tempfile.mkdtemp(prefix='brandr_conform_')
+conformed_path = _load_with_conformed_dir('_conformed_path', CACHE)
+
+STATIC_ASSET = os.path.join('portal', 'static', 'brandr_outros', 'outro_explorer_primary.mp4')
+dest = conformed_path(STATIC_ASSET, 'vertical_9_16', 'v1-abc123')
+assert os.path.dirname(os.path.abspath(dest)) == os.path.abspath(CACHE), dest
+ok('a static-tree asset caches into CONFORMED_DIR', 'the defect')
+assert 'static' not in dest.replace(CACHE, ''), dest
+ok('the cached path contains no reference to static/')
+assert os.path.basename(dest).endswith('.mp4')
+ok('the entry is still an .mp4 with a readable stem', os.path.basename(dest)[:34])
+
+# A flat cache must not collide between same-named assets in different places.
+a = conformed_path('/one/place/outro.mp4', 'vertical_9_16', 'v1-aaa')
+b = conformed_path('/other/place/outro.mp4', 'vertical_9_16', 'v1-bbb')
+assert a != b
+ok('same basename, different key -> different entries')
+
+# Sweep: temps go on the short clock, published entries retire on idle time.
+sweep = _load_with_conformed_dir('sweep_conformed_bookend_files', CACHE, source=DB)
+import time as _t
+now = _t.time()
+def _mk(name, age_days):
+    fp = os.path.join(CACHE, name)
+    io.open(fp, 'w').write('x')
+    os.utime(fp, (now - age_days * 86400, now - age_days * 86400))
+    return fp
+fresh_entry = _mk('a_conformed_vertical_9_16_v1-1.mp4', 1)
+idle_entry  = _mk('b_conformed_vertical_9_16_v1-2.mp4', 90)
+old_tmp     = _mk('c_conformed_vertical_9_16_v1-3.abc.tmp.mp4', 1)
+unrelated   = _mk('some_source_asset.mp4', 400)
+
+removed = sweep(30, 30)
+assert os.path.exists(fresh_entry), 'a recently used entry was deleted'
+ok('a recently used entry survives', 'reuse preserved')
+assert not os.path.exists(idle_entry), 'an idle entry was not retired'
+ok('an entry idle past the window is retired')
+assert not os.path.exists(old_tmp), 'an abandoned temp was not swept'
+ok('an abandoned mid-encode temp is swept on the short clock')
+assert os.path.exists(unrelated), 'the sweep deleted a non-conformed file'
+ok('anything not matching *_conformed_* is untouched', 'source assets safe')
+assert removed == 2, removed
+ok('exactly the two intended files were removed')
+
+import shutil as _sh; _sh.rmtree(CACHE, ignore_errors=True)
+
+# Idle retirement is only honest if a cache HIT refreshes mtime.
+cb = VP[VP.index('def conform_bookend('):]
+cb = cb[:cb.index('\ndef ', 10)]
+assert cb.count('_touch_conformed(dest)') == 2, cb.count('_touch_conformed(dest)')
+ok('both cache-hit paths touch the entry', 'idle time means unused')
+assert 'os.utime' in VP[VP.index('def _touch_conformed('):VP.index('def conform_bookend(')]
+ok('_touch_conformed refreshes mtime')
+
+# And the sweep must never wander outside its own directory.
+sw = DB[DB.index('def sweep_conformed_bookend_files('):]
+_end = sw.find('\ndef ', 10)
+sw = sw if _end == -1 else sw[:_end]
+for forbidden in ('RAW_DIR', 'OUTPUT_DIR', 'BRANDS_DIR', 'BOOKENDS_DIR'):
+    assert forbidden not in sw, 'the conform sweep reaches into %s' % forbidden
+ok('the sweep touches only CONFORMED_DIR', '4 directories excluded')
 
 print('\n%d assertions passed.' % PASS)

@@ -2296,6 +2296,68 @@ def sweep_normalized_temp_files(max_age_minutes=30):
         print(f"[NORMALIZE SWEEP] skipped {skipped} file(s) still referenced by a render")
     return deleted
 
+def sweep_conformed_bookend_files(tmp_age_minutes=30, idle_days=30):
+    """Delete abandoned temps and long-idle entries from CONFORMED_DIR.
+
+    Mirrors sweep_normalized_temp_files, with one deliberate difference: the two
+    caches do not have the same lifetime.
+
+    A normalized file is private to one short render and is regenerated every
+    time, so 30 minutes is generous. A conformed bookend variant is derived from
+    a STABLE asset -- Brandr's outros never change, and a customer uploads a
+    bookend once -- and is reused by every later render that picks that bookend.
+    Expiring those on a 30-minute clock would re-encode the same five outros all
+    day for nothing. So published entries are retired by IDLE time instead, and
+    conform_bookend touches mtime on every cache hit, which makes "idle" mean
+    "genuinely unused" rather than "old".
+
+    Abandoned .tmp files are a different matter and are swept on the short clock:
+    conform_bookend encodes to "<dest>.<uuid>.tmp.mp4" and renames atomically, so
+    one left behind means the process died mid-encode and nothing will claim it.
+
+    Touches ONLY CONFORMED_DIR -- never source assets, outputs, brand assets or
+    the database. Conformed variants have no DB rows, so deleting one creates no
+    orphan; the next render that needs it simply re-conforms. Returns the number
+    of files deleted.
+    """
+    import os
+    import time
+    import glob
+    from .config import CONFORMED_DIR
+
+    if not os.path.isdir(CONFORMED_DIR):
+        return 0
+
+    now = time.time()
+    tmp_cutoff = now - tmp_age_minutes * 60
+    idle_cutoff = now - idle_days * 24 * 60 * 60
+    deleted_tmp = 0
+    deleted_idle = 0
+
+    try:
+        for path in glob.glob(os.path.join(CONFORMED_DIR, '*_conformed_*')):
+            try:
+                if not os.path.isfile(path):
+                    continue
+                mtime = os.path.getmtime(path)
+                if path.endswith('.tmp.mp4') or path.endswith('.tmp'):
+                    if mtime < tmp_cutoff:
+                        os.remove(path)
+                        deleted_tmp += 1
+                elif mtime < idle_cutoff:
+                    os.remove(path)
+                    deleted_idle += 1
+            except OSError as e:
+                print(f"[CONFORM SWEEP] could not delete {path}: {e}")
+    except Exception as e:
+        print(f"[CONFORM SWEEP] sweep error: {e}")
+
+    if deleted_tmp or deleted_idle:
+        print(f"[CONFORM SWEEP] removed {deleted_tmp} abandoned temp(s) and "
+              f"{deleted_idle} entr(ies) idle for {idle_days}+ days")
+    return deleted_tmp + deleted_idle
+
+
 # ============================================================================
 # DAILY USAGE TRACKING
 # ============================================================================

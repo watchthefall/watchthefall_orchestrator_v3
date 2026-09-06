@@ -430,9 +430,45 @@ def media_duration(path):
 
 
 def _conformed_path(asset_path, output_format, key):
-    base, _ext = os.path.splitext(asset_path)
+    """Where a conformed bookend variant is cached.
+
+    NOT beside the source asset. Brandr's own outros live in
+    portal/static/brandr_outros/, so deriving the cache path from the asset
+    wrote generated media into the SERVED STATIC TREE -- and into the repository,
+    untracked and not gitignored, where nothing ever swept it. Every render that
+    used a bookend added another file; simulate_outro_policy.py caught it by
+    asserting the directory holds exactly the five shipped assets.
+
+    Conformed variants are derived data, so they belong with the other derived
+    data under STORAGE_ROOT: non-public, on the persistent disk in production,
+    and reachable by a sweep.
+
+    A flat cache directory is safe because `key` hashes the whole FFmpeg command,
+    which includes the input asset path -- two assets sharing a basename cannot
+    collide. The stem is kept only so the files stay readable to a human.
+    """
+    from .config import CONFORMED_DIR
+    stem = os.path.splitext(os.path.basename(asset_path))[0]
+    safe_stem = ''.join(c for c in stem if c.isalnum() or c in ('-', '_'))[:48]
     safe = ''.join(c for c in str(key) if c.isalnum() or c in ('-', '_'))[:40]
-    return f"{base}_conformed_{output_format}_{safe}.mp4"
+    os.makedirs(CONFORMED_DIR, exist_ok=True)
+    return os.path.join(
+        CONFORMED_DIR,
+        f"{safe_stem or 'asset'}_conformed_{output_format}_{safe}.mp4")
+
+
+def _touch_conformed(path):
+    """Mark a cache entry as used. Best-effort; never breaks a render.
+
+    The sweep retires conformed variants by IDLE time, so a cache hit has to
+    refresh mtime or a bookend in constant use would be deleted on a fixed
+    schedule and re-encoded for no reason. Same reasoning as the normalize
+    cache's reference bookkeeping.
+    """
+    try:
+        os.utime(path, None)
+    except OSError as e:
+        print(f"[CONFORM] could not touch {os.path.basename(path)}: {e}", flush=True)
 
 
 def conform_bookend(asset_path, output_format, target_w, target_h):
@@ -486,11 +522,13 @@ def conform_bookend(asset_path, output_format, target_w, target_h):
 
     if os.path.exists(dest):
         print(f"[CONFORM] HIT {key} - {os.path.basename(dest)}", flush=True)
+        _touch_conformed(dest)
         return dest
 
     with _lock_for(key):
         if os.path.exists(dest):          # someone else finished while we waited
             print(f"[CONFORM] HIT (after wait) {key}", flush=True)
+            _touch_conformed(dest)
             return dest
         tmp = f'{os.path.splitext(dest)[0]}.{_uuid.uuid4().hex}.tmp.mp4'
         run_cmd = NICE_PREFIX + cmd + [tmp]
