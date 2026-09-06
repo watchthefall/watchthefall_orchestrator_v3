@@ -1199,13 +1199,22 @@ def init_bookend_assets():
         with get_connection() as conn:
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS bookend_assets (
-                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id      INTEGER NOT NULL,
-                    display_name TEXT    NOT NULL,
-                    file_path    TEXT    NOT NULL,
-                    created_at   TEXT    NOT NULL
+                    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id          INTEGER NOT NULL,
+                    display_name     TEXT    NOT NULL,
+                    file_path        TEXT    NOT NULL,
+                    duration_seconds REAL,
+                    created_at       TEXT    NOT NULL
                 )
             ''')
+            # Migration for tables created before duration was stored. NULL means
+            # "not measured yet", which the read path backfills once; it does not
+            # mean zero, and nothing should treat it as zero.
+            try:
+                conn.execute('ALTER TABLE bookend_assets ADD COLUMN duration_seconds REAL')
+                print('[DATABASE] Migration: added duration_seconds to bookend_assets')
+            except sqlite3.OperationalError:
+                pass  # column already exists
             conn.execute(
                 'CREATE INDEX IF NOT EXISTS idx_bookend_assets_user '
                 'ON bookend_assets(user_id)')
@@ -1214,17 +1223,44 @@ def init_bookend_assets():
         print(f'[DATABASE] init_bookend_assets error: {e}', flush=True)
 
 
-def save_bookend_asset(user_id, display_name, file_path):
-    """Record an uploaded bookend asset. Returns its id."""
+def save_bookend_asset(user_id, display_name, file_path, duration_seconds=None):
+    """Record an uploaded bookend asset. Returns its id.
+
+    duration_seconds is measured by the caller at upload, because that is where
+    the asset is already being probed and where an over-length asset has to be
+    refused. Stored so the UI can state a bookend's length, and predict a
+    render's finished length, without re-probing on every page load.
+    """
     def _do(conn):
         c = conn.cursor()
         c.execute(
-            'INSERT INTO bookend_assets (user_id, display_name, file_path, created_at) '
-            'VALUES (?, ?, ?, ?)',
-            (user_id, display_name, file_path, datetime.now().isoformat()))
+            'INSERT INTO bookend_assets '
+            '(user_id, display_name, file_path, duration_seconds, created_at) '
+            'VALUES (?, ?, ?, ?, ?)',
+            (user_id, display_name, file_path, duration_seconds,
+             datetime.now().isoformat()))
         conn.commit()
         return c.lastrowid
     return _retry_write(_do)
+
+
+def set_bookend_duration(asset_id, user_id, duration_seconds):
+    """Backfill a measured duration onto an asset stored before it was recorded.
+
+    Ownership-scoped for the same reason get_bookend_asset is.
+    """
+    def _do(conn):
+        conn.execute(
+            'UPDATE bookend_assets SET duration_seconds = ? '
+            'WHERE id = ? AND user_id = ?',
+            (duration_seconds, asset_id, user_id))
+        conn.commit()
+        return True
+    try:
+        return _retry_write(_do)
+    except Exception as e:
+        print(f'[DATABASE] set_bookend_duration error: {e}', flush=True)
+        return False
 
 
 def get_bookend_asset(asset_id, user_id):
@@ -1236,7 +1272,7 @@ def get_bookend_asset(asset_id, user_id):
     try:
         with get_connection() as conn:
             row = conn.execute(
-                'SELECT id, user_id, display_name, file_path, created_at '
+                'SELECT id, user_id, display_name, file_path, duration_seconds, created_at '
                 'FROM bookend_assets WHERE id = ? AND user_id = ?',
                 (asset_id, user_id)).fetchone()
         return dict(row) if row else None
@@ -1250,7 +1286,7 @@ def list_bookend_assets(user_id):
     try:
         with get_connection() as conn:
             rows = conn.execute(
-                'SELECT id, display_name, file_path, created_at '
+                'SELECT id, display_name, file_path, duration_seconds, created_at '
                 'FROM bookend_assets WHERE user_id = ? ORDER BY id DESC',
                 (user_id,)).fetchall()
         return [dict(r) for r in rows]

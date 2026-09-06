@@ -2020,6 +2020,11 @@
                 <span class="selected-filename" id="selectedVideoName" style="font-weight:600;"></span>
                 <span class="selected-source" id="selectedFilename"></span>
                 <span class="selected-source" id="selectedSource"></span>
+                <!-- Predicted finished length. Written only once every part has
+                     actually been measured; an empty span says "not known yet",
+                     which is honest, where a guessed number would not be. -->
+                <span class="selected-source" id="predictedDuration"
+                      style="display:none; color:#8fa3c8;"></span>
             </div>
             <button type="button" id="selectedRenameBtn" onclick="startSourceRename()" title="Name this video"
                     style="width:auto; flex:0 0 auto; background:transparent; border:1px solid #343948; color:#b6bfd3; border-radius:6px; padding:3px 9px; font-size:11px; cursor:pointer;">&#9998; Rename</button>
@@ -2715,6 +2720,7 @@ function resetCreateReviewSession(reason) {
     brandOverrides = {};
 
     frameData = null;
+    sourceDurationSeconds = null;   // measured for the previous video, not this one
     watermarkImg = null;
     logoImg = null;
     secondaryLogoImg = null;
@@ -6623,6 +6629,86 @@ function exitQueueMode() {
 // ========== DOWNLOAD VIDEO (REMOVED - USE DOWNLOADER) ==========
 // fetchVideo() removed - use Downloader tool instead
 
+// ========== PREDICTED FINISHED DURATION ==========
+// What the user gets back is the parts that are concatenated, one after
+// another. So the predicted length is their sum -- nothing more.
+//
+// Deliberately NOT included: the ~23ms difference the compositor tolerates
+// when it validates a composed file. That is a VALIDATION tolerance for
+// deciding whether a render is sound. It is not a duration, and adding it
+// here would put a number on screen that no part of the video accounts for.
+//
+// Intro is carried through the same sum even though the compositor does not
+// yet support one; it contributes 0 until it does, so wiring an intro later
+// needs no change here.
+let sourceDurationSeconds = null;   // the main leg, measured by extract-frame
+let brandrOutroInfo       = null;   // {duration_seconds, applies_to_render, required}
+let customIntroSeconds    = 0;      // customer intro -- not implemented yet
+let customOutroSeconds    = 0;      // customer outro -- no UI to choose one yet
+
+function formatDurationSeconds(s) {
+    if (typeof s !== 'number' || !isFinite(s) || s < 0) return '';
+    if (s < 60) return s.toFixed(1) + 's';
+    const m = Math.floor(s / 60);
+    return m + 'm ' + (s - m * 60).toFixed(1) + 's';
+}
+
+// Read once per page. The outro asset and whether it applies depend on tier and
+// founding status, both of which the server owns -- the browser must not decide
+// either, and must not hardcode the outro's length.
+async function loadBrandrOutroInfo() {
+    try {
+        const res = await fetch(`${apiBase}/api/account/brandr-outro`, {
+            method: 'GET', headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (data && data.success) {
+            brandrOutroInfo = data;
+            console.log('[DURATION] Brandr outro:', data.duration_seconds,
+                        's applies:', data.applies_to_render, 'required:', data.required);
+        }
+    } catch (err) {
+        // Not fatal: without it we simply say nothing about the finished length.
+        console.warn('[DURATION] could not read outro policy', err);
+    }
+    updatePredictedDuration();
+}
+
+function updatePredictedDuration() {
+    const el = document.getElementById('predictedDuration');
+    if (!el) return;
+
+    // Every leg must be MEASURED. If the main video's length is unknown, or the
+    // outro policy has not come back yet, we say nothing rather than publish a
+    // number that could be wrong by the length of a whole outro.
+    const outroKnown = brandrOutroInfo !== null;
+    if (typeof sourceDurationSeconds !== 'number' || !outroKnown) {
+        el.style.display = 'none';
+        el.textContent = '';
+        return;
+    }
+
+    const parts = [];
+    if (customIntroSeconds > 0) parts.push({ label: 'intro', secs: customIntroSeconds });
+    parts.push({ label: 'your video', secs: sourceDurationSeconds });
+    if (customOutroSeconds > 0) parts.push({ label: 'outro', secs: customOutroSeconds });
+
+    let brandrSecs = 0;
+    if (brandrOutroInfo.applies_to_render && brandrOutroInfo.duration_seconds) {
+        brandrSecs = brandrOutroInfo.duration_seconds;
+        parts.push({ label: 'Brandr outro', secs: brandrSecs });
+    }
+
+    const total = parts.reduce((a, p) => a + p.secs, 0);
+    let text = 'Finished video ≈ ' + formatDurationSeconds(total);
+    if (brandrSecs > 0) {
+        text += '  ·  Brandr outro ' + formatDurationSeconds(brandrSecs);
+        if (brandrOutroInfo.required) text += ' · Required';
+    }
+    el.textContent = text;
+    el.style.display = '';
+}
+
 async function extractFrame(filename, skipCanvasResize) {
     console.log('[BRANDR] extractFrame start — file:', filename);
     extractingFrameFor = filename;
@@ -6646,6 +6732,12 @@ async function extractFrame(filename, skipCanvasResize) {
             frameData = data.frame_data;
             videoWidth = data.width;
             videoHeight = data.height;
+
+            // The main leg of the predicted finished length. null when the
+            // probe could not read one -- kept as null, never coerced to 0.
+            sourceDurationSeconds =
+                (typeof data.duration_seconds === 'number') ? data.duration_seconds : null;
+            updatePredictedDuration();
 
             // Same frame doubles as the Selected Video thumbnail — no extra request.
             const _thumbEl = document.getElementById('selectedThumb');
@@ -8012,7 +8104,9 @@ function clearVideo() {
     currentFile = null;
     selectedSources = [];   // Patch 50A
     frameData = null;
+    sourceDurationSeconds = null;
     createIntent = null;
+    updatePredictedDuration();
     document.getElementById('previewSection').style.display = 'none';
     showIntakeLayer();
     updateConfirmationSummary();
@@ -8024,6 +8118,9 @@ function clearVideo() {
 loadBrands();
 refreshCredits();
 updateCanvasPreview();
+// Tier and founding status decide whether the Brandr outro is appended and how
+// long it is. Both are the server's to answer, so ask once on load.
+loadBrandrOutroInfo();
 
 // ========== JOB-ITEM MODEL (Commit 2: recover on init) ==========
 // Recover any persisted job items from sessionStorage

@@ -25,6 +25,14 @@ BOOKENDS_DIR = os.path.join(STORAGE_ROOT, 'bookends')  # Intro/outro source asse
 # wrote generated .mp4s into the SERVED STATIC TREE and into the repo.
 CONFORMED_DIR = os.path.join(STORAGE_ROOT, 'bookend_cache')
 
+# Longest a CUSTOMER intro/outro may be. Brandr's own promotional outro is not
+# subject to this -- the user does not choose it or its length.
+#
+# Enforced at UPLOAD, not at render: a user who uploads a 47-second "outro"
+# should be told immediately, not after waiting for a render that was always
+# going to produce a video with a 47-second tail.
+BOOKEND_MAX_DURATION_SECONDS = 10.0
+
 # Legacy directories (local dev only)
 UPLOAD_DIR = os.path.join(PORTAL_ROOT, 'uploads')  # Legacy uploads
 TEMP_DIR = os.path.join(PORTAL_ROOT, 'temp')

@@ -4681,17 +4681,29 @@ def extract_frame():
         probe_cmd = [
             FFPROBE_BIN, '-v', 'quiet',
             '-print_format', 'json',
-            '-show_streams', video_path
+            '-show_format', '-show_streams', video_path
         ]
         probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
         probe_data = json.loads(probe_result.stdout)
         
         width, height = 720, 1280  # Default
+        _src_duration = 0.0
         for stream in probe_data.get('streams', []):
             if stream.get('codec_type') == 'video':
                 width = stream.get('width', 720)
                 height = stream.get('height', 1280)
+                try:
+                    _src_duration = float(stream.get('duration') or 0.0)
+                except (TypeError, ValueError):
+                    _src_duration = 0.0
                 break
+        # Container duration is the more reliable of the two when a stream omits
+        # it; take whichever is larger rather than trusting one source.
+        try:
+            _fmt_duration = float((probe_data.get('format') or {}).get('duration') or 0.0)
+        except (TypeError, ValueError):
+            _fmt_duration = 0.0
+        _src_duration = max(_src_duration, _fmt_duration)
         
         # Extract frame as JPEG — optional timestamp seek (default: frame 0)
         raw_t = data.get('t') or data.get('timestamp')
@@ -4753,7 +4765,10 @@ def extract_frame():
             'frame_data': f'data:image/jpeg;base64,{frame_data}',
             'width': width,
             'height': height,
-            'aspect_ratio': width / height
+            'aspect_ratio': width / height,
+            # The main video's length. The UI already calls this to paint the
+            # canvas, so the render-length prediction costs no extra request.
+            'duration_seconds': round(_src_duration, 3) if _src_duration else None
         })
         
     except Exception as e:
@@ -5962,8 +5977,28 @@ def brandr_outro_preference():
     locked = (tier == 'Explorer')
 
     if request.method == 'GET':
-        return jsonify({'success': True, 'tier': tier, 'enabled': True if locked else keep,
+        # Duration and required-ness travel with the flag so the UI can show
+        # "Brandr outro - 2.6s - Required" and fold it into a predicted length
+        # without hardcoding either the number or the policy.
+        _enabled = True if locked else keep
+        # Imported here, as the two other call sites do: config imports app-level
+        # names, so app.py resolves brandr_outro_path per-call rather than at
+        # module scope.
+        from .config import brandr_outro_path
+        _asset = brandr_outro_path(tier, founding)
+        _dur = None
+        if _asset:
+            try:
+                from .video_processor import media_duration
+                _measured = media_duration(_asset)
+                _dur = round(_measured, 3) if _measured > 0 else None
+            except Exception as e:
+                print(f"[OUTRO] could not measure {_asset}: {e}", flush=True)
+        return jsonify({'success': True, 'tier': tier, 'enabled': _enabled,
                         'locked': locked,
+                        'required': locked,
+                        'duration_seconds': _dur,
+                        'applies_to_render': bool(_enabled and _dur),
                         'message': ('Free renders include a short Brandr outro. '
                                     'Upgrade to remove it.') if locked else None})
 
@@ -5994,7 +6029,8 @@ def upload_bookend_asset():
     the failure belongs here rather than mid-render. Assets live in their own
     directory so they never appear in the Library as source videos.
     """
-    from .config import BOOKENDS_DIR, ALLOWED_EXTENSIONS, MAX_UPLOAD_SIZE
+    from .config import (BOOKENDS_DIR, ALLOWED_EXTENSIONS, MAX_UPLOAD_SIZE,
+                         BOOKEND_MAX_DURATION_SECONDS)
 
     if 'file' not in request.files:
         return jsonify({'success': False, 'error': 'No file provided'}), 400
@@ -6036,23 +6072,73 @@ def upload_bookend_asset():
                         'error': f"Sorry - {_reason}. Please upload a video file.",
                         'code': 'INVALID_MEDIA'}), 400
 
-    asset_id = save_bookend_asset(session['user_id'], file.filename, file_path)
+    # Length cap. Enforced HERE, at upload, rather than at render: a 47-second
+    # "outro" is a mistake the user should hear about while they are still
+    # thinking about the asset, not after waiting for a render that was always
+    # going to carry a 47-second tail. Brandr's own promotional outro is exempt
+    # -- the user neither chooses it nor controls its length.
+    _duration = float(_meta.get('duration') or 0.0)
+    if _duration > BOOKEND_MAX_DURATION_SECONDS:
+        try:
+            os.remove(file_path)
+        except OSError as _rm:
+            print(f"[BOOKEND] could not remove over-length asset: {_rm}", flush=True)
+        print(f"[BOOKEND] rejected '{file.filename}' - {_duration:.2f}s exceeds "
+              f"{BOOKEND_MAX_DURATION_SECONDS:.0f}s", flush=True)
+        return jsonify({
+            'success': False,
+            'error': (f'That clip is {_duration:.1f}s. An intro or outro can be at '
+                      f'most {BOOKEND_MAX_DURATION_SECONDS:.0f} seconds.'),
+            'code': 'BOOKEND_TOO_LONG',
+            'duration_seconds': round(_duration, 3),
+            'max_duration_seconds': BOOKEND_MAX_DURATION_SECONDS}), 400
+
+    asset_id = save_bookend_asset(session['user_id'], file.filename, file_path,
+                                  duration_seconds=round(_duration, 3))
     print(f"[BOOKEND] stored asset {asset_id} '{file.filename}' "
           f"{_meta['width']}x{_meta['height']} {_meta['duration']}s", flush=True)
     return jsonify({'success': True, 'asset_id': asset_id,
                     'display_name': file.filename,
                     'width': _meta['width'], 'height': _meta['height'],
-                    'duration': _meta['duration'], 'has_audio': _meta['has_audio']})
+                    'duration': _meta['duration'],
+                    'duration_seconds': round(_duration, 3),
+                    'max_duration_seconds': BOOKEND_MAX_DURATION_SECONDS,
+                    'has_audio': _meta['has_audio']})
 
 
 @app.route('/api/assets/bookend', methods=['GET'])
 @login_required
 def list_bookend_assets_api():
-    """This user's bookend assets. Needed to select one; nothing more."""
-    assets = list_bookend_assets(session['user_id'])
-    return jsonify({'success': True,
-                    'assets': [{'id': a['id'], 'display_name': a['display_name'],
-                                'created_at': a['created_at']} for a in assets]})
+    """This user's bookend assets, with the length of each.
+
+    Duration is what lets the UI say how long a bookend is and predict how long
+    a render will finish at. Assets stored before duration was recorded carry
+    NULL; those are measured once, here, and written back, so the backfill costs
+    one probe per legacy asset ever rather than a probe per page load.
+    """
+    from .config import BOOKEND_MAX_DURATION_SECONDS
+    from .database import set_bookend_duration
+    from .video_processor import media_duration
+
+    user_id = session['user_id']
+    assets = list_bookend_assets(user_id)
+    out = []
+    for a in assets:
+        dur = a.get('duration_seconds')
+        if dur is None and a.get('file_path') and os.path.exists(a['file_path']):
+            try:
+                measured = media_duration(a['file_path'])
+                if measured > 0:
+                    dur = round(measured, 3)
+                    set_bookend_duration(a['id'], user_id, dur)
+                    print(f"[BOOKEND] backfilled duration {dur}s for asset {a['id']}",
+                          flush=True)
+            except Exception as e:
+                print(f"[BOOKEND] could not measure asset {a['id']}: {e}", flush=True)
+        out.append({'id': a['id'], 'display_name': a['display_name'],
+                    'duration_seconds': dur, 'created_at': a['created_at']})
+    return jsonify({'success': True, 'assets': out,
+                    'max_duration_seconds': BOOKEND_MAX_DURATION_SECONDS})
 
 
 @app.route('/api/videos/upload', methods=['POST'])

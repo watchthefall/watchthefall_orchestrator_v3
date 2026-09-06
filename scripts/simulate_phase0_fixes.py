@@ -29,6 +29,9 @@ production.
     Brandr's own outros is portal/static/brandr_outros/ -- generated media
     written into the served static tree and into the repository, swept by
     nothing, one more file per render.
+11. A bookend's length was never measured or stored, so nothing could tell a
+    user how long a bookend was, refuse one that was far too long, or state
+    how long their finished video would be before they spent a credit on it.
 
 Real functions, AST-extracted from source and executed against stubs. The
 get_brand block runs its real SQL against an in-memory SQLite. No Flask, no
@@ -529,5 +532,261 @@ sw = sw if _end == -1 else sw[:_end]
 for forbidden in ('RAW_DIR', 'OUTPUT_DIR', 'BRANDS_DIR', 'BOOKENDS_DIR'):
     assert forbidden not in sw, 'the conform sweep reaches into %s' % forbidden
 ok('the sweep touches only CONFORMED_DIR', '4 directories excluded')
+
+
+# ------------------------------------ 11. bookend duration (M) -------------
+print('\n[11. a bookend has a measured length, and it is capped at upload]')
+
+CFG = io.open(os.path.join('portal', 'config.py'), encoding='utf-8').read()
+CAP = float(re.search(r'^BOOKEND_MAX_DURATION_SECONDS\s*=\s*([0-9.]+)',
+                      CFG, re.M).group(1))
+
+assert CAP == 10.0, CAP
+ok('the customer bookend cap is 10 seconds', 'config, not a literal')
+
+# The cap belongs to CUSTOMER assets. Brandr's own outro is not something the
+# user chose or can shorten, so it must not be measured against this.
+_outro_route = APP[APP.index("def brandr_outro_preference"):]
+_outro_route = _outro_route[:_outro_route.index('\n@app.route', 10)]
+assert 'BOOKEND_MAX_DURATION_SECONDS' not in _outro_route, \
+    "Brandr's own outro is being length-checked against the customer cap"
+ok("Brandr's own outro is exempt from the customer cap")
+
+# --- the migration, against a real SQLite that predates the column ---------
+BDB = sqlite3.connect(':memory:')
+BDB.row_factory = sqlite3.Row
+BDB.execute('CREATE TABLE bookend_assets ('
+            ' id INTEGER PRIMARY KEY AUTOINCREMENT,'
+            ' user_id INTEGER NOT NULL,'
+            ' display_name TEXT NOT NULL,'
+            ' file_path TEXT NOT NULL,'
+            ' created_at TEXT NOT NULL)')
+BDB.execute('INSERT INTO bookend_assets (user_id, display_name, file_path, created_at)'
+            " VALUES (7, 'legacy.mp4', '/x/legacy.mp4', '2026-01-01T00:00:00')")
+BDB.commit()
+
+_cols = lambda: [r[1] for r in BDB.execute('PRAGMA table_info(bookend_assets)')]
+assert 'duration_seconds' not in _cols()
+ok('a table created before M has no duration column', 'the starting state')
+
+# The real ALTER, lifted from database.py so this cannot drift from the code.
+_alter = re.search(r"conn\.execute\('(ALTER TABLE bookend_assets[^']+)'\)", DB).group(1)
+BDB.execute(_alter)
+BDB.commit()
+assert 'duration_seconds' in _cols()
+ok('the migration adds the column to an existing table')
+
+try:
+    BDB.execute(_alter)
+    raise AssertionError('re-running the migration did not raise')
+except sqlite3.OperationalError:
+    pass
+ok('re-running it raises OperationalError', 'which init_bookend_assets swallows')
+assert 'except sqlite3.OperationalError' in \
+    DB[DB.index('def init_bookend_assets'):DB.index('def save_bookend_asset')], \
+    'the migration is not guarded, so startup would fail on the second boot'
+ok('init_bookend_assets catches it', 'the migration is idempotent')
+
+# NULL means "not measured yet". Nothing may read it as zero: a zero-length
+# bookend and an unmeasured one predict very different finished durations.
+_legacy = BDB.execute('SELECT duration_seconds FROM bookend_assets WHERE id = 1').fetchone()
+assert _legacy['duration_seconds'] is None, _legacy['duration_seconds']
+ok('a pre-M row reads NULL, not 0.0', 'unmeasured != instant')
+
+# --- the real write path ---------------------------------------------------
+class _DT:
+    @staticmethod
+    def now():
+        class _N:
+            @staticmethod
+            def isoformat():
+                return '2026-09-06T00:00:00'
+        return _N()
+
+@contextmanager
+def _bconn():
+    yield BDB
+
+bns = {'get_connection': _bconn, 'datetime': _DT,
+       '_retry_write': lambda fn: fn(BDB), 'sqlite3': sqlite3}
+save_bookend_asset = extract(DB, 'save_bookend_asset', bns)
+set_bookend_duration = extract(DB, 'set_bookend_duration', bns)
+get_bookend_asset = extract(DB, 'get_bookend_asset', bns)
+list_bookend_assets = extract(DB, 'list_bookend_assets', bns)
+
+new_id = save_bookend_asset(7, 'six.mp4', '/x/six.mp4', duration_seconds=6.0)
+assert get_bookend_asset(new_id, 7)['duration_seconds'] == 6.0
+ok('an upload stores its measured duration')
+
+assert save_bookend_asset(7, 'nodur.mp4', '/x/nodur.mp4') is not None
+ok('duration_seconds is optional', 'no caller is broken by the new column')
+
+assert set_bookend_duration(1, 7, 3.25) is True
+assert get_bookend_asset(1, 7)['duration_seconds'] == 3.25
+ok('a legacy asset can be backfilled once')
+
+# Backfill must not become a way to write to someone else's asset.
+set_bookend_duration(1, 99, 999.0)
+assert get_bookend_asset(1, 7)['duration_seconds'] == 3.25, 'ownership not enforced'
+ok('backfill is scoped to the owner', 'the get_bookend_asset rule holds')
+assert get_bookend_asset(1, 99) is None
+ok('and a foreign asset is still unreadable')
+
+assert all('duration_seconds' in a for a in list_bookend_assets(7))
+ok('the list SELECT carries duration_seconds')
+
+# --- the upload route ------------------------------------------------------
+UP = APP[APP.index('def upload_bookend_asset'):]
+UP = UP[:UP.index('\n@app.route', 10)]
+
+_cap_at = UP.index('BOOKEND_MAX_DURATION_SECONDS', UP.index('_ok, _reason, _meta'))
+_save_at = UP.index('save_bookend_asset(')
+assert _cap_at < _save_at, 'the length cap runs after the asset is recorded'
+ok('the cap is checked BEFORE the row is written', 'no orphan DB rows')
+
+_rej = UP[_cap_at:_save_at]
+assert 'os.remove(file_path)' in _rej, 'an over-length upload is left on disk'
+ok('a rejected over-length file is deleted', 'no orphan bytes either')
+assert "'BOOKEND_TOO_LONG'" in _rej
+ok('rejection carries a machine-readable code', 'the UI can say why')
+assert 'max_duration_seconds' in _rej
+ok('and states the cap, so the message can name the limit')
+assert 'duration_seconds=' in UP[_save_at:_save_at + 200]
+ok('an accepted upload passes its measured duration through')
+
+# The probe already ran for the media gate; measuring must reuse it.
+assert UP.count('probe_media(') == 1, UP.count('probe_media(')
+ok('the length comes from the existing probe', 'one probe per upload')
+
+# --- the read paths --------------------------------------------------------
+LS = APP[APP.index('def list_bookend_assets_api'):]
+LS = LS[:LS.index('\n@app.route', 10)]
+assert 'set_bookend_duration(' in LS
+ok('the list endpoint writes a backfilled duration back')
+assert 'is None' in LS[:LS.index('set_bookend_duration(')], \
+    'the list endpoint re-measures assets that already have a duration'
+assert 'os.path.exists' in LS
+ok('it only measures assets that lack one and still exist', 'one probe, ever')
+
+OUT = APP[APP.index("def brandr_outro_preference"):]
+OUT = OUT[:OUT.index('\n@app.route', 10)]
+for field in ("'duration_seconds'", "'applies_to_render'"):
+    assert field in OUT, field
+ok("the outro endpoint reports its length and whether it applies")
+
+EF = APP[APP.index('def extract_frame'):]
+EF = EF[:EF.index('\n@app.route', 10)]
+assert "'duration_seconds'" in EF
+ok('extract-frame returns the source duration', 'the main leg of the sum')
+assert '-show_format' in EF and '-show_streams' in EF
+ok('and probes format as well as stream', 'stream duration can be absent')
+
+# --- the guardrail ---------------------------------------------------------
+# The ~23ms composition difference is a VALIDATION TOLERANCE. It must never be
+# added to a number shown to a user as the length of their video.
+_pred = UI + EF + OUT + LS + UP
+for fudge in ('0.022', '0.023', '0.025', '+ 23', '+ 25'):
+    assert fudge not in _pred, \
+        'a composition tolerance (%s) has leaked into a user-facing duration' % fudge
+ok('no composition tolerance in the predicted duration', 'sum of measured parts')
+
+
+# --- the UI ----------------------------------------------------------------
+PD = UI[UI.index('function updatePredictedDuration('):]
+PD = PD[:PD.index('\nasync function extractFrame(')]
+
+# The whole point: a number on screen must be the sum of MEASURED parts.
+assert 'sourceDurationSeconds' in PD and 'brandrOutroInfo' in PD
+ok('the prediction reads a measured source and the outro policy')
+assert 'customIntroSeconds' in PD
+ok('an intro leg is already in the sum', 'contributes 0 until it exists')
+assert "el.style.display = 'none'" in PD[:PD.index('const parts')], \
+    'the prediction is shown before every leg is known'
+ok('nothing is shown until every leg is measured', 'silence beats a guess')
+assert 'applies_to_render' in PD and 'duration_seconds' in PD
+ok("the Brandr outro counts only when it will actually be appended")
+assert 'required' in PD
+ok('a required outro is labelled Required', 'Explorer sees why it is there')
+
+# The browser must not decide tier policy or know the outro's length.
+for hardcoded in ('2.6', "'Explorer'", '"Explorer"'):
+    assert hardcoded not in PD, 'the browser is hardcoding outro policy: %s' % hardcoded
+ok('no tier or outro length is hardcoded in the browser', 'the server owns both')
+
+# A stale duration beside a different video is worse than none.
+assert UI.count('sourceDurationSeconds = null') >= 2
+ok('changing or clearing the video drops its measured length')
+
+
+# --- names must actually resolve -------------------------------------------
+# The 500 this caught: brandr_outro_path is imported LOCALLY inside two other
+# functions, so calling it from a third resolved to nothing. Every assertion
+# above passes on the broken version, because a string being present in the
+# source says nothing about whether the name exists at runtime. So check the
+# names for real: every global a route reads must be defined at module level in
+# app.py, imported at module level, or imported inside the route itself.
+_apptree = ast.parse(APP)
+import builtins
+_module_names = set(dir(builtins))
+
+
+def _collect_module_level(body):
+    """Names bound at MODULE scope only.
+
+    Deliberately not ast.walk: an import inside a function binds a name in THAT
+    function, not in the module. Walking the whole tree is exactly the mistake
+    that made this check pass on the broken version -- a local `from .config
+    import brandr_outro_path` looked like a module-level import. Top-level
+    try/if/with bodies are still module scope, so those are descended into.
+    """
+    for _n in body:
+        if isinstance(_n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            _module_names.add(_n.name)
+        elif isinstance(_n, (ast.Import, ast.ImportFrom)):
+            for _a in _n.names:
+                _module_names.add((_a.asname or _a.name).split('.')[0])
+        elif isinstance(_n, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            for _t in (_n.targets if isinstance(_n, ast.Assign) else [_n.target]):
+                for _sub in ast.walk(_t):
+                    if isinstance(_sub, ast.Name):
+                        _module_names.add(_sub.id)
+        elif isinstance(_n, (ast.If, ast.Try, ast.With, ast.For, ast.While)):
+            _collect_module_level(_n.body)
+            _collect_module_level(getattr(_n, 'orelse', []))
+            _collect_module_level(getattr(_n, 'finalbody', []))
+            for _h in getattr(_n, 'handlers', []):
+                _collect_module_level(_h.body)
+            if isinstance(_n, ast.For):
+                _module_names.update(
+                    x.id for x in ast.walk(_n.target) if isinstance(x, ast.Name))
+
+
+_collect_module_level(_apptree.body)
+
+
+def _unresolved(fn_name):
+    """Global names a function reads that nothing in app.py ever defines."""
+    node = next(n for n in _apptree.body
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and n.name == fn_name)
+    bound, read = set(), []
+    for n in ast.walk(node):
+        if isinstance(n, (ast.Import, ast.ImportFrom)):
+            for a in n.names:
+                bound.add((a.asname or a.name).split('.')[0])
+        elif isinstance(n, ast.Name):
+            (bound.add(n.id) if isinstance(n.ctx, ast.Store) else read.append(n.id))
+        elif isinstance(n, ast.arg):
+            bound.add(n.arg)
+        elif isinstance(n, (ast.ExceptHandler,)) and n.name:
+            bound.add(n.name)
+    return sorted({r for r in read if r not in bound and r not in _module_names})
+
+
+for _route in ('brandr_outro_preference', 'upload_bookend_asset',
+               'list_bookend_assets_api', 'extract_frame'):
+    _missing = _unresolved(_route)
+    assert not _missing, '%s reads undefined name(s): %s' % (_route, _missing)
+ok('every name the four M routes read resolves', 'the 500 this suite missed')
 
 print('\n%d assertions passed.' % PASS)
