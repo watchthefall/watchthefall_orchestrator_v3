@@ -3986,7 +3986,7 @@ def fetch_videos_from_urls():
                 # to Meta so YouTube's decision is independent.
                 if is_youtube:
                     _yt_clients = [c.strip() for c in os.environ.get(
-                        'YT_PLAYER_CLIENTS', 'tv,web_safari,ios').split(',') if c.strip()]
+                        'YT_PLAYER_CLIENTS', 'android').split(',') if c.strip()]
                     ydl_opts['extractor_args'] = {'youtube': {'player_client': _yt_clients}}
                     # DataImpulse residential proxy for YouTube. Render's
                     # datacenter egress gets bot-gated even with the alternate
