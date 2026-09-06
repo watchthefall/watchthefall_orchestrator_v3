@@ -3976,21 +3976,39 @@ def fetch_videos_from_urls():
                 # YouTube bot-gates datacenter IPs (Render) with "Sign in to confirm
                 # you're not a bot" on the default web client. Try alternate player
                 # clients (tv / web_safari / ios) that often bypass the check without
-                # cookies. Overridable via YT_PLAYER_CLIENTS (comma-separated). If a
-                # residential IG_PROXY is set, route YouTube through it too -- the
-                # datacenter IP is the real trigger.
+                # cookies. Overridable via YT_PLAYER_CLIENTS (comma-separated).
                 #
                 # When YOUTUBE_COOKIES* is configured, a separate pool (below) adds
                 # cookies as a FALLBACK behind these clients -- it does not replace
-                # them. The proxy story is unchanged: this explicit IG_PROXY line is
-                # the only proxy YouTube ever uses, because proxy_service is
-                # deliberately Meta-scoped and was not broadened.
+                # them. When DataImpulse is configured, the fetch is also routed
+                # through the residential proxy (see the block itself) because the
+                # datacenter IP is the real trigger; the Meta helper stays scoped
+                # to Meta so YouTube's decision is independent.
                 if is_youtube:
                     _yt_clients = [c.strip() for c in os.environ.get(
-                        'YT_PLAYER_CLIENTS', 'tv,web_safari,ios').split(',') if c.strip()]
+                        'YT_PLAYER_CLIENTS', 'android').split(',') if c.strip()]
                     ydl_opts['extractor_args'] = {'youtube': {'player_client': _yt_clients}}
+                    # DataImpulse residential proxy for YouTube. Render's
+                    # datacenter egress gets bot-gated even with the alternate
+                    # player clients and refreshed cookies; residential IPs are
+                    # the durable fix, matching the Instagram story.
+                    #
+                    # Reuse the SAME credentials check as the Meta path
+                    # (is_configured() -- the single source of truth) but call
+                    # the generic get_proxy_url() helper. The Meta-scoped
+                    # wrapper stays Meta-only, so YouTube's decision is
+                    # independent of Instagram's and the two providers can be
+                    # reasoned about (and toggled) separately.
+                    #
+                    # Falls through to the pre-existing IG_PROXY branch when
+                    # DataImpulse is not configured, so deployments that rely
+                    # on the legacy variable are byte-identical to before.
+                    _yt_di_proxy = proxy_service.get_proxy_url() if proxy_service.is_configured() else None
                     _ig_proxy = os.environ.get('IG_PROXY', '').strip()
-                    if _ig_proxy:
+                    if _yt_di_proxy:
+                        ydl_opts['proxy'] = _yt_di_proxy
+                        print(f"[FETCH] YouTube using residential proxy — {proxy_service.describe()}")
+                    elif _ig_proxy:
                         ydl_opts['proxy'] = _ig_proxy
                     print(f"[FETCH] YouTube via player_client={_yt_clients}")
 
