@@ -154,7 +154,7 @@ if not _NICE_BIN:
 #   - the output path (what we are computing)
 # Everything else is retained: input path, filters, crop/zoom/flip, dimensions,
 # frame rate, codecs, pixel format, audio handling, and any flag added in future.
-NORMALIZE_CACHE_VERSION = 'v1'   # bump to invalidate every cached file at once
+NORMALIZE_CACHE_VERSION = 'v2'   # bump to invalidate every cached file at once
 
 _OUTPUT_PLACEHOLDER = '<<NORMALIZE_OUTPUT>>'
 
@@ -597,32 +597,99 @@ def conform_branded_for_concat(branded_path, work_stem):
     return out, True
 
 
-def concat_copy(segments, out_path):
-    """concat demuxer + -c copy. The branded video's pixels are never re-encoded."""
-    listing = f'{os.path.splitext(out_path)[0]}.{_uuid.uuid4().hex}.concat.txt'
-    quote = chr(39)
+def concat_copy(segments, out_path, target_w, target_h):
+    """Concatenate segments with clean timestamps and one output contract.
+
+    The old concat-demuxer + stream-copy path preserved source timestamps.
+    That could produce a final duration far larger than the sum of the actual
+    segments. The concat filter resets each segment timeline and re-encodes
+    one deterministic H.264/AAC artifact.
+    """
+    if not segments:
+        raise CompositionError('concat called with no segments')
+
+    filter_parts = []
+    concat_inputs = []
+
+    for i in range(len(segments)):
+        filter_parts.append(
+            f'[{i}:v]'
+            f'fps={CONCAT_FPS},'
+            f'scale={target_w}:{target_h}:force_original_aspect_ratio=decrease,'
+            f'pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2,'
+            f'setsar=1,'
+            f'format=yuv420p,'
+            f'setpts=PTS-STARTPTS'
+            f'[v{i}]'
+        )
+
+        filter_parts.append(
+            f'[{i}:a]'
+            f'aresample={CONCAT_AUDIO_RATE},'
+            f'aformat=channel_layouts=stereo,'
+            f'asetpts=PTS-STARTPTS'
+            f'[a{i}]'
+        )
+
+        concat_inputs.append(f'[v{i}][a{i}]')
+
+    filter_parts.append(
+        ''.join(concat_inputs) +
+        f'concat=n={len(segments)}:v=1:a=1[v][a]'
+    )
+
+    filter_complex = ';'.join(filter_parts)
+
+    temp_path = (
+        f'{os.path.splitext(out_path)[0]}.'
+        f'{_uuid.uuid4().hex}.concat.tmp.mp4'
+    )
+
+    cmd = NICE_PREFIX + [FFMPEG_BIN, '-y']
+
+    for seg in segments:
+        cmd.extend(['-i', os.path.abspath(seg)])
+
+    cmd.extend([
+        '-filter_complex', filter_complex,
+        '-map', '[v]',
+        '-map', '[a]',
+        '-c:v', 'libx264',
+        '-preset', 'veryfast',
+        '-crf', '23',
+        '-pix_fmt', 'yuv420p',
+        '-r', str(CONCAT_FPS),
+        '-threads', '1',
+        '-c:a', 'aac',
+        '-b:a', CONCAT_AUDIO_BITRATE,
+        '-ar', str(CONCAT_AUDIO_RATE),
+        '-ac', str(CONCAT_AUDIO_CHANNELS),
+        '-movflags', '+faststart',
+        temp_path,
+    ])
+
     try:
-        with open(listing, 'w', encoding='utf-8') as fh:
-            for seg in segments:
-                # The concat demuxer treats ' as a quote character. Our own names
-                # never contain one, but escaping now costs nothing and removes a
-                # class of failure if asset naming ever changes.
-                safe = os.path.abspath(seg).replace(chr(92), '/')
-                safe = safe.replace(quote, quote + chr(92) + quote + quote)
-                fh.write('file ' + quote + safe + quote + chr(10))
-        cmd = NICE_PREFIX + [FFMPEG_BIN, '-y', '-f', 'concat', '-safe', '0',
-                             '-i', listing, '-c', 'copy',
-                             '-movflags', '+faststart', out_path]
         try:
-            r = subprocess.run(cmd, capture_output=True, text=True,
-                               timeout=COMPOSE_ENCODE_TIMEOUT)
+            r = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=COMPOSE_ENCODE_TIMEOUT,
+            )
         except subprocess.TimeoutExpired:
             raise CompositionError('concat timed out')
-        if r.returncode != 0 or not os.path.exists(out_path):
+
+        if r.returncode != 0 or not os.path.exists(temp_path):
             raise CompositionError(
-                f'concat failed (code={r.returncode}): {(r.stderr or "")[-300:]}')
+                f'concat failed (code={r.returncode}): '
+                f'{(r.stderr or "")[-500:]}'
+            )
+
+        os.replace(temp_path, out_path)
+
     finally:
-        _discard_work_file(listing)
+        _discard_work_file(temp_path)
+
     return out_path
 
 
@@ -757,7 +824,7 @@ def compose_bookends(branded_path, out_path, output_format, target_w, target_h,
 
         print(f"[COMPOSE] {len(parts)} segments, expected total {expected:.3f}s",
               flush=True)
-        concat_copy(parts, out_path)
+        concat_copy(parts, out_path, target_w, target_h)
         verify_composition(out_path, expected, target_w, target_h)
         return out_path
     except Exception:
@@ -923,9 +990,10 @@ def _build_reframe_filter(input_path: str, source_edit: Optional[Dict],
     # foreground; otherwise a flipped video sits on an unflipped ghost of itself.
     return (
         f"[0:v]{flip_pre}split=2[fg][bg_raw];"
-        f"[bg_raw]scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
-        f"crop={target_w}:{target_h}:(iw-{target_w})/2:(ih-{target_h})/2,"
-        f"gblur=sigma=25[bg];"
+        f"[bg_raw]scale={target_w//4}:{target_h//4}:force_original_aspect_ratio=increase,"
+        f"crop={target_w//4}:{target_h//4}:(iw-{target_w//4})/2:(ih-{target_h//4})/2,"
+        f"gblur=sigma=6,"
+        f"scale={target_w}:{target_h}:flags=bilinear,setsar=1[bg];"
         f"[fg]scale={sw}:{sh}[fg_scaled];"
         f"[bg][fg_scaled]overlay={ox}:{oy}:shortest=1[out]"
     )
@@ -1033,9 +1101,10 @@ def normalize_video(input_path: str, output_format: str = 'vertical_9_16',
                 # Preserves the full source frame — no cropping of faces/text.
                 _fc = (
                     f"[0:v]{flip_pre}split=2[fg][bg_raw];"
-                    "[bg_raw]scale=720:720:force_original_aspect_ratio=increase,"
-                    "crop=720:720:(iw-720)/2:(ih-720)/2,"
-                    "gblur=sigma=25[bg];"
+                    "[bg_raw]scale=180:180:force_original_aspect_ratio=increase,"
+                    "crop=180:180:(iw-180)/2:(ih-180)/2,"
+                    "gblur=sigma=6,"
+                    "scale=720:720:flags=bilinear,setsar=1[bg];"
                     "[fg]scale=720:720:force_original_aspect_ratio=decrease[fg_scaled];"
                     "[bg][fg_scaled]overlay=(W-w)/2:(H-h)/2[out]"
                 )
