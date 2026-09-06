@@ -1,0 +1,270 @@
+"""
+Offline assertions for routing YouTube yt-dlp fetches through the DataImpulse
+residential proxy (portal/app.py's `if is_youtube:` block in `download_one`).
+
+Deterministic: no network, no yt-dlp, no Flask, no project database. The
+proxy_service module imports only stdlib so it loads directly; app.py's
+YouTube block is AST-extracted as source text and its shape/decisions
+verified here.
+
+The point this suite exists to defend:
+
+    Render's datacenter egress gets YouTube-bot-gated even with the alternate
+    player_clients and refreshed cookies. Residential IPs are the durable fix,
+    just like they are for Instagram. So when DataImpulse is configured, ONLY
+    YouTube (not the wider app) should also route through it -- and the
+    behaviour must degrade gracefully:
+
+        1. DataImpulse configured           -> residential proxy
+        2. else legacy IG_PROXY set         -> honoured, unchanged
+        3. else nothing configured          -> direct fetch, unchanged
+
+    The Meta-scoped helper (get_meta_proxy) must NOT be broadened; YouTube
+    reuses the low-level get_proxy_url() so the two providers stay independent.
+
+Run:  python scripts/simulate_youtube_residential_proxy.py   (exit 0 = all pass)
+"""
+import importlib.util
+import io
+import os
+import re
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Load proxy_service standalone (it imports no project modules by design).
+_spec = importlib.util.spec_from_file_location(
+    'proxy_service', os.path.join(ROOT, 'portal', 'proxy_service.py'))
+ps = importlib.util.module_from_spec(_spec)
+sys.modules['proxy_service'] = ps
+_spec.loader.exec_module(ps)
+
+APP = io.open(os.path.join(ROOT, 'portal', 'app.py'), encoding='utf-8').read()
+
+PASS = 0
+
+
+def ok(label, extra=''):
+    global PASS
+    PASS += 1
+    print('  ok  %-64s %s' % (label, extra))
+
+
+def env(**kw):
+    """Reset all relevant env vars, then set only what the case wants."""
+    for k in ('DATAIMPULSE_USERNAME', 'DATAIMPULSE_PASSWORD',
+              'DATAIMPULSE_COUNTRY', 'IG_PROXY'):
+        os.environ.pop(k, None)
+    for k, v in kw.items():
+        if v is not None:
+            os.environ[k] = v
+
+
+# Slice the YouTube block out of app.py once. Every source-text assertion
+# below runs against this window, so a stray change to a nearby platform's
+# block cannot accidentally satisfy a YouTube-scoped invariant.
+FETCH = APP[APP.index('def fetch_videos_from_urls'):]
+FETCH = FETCH[:FETCH.index('\n@app.route', 10)]
+YT = FETCH[FETCH.index('if is_youtube:'):]
+YT = YT[:YT.index('# Apply TikTok')]
+
+
+# ------------------------------------------------------- 1. wiring shape ---
+print('\n[1. app.py wires YouTube to the residential proxy correctly]')
+
+assert 'proxy_service.is_configured()' in YT, \
+    'YouTube must gate the residential proxy on the SAME creds check as Meta'
+ok('YouTube gates on proxy_service.is_configured()',
+   'single source of truth with Meta path')
+
+assert 'proxy_service.get_proxy_url()' in YT, \
+    'YouTube must call the generic proxy URL helper, not construct its own'
+ok('YouTube pulls the URL via proxy_service.get_proxy_url()')
+
+# A comment that names the helper (e.g. "NOT get_meta_proxy()") is fine and
+# actually documents intent; a real CALL is what we forbid.
+_yt_code_only = re.sub(r'#[^\n]*', '', YT)
+assert 'get_meta_proxy(' not in _yt_code_only, \
+    'the Meta-scoped helper was broadened; YouTube must stay independent'
+ok('get_meta_proxy() is NOT called from the YouTube block',
+   'Meta helper stays Meta-only')
+
+# The legacy fallback stays byte-for-byte so pre-existing deployments do not
+# regress and so the sibling regression suite keeps passing.
+assert "os.environ.get('IG_PROXY', '')" in YT, \
+    'the legacy IG_PROXY env var lookup was removed'
+assert "ydl_opts['proxy'] = _ig_proxy" in YT, \
+    'the legacy IG_PROXY assignment was removed'
+ok('legacy IG_PROXY branch is preserved verbatim',
+   'no regression for existing deployments')
+
+# YT_PLAYER_CLIENTS is untouched by this change.
+assert "os.environ.get(\n                        'YT_PLAYER_CLIENTS'" in YT, \
+    'YT_PLAYER_CLIENTS handling was disturbed'
+assert "'player_client': _yt_clients" in YT
+ok('YT_PLAYER_CLIENTS handling is unchanged', 'out of scope for this change')
+
+# Only the YouTube block was modified. The Instagram block MUST still use the
+# Meta helper (unchanged behaviour) and MUST NOT accidentally route through
+# get_proxy_url() directly.
+IG = FETCH[FETCH.index('if is_instagram:'):]
+IG = IG[:IG.index('# Threads (experimental)')]
+assert 'proxy_service.get_meta_proxy()' in IG
+ok('Instagram still routes via proxy_service.get_meta_proxy()',
+   'Meta behaviour unchanged')
+
+# The precedence branch must be exclusive: DataImpulse first, IG_PROXY only
+# as a fallback (`elif`). If both branches could fire, the second would clobber
+# the first and the residential fix would be silently disabled.
+assert re.search(
+    r"if _yt_di_proxy:\s*\n\s*ydl_opts\['proxy'\] = _yt_di_proxy\b"
+    r"[\s\S]{0,200}?"
+    r"\n\s*elif _ig_proxy:\s*\n\s*ydl_opts\['proxy'\] = _ig_proxy",
+    YT), 'precedence is not exclusive (DataImpulse then elif IG_PROXY)'
+ok('precedence: DataImpulse THEN elif IG_PROXY THEN direct',
+   'exclusive branches, DataImpulse wins')
+
+
+# --------------------------------------- 2. runtime: DataImpulse wins ------
+print('\n[2. runtime: DataImpulse configured -> residential proxy chosen]')
+
+env(DATAIMPULSE_USERNAME='u', DATAIMPULSE_PASSWORD='p')
+assert ps.is_configured() is True
+url = ps.get_proxy_url()
+assert url and 'gw.dataimpulse.com:823' in url
+assert '__cr.gb' in url, 'country default should apply'
+ok('is_configured() true; get_proxy_url() returns a DataImpulse URL', url[:60] + '...')
+
+# Simulate the block's decision.
+_yt_di_proxy = ps.get_proxy_url() if ps.is_configured() else None
+_ig_proxy = os.environ.get('IG_PROXY', '').strip()
+chosen = _yt_di_proxy if _yt_di_proxy else (_ig_proxy or None)
+assert chosen == url
+ok('chosen proxy == DataImpulse URL', 'residential path taken')
+
+# describe() must be credential-free -- it goes into logs on the success path.
+env(DATAIMPULSE_USERNAME='sekret-user-xyz', DATAIMPULSE_PASSWORD='sekret-pw-xyz')
+_desc = ps.describe()
+assert 'sekret-user-xyz' not in _desc
+assert 'sekret-pw-xyz' not in _desc
+assert 'gw.dataimpulse.com' in _desc
+ok('describe() carries no credential material', _desc)
+env(DATAIMPULSE_USERNAME='u', DATAIMPULSE_PASSWORD='p')
+
+
+# --------------------------- 3. runtime: DataImpulse beats legacy IG_PROXY -
+print('\n[3. DataImpulse takes precedence over an also-set legacy IG_PROXY]')
+
+env(DATAIMPULSE_USERNAME='u', DATAIMPULSE_PASSWORD='p',
+    IG_PROXY='http://legacy:pw@host:8080')
+_yt_di_proxy = ps.get_proxy_url() if ps.is_configured() else None
+_ig_proxy = os.environ.get('IG_PROXY', '').strip()
+chosen = _yt_di_proxy if _yt_di_proxy else (_ig_proxy or None)
+assert 'dataimpulse' in chosen
+assert 'legacy' not in chosen
+ok('DataImpulse chosen even when IG_PROXY is present',
+   'a stale IG_PROXY cannot override the durable fix')
+
+
+# ----------------------------------- 4. runtime: legacy-only fallback ------
+print('\n[4. DataImpulse absent, legacy IG_PROXY set -> legacy honoured]')
+
+env(IG_PROXY='http://legacy:pw@host:8080')
+assert ps.is_configured() is False
+_yt_di_proxy = ps.get_proxy_url() if ps.is_configured() else None
+_ig_proxy = os.environ.get('IG_PROXY', '').strip()
+chosen = _yt_di_proxy if _yt_di_proxy else (_ig_proxy or None)
+assert chosen == 'http://legacy:pw@host:8080'
+ok('legacy IG_PROXY still honoured when DataImpulse is not configured',
+   'pre-existing behaviour preserved')
+
+
+# ------------------------------------- 5. runtime: nothing configured ------
+print('\n[5. nothing configured -> direct fetch (no proxy key on ydl_opts)]')
+
+env()  # neither DataImpulse nor IG_PROXY
+_yt_di_proxy = ps.get_proxy_url() if ps.is_configured() else None
+_ig_proxy = os.environ.get('IG_PROXY', '').strip()
+chosen = _yt_di_proxy if _yt_di_proxy else (_ig_proxy or None)
+assert chosen is None
+ok('no DataImpulse, no IG_PROXY -> direct fetch',
+   'YouTube keeps its cookieless / player_client-only path')
+
+
+# ---------------------------------- 6. only YouTube uses the new path ------
+print('\n[6. only YouTube gained the residential path; other flows unchanged]')
+
+# process_brands' download_video does NOT gain YouTube-specific proxy handling
+# in this change (out of scope). Its block should still contain no YouTube
+# detection at all.
+PB = APP[APP.index("def download_video(url_input):"):]
+PB = PB[:PB.index('# --- Cookie selection') if '# --- Cookie selection' in PB
+       else PB.index('return None') + 20]
+assert 'is_youtube' not in PB[:1500], \
+    'process_brands grew YouTube handling that this change was NOT supposed to add'
+ok('process_brands.download_video was NOT touched',
+   'smallest change: only the fetch flow YouTube block')
+
+# The generic proxy transport retry that already existed must still be
+# generic (opts.get('proxy')) -- if someone gates it to Meta it stops
+# covering YouTube's DataImpulse hop.
+RETRY = FETCH[FETCH.index('proxy hop failed'):]
+RETRY = APP[APP.rindex("opts.get('proxy')",
+                       0, APP.index('proxy hop failed')):
+            APP.index('direct retry succeeded after proxy failure')]
+assert 'is_instagram' not in RETRY and 'is_meta' not in RETRY \
+       and 'is_youtube' not in RETRY, \
+    'the transport-error retry was narrowed by platform; YouTube would lose it'
+ok('proxy transport-error retry stays platform-agnostic',
+   'YouTube inherits the retry for free')
+
+
+# ------------------------------------------ 7. credentials never leak ------
+print('\n[7. YouTube-facing logs and errors carry no credentials]')
+
+env(DATAIMPULSE_USERNAME='myuser', DATAIMPULSE_PASSWORD='mypassword')
+# A yt-dlp error message on the YouTube path would include the full proxy URL.
+leak = ('ERROR: Unable to download webpage: proxy tunnel failed '
+        'http://myuser__cr.gb:mypassword@gw.dataimpulse.com:823')
+red = ps.redact(leak)
+assert 'mypassword' not in red
+assert 'myuser' not in red
+assert '***' in red
+ok('proxy_service.redact() scrubs the URL yt-dlp echoes', red[:70] + '...')
+
+# app.py must be calling redact() on the YouTube error path. This is not new
+# behaviour, but pin it -- silently dropping redact() from the shared error
+# handler would put passwords into user-facing errors for YouTube too.
+assert 'proxy_service.redact(_strip_ansi(str(download_error)))' in FETCH
+ok('app.py already redacts download errors on the shared path',
+   'YouTube inherits redaction for free')
+
+# The success-path print uses describe(), not the raw URL.
+assert 'YouTube using residential proxy — {proxy_service.describe()}' in YT \
+       or 'YouTube using residential proxy' in YT and 'proxy_service.describe()' in YT
+ok('the residential-path log uses describe(), not the raw URL',
+   'no credentials in stdout')
+
+
+# ---------------------------- 8. transport-error signals still catch us ----
+print('\n[8. DataImpulse tunnel failures are classified as proxy errors]')
+
+for t in ['Cannot connect to proxy', 'Tunnel connection failed',
+          'Connection reset by peer', 'Read timed out']:
+    assert ps.is_proxy_transport_error(t)
+ok('common tunnel-failure phrases trigger the direct retry', '4 phrases')
+
+# YouTube's own "not a bot" gate is a CONTENT error, not a proxy transport
+# error. Misclassifying it would silently retry direct and swallow the whole
+# point of the residential path.
+for t in ["Sign in to confirm you're not a bot",
+          'HTTP Error 403: Forbidden',
+          'Video unavailable']:
+    assert not ps.is_proxy_transport_error(t), t
+ok('YouTube bot-gate / 403 / unavailable are NOT proxy transport errors',
+   'the direct-retry escape hatch does not swallow the reason we added the proxy')
+
+
+# --------------------------------------------------------- teardown --------
+env()
+print('\n%d assertions passed.' % PASS)
