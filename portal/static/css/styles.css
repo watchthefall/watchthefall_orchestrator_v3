@@ -1007,3 +1007,274 @@ body::before {
         radial-gradient(1200px 800px at 15% -10%, rgba(var(--accent-rgb), 0.06), transparent 60%),
         radial-gradient(900px 600px at 100% 100%, rgba(var(--accent-rgb), 0.04), transparent 60%);
 }
+
+/* ============================================================================
+   CREATE WORKFLOW — screen-by-screen visual uplift.
+   Additive only. Every rule below sits on top of the existing selectors in
+   portal/templates/clean_dashboard.html and does NOT alter any behaviour:
+       - No touched selectors are removed or redefined structurally.
+       - Every colour is a per-tier CSS custom property, so the same rule set
+         gives Explorer/Creator/Studio/Platinum/Elite/Founding their own
+         atmosphere without a per-tier codepath.
+       - No new brand identifiers, no country/geographic assumptions.
+       - Single Link / Batch (Multi) preserved.
+       - `prefers-reduced-motion` already honoured globally above.
+   Grouped by user-visible screen order:
+     1. Step progress   2. Section containers   3. Section headings
+     4. Tab switchers   5. URL input + primary CTA   6. Format pills
+   ============================================================================ */
+
+/* ---- 1. Step progress -----------------------------------------------------
+   The 1–2–3 strip is the user's "you are here on the production journey"
+   cue. Old strip: 24px muted dots on a 2px muted line. New: 32px dots with
+   tier-glow on the active step, a soft accent gradient on completed lines,
+   and a subtle scale-up on the active dot. Reads instantly as progress.
+   ------------------------------------------------------------------------- */
+.step-progress { max-width: 560px !important; }
+.step-item { font-size: 13px !important; font-weight: 600; letter-spacing: 0.01em; }
+.step-dot {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 13px !important;
+    border-width: 2px !important;
+    background: var(--bg-elevated-2) !important;
+    border-color: var(--border-muted) !important;
+    box-shadow: var(--shadow-elevated-1);
+    position: relative;
+    transition:
+        transform var(--motion-med),
+        box-shadow var(--motion-med),
+        border-color var(--motion-med),
+        background var(--motion-med);
+}
+.step-item.active .step-dot {
+    transform: scale(1.08);
+    background: var(--accent-soft) !important;
+    border-color: var(--accent) !important;
+    color: var(--accent) !important;
+    box-shadow:
+        0 0 0 4px var(--accent-muted),
+        0 0 22px var(--accent-glow),
+        var(--shadow-elevated-2);
+}
+.step-item.completed .step-dot {
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
+    color: var(--bg-base) !important;
+    box-shadow: 0 0 12px var(--accent-glow), var(--shadow-elevated-1);
+}
+.step-item.active { color: #f5f7fb !important; }
+.step-item.completed { color: #b6bfd3 !important; }
+.step-line {
+    height: 2px !important;
+    background: linear-gradient(to right, var(--border-muted), var(--border-subtle)) !important;
+    border-radius: 999px;
+}
+.step-line.completed {
+    background: linear-gradient(to right, var(--accent), var(--accent-soft)) !important;
+    box-shadow: 0 0 6px var(--accent-glow);
+}
+
+/* ---- 2. Section containers -----------------------------------------------
+   The old `.section` was a flat #202024 rectangle. Layer it: gradient tinted
+   with a whisper of --accent-muted, an accent-tinged top border to signal
+   "this belongs to your tier", and a proper elevation shadow so the eye
+   knows where the content lives.
+   ------------------------------------------------------------------------- */
+.section {
+    background:
+        linear-gradient(180deg, var(--accent-muted) 0%, transparent 90px),
+        var(--bg-elevated-1) !important;
+    border: 1px solid var(--border-muted) !important;
+    border-top-color: var(--accent-border) !important;
+    border-radius: var(--radius-lg) !important;
+    padding: var(--space-4) !important;
+    box-shadow: var(--shadow-elevated-2);
+    position: relative;
+    overflow: hidden;
+}
+.section::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+/* ---- 3. Section headings -------------------------------------------------
+   The h2 at the top of each section was body-copy sized. Give it a real
+   presence and a small accent eyebrow tick.
+   ------------------------------------------------------------------------- */
+.section > h2:first-of-type,
+.section > h3:first-of-type {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 800;
+    color: #f5f7fb;
+    letter-spacing: -0.01em;
+    margin: 0 0 var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border-subtle);
+    position: relative;
+}
+.section > h2:first-of-type::before,
+.section > h3:first-of-type::before {
+    content: '';
+    width: 4px;
+    height: 18px;
+    background: var(--accent);
+    border-radius: 2px;
+    box-shadow: 0 0 8px var(--accent-glow);
+    flex-shrink: 0;
+}
+
+/* ---- 4. Tab switchers ----------------------------------------------------
+   Paste Links / From Library / Upload New — and, higher up, the Single Link
+   / Batch (Multi) sub-toggle re-uses the same class. Make it feel like a
+   modern segmented control with accent glow on the active pill.
+   ------------------------------------------------------------------------- */
+.tab-switcher {
+    background: var(--bg-elevated-2) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: var(--radius-chip) !important;
+    padding: 4px !important;
+    gap: 2px;
+    box-shadow: var(--shadow-elevated-1) inset;
+}
+.tab-btn {
+    border-radius: var(--radius-chip) !important;
+    transition:
+        color var(--motion-fast),
+        background var(--motion-fast),
+        box-shadow var(--motion-fast),
+        transform var(--motion-fast) !important;
+}
+.tab-btn:not(.active):hover {
+    background: var(--bg-elevated-3) !important;
+    color: #f5f7fb !important;
+}
+.tab-btn.active {
+    background: linear-gradient(180deg, var(--accent), var(--accent-hover)) !important;
+    color: var(--bg-base) !important;
+    box-shadow:
+        0 0 0 1px var(--accent-border),
+        0 0 22px var(--accent-glow),
+        var(--shadow-elevated-1);
+    transform: translateY(-0.5px);
+}
+
+/* ---- 5. URL input + primary CTA ------------------------------------------
+   The inline-styled URL input and Get Media button were the single biggest
+   "developer-y" tell in the entry-point screenshot. Override via id
+   selectors (which beat class-level rules; !important is only used where an
+   inline style already exists on the element).
+   Applies to both Single Link and Batch (Multi) modes.
+   ------------------------------------------------------------------------- */
+#inlineUrlInput,
+#batchUrlInput {
+    background: var(--bg-elevated-2) !important;
+    border: 1px solid var(--border-muted) !important;
+    border-radius: var(--radius-md) !important;
+    color: #eef1f7 !important;
+    padding: 14px 16px !important;
+    font-size: 14px !important;
+    transition: border-color var(--motion-fast), box-shadow var(--motion-fast), background var(--motion-fast);
+}
+#inlineUrlInput::placeholder,
+#batchUrlInput::placeholder { color: #6b7280 !important; }
+#inlineUrlInput:focus,
+#batchUrlInput:focus {
+    border-color: var(--accent) !important;
+    background: var(--bg-elevated-1) !important;
+    box-shadow: 0 0 0 4px var(--accent-soft), 0 0 24px var(--accent-glow);
+    outline: none !important;
+}
+
+#inlineFetchBtn,
+#batchFetchBtn,
+#downloadAllBtn {
+    background: linear-gradient(180deg, var(--accent), var(--accent-hover)) !important;
+    color: var(--bg-base) !important;
+    border: none !important;
+    border-radius: var(--radius-md) !important;
+    padding: 14px 24px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.01em;
+    box-shadow:
+        0 0 0 1px var(--accent-border),
+        0 8px 24px var(--accent-glow),
+        var(--shadow-elevated-1);
+    transition: transform var(--motion-fast), box-shadow var(--motion-fast), filter var(--motion-fast);
+}
+#inlineFetchBtn:hover,
+#batchFetchBtn:hover,
+#downloadAllBtn:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+    box-shadow:
+        0 0 0 1px var(--accent),
+        0 12px 32px var(--accent-glow),
+        var(--shadow-elevated-2);
+}
+#inlineFetchBtn:active,
+#batchFetchBtn:active,
+#downloadAllBtn:active { transform: translateY(0); }
+
+/* Single Link / Batch (Multi) mode sub-toggle. The buttons use inline styles
+   so they need id-level rules too. */
+#singleLinkModeBtn,
+#batchLinkModeBtn {
+    transition:
+        color var(--motion-fast),
+        background var(--motion-fast),
+        box-shadow var(--motion-fast) !important;
+}
+#singleLinkModeBtn.active,
+#batchLinkModeBtn.active {
+    background: linear-gradient(180deg, var(--accent), var(--accent-hover)) !important;
+    color: var(--bg-base) !important;
+    box-shadow: 0 0 18px var(--accent-glow);
+}
+
+/* ---- 6. Format pills -----------------------------------------------------
+   9:16 / 1:1 / 16:9 selectors already have a lovely LIVE badge; just add
+   per-tier glow to the active state so it reads as "selected for this
+   production formula" rather than a passive toggle.
+   ------------------------------------------------------------------------- */
+.output-format-pill {
+    background: var(--bg-elevated-2) !important;
+    border-color: var(--border-muted) !important;
+    transition:
+        border-color var(--motion-fast),
+        background var(--motion-fast),
+        box-shadow var(--motion-fast),
+        transform var(--motion-fast) !important;
+}
+.output-format-pill:not(.active):hover {
+    border-color: var(--border-strong) !important;
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-elevated-1);
+}
+.output-format-pill.active {
+    background: var(--accent-soft) !important;
+    border-color: var(--accent) !important;
+    box-shadow:
+        0 0 0 1px var(--accent-muted),
+        0 0 18px var(--accent-glow),
+        var(--shadow-elevated-1) !important;
+}
+.output-format-state.live {
+    background: var(--accent-muted) !important;
+    color: var(--accent) !important;
+    font-size: 9px !important;
+    letter-spacing: 0.12em !important;
+    text-transform: uppercase !important;
+}
+.output-format-pill.active .output-format-pill-tag {
+    background: var(--accent) !important;
+    color: var(--bg-base) !important;
+}

@@ -38,3 +38,9 @@ nul
 
 # OS files
 .DS_Store
+.env.*
+*.env
+credentials.json
+*.pem
+*.key
+.credentials
