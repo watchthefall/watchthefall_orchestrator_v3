@@ -8,12 +8,36 @@
 <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/brandr_icon.png') }}">
 <link rel="stylesheet" href="/static/css/styles.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+    <style>
+    /* ============================================================================
+       CREATE FLOW TYPOGRAPHY (Brandr identity pass)
+       Scoped to this template only (clean_dashboard.html is the dedicated Create
+       page, not reused elsewhere) so it can't leak into other pages that still
+       rely on the base Segoe UI stack. Oswald = condensed display headings,
+       Inter = functional body/UI copy, JetBrains Mono = numeric/technical data.
+       ============================================================================ */
+    :root {
+        --font-display: 'Oswald', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+        --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    body { font-family: var(--font-body); }
+    .create-hero__title, .create-hero__eyebrow,
+    .section > h2:first-of-type, .section > h3:first-of-type,
+    .payoff-banner__title, .payoff-banner__eyebrow {
+        font-family: var(--font-display);
+    }
+    .create-hero__title { text-transform: uppercase; letter-spacing: -0.01em; }
+    </style>
     <style>
     * { box-sizing: border-box; }
     body {
         background: #121214;
         color: #EAEAEA;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+        font-family: var(--font-body, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif);
         margin: 0;
         padding: 0 0 100px 0;
         -webkit-tap-highlight-color: transparent;
