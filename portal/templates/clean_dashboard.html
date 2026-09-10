@@ -845,23 +845,135 @@
         gap: 8px;
         align-items: center;
     }
+    /* Re-themed from a fixed sky-blue card to the active tier's accent, with
+       a small pulsing badge mark echoing the Create hero — "your render" now
+       visually reads as branded work-in-progress, not a generic system toast. */
     .processing-state-card {
         margin: 10px 0 0;
-        padding: 12px 14px;
-        background: rgba(125, 211, 252, 0.08);
-        border: 1px solid rgba(125, 211, 252, 0.16);
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background:
+            linear-gradient(135deg, var(--accent-muted) 0%, transparent 70%),
+            rgba(255,255,255,0.03);
+        border: 1px solid var(--accent-border);
         border-radius: 10px;
+        box-shadow: 0 0 0 1px rgba(255,255,255,0.03) inset;
     }
+    .processing-state-card__mark {
+        flex: 0 0 auto;
+        width: 34px;
+        height: 34px;
+        background-image: var(--tier-logo);
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        filter: drop-shadow(0 0 6px var(--accent-glow));
+        animation: hero-mark-pulse 2.6s ease-in-out infinite;
+    }
+    .processing-state-card__body { min-width: 0; }
     .processing-state-title {
-        color: #d8efff;
+        color: #f5f7fb;
         font-size: 14px;
         font-weight: 700;
-        margin-bottom: 4px;
+        margin-bottom: 3px;
+        font-family: var(--font-display, inherit);
+        letter-spacing: 0.01em;
     }
     .processing-state-meta {
-        color: #9fc5da;
+        color: #b8bfcc;
         font-size: 12px;
     }
+
+    /* ========== RESULTS PAYOFF BANNER ==========
+       The finished-render moment ("Branding complete!") used to be a single
+       plain status line. This gives it real weight: a tier-coloured banner
+       carrying the official badge mark, then a clear action hierarchy —
+       "Start a new video" (primary — the expected next step for most users)
+       above a small, deliberately understated "Brand this video again"
+       control (secondary — same source, different brands). See
+       brandThisVideoAgain() for why that action is its own function. */
+    .payoff-banner {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 18px;
+        margin-bottom: 12px;
+        border-radius: 12px;
+        background:
+            linear-gradient(120deg, var(--accent-muted) 0%, transparent 75%),
+            var(--bg-elevated-1, #1a1a1e);
+        border: 1px solid var(--accent-border);
+        box-shadow: var(--shadow-elevated-2, none);
+        position: relative;
+        overflow: hidden;
+    }
+    .payoff-banner__mark {
+        flex: 0 0 auto;
+        width: 44px;
+        height: 44px;
+        background-image: var(--tier-logo);
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        filter: drop-shadow(0 0 10px var(--accent-glow));
+    }
+    .payoff-banner__body { min-width: 0; }
+    .payoff-banner__eyebrow {
+        font-size: 11px;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        color: var(--accent);
+        font-weight: 700;
+        opacity: 0.9;
+        margin-bottom: 2px;
+    }
+    .payoff-banner__title {
+        font-size: 17px;
+        font-weight: 700;
+        color: #f5f7fb;
+        margin-bottom: 2px;
+    }
+    .payoff-banner__meta { font-size: 12px; color: #b8bfcc; }
+    .payoff-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 12px;
+    }
+    .action-primary {
+        width: 100%;
+        padding: 11px 16px;
+        font-size: 14px;
+        font-weight: 700;
+        background: var(--accent);
+        color: #121214;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+    .action-primary:hover { filter: brightness(1.06); }
+    /* Compact technical pill — deliberately lower visual weight than
+       .action-primary (smaller, self-width, outline rather than fill) so it
+       reads as an optional side-path, not a second equally-weighted CTA. */
+    .action-secondary {
+        align-self: flex-start;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        background: transparent;
+        color: var(--accent-text, var(--accent));
+        border: 1px solid var(--accent-border);
+        border-radius: 999px;
+        cursor: pointer;
+    }
+    .action-secondary:hover { background: var(--accent-muted); }
     
     /* ========== COLLAPSIBLE ========== */
     .collapsible-header {
@@ -3211,8 +3323,11 @@ function renderStreamingCompletionState() {
 
     result.innerHTML = `
         <div class="processing-state-card">
-            <div class="processing-state-title">⏳ Rendering in background…</div>
-            <div class="processing-state-meta">${approved} ${brandWord} approved${skipped ? ', ' + skipped + ' skipped' : ''}. Outputs will download here as they finish.</div>
+            <div class="processing-state-card__mark" aria-hidden="true"></div>
+            <div class="processing-state-card__body">
+                <div class="processing-state-title">Rendering in background…</div>
+                <div class="processing-state-meta">${approved} ${brandWord} approved${skipped ? ', ' + skipped + ' skipped' : ''}. Outputs will download here as they finish.</div>
+            </div>
         </div>
     `;
     setTimeout(function() {
@@ -6338,8 +6453,11 @@ async function processAllBrands() {
 
     result.innerHTML = `
         <div class="processing-state-card">
-            <div class="processing-state-title">Processing branded outputs…</div>
-            <div class="processing-state-meta">Starting…</div>
+            <div class="processing-state-card__mark" aria-hidden="true"></div>
+            <div class="processing-state-card__body">
+                <div class="processing-state-title">Processing branded outputs…</div>
+                <div class="processing-state-meta">Starting…</div>
+            </div>
         </div>
     `;
 
@@ -6439,8 +6557,18 @@ function _esc(str) {
 function renderCompletionPanel(el, done, failed, skipped, failMessages) {
     failMessages = failMessages || [];
 
+    // Success case gets the full tier-branded payoff banner (the moment the
+    // user is meant to feel good about); a partial-failure run keeps the
+    // plainer warning strip so problems stay legible rather than dressed up.
     const headerHtml = failed === 0
-        ? `<div class="status-msg success">\ud83c\udf89 Branding complete! ${done} version${done !== 1 ? 's' : ''} ready.</div>`
+        ? `<div class="payoff-banner">
+               <div class="payoff-banner__mark" aria-hidden="true"></div>
+               <div class="payoff-banner__body">
+                   <div class="payoff-banner__eyebrow">Brandr</div>
+                   <div class="payoff-banner__title">Branding complete!</div>
+                   <div class="payoff-banner__meta">${done} version${done !== 1 ? 's' : ''} ready to download.</div>
+               </div>
+           </div>`
         : `<div class="status-msg warning">Branding done with issues. ${done} done, \u274c ${failed} failed${skipped ? ', ' + skipped + ' skipped' : ''}</div>`;
 
     let outputsHtml = '';
@@ -6473,8 +6601,22 @@ function renderCompletionPanel(el, done, failed, skipped, failMessages) {
         fixHtml = `<div style="margin-top:10px;padding:10px 12px;background:#1e1e22;border-radius:6px;border-left:3px solid #e0a84e;">${fixRows.join('')}</div>`;
     }
 
-    const libraryBtn = `<button onclick="goToLibrary()" style="width:100%;margin-top:10px;padding:9px 14px;font-size:13px;background:transparent;border:1px solid #343948;color:#b6bfd3;border-radius:8px;cursor:pointer;">Open Library</button>`;
-    el.innerHTML = headerHtml + outputsHtml + fixHtml + libraryBtn;
+    const libraryBtn = `<button onclick="goToLibrary()" style="width:100%;margin-top:8px;padding:9px 14px;font-size:13px;background:transparent;border:1px solid #343948;color:#b6bfd3;border-radius:8px;cursor:pointer;">Open Library</button>`;
+
+    // "Start a new video" is the primary next step for most people (drop a
+    // different source in). changeVideo() is the existing, well-tested full
+    // reset used elsewhere in this file. "Brand this video again" is a
+    // secondary, lower-weight path back onto the SAME source video — see
+    // brandThisVideoAgain() for why it needed its own reset logic rather
+    // than reusing changeVideo() or the review-intent switcher.
+    const actionsHtml = failed === 0 ? `
+        <div class="payoff-actions">
+            <button class="action-primary" onclick="changeVideo()">Start a new video</button>
+            <button class="action-secondary" onclick="brandThisVideoAgain()">&#8635; Brand this video again</button>
+        </div>
+    ` : '';
+
+    el.innerHTML = headerHtml + outputsHtml + fixHtml + actionsHtml + libraryBtn;
 }
 
 async function downloadAllCompletedOutputs() {
@@ -7250,6 +7392,42 @@ function changeVideo() {
     
     console.log('[BRANDR] Video changed - returned to intake layer');
     updateStepProgress(1);
+}
+
+// "Brand this video again" — re-run the SAME source video through a fresh
+// brand selection, without the user re-picking/re-uploading it. This is
+// deliberately its own function rather than a reuse of setCreateIntent()/
+// enterQueueMode(): those assume a still-active review session and don't
+// clear completedOutputs, processingQueue or the inline display:none the
+// completion flow leaves on outputFormatsSection/createIntentFork/
+// confirmationSummary, so calling them post-completion left stale state and
+// hidden controls behind. resetCreateReviewSession() + clearLoadouts() are
+// the same reset primitives changeVideo() already relies on — they clear
+// everything except currentFile — and extractFrame() re-fetches the preview
+// frame/thumbnail for that unchanged file from the server.
+function brandThisVideoAgain() {
+    if (!currentFile) { changeVideo(); return; }
+    const sourceFile = currentFile;
+
+    completedOutputs = [];
+    createIntent = null;
+
+    resetCreateReviewSession('brand-again');
+    clearLoadouts('brand-again');
+
+    // resetCreateReviewSession() doesn't touch outputFormatsSection (it has no
+    // baked-in display:none — only the processing/review flow inline-hides
+    // it), so clear that inline override explicitly to let its CSS show again.
+    const outputFormatsSection = document.getElementById('outputFormatsSection');
+    if (outputFormatsSection) outputFormatsSection.style.display = '';
+
+    const result = document.getElementById('processResult');
+    if (result) result.innerHTML = '';
+
+    extractFrame(sourceFile);
+    updateStepProgress(2);
+
+    console.log('[BRANDR] Brand this video again — kept source, reset selection:', sourceFile);
 }
 
 function goToLibrary() {
