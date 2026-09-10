@@ -1905,7 +1905,36 @@
 {% set active_page = 'brand_video' %}
 {% include '_nav.html' %}
 
-<h1><span class="glitch">CREATE</span></h1>
+<!-- ===== CREATE HERO — Slice 3 =====
+     Themed via var(--accent) so every tier's page reads with its own presence
+     without swapping images. The SVG "B" mark is inline so it re-tints per
+     tier via currentColor. Old <h1>CREATE</h1> preserved semantics-wise as
+     the visible page title inside the hero. -->
+<section class="create-hero" aria-labelledby="createHeroTitle">
+    <div class="create-hero__text">
+        <span class="create-hero__eyebrow">Brandr &middot; Production engine</span>
+        <h1 id="createHeroTitle" class="create-hero__title">
+            <span class="glitch create-hero__accent">CREATE</span>
+        </h1>
+        <p class="create-hero__subtitle">Download. Brand. Ship. Compose your production formula: source &times; format &times; brand.</p>
+    </div>
+    <div class="create-hero__mark" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="brandrHeroMarkStroke" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="currentColor" stop-opacity="0.9"/>
+                    <stop offset="100%" stop-color="currentColor" stop-opacity="0.5"/>
+                </linearGradient>
+            </defs>
+            <rect x="6" y="6" width="88" height="88" rx="20" fill="none"
+                  stroke="url(#brandrHeroMarkStroke)" stroke-width="2" opacity="0.55"/>
+            <path d="M32 24 L32 76 L54 76 Q70 76 70 62 Q70 52 60 49 Q68 46 68 37 Q68 24 54 24 Z
+                     M44 34 L52 34 Q58 34 58 39 Q58 44 52 44 L44 44 Z
+                     M44 54 L54 54 Q62 54 62 61 Q62 66 54 66 L44 66 Z"
+                  fill="currentColor"/>
+        </svg>
+    </div>
+</section>
 
 <!-- Step Progress Indicator -->
 <div class="step-progress" id="stepProgress">
@@ -2134,6 +2163,29 @@
         </div>
         <h3 style="margin-top:0;">Choose brands <span style="color:#666;font-size:13px;font-weight:400;">(up to {{ max_brands_per_job }} per job)</span></h3>
         <p class="review-subcopy" id="brandSelectionHelp" style="margin:0 0 10px;">Pick the brands you want, then review the live 9:16 version before processing. Planned formats stay visible here for what comes next.</p>
+    </div>
+    <!-- ===== BRAND GRID CONTROLS — Slice 4 =====
+         Search filters on b.display_name only (brand-identity-agnostic).
+         "Ready only" filter uses b.is_ready — the same flag the tile already
+         renders. No country/geographic assumption. The controls wire up in a
+         small script block near the bottom of this template so we don't
+         touch loadBrands() itself. -->
+    <div class="brand-controls" id="brandControls">
+        <label class="brand-search" for="brandSearchInput">
+            <span class="sr-only">Search brands</span>
+            <input type="text" id="brandSearchInput"
+                   placeholder="Search brands by name"
+                   autocomplete="off"
+                   aria-label="Search brands">
+        </label>
+        <button type="button" id="brandReadyOnlyToggle" class="brand-filter-toggle"
+                aria-pressed="false"
+                title="Hide brands that are missing a logo or watermark">
+            Ready only
+        </button>
+        <span id="brandCountChip" class="brand-count-chip" aria-live="polite">
+            <strong>0</strong> shown
+        </span>
     </div>
     <div class="brand-grid" id="brandsBox"
          data-max-brands="{{ max_brands_per_job }}"
@@ -2387,10 +2439,17 @@
     
     </div><!-- End overrideControls -->
     
-    <!-- Confirmation Summary — hidden; editor lives in the review cockpit only -->
-    <div id="confirmationSummary" style="display:none; background: var(--accent-soft); border: 1px solid var(--accent-glow); border-radius: 8px; padding: 10px 12px; margin: 12px 0; font-size: 13px; line-height: 1.55;">
-        <div style="color: var(--accent); font-weight: 600; margin-bottom: 6px;">⚡ Ready to brand:</div>
-        <div id="summaryText" style="color: #ccc;"></div>
+    <!-- Confirmation Summary — Slice 5 tensor-card wrapper.
+         The inner #summaryText is the SAME element written by
+         updateConfirmationSummary(); math, credit accounting, chip rendering
+         are all unchanged. This is a purely visual promotion of the strip
+         into a proper card. Adding a Destination or Processing axis later
+         is a template-only additive change to the surrounding tensor-card. -->
+    <div id="confirmationSummary" class="tensor-card" style="display:none;">
+        <div class="tensor-card__eyebrow">Ready to brand</div>
+        <div class="tensor-card__body">
+            <div id="summaryText"></div>
+        </div>
     </div>
     
     <!-- Selection Mode Button -->
@@ -8428,6 +8487,78 @@ document.addEventListener('visibilitychange', function() {
         loadBrands();
     }
 });
+
+// =============================================================================
+// SLICE 4 — Brand grid search + "Ready only" filter.
+// Layered on top of loadBrands() rather than modifying it: we observe the
+// grid, then show/hide tiles by tagging them with .brand-filtered-out. Every
+// existing selection / preview / override behaviour keeps working because
+// the underlying DOM structure is untouched.
+// Brand-identity-agnostic: filters on b.display_name text (case-insensitive)
+// and on the .brand-incomplete class the tile already carries.
+// =============================================================================
+(function initBrandGridControls() {
+    const grid = document.getElementById('brandsBox');
+    const search = document.getElementById('brandSearchInput');
+    const readyToggle = document.getElementById('brandReadyOnlyToggle');
+    const countChip = document.getElementById('brandCountChip');
+    if (!grid || !search || !readyToggle || !countChip) return;
+
+    let readyOnly = false;
+    let query = '';
+
+    function applyFilters() {
+        const tiles = grid.querySelectorAll('.brand-btn:not(.ghost-slot)');
+        let shown = 0;
+        const q = query.trim().toLowerCase();
+        tiles.forEach(tile => {
+            const nameEl = tile.querySelector('.brand-name');
+            const name = nameEl ? nameEl.textContent.toLowerCase() : '';
+            const isReady = tile.dataset.ready === 'true';
+            const matchesQuery = !q || name.indexOf(q) !== -1;
+            const matchesReady = !readyOnly || isReady;
+            const visible = matchesQuery && matchesReady;
+            tile.classList.toggle('brand-filtered-out', !visible);
+            if (visible) shown++;
+        });
+        // Ghost upgrade slots follow the "ready" filter (they're aspirational).
+        grid.querySelectorAll('.brand-btn.ghost-slot').forEach(g => {
+            g.classList.toggle('brand-filtered-out', readyOnly || q.length > 0);
+        });
+        // Empty state
+        const existingEmpty = grid.querySelector('.brand-empty-search');
+        if (shown === 0 && tiles.length > 0) {
+            if (!existingEmpty) {
+                const msg = document.createElement('div');
+                msg.className = 'brand-empty-search';
+                msg.innerHTML = q
+                    ? `No brands match <strong>&ldquo;${q.replace(/[<>&]/g, '')}&rdquo;</strong>. Try a shorter search or clear the filter.`
+                    : `No ready brands. Complete a brand's assets under <a href="/portal/brands" style="color:var(--accent);">Manage Brands</a> to enable it here.`;
+                grid.appendChild(msg);
+            }
+        } else if (existingEmpty) {
+            existingEmpty.remove();
+        }
+        countChip.innerHTML = `<strong>${shown}</strong> shown`;
+    }
+
+    search.addEventListener('input', (e) => {
+        query = e.target.value || '';
+        applyFilters();
+    });
+    readyToggle.addEventListener('click', () => {
+        readyOnly = !readyOnly;
+        readyToggle.classList.toggle('active', readyOnly);
+        readyToggle.setAttribute('aria-pressed', readyOnly ? 'true' : 'false');
+        applyFilters();
+    });
+
+    // The grid is populated asynchronously by loadBrands(); watch for it.
+    const obs = new MutationObserver(() => applyFilters());
+    obs.observe(grid, { childList: true });
+    // First pass in case tiles are already rendered.
+    applyFilters();
+})();
 </script>
 
 {% include '_upgrade_modal.html' %}
