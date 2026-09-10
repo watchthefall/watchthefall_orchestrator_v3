@@ -72,8 +72,10 @@
 /* Founding member — GOLD prestige theme. Applied via data-tier="Founding",
    which the server sets for ANY founder regardless of their base tier
    (founding wins). Gold = founder reward + price-lock status.
-   NOTE: --tier-logo/--tier-icon are stopgaps (gold Elite icon + neutral badge)
-   until the dedicated gold founding wordmark/icon land in Phase 2. */
+   --tier-logo now points at the official Founding badge asset
+   (portal/static/images/badges/founding.png, added in the Create identity
+   pass). --tier-icon still borrows Elite's monogram icon — a dedicated
+   small Founding icon hasn't been produced yet. */
 :root[data-tier="Founding"] {
     --accent: #E8B923;
     --accent-hover: #F5C842;
@@ -83,7 +85,7 @@
     --accent-border: rgba(232, 185, 35, 0.32);
     --accent-text: #F2CB4E;
     --accent-rgb: 232, 185, 35;
-    --tier-logo: url('/static/images/badges/brandr_default.png');
+    --tier-logo: url('/static/images/badges/founding.png');
     --tier-icon: url('/static/img/tier_icons/icon_elite.png');
 }
 
@@ -788,13 +790,19 @@ body {
 .create-hero__subtitle { margin: 0; font-size: 14px; color: #9ca3af; max-width: 520px; }
 .create-hero__mark {
     flex: 0 0 auto;
-    width: clamp(84px, 12vw, 140px);
+    width: clamp(120px, 16vw, 190px);
     height: clamp(84px, 12vw, 140px);
-    color: var(--accent);
+    background-image: var(--tier-logo);
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center right;
     filter: drop-shadow(0 0 24px var(--accent-glow)) drop-shadow(0 0 8px var(--accent-glow));
     animation: hero-mark-pulse 4.8s ease-in-out infinite;
 }
-.create-hero__mark svg { width: 100%; height: 100%; display: block; }
+/* Emergent's placeholder "B" SVG is retired in favour of the official
+   Brandr badge asset (--tier-logo) above; the svg rule is kept only in
+   case the markup still contains a stray <svg> from an older cache. */
+.create-hero__mark svg { display: none; }
 @keyframes hero-mark-pulse {
     0%, 100% { filter: drop-shadow(0 0 22px var(--accent-glow)) drop-shadow(0 0 6px var(--accent-glow)); }
     50%      { filter: drop-shadow(0 0 34px var(--accent-glow)) drop-shadow(0 0 12px var(--accent-glow)); }
