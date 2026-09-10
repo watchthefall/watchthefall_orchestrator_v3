@@ -1047,7 +1047,7 @@
 .wz-create-hero { text-align: center; padding: 4px 0 16px; }
 .wz-brand-lockup { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 12px; }
 .wz-brand-wordmark { font-size: 17px; font-weight: 900; letter-spacing: 0.14em; color: #fff; line-height: 1; }
-.wz-tier-badge { font-size: 8px; font-weight: 700; letter-spacing: 0.22em; color: #F5A623; border-top: 1px solid rgba(245,166,35,0.6); padding-top: 3px; margin-top: 2px; width: 100%; text-align: center; }
+.wz-tier-badge { font-size: 8px; font-weight: 700; letter-spacing: 0.22em; color: var(--accent); border-top: 1px solid rgba(var(--accent-rgb), 0.6); padding-top: 3px; margin-top: 2px; width: 100%; text-align: center; }
 .wz-create-title { font-size: 15px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; margin: 0 0 8px; }
 .wz-create-copy { font-size: 12px; color: #9ca3af; line-height: 1.5; margin: 0 auto 14px; }
 /* Patch 51: feature checklist */
@@ -6010,6 +6010,13 @@ function resetWizardSaveButton() {
     if (saveBtn) {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Save Brand';
+    }
+    // Bug fix: saveWizardBrand() can also target #step1ContinueBtn (when wizardState.step === 1)
+    // and leaves it disabled/reading "Saving..." forever if this reset never restores it too.
+    const step1Btn = document.getElementById('step1ContinueBtn');
+    if (step1Btn) {
+        step1Btn.disabled = false;
+        step1Btn.textContent = 'Continue to Brand Editor';
     }
 }
 // ========== END WIZARD SAVE-STATE HELPERS ==========
