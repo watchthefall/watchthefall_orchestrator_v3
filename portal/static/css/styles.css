@@ -1180,8 +1180,8 @@ body::before {
    modern segmented control with accent glow on the active pill.
    ------------------------------------------------------------------------- */
 .tab-switcher {
-    background: var(--bg-elevated-2) !important;
-    border: 1px solid var(--border-subtle) !important;
+    background: var(--bg-elevated-3) !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
     border-radius: var(--radius-chip) !important;
     padding: 4px !important;
     gap: 2px;
@@ -1189,6 +1189,9 @@ body::before {
 }
 .tab-btn {
     border-radius: var(--radius-chip) !important;
+    white-space: nowrap !important;
+    font-size: 13px !important;
+    padding: 9px 10px !important;
     transition:
         color var(--motion-fast),
         background var(--motion-fast),
