@@ -813,6 +813,40 @@ body {
 }
 
 /* ============================================================================
+   CREATE TWO-COLUMN LAYOUT (Configure uplift)
+   Approved mockup's flagship desktop decision: the source video stays pinned
+   in a left rail while the configure/preview column scrolls independently
+   on the right, so brand selection / options never separate the eye from
+   the thing being branded. Purely additive: #videoSourceSection and
+   #previewSection keep their existing IDs, classes and inline JS toggles
+   (style.display = 'none'/'block' still works unchanged) — this just wraps
+   them in a grid container above a breakpoint. Below the breakpoint the
+   grid collapses to today's single-column stacked flow, so nothing about
+   mobile behaviour changes.
+   ============================================================================ */
+.create-two-col {
+    max-width: 1180px;
+    margin: 0 auto;
+}
+@media (min-width: 980px) {
+    .create-two-col {
+        display: grid;
+        grid-template-columns: minmax(300px, 380px) 1fr;
+        align-items: start;
+        gap: var(--space-4);
+    }
+    .create-two-col > #videoSourceSection {
+        position: sticky;
+        top: var(--space-4);
+        max-height: calc(100vh - var(--space-5));
+        overflow-y: auto;
+    }
+    .create-two-col > [data-create-col="config"] {
+        min-width: 0;
+    }
+}
+
+/* ============================================================================
    SLICE 4 — BRAND GRID CONTROLS (search + filter + chips)
    Adds a controls row above #brandsBox. The tiles themselves are unchanged
    in structure; only additive polish (radius softening, hover lift) so the
