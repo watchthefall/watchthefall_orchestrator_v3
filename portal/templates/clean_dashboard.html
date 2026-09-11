@@ -24,6 +24,24 @@
         --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
         --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
     }
+    /* Visual-foundation fix: the shared --bg-elevated-*/--bg-base tokens
+       (defined in styles.css) are navy-tinted (#151a2b family) rather than
+       the approved near-black/graphite. Those tokens are also consumed by
+       .section and .tab-switcher on other pages (admin_codes.html,
+       downloader.html), so per the "verify consumers before changing a
+       global token" rule they are left alone in styles.css and instead
+       overridden here, scoped to this template only -- clean_dashboard.html
+       is the dedicated Create page and is not reused elsewhere. Same
+       :root specificity as the styles.css declaration, so this simply wins
+       by loading later in the cascade; nothing else about the token system
+       (radius, spacing, motion, tier accents) changes. */
+    :root {
+        --bg-base: #0a0a0b;
+        --bg-elevated-1: #131315;
+        --bg-elevated-2: #19191c;
+        --bg-elevated-3: #202023;
+        --bg-overlay: rgba(6, 6, 7, 0.85);
+    }
     body { font-family: var(--font-body); }
     .create-hero__title, .create-hero__eyebrow,
     .section > h2:first-of-type, .section > h3:first-of-type,
@@ -58,13 +76,13 @@
         width: 94%;
         max-width: 500px;
         margin: 15px auto;
-        background: #202024;
+        background: var(--bg-elevated-3);
         padding: 14px;
         border-radius: 12px;
     }
     .intent-fork {
-        background: #181a20;
-        border: 1px solid #2f3340;
+        background: var(--bg-elevated-1);
+        border: 1px solid var(--border-muted);
         border-radius: 12px;
         padding: 16px;
         margin-bottom: 16px;
@@ -116,8 +134,8 @@
         gap: 8px;
         padding: 9px 11px;
         border-radius: 999px;
-        border: 1px solid #343948;
-        background: #202531;
+        border: 1px solid var(--border-muted);
+        background: var(--bg-elevated-3);
         color: #d7dce6;
         font-size: 12px;
         font-weight: 600;
@@ -187,9 +205,9 @@
         margin-top: 14px;
     }
     .intent-choice-btn {
-        background: #262a35;
+        background: var(--bg-elevated-2);
         color: #fff;
-        border: 1px solid #343948;
+        border: 1px solid var(--border-muted);
         font-size: 15px;
         padding: 14px 12px;
     }
@@ -205,8 +223,8 @@
         color: #8b93a7;
     }
     .download-lane {
-        background: #181a20;
-        border: 1px solid #2f3340;
+        background: var(--bg-elevated-1);
+        border: 1px solid var(--border-muted);
         border-radius: 12px;
         padding: 16px;
         margin-bottom: 16px;
@@ -219,8 +237,8 @@
     }
     .download-video-card,
     .review-context-card {
-        background: #151821;
-        border: 1px solid #2c3240;
+        background: var(--bg-elevated-1);
+        border: 1px solid var(--border-muted);
         border-radius: 12px;
         padding: 11px 12px;
     }
@@ -233,8 +251,8 @@
         width: 64px;
         height: 64px;
         border-radius: 10px;
-        background: linear-gradient(160deg, #2f3547, #171b24);
-        border: 1px solid #343a48;
+        background: linear-gradient(160deg, var(--bg-elevated-3), var(--bg-elevated-1));
+        border: 1px solid var(--border-muted);
         flex: 0 0 auto;
     }
     .download-video-meta {
@@ -364,12 +382,12 @@
     }
     .review-actions .review-quiet {
         background: transparent;
-        border: 1px solid #343948;
+        border: 1px solid var(--border-muted);
         color: #b6bfd3;
     }
     .review-copy-btn {
         background: transparent;
-        border: 1px solid #343948;
+        border: 1px solid var(--border-muted);
         color: #98a2b8;
         font-size: 11px;
         padding: 4px 10px;
@@ -389,7 +407,7 @@
     .review-footer-actions .btn-secondary {
         width: auto;
         margin: 0;
-        background: #2a3040;
+        background: var(--bg-elevated-3);
         color: #fff;
         border: 1px solid rgba(255,255,255,0.10);
         padding: 10px 12px;
@@ -438,7 +456,7 @@
         border-radius: 8px;
         border: none;
         font-size: 16px;
-        background: #222;
+        background: var(--bg-elevated-1);
         color: #fff;
     }
     button {
@@ -474,8 +492,8 @@
            to every tile, not just the active one, so switching preview never
            reflows the grid row. */
         padding: 12px 8px 26px;
-        background: #222;
-        border: 2px solid #333;
+        background: var(--bg-elevated-1);
+        border: 2px solid var(--border-muted);
         border-radius: 8px;
         color: #fff;
         font-size: 13px;
@@ -903,7 +921,7 @@
         border-radius: 12px;
         background:
             linear-gradient(120deg, var(--accent-muted) 0%, transparent 75%),
-            var(--bg-elevated-1, #1a1a1e);
+            var(--bg-elevated-1, var(--bg-elevated-1));
         border: 1px solid var(--accent-border);
         box-shadow: var(--shadow-elevated-2, none);
         position: relative;
@@ -1009,7 +1027,7 @@
     /* ========== INTAKE LAYER ========== */
     .tab-switcher {
         display: flex;
-        background: #222;
+        background: var(--bg-elevated-1);
         border-radius: 8px;
         padding: 4px;
         margin-bottom: 15px;
@@ -1049,8 +1067,8 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        background: #222;
-        border: 1px solid #333;
+        background: var(--bg-elevated-1);
+        border: 1px solid var(--border-muted);
         border-radius: 8px;
         padding: 10px 12px;
         cursor: pointer;
@@ -1329,7 +1347,7 @@
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        border: 2px solid #333;
+        border: 2px solid var(--border-muted);
         transition: all 0.3s;
     }
     .step-item.active .step-dot {
@@ -1763,8 +1781,8 @@
         min-width: 0;
         max-width: 124px;
         width: auto;
-        background: #171b24;
-        border: 1px solid #2a3140;
+        background: var(--bg-elevated-1);
+        border: 1px solid var(--border-muted);
         border-radius: 999px;
         padding: 3px 6px 3px 3px;
         margin: 0;
@@ -1777,7 +1795,7 @@
     }
     .rps-node:hover {
         border-color: #475068;
-        background: #1d2230;
+        background: var(--bg-elevated-2);
     }
     .rps-node.rps-active {
         border-color: var(--accent);
@@ -1788,7 +1806,7 @@
         width: 20px;
         height: 20px;
         border-radius: 999px;
-        background: #101318;
+        background: var(--bg-elevated-1);
         border: 1px solid rgba(255,255,255,0.08);
         overflow: hidden;
         display: flex;
@@ -1921,9 +1939,9 @@
     .comp-logo-option {
         width: 56px;
         height: 56px;
-        border: 2px solid #333;
+        border: 2px solid var(--border-muted);
         border-radius: 8px;
-        background: #1a1a1e;
+        background: var(--bg-elevated-1);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -2165,7 +2183,7 @@
             <!-- Thumbnail: the frame is already extracted on select, so this costs
                  nothing extra and stops the user having to recognise a video by an
                  opaque platform id like DWtkfp1ABmJ.mp4 -->
-            <img id="selectedThumb" alt="" style="display:none; width:56px; height:74px; object-fit:cover; border-radius:6px; flex:0 0 auto; background:#121214; border:1px solid #2a2f3e;">
+            <img id="selectedThumb" alt="" style="display:none; width:56px; height:74px; object-fit:cover; border-radius:6px; flex:0 0 auto; background:#121214; border:1px solid var(--border-muted);">
             <span class="source-icon" id="selectedSourceIcon"></span>
             <div class="selected-video-meta" style="min-width:0; flex:1;">
                 <span class="selected-filename" id="selectedVideoName" style="font-weight:600;"></span>
@@ -2178,7 +2196,7 @@
                       style="display:none; color:#8fa3c8;"></span>
             </div>
             <button type="button" id="selectedRenameBtn" onclick="startSourceRename()" title="Name this video"
-                    style="width:auto; flex:0 0 auto; background:transparent; border:1px solid #343948; color:#b6bfd3; border-radius:6px; padding:3px 9px; font-size:11px; cursor:pointer;">&#9998; Rename</button>
+                    style="width:auto; flex:0 0 auto; background:transparent; border:1px solid var(--border-muted); color:#b6bfd3; border-radius:6px; padding:3px 9px; font-size:11px; cursor:pointer;">&#9998; Rename</button>
         </div>
         <input type="text" id="selectedRenameInput" maxlength="80" placeholder="Name this video"
                onkeydown="if(event.key==='Enter'){commitSourceRename();}else if(event.key==='Escape'){cancelSourceRename();}"
@@ -2269,12 +2287,12 @@
 
     <div id="selectionModeHeader">
         <!-- Per-video loadout header (multi-link only): which video you're picking brands for -->
-        <div id="loadoutHeader" style="display:none; margin-bottom:12px; padding:10px 12px; background:#1a1f2e; border:1px solid #2a2f3e; border-radius:8px;">
+        <div id="loadoutHeader" style="display:none; margin-bottom:12px; padding:10px 12px; background:var(--bg-elevated-2); border:1px solid var(--border-muted); border-radius:8px;">
             <div style="display:flex; align-items:center; gap:10px;">
                 <span id="loadoutCounter" style="font-weight:700; color:var(--accent); font-size:14px; white-space:nowrap;">Video 1 of 1</span>
                 <span id="loadoutVideoName" style="flex:1; font-size:14px; font-weight:600; color:#e5e7eb; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
                 <button type="button" id="loadoutRenameBtn" onclick="startLoadoutRename()" title="Rename this video"
-                        style="width:auto; flex:0 0 auto; background:transparent; border:1px solid #343948; color:#b6bfd3; border-radius:6px; padding:3px 9px; font-size:11px; cursor:pointer;">&#9998; Rename</button>
+                        style="width:auto; flex:0 0 auto; background:transparent; border:1px solid var(--border-muted); color:#b6bfd3; border-radius:6px; padding:3px 9px; font-size:11px; cursor:pointer;">&#9998; Rename</button>
             </div>
             <input type="text" id="loadoutRenameInput" maxlength="80" placeholder="Name this video"
                    onkeydown="if(event.key==='Enter'){commitLoadoutRename();}else if(event.key==='Escape'){cancelLoadoutRename();}"
@@ -2350,27 +2368,27 @@
     <!-- ===== REFRAME CONTROLS (Studio · vertical only) ===== -->
     <div id="reframeControls" style="display:none; flex-wrap:wrap; align-items:center; gap:6px; width:94%; max-width:500px; margin:6px auto 8px; font-size:12px; color:#8b93a7;">
         <span style="margin-right:2px;">Reframe</span>
-        <div style="display:inline-flex; align-items:center; gap:2px; background:#202531; border:1px solid #343948; border-radius:999px; padding:2px;">
+        <div style="display:inline-flex; align-items:center; gap:2px; background:var(--bg-elevated-3); border:1px solid var(--border-muted); border-radius:999px; padding:2px;">
             <button id="sourceFitBtn" type="button" onclick="setSourceCropMode('fit')" title="Show the full source inside the canvas" style="width:auto; flex:0 0 auto; background:transparent; color:#d7dce6; border:none; border-radius:999px; padding:5px 10px; font-weight:700; cursor:pointer;">Fit</button>
             <button id="sourceFillBtn" type="button" onclick="setSourceCropMode('fill')" title="Fill the canvas with a centered crop" style="width:auto; flex:0 0 auto; background:transparent; color:#8b93a7; border:none; border-radius:999px; padding:5px 10px; font-weight:700; cursor:pointer;">Fill</button>
             <button id="sourceManualBtn" type="button" onclick="toggleManualReframe()" title="Drag the video to choose which part fills the frame" style="width:auto; flex:0 0 auto; background:transparent; color:#8b93a7; border:none; border-radius:999px; padding:5px 10px; font-weight:700; cursor:pointer;">Manual</button>
         </div>
-        <div style="display:inline-flex; align-items:center; gap:2px; background:#202531; border:1px solid #343948; border-radius:999px; padding:2px;">
+        <div style="display:inline-flex; align-items:center; gap:2px; background:var(--bg-elevated-3); border:1px solid var(--border-muted); border-radius:999px; padding:2px;">
             <button type="button" onclick="adjustSourceZoom(0.8)" title="Zoom out" style="width:26px; height:26px; background:transparent; color:#d7dce6; border:none; border-radius:999px; font-size:16px; font-weight:700; line-height:1; cursor:pointer; flex:0 0 auto;">−</button>
             <span id="reframeHint" style="display:none; flex-basis:100%; text-align:center; font-size:11px; color:var(--accent); margin-top:2px;">Drag the video to reposition · pinch or use − / + to zoom</span>
         <span id="reframeZoomLabel" style="min-width:40px; text-align:center; color:#d7dce6; font-weight:600;">100%</span>
             <button type="button" onclick="adjustSourceZoom(1.25)" title="Zoom in" style="width:26px; height:26px; background:transparent; color:#d7dce6; border:none; border-radius:999px; font-size:16px; font-weight:700; line-height:1; cursor:pointer; flex:0 0 auto;">+</button>
         </div>
-        <button type="button" onclick="setSourceCropY(0)" style="width:auto; flex:0 0 auto; background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:5px 11px; font-weight:600; cursor:pointer;">Top</button>
-        <button type="button" onclick="setSourceCropY(0.5)" style="width:auto; flex:0 0 auto; background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:5px 11px; font-weight:600; cursor:pointer;">Centre</button>
-        <button type="button" onclick="setSourceCropY(1)" style="width:auto; flex:0 0 auto; background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:5px 11px; font-weight:600; cursor:pointer;">Bottom</button>
-        <button type="button" onclick="resetSourceFraming()" style="width:auto; flex:0 0 auto; margin-left:auto; background:#202531; color:#8b93a7; border:1px solid #343948; border-radius:999px; padding:5px 11px; font-weight:600; cursor:pointer;">Reset</button>
+        <button type="button" onclick="setSourceCropY(0)" style="width:auto; flex:0 0 auto; background:var(--bg-elevated-3); color:#d7dce6; border:1px solid var(--border-muted); border-radius:999px; padding:5px 11px; font-weight:600; cursor:pointer;">Top</button>
+        <button type="button" onclick="setSourceCropY(0.5)" style="width:auto; flex:0 0 auto; background:var(--bg-elevated-3); color:#d7dce6; border:1px solid var(--border-muted); border-radius:999px; padding:5px 11px; font-weight:600; cursor:pointer;">Centre</button>
+        <button type="button" onclick="setSourceCropY(1)" style="width:auto; flex:0 0 auto; background:var(--bg-elevated-3); color:#d7dce6; border:1px solid var(--border-muted); border-radius:999px; padding:5px 11px; font-weight:600; cursor:pointer;">Bottom</button>
+        <button type="button" onclick="resetSourceFraming()" style="width:auto; flex:0 0 auto; margin-left:auto; background:var(--bg-elevated-3); color:#8b93a7; border:1px solid var(--border-muted); border-radius:999px; padding:5px 11px; font-weight:600; cursor:pointer;">Reset</button>
     </div>
 
     <!-- Flip control — separate from framing, always visible for any format -->
     <div id="flipControl" style="display:none; align-items:center; gap:6px; width:94%; max-width:500px; margin:0 auto 8px; font-size:12px; color:#8b93a7;">
         <span style="margin-right:2px;">Video</span>
-        <button id="sourceFlipBtn" type="button" onclick="toggleSourceFlip()" title="Mirror the video left-to-right (great for reposting)" style="width:auto; flex:0 0 auto; background:#202531; color:#d7dce6; border:1px solid #343948; border-radius:999px; padding:5px 12px; font-weight:700; cursor:pointer;">&#8646; Flip horizontal</button>
+        <button id="sourceFlipBtn" type="button" onclick="toggleSourceFlip()" title="Mirror the video left-to-right (great for reposting)" style="width:auto; flex:0 0 auto; background:var(--bg-elevated-3); color:#d7dce6; border:1px solid var(--border-muted); border-radius:999px; padding:5px 12px; font-weight:700; cursor:pointer;">&#8646; Flip horizontal</button>
     </div>
 
     <!-- Queue Mode Header (hidden by default) -->
@@ -2583,17 +2601,17 @@
                 <button onclick="loadoutApplyToRemaining()" id="loadoutApplyAllBtn" class="btn-secondary" style="flex:1; min-width:0;">Apply to all remaining</button>
             </div>
             <div style="display:flex; gap:8px;">
-                <button onclick="loadoutPrevious()" id="loadoutPrevBtn" style="flex:0 0 auto; background:transparent; border:1px solid #343948; color:#b6bfd3;">&#9664; Previous</button>
+                <button onclick="loadoutPrevious()" id="loadoutPrevBtn" style="flex:0 0 auto; background:transparent; border:1px solid var(--border-muted); color:#b6bfd3;">&#9664; Previous</button>
                 <button onclick="confirmCurrentLoadout()" id="loadoutConfirmBtn" style="flex:1; background:var(--accent);">Confirm brands &#9654;</button>
                 <button onclick="loadoutNext()" id="loadoutNextBtn" title="Skip ahead without confirming"
-                        style="flex:0 0 auto; background:transparent; border:1px solid #343948; color:#b6bfd3;">&#9654;</button>
+                        style="flex:0 0 auto; background:transparent; border:1px solid var(--border-muted); color:#b6bfd3;">&#9654;</button>
             </div>
         </div>
         <button onclick="enterQueueMode()" id="startBrandingBtn" style="background:var(--accent); margin-top:15px;">Start review</button>
     </div>
     
     <!-- Queue Mode Actions (hidden by default) -->
-    <div id="copyAdjustRow" style="display:none; margin-bottom:8px; padding:8px 10px; background:#1a1f2e; border-radius:7px; border:1px solid #2a2f3e;">
+    <div id="copyAdjustRow" style="display:none; margin-bottom:8px; padding:8px 10px; background:var(--bg-elevated-2); border-radius:7px; border:1px solid var(--border-muted);">
             <div style="font-size:11px; color:#888; margin-bottom:6px;">Apply these settings to:</div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
                 <label style="font-size:12px; color:#b0b8cc; cursor:pointer; display:flex; align-items:center; gap:4px;"><input type="radio" name="copyScope" value="none" checked style="accent-color:var(--accent);"> This item only</label>
@@ -3265,7 +3283,7 @@ function renderReviewCompletionState() {
             <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px;">Outputs will appear in Library &rarr; Finished Renders.</div>
             <div class="review-complete-actions">
                 <button onclick="processAllBrands()" id="processAllBtnInline" style="flex:1; min-width:0;">Start branding</button>
-                <button onclick="goToLibrary()" style="flex:0 0 auto; width:auto; margin-top:0; padding:11px 14px; font-size:13px; background:transparent; border:1px solid #343948; color:#b6bfd3; border-radius:8px;">Open Library</button>
+                <button onclick="goToLibrary()" style="flex:0 0 auto; width:auto; margin-top:0; padding:11px 14px; font-size:13px; background:transparent; border:1px solid var(--border-muted); color:#b6bfd3; border-radius:8px;">Open Library</button>
             </div>
         </div>
     `;
@@ -4586,7 +4604,7 @@ function updateFlipButtonState() {
     const btn = document.getElementById('sourceFlipBtn');
     if (!btn) return;
     const on = !!(currentSourceEdit && currentSourceEdit.flip_h);
-    btn.style.background = on ? '#b9c8ff' : '#202531';
+    btn.style.background = on ? '#b9c8ff' : 'var(--bg-elevated-3)';
     btn.style.color = on ? '#111827' : '#d7dce6';
 }
 
@@ -6577,7 +6595,7 @@ function renderCompletionPanel(el, done, failed, skipped, failMessages) {
             ? `<button id="downloadAllZipBtn" onclick="downloadAllCompletedOutputs()" style="width:100%;margin-bottom:10px;padding:10px 14px;font-size:14px;font-weight:600;background:var(--accent);color:#121214;border:none;border-radius:7px;cursor:pointer;">\u2b07 Download all branded videos (${completedOutputs.length})</button>`
             : '';
         const rows = completedOutputs.map(o => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#1e1e22;border-radius:6px;margin-bottom:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg-elevated-2);border-radius:6px;margin-bottom:6px;">
                 <span style="color:#ccc;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${_esc(o.brand_name)}</span>
                 <a href="${_esc(o.download_url)}" target="_blank" style="flex-shrink:0;margin-left:12px;padding:5px 12px;font-size:12px;font-weight:600;background:var(--accent);color:#121214;border-radius:5px;text-decoration:none;">Download</a>
             </div>`).join('');
@@ -6598,10 +6616,10 @@ function renderCompletionPanel(el, done, failed, skipped, failMessages) {
                 : '';
             return `<div style="margin-bottom:4px;font-size:12px;color:#e0a84e;">${_esc(m.fix)}${linkPart}</div>`;
         });
-        fixHtml = `<div style="margin-top:10px;padding:10px 12px;background:#1e1e22;border-radius:6px;border-left:3px solid #e0a84e;">${fixRows.join('')}</div>`;
+        fixHtml = `<div style="margin-top:10px;padding:10px 12px;background:var(--bg-elevated-2);border-radius:6px;border-left:3px solid #e0a84e;">${fixRows.join('')}</div>`;
     }
 
-    const libraryBtn = `<button onclick="goToLibrary()" style="width:100%;margin-top:8px;padding:9px 14px;font-size:13px;background:transparent;border:1px solid #343948;color:#b6bfd3;border-radius:8px;cursor:pointer;">Open Library</button>`;
+    const libraryBtn = `<button onclick="goToLibrary()" style="width:100%;margin-top:8px;padding:9px 14px;font-size:13px;background:transparent;border:1px solid var(--border-muted);color:#b6bfd3;border-radius:8px;cursor:pointer;">Open Library</button>`;
 
     // "Start a new video" is the primary next step for most people (drop a
     // different source in). changeVideo() is the existing, well-tested full
