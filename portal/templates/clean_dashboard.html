@@ -863,37 +863,46 @@
         gap: 8px;
         align-items: center;
     }
-    /* Re-themed from a fixed sky-blue card to the active tier's accent, with
-       a small pulsing badge mark echoing the Create hero — "your render" now
-       visually reads as branded work-in-progress, not a generic system toast. */
+    /* Promoted into the same tensor-card family as Ready-to-brand and the
+       credit-shortfall state, rather than a small pasted-on notification
+       strip -- this is the third state of one production-checkpoint card
+       system, not a different component. Logic is untouched: JS still only
+       ever writes into .processing-state-title / .processing-state-meta
+       (see enterQueueMode's render loop and progress polling); the track
+       fill below is pure CSS motion, no progress value is computed for it. */
     .processing-state-card {
         margin: 10px 0 0;
-        padding: 14px 16px;
+        padding: var(--space-4, 16px) var(--space-4, 16px) var(--space-3, 12px);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        background: linear-gradient(180deg, var(--accent-muted), transparent 60%), var(--bg-elevated-1);
+        border: 1px solid var(--accent-border);
+        border-radius: var(--radius-lg, 16px);
+        box-shadow: var(--shadow-elevated-2, none);
+        position: relative;
+        overflow: hidden;
+    }
+    .processing-state-card__row {
         display: flex;
         align-items: center;
-        gap: 12px;
-        background:
-            linear-gradient(135deg, var(--accent-muted) 0%, transparent 70%),
-            rgba(255,255,255,0.03);
-        border: 1px solid var(--accent-border);
-        border-radius: 10px;
-        box-shadow: 0 0 0 1px rgba(255,255,255,0.03) inset;
+        gap: 14px;
     }
     .processing-state-card__mark {
         flex: 0 0 auto;
-        width: 34px;
-        height: 34px;
+        width: 40px;
+        height: 40px;
         background-image: var(--tier-logo);
         background-size: contain;
         background-repeat: no-repeat;
         background-position: center;
-        filter: drop-shadow(0 0 6px var(--accent-glow));
+        filter: drop-shadow(0 0 8px var(--accent-glow));
         animation: hero-mark-pulse 2.6s ease-in-out infinite;
     }
     .processing-state-card__body { min-width: 0; }
     .processing-state-title {
         color: #f5f7fb;
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 700;
         margin-bottom: 3px;
         font-family: var(--font-display, inherit);
@@ -902,6 +911,26 @@
     .processing-state-meta {
         color: #b8bfcc;
         font-size: 12px;
+    }
+    /* Indeterminate motion cue -- there's no real progress fraction to bind
+       to (renders complete one at a time, not as a % of one job), so this
+       stays honestly indeterminate rather than faking a percentage. */
+    .processing-state-track {
+        height: 3px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.08);
+        overflow: hidden;
+    }
+    .processing-state-track__fill {
+        height: 100%;
+        width: 35%;
+        border-radius: 999px;
+        background: var(--accent);
+        animation: processing-track-sweep 1.7s ease-in-out infinite;
+    }
+    @keyframes processing-track-sweep {
+        0%   { transform: translateX(-100%); }
+        100% { transform: translateX(385%); }
     }
 
     /* ========== RESULTS PAYOFF BANNER ==========
@@ -916,9 +945,9 @@
         display: flex;
         align-items: center;
         gap: 14px;
-        padding: 16px 18px;
+        padding: 18px 20px;
         margin-bottom: 12px;
-        border-radius: 12px;
+        border-radius: var(--radius-lg, 16px);
         background:
             linear-gradient(120deg, var(--accent-muted) 0%, transparent 75%),
             var(--bg-elevated-1, var(--bg-elevated-1));
@@ -929,15 +958,15 @@
     }
     .payoff-banner__mark {
         flex: 0 0 auto;
-        width: 44px;
-        height: 44px;
+        width: 50px;
+        height: 50px;
         background-image: var(--tier-logo);
         background-size: contain;
         background-repeat: no-repeat;
         background-position: center;
         filter: drop-shadow(0 0 10px var(--accent-glow));
     }
-    .payoff-banner__body { min-width: 0; }
+    .payoff-banner__body { min-width: 0; flex: 1; }
     .payoff-banner__eyebrow {
         font-size: 11px;
         letter-spacing: 0.24em;
@@ -948,12 +977,38 @@
         margin-bottom: 2px;
     }
     .payoff-banner__title {
-        font-size: 17px;
+        font-family: var(--font-display, inherit);
+        font-size: 19px;
         font-weight: 700;
         color: #f5f7fb;
         margin-bottom: 2px;
+        letter-spacing: 0.01em;
     }
     .payoff-banner__meta { font-size: 12px; color: #b8bfcc; }
+    /* Dominant "you crossed the finish line" number -- the same big-numeral
+       language as the Ready-to-brand stat, so the flow reads as one story:
+       "6 outputs" before you commit, "3 ready" once they land. */
+    .payoff-banner__count {
+        flex: 0 0 auto;
+        text-align: center;
+        padding-left: 16px;
+        margin-left: 2px;
+        border-left: 1px solid var(--accent-border);
+    }
+    .payoff-banner__count-number {
+        font-family: var(--font-display, inherit);
+        font-size: 30px;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--accent);
+    }
+    .payoff-banner__count-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: #9ca3af;
+        margin-top: 3px;
+    }
     .payoff-actions {
         display: flex;
         flex-direction: column;
@@ -1000,6 +1055,66 @@
         background: var(--bg-elevated-2);
         border-color: var(--accent-border);
         color: var(--accent-text, var(--accent));
+    }
+
+    /* ========== TENSOR-CARD STAT ROW ==========
+       Promotes the production-formula line inside .tensor-card (the
+       Ready-to-brand checkpoint) from a plain sentence to a dominant
+       number + supporting formula, the way a real production summary
+       reads. Reused as-is for the credit-shortfall variant below --
+       same anatomy, different number color. */
+    .tensor-stat__row {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 6px;
+    }
+    .tensor-stat__number {
+        font-family: var(--font-display, inherit);
+        font-size: 34px;
+        font-weight: 700;
+        line-height: 1;
+        color: #f5f7fb;
+        flex: 0 0 auto;
+    }
+    .tensor-stat__number--warning { color: #e0a84e; }
+    .tensor-stat__meta { min-width: 0; }
+    .tensor-stat__label {
+        font-size: 13px;
+        font-weight: 700;
+        color: #e5e7eb;
+    }
+    .tensor-stat__formula {
+        font-size: 11px;
+        color: #9ca3af;
+        margin-top: 2px;
+    }
+    /* Insufficient-credits variant of .tensor-card -- same geometry, same
+       near-black surface, just a restrained amber edge instead of the tier
+       accent glow. Deliberately no red fill: the warning stays legible
+       without competing with Brandr's own identity for attention. */
+    .tensor-card--warning {
+        background: linear-gradient(180deg, rgba(224,168,78,0.10), transparent 60%), var(--bg-elevated-1);
+        border: 1px solid rgba(224,168,78,0.35);
+    }
+    .tensor-card--warning::before { opacity: 0; }
+    .tensor-card__eyebrow--warning { color: #e0a84e; }
+    .tensor-card__eyebrow--warning::before {
+        background: #e0a84e;
+        box-shadow: 0 0 8px rgba(224,168,78,0.5);
+        animation: none;
+    }
+    .credit-shortfall-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+    }
+    .credit-shortfall-actions .action-primary,
+    .credit-shortfall-actions .action-secondary {
+        width: auto;
+        flex: 1;
+        padding: 10px 14px;
+        font-size: 11px;
     }
     
     /* ========== COLLAPSIBLE ========== */
@@ -2595,7 +2710,7 @@
          into a proper card. Adding a Destination or Processing axis later
          is a template-only additive change to the surrounding tensor-card. -->
     <div id="confirmationSummary" class="tensor-card" style="display:none;">
-        <div class="tensor-card__eyebrow">Ready to brand</div>
+        <div class="tensor-card__eyebrow" id="confirmationEyebrow">Ready to brand</div>
         <div class="tensor-card__body">
             <div id="summaryText"></div>
         </div>
@@ -3350,11 +3465,14 @@ function renderStreamingCompletionState() {
 
     result.innerHTML = `
         <div class="processing-state-card">
-            <div class="processing-state-card__mark" aria-hidden="true"></div>
-            <div class="processing-state-card__body">
-                <div class="processing-state-title">Rendering in background…</div>
-                <div class="processing-state-meta">${approved} ${brandWord} approved${skipped ? ', ' + skipped + ' skipped' : ''}. Outputs will download here as they finish.</div>
+            <div class="processing-state-card__row">
+                <div class="processing-state-card__mark" aria-hidden="true"></div>
+                <div class="processing-state-card__body">
+                    <div class="processing-state-title">Rendering in background…</div>
+                    <div class="processing-state-meta">${approved} ${brandWord} approved${skipped ? ', ' + skipped + ' skipped' : ''}. Outputs will download here as they finish.</div>
+                </div>
             </div>
+            <div class="processing-state-track"><div class="processing-state-track__fill"></div></div>
         </div>
     `;
     setTimeout(function() {
@@ -5374,8 +5492,26 @@ async function enterQueueMode() {
     if (creditState && processingQueue.length > creditState.total) {
         const need = processingQueue.length;
         const have = creditState.total;
-        result.innerHTML = `<div class="status-msg error">This batch needs ${need} credits &mdash; you have ${have}. `
-            + `Remove some brands or videos, or come back after your daily credits reset at 00:00 UTC.</div>`;
+        // Same tensor-card / warning-eyebrow language as the pre-flight
+        // summary card, so a stale-balance block reads as the same system
+        // rather than a different, plainer error path.
+        result.innerHTML = `
+            <div class="tensor-card tensor-card--warning">
+                <div class="tensor-card__eyebrow tensor-card__eyebrow--warning">Insufficient credits</div>
+                <div class="tensor-card__body">
+                    <div class="tensor-stat__row">
+                        <div class="tensor-stat__number tensor-stat__number--warning">${need}</div>
+                        <div class="tensor-stat__meta">
+                            <div class="tensor-stat__label">credits needed</div>
+                            <div class="tensor-stat__formula">Short by ${need - have} &mdash; you have ${have}</div>
+                        </div>
+                    </div>
+                    <div class="credit-shortfall-actions">
+                        <button class="action-secondary" type="button" onclick="scrollToReduceOutputs()">Reduce outputs</button>
+                        <button class="action-primary" type="button" onclick="if (typeof openUpgradeModal === 'function') openUpgradeModal('Need more credits', 'This batch needs ${need} credits and you have ${have}. Upgrade for a bigger daily allowance, or come back after your credits reset at 00:00 UTC.');">Get credits</button>
+                    </div>
+                </div>
+            </div>`;
         console.error(`[BRANDR] enterQueueMode blocked: needs ${need} credits, have ${have}`);
         processingQueue = [];
         return;
@@ -6480,11 +6616,14 @@ async function processAllBrands() {
 
     result.innerHTML = `
         <div class="processing-state-card">
-            <div class="processing-state-card__mark" aria-hidden="true"></div>
-            <div class="processing-state-card__body">
-                <div class="processing-state-title">Processing branded outputs…</div>
-                <div class="processing-state-meta">Starting…</div>
+            <div class="processing-state-card__row">
+                <div class="processing-state-card__mark" aria-hidden="true"></div>
+                <div class="processing-state-card__body">
+                    <div class="processing-state-title">Processing branded outputs…</div>
+                    <div class="processing-state-meta">Starting…</div>
+                </div>
             </div>
+            <div class="processing-state-track"><div class="processing-state-track__fill"></div></div>
         </div>
     `;
 
@@ -6593,7 +6732,11 @@ function renderCompletionPanel(el, done, failed, skipped, failMessages) {
                <div class="payoff-banner__body">
                    <div class="payoff-banner__eyebrow">Brandr</div>
                    <div class="payoff-banner__title">Branding complete!</div>
-                   <div class="payoff-banner__meta">${done} version${done !== 1 ? 's' : ''} ready to download.</div>
+                   <div class="payoff-banner__meta">Ready to download.</div>
+               </div>
+               <div class="payoff-banner__count">
+                   <div class="payoff-banner__count-number">${done}</div>
+                   <div class="payoff-banner__count-label">${done !== 1 ? 'versions' : 'version'}</div>
                </div>
            </div>`
         : `<div class="status-msg warning">Branding done with issues. ${done} done, \u274c ${failed} failed${skipped ? ', ' + skipped + ' skipped' : ''}</div>`;
@@ -6601,12 +6744,12 @@ function renderCompletionPanel(el, done, failed, skipped, failMessages) {
     let outputsHtml = '';
     if (completedOutputs.length > 0) {
         const downloadAllBtn = completedOutputs.length > 1
-            ? `<button id="downloadAllZipBtn" onclick="downloadAllCompletedOutputs()" style="width:100%;margin-bottom:10px;padding:10px 14px;font-size:14px;font-weight:600;background:var(--accent);color:#121214;border:none;border-radius:7px;cursor:pointer;">\u2b07 Download all branded videos (${completedOutputs.length})</button>`
+            ? `<button id="downloadAllZipBtn" class="action-primary" onclick="downloadAllCompletedOutputs()" style="margin-bottom:10px;">\u2b07 Download all (${completedOutputs.length})</button>`
             : '';
         const rows = completedOutputs.map(o => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg-elevated-2);border-radius:6px;margin-bottom:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg-elevated-2);border:1px solid var(--border-subtle);border-radius:var(--radius-sm, 6px);margin-bottom:6px;">
                 <span style="color:#ccc;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${_esc(o.brand_name)}</span>
-                <a href="${_esc(o.download_url)}" target="_blank" style="flex-shrink:0;margin-left:12px;padding:5px 12px;font-size:12px;font-weight:600;background:var(--accent);color:#121214;border-radius:5px;text-decoration:none;">Download</a>
+                <a href="${_esc(o.download_url)}" target="_blank" style="flex-shrink:0;margin-left:12px;padding:6px 13px;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;background:var(--accent);color:#121214;border-radius:var(--radius-sm, 6px);text-decoration:none;">Download</a>
             </div>`).join('');
         outputsHtml = `<div style="margin-top:12px;">${downloadAllBtn}${rows}</div>`;
     } else if (done > 0) {
@@ -8405,6 +8548,21 @@ console.log('[JobItems] Recovered', jobItems.length, 'items, active index:', act
 // ========== END JOB-ITEM MODEL ==========
 
 // ========== CONFIRMATION SUMMARY ==========
+// Insufficient-credits action: brings the user back to the controls that
+// change the render count (formats first, since trimming a format cuts
+// every brand's output at once) rather than just telling them "reduce
+// outputs" with nothing to click. Pure UI navigation -- no queue/credit
+// logic here.
+function scrollToReduceOutputs() {
+    const target = document.getElementById('outputFormatsSection') || document.getElementById('brandsBox');
+    if (target && target.scrollIntoView) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.style.transition = 'box-shadow 0.3s ease';
+        target.style.boxShadow = '0 0 0 2px var(--accent-border)';
+        setTimeout(() => { target.style.boxShadow = ''; }, 1400);
+    }
+}
+
 function updateConfirmationSummary() {
     const summaryEl = document.getElementById('summaryText');
     const confirmBox = document.getElementById('confirmationSummary');
@@ -8466,32 +8624,58 @@ function updateConfirmationSummary() {
     const midLoop = loadoutConfirmedTotal > 0 && loadoutsDone < loadoutTotal;
 
     let html = '';
+    const short = !!(creditState && renderCount > creditState.total);
 
-    // Headline: outputs (and, since 1 brand x 1 format = 1 credit, the cost)
-    html += `<div style="font-size:13px; color:#e5e7eb; margin-bottom:4px;">`;
+    // Card-level state: swap the whole tensor-card into the restrained
+    // amber "insufficient credits" variant rather than layering a separate
+    // warning banner elsewhere -- this IS the production checkpoint, just
+    // blocked, so it stays the same component.
+    const eyebrowEl = document.getElementById('confirmationEyebrow');
+    if (eyebrowEl) {
+        eyebrowEl.textContent = short ? 'Insufficient credits' : 'Ready to brand';
+        eyebrowEl.classList.toggle('tensor-card__eyebrow--warning', short);
+    }
+    if (confirmBox) confirmBox.classList.toggle('tensor-card--warning', short);
+
+    // Headline: the render count is the decisive number on this screen, so
+    // it gets real numeral weight instead of sitting inline with prose.
+    html += `<div class="tensor-stat__row">`;
     if (midLoop) {
-        html += `<strong>${renderCount} ${outputWord} so far</strong> &mdash; `;
-        html += `${loadoutsDone} of ${loadoutTotal} videos confirmed`;
+        html += `<div class="tensor-stat__number">${renderCount}</div>`;
+        html += `<div class="tensor-stat__meta">`;
+        html += `<div class="tensor-stat__label">${outputWord} so far</div>`;
+        html += `<div class="tensor-stat__formula">${loadoutsDone} of ${loadoutTotal} videos confirmed</div>`;
+        html += `</div>`;
     } else {
-        html += `<strong>${renderCount} ${outputWord}</strong> &middot; `;
-        html += `<strong>${renderCount} ${renderCount === 1 ? 'credit' : 'credits'}</strong> &mdash; `;
+        html += `<div class="tensor-stat__number${short ? ' tensor-stat__number--warning' : ''}">${renderCount}</div>`;
+        html += `<div class="tensor-stat__meta">`;
+        html += `<div class="tensor-stat__label">${outputWord} &middot; ${renderCount} ${renderCount === 1 ? 'credit' : 'credits'}</div>`;
+        html += `<div class="tensor-stat__formula">`;
         html += loadoutConfirmedTotal > 0
             ? `${sourceLabel} &times; per-video brands &times; ${formatLabel}`
             : `${sourceLabel} &times; ${itemCount} ${brandWord} &times; ${formatLabel}`;
+        html += `</div></div>`;
     }
     html += `</div>`;
 
     // Balance line — today's allowance and banked credits kept distinct.
+    // When short, this states the gap plainly and hands over two real
+    // actions instead of leaving the user to guess what to do next.
     if (creditState) {
-        const short = renderCount > creditState.total;
         const parts = [];
         parts.push(`${creditState.today} today`);
         if (creditState.banked > 0) parts.push(`${creditState.banked} banked`);
-        html += `<div style="font-size:11px; margin-bottom:3px; color:${short ? '#ff6b6b' : '#9ca3af'};">`;
+        html += `<div style="font-size:11px; margin-bottom:3px; color:${short ? '#e0a84e' : '#9ca3af'};">`;
         html += short
-            ? `Not enough credits &mdash; needs ${renderCount}, you have ${creditState.total} (${parts.join(' + ')})`
+            ? `Short by ${renderCount - creditState.total} &mdash; you have ${creditState.total} (${parts.join(' + ')})`
             : `You have ${creditState.total} credits (${parts.join(' + ')})`;
         html += `</div>`;
+        if (short) {
+            html += `<div class="credit-shortfall-actions">`;
+            html += `<button class="action-secondary" type="button" onclick="scrollToReduceOutputs()">Reduce outputs</button>`;
+            html += `<button class="action-primary" type="button" onclick="if (typeof openUpgradeModal === 'function') openUpgradeModal('Need more credits', 'This batch needs ${renderCount} credits and you have ${creditState.total}. Upgrade for a bigger daily allowance, or come back after your credits reset at 00:00 UTC.');">Get credits</button>`;
+            html += `</div>`;
+        }
     }
 
     // Brand chips — replaces the carousel navigator; shows every queued brand at a glance
