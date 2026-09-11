@@ -957,41 +957,50 @@
     .payoff-actions {
         display: flex;
         flex-direction: column;
+        gap: 10px;
+        margin-top: 14px;
+    }
+    /* Both actions share the same control geometry (full-width, same
+       height, same radius, same display typography) so they read as one
+       family of Brandr controls at different weights -- not a primary
+       button next to an unrelated little chip. Hierarchy comes from fill
+       vs. surface treatment, not from one control shrinking into a pill. */
+    .action-primary,
+    .action-secondary {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         gap: 8px;
-        margin-top: 12px;
+        padding: 13px 16px;
+        font-family: var(--font-display, inherit);
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        border-radius: var(--radius-sm, 6px);
+        cursor: pointer;
+        transition: filter 0.15s ease, background 0.15s ease, border-color 0.15s ease;
     }
     .action-primary {
-        width: 100%;
-        padding: 11px 16px;
-        font-size: 14px;
-        font-weight: 700;
         background: var(--accent);
         color: #121214;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
+        border: 1px solid var(--accent);
     }
-    .action-primary:hover { filter: brightness(1.06); }
-    /* Compact technical pill — deliberately lower visual weight than
-       .action-primary (smaller, self-width, outline rather than fill) so it
-       reads as an optional side-path, not a second equally-weighted CTA. */
+    .action-primary:hover { filter: brightness(1.08); }
+    /* Restrained material control: a solid elevated surface with a
+       defined edge, not an outline pill -- substantial like a real product
+       button, just lower in the fill hierarchy than the primary action. */
     .action-secondary {
-        align-self: flex-start;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 7px 12px;
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        background: transparent;
-        color: var(--accent-text, var(--accent));
-        border: 1px solid var(--accent-border);
-        border-radius: 999px;
-        cursor: pointer;
+        background: var(--bg-elevated-3);
+        color: #e7eaf2;
+        border: 1px solid var(--border-strong);
     }
-    .action-secondary:hover { background: var(--accent-muted); }
+    .action-secondary:hover {
+        background: var(--bg-elevated-2);
+        border-color: var(--accent-border);
+        color: var(--accent-text, var(--accent));
+    }
     
     /* ========== COLLAPSIBLE ========== */
     .collapsible-header {
