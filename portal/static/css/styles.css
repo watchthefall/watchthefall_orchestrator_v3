@@ -776,6 +776,17 @@ body {
     max-width: 960px;
     position: relative;
 }
+/* Visually hides text while keeping it in the accessibility tree — referenced
+   by clean_dashboard.html's brand-search label but never defined until now. */
+.sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
 .create-hero__text { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
 .create-hero__eyebrow {
     font-size: 11px;
@@ -798,6 +809,29 @@ body {
     background-position: center right;
     filter: drop-shadow(0 0 24px var(--accent-glow)) drop-shadow(0 0 8px var(--accent-glow));
     animation: hero-mark-pulse 4.8s ease-in-out infinite;
+}
+/* Reference-image tagline, right of the mark on wide screens. Purely
+   presentational — no state, no JS hook. */
+.create-hero__side {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-2, 8px);
+}
+.create-hero__tagline {
+    flex: 0 0 auto;
+    text-align: right;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+@media (max-width: 900px) {
+    .create-hero__tagline { display: none; }
 }
 /* Emergent's placeholder "B" SVG is retired in favour of the official
    Brandr badge asset (--tier-logo) above; the svg rule is kept only in
@@ -843,6 +877,18 @@ body {
     }
     .create-two-col > [data-create-col="config"] {
         min-width: 0;
+    }
+    /* Review-cockpit regression fix: #videoSourceSection is display:none
+       while the Review cockpit is active, which removes it from this grid
+       entirely. With only one item left, CSS Grid auto-placement drops
+       #previewSection into the first (380px) track instead of letting it
+       use the row's full width — squeezing the cockpit into a narrow strip
+       with a large empty gap beside it. Reusing the existing .review-active
+       class (already toggled by the untouched JS state machine) to span
+       the config column across the full row restores the cockpit's normal
+       width/position without touching any review logic or markup. */
+    .create-two-col > [data-create-col="config"].review-active {
+        grid-column: 1 / -1;
     }
 }
 

@@ -486,6 +486,16 @@
         gap: 8px;
         margin: 10px 0;
     }
+    /* Desktop: the two-col cap made sense when .section was the only layout,
+       but the two-column Configure uplift gives this a much wider column on
+       screens above the mobile breakpoint, so let the grid use that width
+       rather than leaving it stranded at two tiles across. Tile min-width
+       matches the existing .brand-btn min-height proportions. */
+    @media (min-width: 640px) {
+        .brand-grid {
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        }
+    }
     .brand-btn {
         position: relative;
         /* Bottom padding reserves the strip the PREVIEWING bar occupies. Applied
@@ -2196,7 +2206,10 @@
         </h1>
         <p class="create-hero__subtitle">Download. Brand. Ship. Compose your production formula: source &times; format &times; brand.</p>
     </div>
-<div class="create-hero__mark" aria-hidden="true" role="img" title="Brandr"></div>
+<div class="create-hero__side">
+    <span class="create-hero__tagline">Same content.<br>Bigger reach.</span>
+    <div class="create-hero__mark" aria-hidden="true" role="img" title="Brandr"></div>
+</div>
 </section>
 
 <!-- Step Progress Indicator -->
@@ -2425,6 +2438,13 @@
             <div id="loadoutFilename" style="margin-top:3px; font-size:11px; color:#6b7280; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
             <div id="loadoutProgressDots" style="display:flex; gap:5px; margin-top:8px;"></div>
         </div>
+        <!-- Per-video brand-assignment summary — Slice 6. Purely a read-out of
+             videoLoadouts[]/selectedOutputFormats (existing state); no new
+             data model, no interaction beyond loadoutJumpTo() which already
+             exists. Hidden until there's more than one video, since with a
+             single video the loadout header above already says the same
+             thing. -->
+        <div id="loadoutAssignmentsSummary" style="display:none; margin-top:10px; flex-direction:column; gap:6px;"></div>
         <h3 style="margin-top:0;">Choose brands <span style="color:#666;font-size:13px;font-weight:400;">(up to {{ max_brands_per_job }} per job)</span></h3>
         <p class="review-subcopy" id="brandSelectionHelp" style="margin:0 0 10px;">Pick the brands you want, then review the live 9:16 version before processing. Planned formats stay visible here for what comes next.</p>
     </div>
@@ -4962,6 +4982,22 @@ async function loadBrands() {
             }
         }
         
+        // Re-apply visual selection state to the freshly-built tiles. loadBrands()
+        // recreates every tile from scratch (fresh elements, no .selected class),
+        // most visibly on the visibilitychange refresh below — so without this,
+        // switching tabs and back made already-selected brands LOOK deselected
+        // even though selectedBrandIds/activePreviewBrandId (and everything
+        // downstream: chips, credit math, job items) were never touched. This
+        // only restores CSS classes on existing state — it changes no data.
+        (selectedBrandIds || []).forEach(id => {
+            const tile = box.querySelector(`.brand-btn[data-brand-id="${id}"]`);
+            if (tile) tile.classList.add('selected');
+        });
+        if (activePreviewBrandId) {
+            const activeTile = box.querySelector(`.brand-btn[data-brand-id="${activePreviewBrandId}"]`);
+            if (activeTile) activeTile.classList.add('active-preview');
+        }
+
         // Update confirmation summary
         updateConfirmationSummary();
     } catch (err) {
@@ -4979,6 +5015,23 @@ async function loadBrands() {
 function clearStaleSelectionError() {
     const el = document.getElementById('processResult');
     if (el && el.querySelector('.status-msg.error')) el.innerHTML = '';
+}
+
+// Chip "×" in the confirmation summary. Deliberately does NOT duplicate
+// selectBrand()'s deselect branch (job-item dual-write, override cleanup,
+// active-preview reassignment) — instead it drives selectBrand() itself so
+// the result is identical to clicking the tile, whether or not this brand
+// happens to already be the active preview.
+function removeBrandFromSelection(brandId) {
+    const tile = document.querySelector(`.brand-btn[data-brand-id="${brandId}"]`);
+    if (!tile) return;
+    if (!selectedBrandIds.includes(brandId)) return;
+    if (brandId !== activePreviewBrandId) {
+        // First call makes it the active preview (selectBrand's "switch" branch) —
+        // required before the second call can hit the "deselect" branch.
+        selectBrand(brandId, tile, true);
+    }
+    selectBrand(brandId, tile, true);
 }
 
 function selectBrand(brandId, btnEl, isReady) {
@@ -8415,6 +8468,8 @@ function updateLoadoutUI() {
         return `<span title="Video ${i + 1}${l.confirmed ? ' ✓' : ''}" onclick="loadoutJumpTo(${i})" style="width:10px;height:10px;border-radius:50%;background:${bg};${outline}cursor:pointer;flex-shrink:0;"></span>`;
     }).join('');
 
+    renderLoadoutAssignmentsSummary();
+
     document.getElementById('loadoutPrevBtn').style.display = idx > 0 ? '' : 'none';
     document.getElementById('loadoutSameBtn').style.display = idx > 0 ? '' : 'none';
 
@@ -8435,6 +8490,55 @@ function updateLoadoutUI() {
     if (startBtn) startBtn.style.display = allConfirmed ? '' : 'none';
 
     showPreviewForLoadout(true);
+}
+
+// Reference-image "Brand assignments" card list: one card per video showing
+// which brands it's assigned (from l.brandIds, already-existing state) and
+// the shared output-format set (selectedOutputFormats is global across
+// videos in the current data model — this reads it, it does not add
+// per-video formats). Read-only summary; the only interactive bit
+// (jumping to a video) reuses the existing loadoutJumpTo().
+function renderLoadoutAssignmentsSummary() {
+    const box = document.getElementById('loadoutAssignmentsSummary');
+    if (!box) return;
+    if (!isLoadoutMode() || videoLoadouts.length < 2) {
+        box.style.display = 'none';
+        box.innerHTML = '';
+        return;
+    }
+
+    const fmtTags = (selectedOutputFormats || []).map(key => {
+        const opt = OUTPUT_FORMAT_OPTIONS && OUTPUT_FORMAT_OPTIONS[key];
+        return (opt && opt.tag) || (key === 'vertical_9_16' ? '9:16' : key === 'square_1_1' ? '1:1' : key === 'landscape_16_9' ? '16:9' : key);
+    });
+    const fmtCount = fmtTags.length || 1;
+
+    box.style.display = 'flex';
+    box.innerHTML = videoLoadouts.map((l, i) => {
+        const label = _esc(videoLabel(l.video || ''));
+        const brandNames = (l.brandIds || [])
+            .map(id => brandDataCache[id] ? _esc(brandDataCache[id].display_name) : null)
+            .filter(Boolean);
+        const outputCount = brandNames.length * fmtCount;
+        const isCurrent = i === currentLoadoutIndex;
+
+        const brandChips = brandNames.length
+            ? brandNames.map(n => `<span style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:2px 8px;font-size:11px;color:#d1d5db;white-space:nowrap;">${n}</span>`).join('')
+            : `<span style="font-size:11px;color:#6b7280;">No brands chosen yet</span>`;
+        const fmtChips = l.confirmed && brandNames.length
+            ? fmtTags.map(t => `<span style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:1px 6px;font-size:10px;color:#9ca3af;">${_esc(t)}</span>`).join('')
+            : '';
+
+        return `
+        <div onclick="loadoutJumpTo(${i})" style="cursor:pointer;padding:9px 11px;border-radius:8px;background:var(--bg-elevated-2);border:1px solid ${isCurrent ? 'var(--accent)' : 'var(--border-muted)'};">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+                <span style="flex-shrink:0;width:18px;height:18px;border-radius:50%;background:${l.confirmed ? 'var(--accent)' : 'rgba(255,255,255,0.12)'};color:${l.confirmed ? '#121214' : '#9ca3af'};font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">${l.confirmed ? '✓' : (i + 1)}</span>
+                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;color:#e5e7eb;">${label}</span>
+                ${brandNames.length ? `<span style="flex-shrink:0;font-size:11px;color:#9ca3af;">${outputCount} output${outputCount === 1 ? '' : 's'}</span>` : ''}
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">${brandChips}${fmtChips}</div>
+        </div>`;
+    }).join('');
 }
 
 // ========== END PER-VIDEO LOADOUT SELECTION ==========
@@ -8692,10 +8796,17 @@ function updateConfirmationSummary() {
                 const hasOv = (isQueueMode && processingQueue.length > 0)
                     ? (() => { const qi = getReviewableQueueItems().find(i => i.brand_id === brandId); return qi ? Object.keys(qi.overrides || {}).length > 0 : false; })()
                     : !!brandOverrides[brandId];
-                html += `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,${hasOv ? '0.28' : '0.1'});border-radius:20px;padding:2px 8px 2px 3px;font-size:11px;color:#d1d5db;max-width:160px;overflow:hidden;">`;
+                const isQueueChip = isQueueMode && processingQueue.length > 0;
+                html += `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,${hasOv ? '0.28' : '0.1'});border-radius:20px;padding:2px 6px 2px 3px;font-size:11px;color:#d1d5db;max-width:160px;overflow:hidden;">`;
                 html += `<span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:rgba(245,166,35,0.2);color:#F5A623;font-size:9px;font-weight:700;flex-shrink:0;">${init}</span>`;
                 html += `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;">${name}</span>`;
                 if (hasOv) html += `<span title="has session overrides" style="color:#F5A623;font-size:9px;flex-shrink:0;margin-left:2px;">⚙</span>`;
+                // Remove button — queue-mode chips represent an in-progress review
+                // sequence (reordering it isn't safe here), so only the plain
+                // selection-mode chips (pre-review) get a quick remove.
+                if (!isQueueChip) {
+                    html += `<button type="button" onclick="removeBrandFromSelection(${brandId})" aria-label="Remove ${_esc(name)}" title="Remove" style="flex-shrink:0;width:14px;height:14px;margin-left:1px;border:none;background:transparent;color:#7a7f8c;font-size:13px;line-height:1;cursor:pointer;padding:0;">&times;</button>`;
+                }
                 html += `</span>`;
             });
             html += `</div>`;
