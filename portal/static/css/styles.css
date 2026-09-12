@@ -13,7 +13,7 @@
     --accent-border: rgba(134, 237, 165, 0.25);
     --accent-text: #86EDA5;
     --accent-rgb: 134, 237, 165;
-    --tier-logo: url('/static/images/badges/explorer.png');
+    --tier-logo: url('/static/img/brandr_logo_explorer_stacked.png');
     --tier-icon: url('/static/img/tier_icons/icon_explorer.png');
 }
 
@@ -26,7 +26,7 @@
     --accent-border: rgba(168, 85, 247, 0.25);
     --accent-text: #A855F7;
     --accent-rgb: 168, 85, 247;
-    --tier-logo: url('/static/images/badges/creator.png');
+    --tier-logo: url('/static/img/brandr_logo_creator_stacked.png');
     --tier-icon: url('/static/img/tier_icons/icon_creator.png');
 }
 
@@ -39,7 +39,7 @@
     --accent-border: rgba(245, 166, 35, 0.25);
     --accent-text: #F5A623;
     --accent-rgb: 245, 166, 35;
-    --tier-logo: url('/static/images/badges/studio.png');
+    --tier-logo: url('/static/img/brandr_logo_studio_stacked.png');
     --tier-icon: url('/static/img/tier_icons/icon_studio.png');
 }
 
@@ -52,7 +52,7 @@
     --accent-border: rgba(192, 207, 255, 0.25);
     --accent-text: #C0CFFF;
     --accent-rgb: 192, 207, 255;
-    --tier-logo: url('/static/images/badges/platinum.png');
+    --tier-logo: url('/static/img/brandr_logo_platinum_stacked.png');
     --tier-icon: url('/static/img/tier_icons/icon_platinum.png');
 }
 
@@ -72,10 +72,15 @@
 /* Founding member — GOLD prestige theme. Applied via data-tier="Founding",
    which the server sets for ANY founder regardless of their base tier
    (founding wins). Gold = founder reward + price-lock status.
-   --tier-logo now points at the official Founding badge asset
-   (portal/static/images/badges/founding.png, added in the Create identity
-   pass). --tier-icon still borrows Elite's monogram icon — a dedicated
-   small Founding icon hasn't been produced yet. */
+   --tier-logo points at the authoritative Founding stacked lockup
+   (portal/static/img/brandr_logo_founding_member_stacked.png — confirmed
+   deep gold, matching brandr_asset_identity_inventory.md). Previously
+   pointed at portal/static/images/badges/founding.png; that whole
+   badges/ folder was found to contain mismatched tier art (Creator's
+   badge was orange, Studio's was purple — the reverse of the real
+   identity) and is no longer referenced by any tier here. --tier-icon
+   still borrows Elite's monogram icon — a dedicated small Founding icon
+   hasn't been produced yet. */
 :root[data-tier="Founding"] {
     --accent: #E8B923;
     --accent-hover: #F5C842;
@@ -85,7 +90,7 @@
     --accent-border: rgba(232, 185, 35, 0.32);
     --accent-text: #F2CB4E;
     --accent-rgb: 232, 185, 35;
-    --tier-logo: url('/static/images/badges/founding.png');
+    --tier-logo: url('/static/img/brandr_logo_founding_member_stacked.png');
     --tier-icon: url('/static/img/tier_icons/icon_elite.png');
 }
 

@@ -1067,6 +1067,102 @@
         color: var(--accent-text, var(--accent));
     }
 
+    /* ========== RESULTS OUTPUT ROWS ==========
+       In-place restyle of renderCompletionPanel()'s per-output rows so they
+       belong to the same card system as .payoff-banner/.tensor-card above,
+       instead of the old flat --bg-elevated-2 strips. Purely visual: the
+       row loop still reads only completedOutputs[].{brand_name,download_url},
+       same _esc() escaping, same href/target on the Download link, same
+       downloadAllZipBtn id/onclick. No new data, no new states — the check
+       mark is decorative since this list only ever holds completed items.
+       brand_name is split on ' · ' for display only (some call sites bake
+       "Brand · format" into that one string, others push brand_name alone);
+       the underlying field itself is never modified. */
+    .output-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px 10px 14px;
+        background: var(--bg-elevated-2);
+        border: 1px solid var(--accent-border);
+        border-radius: var(--radius-sm, 6px);
+        margin-bottom: 6px;
+        position: relative;
+        overflow: hidden;
+    }
+    .output-row::before {
+        content: '';
+        position: absolute;
+        left: 0; top: 0; bottom: 0;
+        width: 3px;
+        background: var(--accent);
+        opacity: 0.75;
+    }
+    .output-row__status {
+        flex: 0 0 auto;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--accent-soft);
+        border: 1px solid var(--accent-border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .output-row__status::after {
+        content: '\2713';
+        color: var(--accent);
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .output-row__label {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+    }
+    .output-row__brand {
+        color: #e7eaf2;
+        font-size: 13px;
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .output-row__format {
+        color: #9ca3af;
+        font-size: 10.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .output-row__download {
+        flex-shrink: 0;
+        padding: 7px 14px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        background: var(--accent);
+        color: #121214;
+        border-radius: var(--radius-sm, 6px);
+        text-decoration: none;
+        white-space: nowrap;
+        transition: filter 0.15s ease;
+    }
+    .output-row__download:hover { filter: brightness(1.08); }
+    @media (max-width: 420px) {
+        .output-row { flex-wrap: wrap; padding: 10px 12px 10px 14px; }
+        .output-row__label { flex-basis: 100%; order: 1; }
+        .output-row__status { order: 0; }
+        .output-row__download { order: 2; margin-left: auto; }
+    }
+
     /* ========== TENSOR-CARD STAT ROW ==========
        Promotes the production-formula line inside .tensor-card (the
        Ready-to-brand checkpoint) from a plain sentence to a dominant
@@ -6799,11 +6895,24 @@ function renderCompletionPanel(el, done, failed, skipped, failMessages) {
         const downloadAllBtn = completedOutputs.length > 1
             ? `<button id="downloadAllZipBtn" class="action-primary" onclick="downloadAllCompletedOutputs()" style="margin-bottom:10px;">\u2b07 Download all (${completedOutputs.length})</button>`
             : '';
-        const rows = completedOutputs.map(o => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg-elevated-2);border:1px solid var(--border-subtle);border-radius:var(--radius-sm, 6px);margin-bottom:6px;">
-                <span style="color:#ccc;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${_esc(o.brand_name)}</span>
-                <a href="${_esc(o.download_url)}" target="_blank" style="flex-shrink:0;margin-left:12px;padding:6px 13px;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;background:var(--accent);color:#121214;border-radius:var(--radius-sm, 6px);text-decoration:none;">Download</a>
-            </div>`).join('');
+        // Display-only split of "Brand · format" into two lines when that
+        // shape is present; brand_name itself is never modified, and
+        // download_url/href behaviour is unchanged from before this pass.
+        const rows = completedOutputs.map(o => {
+            const raw = o.brand_name || '';
+            const sepIdx = raw.indexOf('·');
+            const brandPart = _esc(sepIdx === -1 ? raw : raw.slice(0, sepIdx).trim());
+            const formatPart = sepIdx === -1 ? '' : _esc(raw.slice(sepIdx + 1).trim());
+            return `
+            <div class="output-row">
+                <span class="output-row__status" aria-hidden="true"></span>
+                <div class="output-row__label">
+                    <span class="output-row__brand">${brandPart}</span>
+                    ${formatPart ? `<span class="output-row__format">${formatPart}</span>` : ''}
+                </div>
+                <a href="${_esc(o.download_url)}" target="_blank" class="output-row__download">Download</a>
+            </div>`;
+        }).join('');
         outputsHtml = `<div style="margin-top:12px;">${downloadAllBtn}${rows}</div>`;
     } else if (done > 0) {
         outputsHtml = `<div style="margin-top:8px;font-size:12px;color:#888;">Auto-download may have been blocked. Check your Downloads folder or the Library.</div>`;
