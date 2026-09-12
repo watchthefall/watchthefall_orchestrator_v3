@@ -13,7 +13,7 @@
     --accent-border: rgba(134, 237, 165, 0.25);
     --accent-text: #86EDA5;
     --accent-rgb: 134, 237, 165;
-    --tier-logo: url('/static/images/badges/explorer.png');
+    --tier-logo: url('/static/img/brandr_logo_explorer_stacked.png');
     --tier-icon: url('/static/img/tier_icons/icon_explorer.png');
 }
 
@@ -26,7 +26,7 @@
     --accent-border: rgba(168, 85, 247, 0.25);
     --accent-text: #A855F7;
     --accent-rgb: 168, 85, 247;
-    --tier-logo: url('/static/images/badges/creator.png');
+    --tier-logo: url('/static/img/brandr_logo_creator_stacked.png');
     --tier-icon: url('/static/img/tier_icons/icon_creator.png');
 }
 
@@ -39,7 +39,7 @@
     --accent-border: rgba(245, 166, 35, 0.25);
     --accent-text: #F5A623;
     --accent-rgb: 245, 166, 35;
-    --tier-logo: url('/static/images/badges/studio.png');
+    --tier-logo: url('/static/img/brandr_logo_studio_stacked.png');
     --tier-icon: url('/static/img/tier_icons/icon_studio.png');
 }
 
@@ -52,7 +52,7 @@
     --accent-border: rgba(192, 207, 255, 0.25);
     --accent-text: #C0CFFF;
     --accent-rgb: 192, 207, 255;
-    --tier-logo: url('/static/images/badges/platinum.png');
+    --tier-logo: url('/static/img/brandr_logo_platinum_stacked.png');
     --tier-icon: url('/static/img/tier_icons/icon_platinum.png');
 }
 
@@ -72,10 +72,15 @@
 /* Founding member — GOLD prestige theme. Applied via data-tier="Founding",
    which the server sets for ANY founder regardless of their base tier
    (founding wins). Gold = founder reward + price-lock status.
-   --tier-logo now points at the official Founding badge asset
-   (portal/static/images/badges/founding.png, added in the Create identity
-   pass). --tier-icon still borrows Elite's monogram icon — a dedicated
-   small Founding icon hasn't been produced yet. */
+   --tier-logo points at the authoritative Founding stacked lockup
+   (portal/static/img/brandr_logo_founding_member_stacked.png — confirmed
+   deep gold, matching brandr_asset_identity_inventory.md). Previously
+   pointed at portal/static/images/badges/founding.png; that whole
+   badges/ folder was found to contain mismatched tier art (Creator's
+   badge was orange, Studio's was purple — the reverse of the real
+   identity) and is no longer referenced by any tier here. --tier-icon
+   still borrows Elite's monogram icon — a dedicated small Founding icon
+   hasn't been produced yet. */
 :root[data-tier="Founding"] {
     --accent: #E8B923;
     --accent-hover: #F5C842;
@@ -85,7 +90,7 @@
     --accent-border: rgba(232, 185, 35, 0.32);
     --accent-text: #F2CB4E;
     --accent-rgb: 232, 185, 35;
-    --tier-logo: url('/static/images/badges/founding.png');
+    --tier-logo: url('/static/img/brandr_logo_founding_member_stacked.png');
     --tier-icon: url('/static/img/tier_icons/icon_elite.png');
 }
 
@@ -776,6 +781,17 @@ body {
     max-width: 960px;
     position: relative;
 }
+/* Visually hides text while keeping it in the accessibility tree — referenced
+   by clean_dashboard.html's brand-search label but never defined until now. */
+.sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
 .create-hero__text { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
 .create-hero__eyebrow {
     font-size: 11px;
@@ -798,6 +814,29 @@ body {
     background-position: center right;
     filter: drop-shadow(0 0 24px var(--accent-glow)) drop-shadow(0 0 8px var(--accent-glow));
     animation: hero-mark-pulse 4.8s ease-in-out infinite;
+}
+/* Reference-image tagline, right of the mark on wide screens. Purely
+   presentational — no state, no JS hook. */
+.create-hero__side {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-2, 8px);
+}
+.create-hero__tagline {
+    flex: 0 0 auto;
+    text-align: right;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+@media (max-width: 900px) {
+    .create-hero__tagline { display: none; }
 }
 /* Emergent's placeholder "B" SVG is retired in favour of the official
    Brandr badge asset (--tier-logo) above; the svg rule is kept only in
@@ -843,6 +882,24 @@ body {
     }
     .create-two-col > [data-create-col="config"] {
         min-width: 0;
+    }
+    /* Review/Results regression fix: #videoSourceSection is display:none
+       throughout Review AND after branding completes (confirmed live: the
+       app deliberately removes .review-active on completion at the JS layer
+       — a legitimate "return to normal layout" — but never re-shows
+       #videoSourceSection). Either way, removing it from this grid leaves
+       #previewSection as the sole item, and CSS Grid auto-placement drops a
+       lone item into the first (380px) track instead of the row's full
+       width — squeezing the panel into a narrow strip with a large empty
+       gap beside it, in both Review and the completed Results state.
+       Originally this was keyed off .review-active alone, which fixed
+       Review but regressed the moment that class was removed at
+       completion. Keying directly off the sibling's own hidden state
+       instead covers every lifecycle point that hides it, present or
+       future, without depending on which class happens to be set — and
+       without touching any review/results JS or markup. */
+    .create-two-col:has(> #videoSourceSection[style*="display: none"]) > [data-create-col="config"] {
+        grid-column: 1 / -1;
     }
 }
 

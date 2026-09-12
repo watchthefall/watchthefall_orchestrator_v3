@@ -110,6 +110,45 @@
     display: block;
 }
 
+/* Tier badge pill — nav identity, mirrors mockup's tier chip next to Account */
+.nav-tier-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--accent-border, var(--accent));
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.nav-tier-pill .tier-pill-icon {
+    width: 14px;
+    height: 14px;
+    background-image: var(--tier-icon);
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    flex-shrink: 0;
+}
+.nav-tier-pill .tier-pill-caret {
+    font-size: 9px;
+    opacity: 0.75;
+}
+@media screen and (max-width: 768px) {
+    .nav-tier-pill {
+        padding: 5px 8px;
+        font-size: 10.5px;
+        gap: 4px;
+    }
+}
+
 /* Tier accent line on nav bottom — subtle identity cue */
 .nav-bar::after {
     content: '';
@@ -201,6 +240,9 @@
         <li><a href="{{ url_for('library') }}"{% if active_page == 'library' %} class="active"{% endif %}>Library</a></li>
     </ul>
     <div class="nav-identity">
+        <a class="nav-tier-pill" href="{{ url_for('profile_page') }}" title="Plan: {{ tier|default('Explorer') }} — view or change">
+            <span class="tier-pill-icon"></span>{{ tier|default('Explorer') }}<span class="tier-pill-caret">&#x25BE;</span>
+        </a>
         <div class="dropdown">
             <a href="#" tabindex="0">Account &#x25BE;</a>
             <div class="dropdown-content">
