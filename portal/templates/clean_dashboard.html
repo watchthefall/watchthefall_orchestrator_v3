@@ -2283,7 +2283,7 @@
     }
 </style>
 </head>
-<body>
+<body class="page-create">
 
 <!-- Navigation Bar -->
 {% set active_page = 'brand_video' %}
@@ -2304,7 +2304,25 @@
     </div>
 <div class="create-hero__side">
     <span class="create-hero__tagline">Same content.<br>Bigger reach.</span>
-    <div class="create-hero__mark" aria-hidden="true" role="img" title="Brandr"></div>
+    <div class="create-hero__mark-stage">
+        <div class="create-hero__mark" aria-hidden="true" role="img" title="Brandr"></div>
+    </div>
+</div>
+<!-- Concept redesign: decorative feature strip, hides below 1180px so it
+     never crowds the mark on tablet/mobile. -->
+<div class="create-hero__features">
+    <div class="create-hero__feature">
+        <span class="create-hero__feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></span>
+        <div class="create-hero__feature-text"><strong>One Video</strong><span>Multiple formats. More reach.</span></div>
+    </div>
+    <div class="create-hero__feature">
+        <span class="create-hero__feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+        <div class="create-hero__feature-text"><strong>Your Brand</strong><span>Consistent. Professional. Fast.</span></div>
+    </div>
+    <div class="create-hero__feature">
+        <span class="create-hero__feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></span>
+        <div class="create-hero__feature-text"><strong>Real Growth</strong><span>Create. Brand. Share.</span></div>
+    </div>
 </div>
 </section>
 
@@ -2312,17 +2330,17 @@
 <div class="step-progress" id="stepProgress">
     <div class="step-item active" id="step1">
         <span class="step-dot">1</span>
-        <span>Downloadr</span>
+        <span class="step-item__labels"><span class="step-item__label">Download</span><span class="step-item__sub">Get your video</span></span>
     </div>
     <div class="step-line" id="stepLine1"></div>
     <div class="step-item" id="step2">
         <span class="step-dot">2</span>
-        <span>Studio</span>
+        <span class="step-item__labels"><span class="step-item__label">Studio</span><span class="step-item__sub">Brand &amp; refine</span></span>
     </div>
     <div class="step-line" id="stepLine2"></div>
     <div class="step-item" id="step3">
         <span class="step-dot">3</span>
-        <span>Results</span>
+        <span class="step-item__labels"><span class="step-item__label">Results</span><span class="step-item__sub">Download &amp; share</span></span>
     </div>
 </div>
 
@@ -2330,13 +2348,14 @@
 <div class="create-two-col">
 <div class="section" id="videoSourceSection">
     <h2>Selected Video</h2>
+    <p class="section-intro">Choose a video to get started. Paste a link, pick from your library, or upload a new file.</p>
 
     <!-- Intake Layer: shown when no video is selected -->
     <div id="intakeLayer">
         <div class="tab-switcher">
-            <button class="tab-btn active" data-tab="download" onclick="switchTab('download')">Paste Links</button>
-            <button class="tab-btn" data-tab="library" onclick="switchTab('library')">From Library</button>
-            <button class="tab-btn" data-tab="upload" onclick="switchTab('upload')">Upload New</button>
+            <button class="tab-btn active" data-tab="download" onclick="switchTab('download')"><span class="tab-btn__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>Paste Links</button>
+            <button class="tab-btn" data-tab="library" onclick="switchTab('library')"><span class="tab-btn__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>From Library</button>
+            <button class="tab-btn" data-tab="upload" onclick="switchTab('upload')"><span class="tab-btn__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16l-4-4-4 4"/><path d="M12 12v9"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></span>Upload New</button>
         </div>
         <div class="tab-content">
             <!-- Tab 1: Get Media — single or batch URL paste + download -->
@@ -2344,8 +2363,8 @@
                 <div style="padding:24px 20px;">
                     <!-- Mode toggle: single vs batch -->
                     <div style="display:flex; gap:6px; max-width:600px; margin:0 auto 12px; justify-content:center;">
-                        <button type="button" id="singleLinkModeBtn" class="tab-btn active" data-link-mode="single" onclick="setLinkMode('single')" style="font-size:12px; padding:6px 14px;">Single Link</button>
-                        <button type="button" id="batchLinkModeBtn" class="tab-btn" data-link-mode="batch" onclick="setLinkMode('batch')" style="font-size:12px; padding:6px 14px;">Batch (Multi)</button>
+                        <button type="button" id="singleLinkModeBtn" class="tab-btn mode-toggle-btn active" data-link-mode="single" onclick="setLinkMode('single')" style="padding:8px 14px;"><strong>Single Link</strong><span class="mode-toggle-btn__sub">One video, all formats</span></button>
+                        <button type="button" id="batchLinkModeBtn" class="tab-btn mode-toggle-btn" data-link-mode="batch" onclick="setLinkMode('batch')" style="padding:8px 14px;"><strong>Batch (Multi)</strong><span class="mode-toggle-btn__sub">Multiple videos</span></button>
                     </div>
                     <!-- Single mode input -->
                     <div id="singleLinkInput" style="display:flex; gap:8px; max-width:600px; margin:0 auto;">
@@ -2360,6 +2379,7 @@
                             <button id="batchFetchBtn" onclick="batchFetchVideos()" style="padding:10px 20px; font-size:14px; white-space:nowrap; border-radius:8px;">Fetch All</button>
                         </div>
                     </div>
+                    <p class="create-video-helper">We'll download your video and prepare it for branding.</p>
                     <!-- Shared status area -->
                     <div id="inlineFetchStatus" style="text-align:center; margin-top:12px; font-size:13px; color:#888; display:none;"></div>
                     <!-- Batch results area -->
@@ -2884,7 +2904,60 @@
     <div id="processResult" style="margin-top:6px;"></div>
     </div>
 </div>
+
+<!-- Concept redesign: fills the config column's empty space before a video
+     is picked. Shares the cell with #previewSection (see CSS); shown/hidden
+     purely via a :has() rule keyed off #previewSection's own display state,
+     so no JS/state-machine change was needed. -->
+<div class="section quick-tips" id="createQuickTips" data-create-col="config">
+    <div class="quick-tips__head">
+        <span class="quick-tips__head-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg></span>
+        <h2>Quick Tips</h2>
+        <span class="quick-tips__eyebrow">Get the best results</span>
+    </div>
+    <div class="quick-tips__list">
+        <div class="quick-tips__row">
+            <span class="quick-tips__row-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
+            <div class="quick-tips__row-text"><strong>Use a high-quality source</strong><span>Clear, original footage brands best.</span></div>
+            <span class="quick-tips__chevron" aria-hidden="true">&rsaquo;</span>
+        </div>
+        <div class="quick-tips__row">
+            <span class="quick-tips__row-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.13 2 6 18a2 2 0 0 0 2 2h14"/><path d="M2 6.13 18 6a2 2 0 0 1 2 2v14"/></svg></span>
+            <div class="quick-tips__row-text"><strong>We build every format</strong><span>Vertical, square and landscape, automatically.</span></div>
+            <span class="quick-tips__chevron" aria-hidden="true">&rsaquo;</span>
+        </div>
+        <div class="quick-tips__row">
+            <span class="quick-tips__row-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".6"/><circle cx="17.5" cy="10.5" r=".6"/><circle cx="8.5" cy="7.5" r=".6"/><circle cx="6.5" cy="12.5" r=".6"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.2-.3-.4-.6-.4-1 0-.8.7-1.4 1.5-1.4H16c3.3 0 6-2.7 6-6 0-4.5-4.5-9-10-9z"/></svg></span>
+            <div class="quick-tips__row-text"><strong>Your brand stays consistent</strong><span>Logo, colors and style carry across every output.</span></div>
+            <span class="quick-tips__chevron" aria-hidden="true">&rsaquo;</span>
+        </div>
+    </div>
+</div>
 </div><!-- /.create-two-col -->
+
+<!-- Concept redesign: decorative trust/value strip under the create body. -->
+<div class="create-trust-strip">
+    <div class="create-trust-strip__item">
+        <span class="create-trust-strip__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></span>
+        <div><strong>Works with all major platforms</strong><span>YouTube, TikTok, Instagram, and more.</span></div>
+    </div>
+    <div class="create-trust-strip__item">
+        <span class="create-trust-strip__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span>
+        <div><strong>Your content stays yours</strong><span>Private, secure, and never shared.</span></div>
+    </div>
+    <div class="create-trust-strip__item">
+        <span class="create-trust-strip__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></span>
+        <div><strong>From one video to everywhere</strong><span>Save time. Grow faster.</span></div>
+    </div>
+</div>
+
+<!-- Concept redesign: closing brand signature under the trust strip, so the
+     page ends with a deliberate sign-off instead of stopping abruptly. -->
+<div class="create-signoff">
+    <span class="create-signoff__mark">BRANDR</span>
+    <span class="create-signoff__rule" aria-hidden="true"></span>
+    <span class="create-signoff__tagline">Same content. Bigger reach.</span>
+</div>
 
 <!-- Debug Tools moved to /portal/admin -->
 

@@ -775,11 +775,18 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-5);
+    gap: var(--space-4);
     padding: var(--space-5) var(--space-5) var(--space-4);
     margin: 0 auto var(--space-3);
     max-width: 960px;
     position: relative;
+}
+/* Concept redesign widens the hero to match .create-two-col below it once
+   the feature strip (see .create-hero__features) has room to sit beside the
+   mark. Below this width the strip hides itself, so 960px remains correct
+   for tablet/medium screens. */
+@media (min-width: 1180px) {
+    .create-hero { max-width: 1180px; }
 }
 /* Visually hides text while keeping it in the accessibility tree — referenced
    by clean_dashboard.html's brand-search label but never defined until now. */
@@ -802,18 +809,95 @@ body {
     opacity: 0.85;
 }
 .create-hero__title { margin: 0; font-size: clamp(38px, 6vw, 68px); line-height: 1; font-weight: 900; letter-spacing: -0.02em; color: #f5f7fb; }
-.create-hero__title .create-hero__accent { color: var(--accent); }
+/* Concept redesign: the accent word fades from white into the tier accent
+   rather than sitting as a flat accent color, echoing the reference mark's
+   gradient wordmark. Falls back to flat --accent automatically wherever
+   background-clip: text isn't supported. */
+.create-hero__title .create-hero__accent {
+    color: var(--accent);
+    background: linear-gradient(90deg, #f5f7fb 0%, var(--accent) 70%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
 .create-hero__subtitle { margin: 0; font-size: 14px; color: #9ca3af; max-width: 520px; }
+/* Concept redesign: three-item feature strip to the right of the hero mark
+   (One Video / Your Brand / Real Growth). Purely decorative — no state, no
+   JS hook — so it hides below the width where it would crowd the mark. */
+.create-hero__features {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    flex: 0 0 auto;
+}
+.create-hero__feature { display: flex; align-items: center; gap: 10px; }
+.create-hero__feature-icon {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-md);
+    background: var(--accent-muted);
+    color: var(--accent);
+}
+.create-hero__feature-icon svg { width: 16px; height: 16px; }
+.create-hero__feature-text { display: flex; flex-direction: column; line-height: 1.3; }
+.create-hero__feature-text strong { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #f5f7fb; }
+.create-hero__feature-text span { font-size: 12px; color: #9ca3af; }
+@media (max-width: 1179px) {
+    .create-hero__features { display: none; }
+}
+/* The shipped tier lockups (brandr_logo_{tier}_stacked.png) are flattened
+   onto a solid near-black card background with no alpha channel — and
+   we've been told not to touch the assets. mix-blend-mode:screen was tried
+   first (screen(x, black) = x, so black should vanish into a dark page)
+   but Chrome only blends against the TRUE page backdrop when nothing in
+   the chain has its own `filter`; the moment a drop-shadow glow sits on
+   the same element (needed for the hero-presence glow), that element gets
+   promoted into its own isolated compositing surface and screens against
+   emptiness instead, leaving the box fully visible — confirmed live.
+   mask-image sidesteps that entirely: using the asset as its own luminance
+   mask (bright logo pixels = opaque, near-black card = transparent) cuts
+   real alpha, no backdrop compositing involved, so filter/drop-shadow
+   works normally on top and traces the actual logo silhouette instead of
+   the rectangle. Confirmed live: no visible box at any zoom level. */
+.create-hero__mark-stage {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 .create-hero__mark {
     flex: 0 0 auto;
-    width: clamp(120px, 16vw, 190px);
-    height: clamp(84px, 12vw, 140px);
+    width: clamp(150px, 19vw, 230px);
+    height: clamp(104px, 14vw, 168px);
     background-image: var(--tier-logo);
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center right;
-    filter: drop-shadow(0 0 24px var(--accent-glow)) drop-shadow(0 0 8px var(--accent-glow));
-    animation: hero-mark-pulse 4.8s ease-in-out infinite;
+    -webkit-mask-image: var(--tier-logo);
+    mask-image: var(--tier-logo);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center right;
+    mask-position: center right;
+    -webkit-mask-mode: luminance;
+    mask-mode: luminance;
+    filter:
+        drop-shadow(0 0 10px var(--accent-glow))
+        drop-shadow(0 0 34px var(--accent-glow))
+        drop-shadow(0 0 70px var(--accent-glow));
+    /* Own keyframes rather than reusing hero-mark-pulse below: that one is
+       shared with the small tensor-card eyebrow dot (~line 1307) and only
+       animates 2 drop-shadow layers — changing its layer count would also
+       change that unrelated dot's glow. */
+    animation: hero-mark-pulse-lg 4.8s ease-in-out infinite;
 }
 /* Reference-image tagline, right of the mark on wide screens. Purely
    presentational — no state, no JS hook. */
@@ -845,6 +929,20 @@ body {
 @keyframes hero-mark-pulse {
     0%, 100% { filter: drop-shadow(0 0 22px var(--accent-glow)) drop-shadow(0 0 6px var(--accent-glow)); }
     50%      { filter: drop-shadow(0 0 34px var(--accent-glow)) drop-shadow(0 0 12px var(--accent-glow)); }
+}
+@keyframes hero-mark-pulse-lg {
+    0%, 100% {
+        filter:
+            drop-shadow(0 0 8px var(--accent-glow))
+            drop-shadow(0 0 28px var(--accent-glow))
+            drop-shadow(0 0 60px var(--accent-glow));
+    }
+    50% {
+        filter:
+            drop-shadow(0 0 12px var(--accent-glow))
+            drop-shadow(0 0 40px var(--accent-glow))
+            drop-shadow(0 0 82px var(--accent-glow));
+    }
 }
 @media (max-width: 640px) {
     .create-hero { padding: var(--space-4); gap: var(--space-3); }
@@ -883,6 +981,15 @@ body {
     .create-two-col > [data-create-col="config"] {
         min-width: 0;
     }
+    /* Quick Tips (#createQuickTips) shares the config column with
+       #previewSection — it fills the empty space before a video is picked,
+       #previewSection takes over once one is. Both are pinned to the same
+       cell explicitly so DOM order / auto-placement can't separate them;
+       the visibility toggle below (keyed off #previewSection's own hidden
+       state) guarantees only one is ever showing at a time. */
+    .create-two-col > #videoSourceSection { grid-column: 1; grid-row: 1; }
+    .create-two-col > #previewSection,
+    .create-two-col > #createQuickTips { grid-column: 2; grid-row: 1; }
     /* Review/Results regression fix: #videoSourceSection is display:none
        throughout Review AND after branding completes (confirmed live: the
        app deliberately removes .review-active on completion at the JS layer
@@ -901,6 +1008,201 @@ body {
     .create-two-col:has(> #videoSourceSection[style*="display: none"]) > [data-create-col="config"] {
         grid-column: 1 / -1;
     }
+}
+
+/* ============================================================================
+   CREATE LANDING REDESIGN — Quick Tips card, step subtitles, source-card
+   enrichment, trust strip (concept_ui.png direction). All additive/in-place:
+   no existing ID, class, or JS binding is touched. Themed entirely through
+   the existing --accent/--accent-soft/--accent-glow/--accent-border/
+   --bg-elevated tokens so every tier (Explorer/Creator/Studio/Platinum/
+   Founding) gets the same treatment in its own material automatically.
+   ============================================================================ */
+
+/* Selected Video intro line, mirrors the concept's descriptive copy under
+   the card title. */
+.section-intro { margin: -6px 0 var(--space-3); font-size: 12px; color: #9ca3af; }
+
+/* Quick Tips fills the config column while #previewSection is empty (no
+   video picked yet) instead of leaving a dead gap beside the source card.
+   The :has() check is width-independent — it also governs mobile stacking
+   order, where .create-two-col isn't a grid at all. */
+#createQuickTips { display: none; }
+/* Matches both spacings: the template's hardcoded initial attribute reads
+   "display:none;" (no space) until JS ever touches it, while any later
+   JS-driven `el.style.display = 'none'` re-serializes the attribute with a
+   space ("display: none;") — same case already handled for
+   #videoSourceSection above. */
+.create-two-col:has(> #previewSection[style*="display:none"]) > #createQuickTips,
+.create-two-col:has(> #previewSection[style*="display: none"]) > #createQuickTips {
+    display: flex;
+    flex-direction: column;
+}
+.quick-tips__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border-subtle);
+}
+.quick-tips__head-icon {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+.quick-tips__head-icon svg { width: 15px; height: 15px; }
+.quick-tips__head h2 { margin: 0; font-size: 16px; font-weight: 800; color: #f5f7fb; flex: 1 1 auto; }
+.quick-tips__eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; white-space: nowrap; }
+.quick-tips__list { display: flex; flex-direction: column; gap: var(--space-2); }
+.quick-tips__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: var(--space-3);
+    background: var(--bg-elevated-2);
+    border: 1px solid var(--border-muted);
+    border-radius: var(--radius-md);
+    transition: border-color var(--motion-fast), transform var(--motion-fast);
+}
+.quick-tips__row:hover { border-color: var(--accent-border); transform: translateY(-1px); }
+.quick-tips__row-icon {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    background: var(--bg-elevated-3);
+    color: var(--accent);
+}
+.quick-tips__row-icon svg { width: 15px; height: 15px; }
+.quick-tips__row-text { display: flex; flex-direction: column; line-height: 1.35; min-width: 0; flex: 1 1 auto; }
+.quick-tips__row-text strong { font-size: 13px; font-weight: 700; color: #eef1f7; }
+.quick-tips__row-text span { font-size: 11px; color: #9ca3af; }
+.quick-tips__chevron { flex: 0 0 auto; color: #4b5563; font-size: 16px; }
+
+/* Step indicator subtitles ("Get your video" / "Brand & refine" /
+   "Download & share") — additive span, JS only ever toggles classList on
+   the .step-item element itself, never this markup. */
+.step-progress { max-width: 640px !important; }
+.step-item { gap: 10px !important; }
+.step-item__labels { display: flex; flex-direction: column; line-height: 1.25; }
+.step-item__label { font-size: 13px; font-weight: 700; }
+.step-item__sub { font-size: 11px; font-weight: 500; color: #6b7280; }
+.step-item.active .step-item__sub { color: #9ca3af; }
+@media (max-width: 640px) {
+    .step-progress { max-width: 100% !important; padding: 0 var(--space-3) !important; }
+    .step-item__sub { display: none; }
+}
+
+/* Selected Video source tabs: small tier-tinted icon ahead of the label,
+   still a single line so the narrow sticky rail never gets cramped. */
+/* The sticky left rail caps out at 380px, so a horizontal icon+label row
+   doesn't have room for 3 buttons ("Upload New" clips). Stacking the icon
+   above the label keeps it compact at every width the rail can be. */
+.tab-btn:has(.tab-btn__icon) {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: 11px !important;
+    padding: 8px 4px !important;
+    white-space: normal !important;
+    line-height: 1.2;
+}
+.tab-btn__icon { width: 14px; height: 14px; flex: 0 0 auto; opacity: 0.8; }
+.tab-btn__icon svg { display: block; width: 100%; height: 100%; }
+.tab-btn.active .tab-btn__icon { opacity: 1; }
+
+/* Single Link / Batch (Multi) mode toggle grows a one-line helper under the
+   label — there's room for it since it's only ever a two-button row. */
+.mode-toggle-btn { display: flex !important; flex-direction: column !important; align-items: center; justify-content: center; gap: 1px !important; line-height: 1.2; }
+.mode-toggle-btn strong { font-size: 12px; font-weight: 700; }
+.mode-toggle-btn__sub { font-size: 10px; font-weight: 500; opacity: 0.75; }
+.create-video-helper { text-align: center; font-size: 11px; color: #6b7280; margin: 10px 0 0; }
+
+/* Trust/value strip under the two-column body — platform compatibility,
+   ownership/privacy, one-video-to-everywhere. Purely decorative footer. */
+.create-trust-strip {
+    max-width: 1180px;
+    margin: var(--space-6) auto var(--space-7);
+    padding: var(--space-4) var(--space-5) 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-5);
+    justify-content: space-between;
+    border-top: 1px solid var(--border-muted);
+}
+.create-trust-strip__item { display: flex; align-items: flex-start; gap: 10px; flex: 1 1 220px; min-width: 200px; }
+.create-trust-strip__icon { flex: 0 0 auto; width: 20px; height: 20px; color: var(--accent); }
+.create-trust-strip__icon svg { display: block; width: 100%; height: 100%; }
+.create-trust-strip__item strong { display: block; font-size: 13px; font-weight: 700; color: #f5f7fb; }
+.create-trust-strip__item span { font-size: 12px; color: #9ca3af; }
+
+/* Closing brand signature under the trust strip — a deliberate sign-off
+   instead of the page just stopping. Purely decorative. */
+.create-signoff {
+    max-width: 1180px;
+    margin: 0 auto var(--space-6);
+    padding: 0 var(--space-5);
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    opacity: 0.55;
+}
+.create-signoff__mark { font-size: 12px; font-weight: 800; letter-spacing: 0.22em; color: var(--accent); white-space: nowrap; }
+.create-signoff__rule { flex: 1 1 auto; height: 1px; background: linear-gradient(90deg, var(--border-muted), transparent); }
+.create-signoff__tagline { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6b7280; white-space: nowrap; }
+@media (max-width: 640px) {
+    .create-signoff { flex-wrap: wrap; gap: var(--space-2); padding: 0 var(--space-4); }
+    .create-signoff__rule { display: none; }
+}
+
+/* Polish pass: Selected Video breathing room + Quick Tips presence. Purely
+   sizing/spacing — no ID, class or JS binding changed. */
+#videoSourceSection { padding: var(--space-5) !important; }
+#videoSourceSection .section-intro { margin-bottom: var(--space-4); }
+#videoSourceSection .tab-switcher { padding: 5px !important; }
+#videoSourceSection .tab-btn:has(.tab-btn__icon) { padding: 10px 4px !important; gap: 4px; }
+
+.quick-tips__head { padding-bottom: var(--space-3); margin-bottom: var(--space-4); }
+.quick-tips__head-icon { width: 32px; height: 32px; }
+.quick-tips__head-icon svg { width: 17px; height: 17px; }
+.quick-tips__head h2 { font-size: 17px; }
+.quick-tips__row { padding: var(--space-3) var(--space-4); }
+.quick-tips__row-icon { width: 32px; height: 32px; }
+.quick-tips__row:hover {
+    box-shadow: 0 0 0 1px var(--accent-border), 0 0 18px var(--accent-glow);
+}
+.quick-tips__chevron { font-size: 18px; transition: color var(--motion-fast), transform var(--motion-fast); }
+.quick-tips__row:hover .quick-tips__chevron { color: var(--accent); transform: translateX(2px); }
+
+/* Subtle peripheral dot-grid atmosphere for the whole Create/Review/Results
+   flow (clean_dashboard.html sets body.page-create). Fixed + very low
+   opacity, masked to fade in toward the edges and stay invisible behind the
+   main content column — reads as ambient texture, not wallpaper. Scoped to
+   .page-create rather than the shared `body` rule above so no other
+   template picks it up. z-index: -1 keeps it behind normal in-flow content
+   without needing to touch any other element's stacking. */
+body.page-create::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1.5px);
+    background-size: 26px 26px;
+    -webkit-mask-image: radial-gradient(ellipse 62% 55% at 50% 30%, transparent 30%, #000 100%);
+    mask-image: radial-gradient(ellipse 62% 55% at 50% 30%, transparent 30%, #000 100%);
 }
 
 /* ============================================================================
