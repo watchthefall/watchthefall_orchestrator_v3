@@ -2020,7 +2020,7 @@ def get_branded_outputs_for_user(user_id, limit=50):
     with get_connection() as conn:
         c = conn.cursor()
         c.execute('''
-            SELECT bo.id, bo.output_filename, bo.brand_name, bo.output_format,
+            SELECT bo.id, bo.output_filename, bo.brand_id, bo.brand_name, bo.output_format,
                    bo.source_filename, bo.width, bo.height, bo.aspect_ratio, bo.created_at,
                    bo.file_path, bo.bookmarked,
                    COALESCE(

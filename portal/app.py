@@ -6388,7 +6388,10 @@ def get_recent_downloads():
 @login_required
 def get_branded_outputs():
     """List branded output records for the current user.
-    Patch 43: Check file existence server-side, add file_available field, strip file_path."""
+    Patch 43: Check file existence server-side, add file_available field, strip file_path.
+    Library redesign: also surface file_size_bytes — a plain os.path.getsize() next to
+    the existence check already being done here, not a new I/O pass — so Library cards
+    can show real file size instead of omitting or inventing it."""
     from .database import get_branded_outputs_for_user
     user_id = session['user_id']
     limit = request.args.get('limit', 50, type=int)
@@ -6396,7 +6399,12 @@ def get_branded_outputs():
         outputs = get_branded_outputs_for_user(user_id, limit)
         for output in outputs:
             file_path = output.get('file_path') or ''
-            output['file_available'] = bool(file_path and os.path.exists(file_path))
+            file_exists = bool(file_path and os.path.exists(file_path))
+            output['file_available'] = file_exists
+            try:
+                output['file_size_bytes'] = os.path.getsize(file_path) if file_exists else None
+            except OSError:
+                output['file_size_bytes'] = None
             output.pop('file_path', None)
         return jsonify({'success': True, 'outputs': outputs, 'count': len(outputs)})
     except Exception as e:
