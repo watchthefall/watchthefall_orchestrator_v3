@@ -7826,11 +7826,20 @@ function brandThisVideoAgain() {
     const outputFormatsSection = document.getElementById('outputFormatsSection');
     if (outputFormatsSection) outputFormatsSection.style.display = '';
 
+    // Same gap as outputFormatsSection: the previous completed job's
+    // renderStreamingCompletionState()/enterProcessingState() leaves
+    // #confirmationSummary (the "Start review" panel) inline-hidden
+    // (display:none). resetCreateReviewSession()/clearLoadouts() don't touch
+    // it, and unlike changeVideo()/replace-video this function never called
+    // updateConfirmationSummary() to re-evaluate and clear that leftover
+    // style — so after "Brand again" the Start-review action stayed hidden
+    // until a brand click (or a hard refresh) happened to trigger it.
     const result = document.getElementById('processResult');
     if (result) result.innerHTML = '';
 
     extractFrame(sourceFile);
     updateStepProgress(2);
+    updateConfirmationSummary();
 
     console.log('[BRANDR] Brand this video again — kept source, reset selection:', sourceFile);
 }
