@@ -7839,6 +7839,21 @@ function brandThisVideoAgain() {
 
     extractFrame(sourceFile);
     updateStepProgress(2);
+
+    // Second half of the same gap, found by live reproduction after the fix
+    // above shipped: #brandReviewLane itself starts life as inline
+    // display:none in the markup and is only ever shown by
+    // updateCreateIntentUI() when createIntent === 'review' (see
+    // setCreateIntent()). The completion flow never restores createIntent to
+    // 'review', and this function set it to null and never set it back — so
+    // updateConfirmationSummary() alone (added above) was clearing
+    // #confirmationSummary's own inline style, but its ancestor
+    // #brandReviewLane was still display:none, so the whole review lane —
+    // Start review button included — stayed invisible regardless. Brand
+    // again always re-enters the review lane for the same source video, so
+    // this is unconditionally correct here (unlike setCreateIntent()'s other
+    // callers, which run before any brand/session reset has happened).
+    setCreateIntent('review');
     updateConfirmationSummary();
 
     console.log('[BRANDR] Brand this video again — kept source, reset selection:', sourceFile);
