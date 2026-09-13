@@ -239,10 +239,13 @@
             const latest = getLatestOutput();
             if (!latest) { mount.innerHTML = ''; return; }
 
-            const formatLabel = FORMAT_LABELS[latest.output_format] || latest.output_format;
+            const formatKey = latest.output_format || 'vertical_9_16';
+            const formatLabel = FORMAT_LABELS[formatKey] || formatKey;
+            const aspectClass = FORMAT_ASPECT_CLASS[formatKey] || '';
             const resLabel = latest.width && latest.height ? `${Math.max(latest.width, latest.height)}p` : null;
             const sizeLabel = formatBytes(latest.file_size_bytes);
-            const title = latest.output_filename ? latest.output_filename.replace(/\.mp4$/i, '') : 'Untitled render';
+            const rawFilename = latest.output_filename || '';
+            const title = `${latest.brand_name || 'Unknown brand'} — ${formatLabel}`;
             const sourceLabel = latest.source_display_name || latest.source_filename || 'Unknown source';
             const videoUrl = `/api/videos/download/${encodeURIComponent(latest.output_filename)}`;
             const isBookmarked = latest.bookmarked === 1;
@@ -250,12 +253,13 @@
             mount.innerHTML = `
                 <div class="latest-output__eyebrow">&#10022; Latest output</div>
                 <div class="latest-output-card">
-                    <div class="latest-output__media">
+                    <div class="latest-output__media ${aspectClass}">
                         <video controls preload="metadata" src="${videoUrl}"></video>
                     </div>
                     <div class="latest-output__info">
                         <div class="latest-output__brand">${brandBadgeHtml(latest.brand_id, latest.brand_name, 'latest-output__brand-logo')}</div>
                         <h2 class="latest-output__title">${escapeHtml(title)}</h2>
+                        <p class="latest-output__filename" title="${escapeHtml(rawFilename)}">${escapeHtml(rawFilename)}</p>
                         <p class="latest-output__source">From: ${escapeHtml(sourceLabel)}</p>
                         <div class="latest-output__badges">
                             <span class="format-badge-pill">${escapeHtml(formatLabel)}</span>

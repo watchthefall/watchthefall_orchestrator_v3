@@ -1865,7 +1865,27 @@ body::before {
     overflow: hidden;
     border: 1px solid var(--border-muted);
     background: #000;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 16 / 9; /* landscape / unknown format: fill the column width */
+    width: 100%;
+    max-height: 480px;
+}
+/* Portrait and square outputs: derive width from height instead of stretching
+   full column width, so a 9:16 render doesn't sit inside a wide letterboxed
+   16:9 box. Height is capped so a tall portrait video stays a sane size. */
+.latest-output__media.aspect-9-16,
+.latest-output__media.aspect-1-1 {
+    width: auto;
+    height: min(480px, 60vh);
+    max-width: 100%;
+    justify-self: center;
+}
+.latest-output__media.aspect-9-16 { aspect-ratio: 9 / 16; }
+.latest-output__media.aspect-1-1 { aspect-ratio: 1 / 1; }
+@media (max-width: 900px) {
+    .latest-output__media.aspect-9-16,
+    .latest-output__media.aspect-1-1 {
+        height: min(400px, 70vh);
+    }
 }
 .latest-output__media video { width: 100%; height: 100%; display: block; object-fit: contain; background: #000; }
 .latest-output__info { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
@@ -1880,6 +1900,11 @@ body::before {
 .latest-output__title {
     margin: 0; font-size: 26px; font-weight: 800; color: #f5f7fb; line-height: 1.2;
     overflow-wrap: break-word; word-break: break-word;
+}
+.latest-output__filename {
+    margin: 0; font-size: 11px; color: #6b7280;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
 }
 .latest-output__source {
     margin: 0; font-size: 12px; color: #6b7280;
