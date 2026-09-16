@@ -193,6 +193,27 @@
         try { originalRemoveItem.call(sessionStorage, key); } catch (e) {}
     });
 })();
+
+/*
+ * Back/forward-cache guard.
+ * The scoping shim above only runs on a real page load. The bfcache does not
+ * do a page load -- it resumes a frozen page instance, JS heap and rendered DOM
+ * intact, so none of the code above re-evaluates. Reproduced on this page:
+ * log out, press Back once, and the previous account's Create page returns with
+ * its source video still named on screen, while the server session is gone.
+ * That is a logged-out viewer reading the last user's work on a shared machine.
+ *
+ * pageshow with persisted === true fires only on a bfcache restore, so this
+ * reloads exactly in that case. The reload re-runs the shim and re-renders the
+ * page against whoever is actually authenticated now (or bounces to login).
+ * Same-account back navigation still works -- the page's state lives in the
+ * user-scoped sessionStorage keys above, so it is rebuilt on the way back.
+ */
+window.addEventListener('pageshow', function (event) {
+    if (event.persisted) {
+        window.location.reload();
+    }
+});
 </script>
 
 <div class="nav-bar">
