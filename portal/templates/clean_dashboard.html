@@ -5770,6 +5770,18 @@ async function enterQueueMode() {
     if (selectionModeActions) selectionModeActions.style.display = 'none';
     if (queueModeHeader) queueModeHeader.style.display = 'block';
     if (queueModeActions) queueModeActions.style.display = 'block';
+    // Approve/Use defaults/Previous live in a row INSIDE #queueModeActions, and both
+    // completion states (renderReviewCompletionState, renderStreamingCompletionState)
+    // inline-hide that row once a batch is committed -- correctly, since approving is
+    // over at that point. Nothing ever restored it: showing the parent above does not
+    // clear a child's own inline style, so the row stayed hidden for the rest of the
+    // page's life. The first review after ANY completed render in the same session
+    // therefore rendered the full cockpit -- reframe, tweaks, "Back to brands" -- with
+    // no Approve & Next, and a hard refresh was the only way out. Entering a review is
+    // exactly where the row becomes relevant again, so clear the override here. Set to
+    // '' rather than a literal so the stylesheet's `display: grid` wins back.
+    const reviewActionsRow = queueModeActions ? queueModeActions.querySelector('.review-actions') : null;
+    if (reviewActionsRow) reviewActionsRow.style.display = '';
     if (overrideControls) overrideControls.style.display = 'block';
     if (previewContainer) previewContainer.style.display = 'block';
     // Hide preview target bar (queue mode has its own pills)
