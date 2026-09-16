@@ -26,12 +26,8 @@
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
-.nav-bar .nav-links::-webkit-scrollbar {
-    display: none;
-}
-.nav-bar .nav-links li {
-    margin: 0.25rem;
-}
+.nav-bar .nav-links::-webkit-scrollbar { display: none; }
+.nav-bar .nav-links li { margin: 0.25rem; }
 .nav-bar .nav-links a {
     color: #EAEAEA;
     text-decoration: none;
@@ -41,37 +37,12 @@
     display: block;
     white-space: nowrap;
 }
-.nav-bar .nav-links a:hover {
-    background-color: var(--accent-soft);
-}
-.nav-bar .nav-links a.active {
-    background-color: var(--accent-soft);
-    color: var(--accent);
-}
-
-/* Identity cluster: badges + account dropdown grouped right */
-.nav-identity {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-    margin-left: auto;
-}
-.nav-badges {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-.nav-badges .tier-badge {
-    font-size: 10px;
-    padding: 3px 9px;
-    cursor: default;
-}
-
-.nav-bar .dropdown {
-    position: relative;
-    display: inline-block;
-}
+.nav-bar .nav-links a:hover { background-color: var(--accent-soft); }
+.nav-bar .nav-links a.active { background-color: var(--accent-soft); color: var(--accent); }
+.nav-identity { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
+.nav-badges { display: flex; align-items: center; gap: 4px; }
+.nav-badges .tier-badge { font-size: 10px; padding: 3px 9px; cursor: default; }
+.nav-bar .dropdown { position: relative; display: inline-block; }
 .nav-bar .dropdown > a {
     color: #EAEAEA;
     text-decoration: none;
@@ -82,9 +53,7 @@
     cursor: pointer;
     font-size: 14px;
 }
-.nav-bar .dropdown > a:hover {
-    background-color: var(--accent-soft);
-}
+.nav-bar .dropdown > a:hover { background-color: var(--accent-soft); }
 .nav-bar .dropdown-content {
     display: none;
     position: absolute;
@@ -96,21 +65,10 @@
     border-radius: 8px;
     overflow: hidden;
 }
-.nav-bar .dropdown-content a {
-    color: #EAEAEA;
-    padding: 12px 16px;
-    text-decoration: none;
-    display: block;
-}
-.nav-bar .dropdown-content a:hover {
-    background-color: var(--accent-soft);
-}
+.nav-bar .dropdown-content a { color: #EAEAEA; padding: 12px 16px; text-decoration: none; display: block; }
+.nav-bar .dropdown-content a:hover { background-color: var(--accent-soft); }
 .nav-bar .dropdown:hover .dropdown-content,
-.nav-bar .dropdown:focus-within .dropdown-content {
-    display: block;
-}
-
-/* Tier badge pill — nav identity, mirrors mockup's tier chip next to Account */
+.nav-bar .dropdown:focus-within .dropdown-content { display: block; }
 .nav-tier-pill {
     display: inline-flex;
     align-items: center;
@@ -137,19 +95,10 @@
     background-position: center;
     flex-shrink: 0;
 }
-.nav-tier-pill .tier-pill-caret {
-    font-size: 9px;
-    opacity: 0.75;
-}
+.nav-tier-pill .tier-pill-caret { font-size: 9px; opacity: 0.75; }
 @media screen and (max-width: 768px) {
-    .nav-tier-pill {
-        padding: 5px 8px;
-        font-size: 10.5px;
-        gap: 4px;
-    }
+    .nav-tier-pill { padding: 5px 8px; font-size: 10.5px; gap: 4px; }
 }
-
-/* Tier accent line on nav bottom — subtle identity cue */
 .nav-bar::after {
     content: '';
     position: absolute;
@@ -160,8 +109,6 @@
     background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
     opacity: 0.6;
 }
-
-/* Nav logo — tier-specific icon, driven by --tier-icon CSS var */
 .nav-bar .nav-logo {
     width: 32px;
     height: 32px;
@@ -174,63 +121,79 @@
     margin-right: 2px;
     transition: filter 0.3s;
 }
-.nav-bar .nav-logo:hover {
-    filter: drop-shadow(0 0 4px var(--accent-glow));
-}
-
-/* Mobile: collapse badges, show only primary */
+.nav-bar .nav-logo:hover { filter: drop-shadow(0 0 4px var(--accent-glow)); }
 @media screen and (max-width: 768px) {
-    .nav-bar {
-        justify-content: flex-start;
-    }
+    .nav-bar { justify-content: flex-start; }
     .nav-bar .nav-links {
         display: flex;
         flex-wrap: nowrap;
         white-space: nowrap;
-        /* Bug fix: at narrow widths the scrollable nav-links box was
-           clipping its last item (e.g. "Library" -> "Librar") flush
-           against the Account dropdown with no gap, reading as one
-           run-together word. mask-image fades the clipped edge instead
-           of a hard cut, and margin-right keeps Account from touching it. */
         margin-right: 10px;
         -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent 100%);
         mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent 100%);
     }
-    .nav-bar .nav-links a {
-        flex-shrink: 0;
-        padding: 10px 12px;
-    }
-    .nav-badges .badge-secondary {
-        display: none;
-    }
-    .nav-identity {
-        margin-left: auto;
-        flex-shrink: 0;
-        gap: 4px;
-    }
-    .nav-bar .dropdown > a {
-        flex-shrink: 0;
-        padding: 10px 8px;
-        font-size: 13px;
-    }
+    .nav-bar .nav-links a { flex-shrink: 0; padding: 10px 12px; }
+    .nav-badges .badge-secondary { display: none; }
+    .nav-identity { margin-left: auto; flex-shrink: 0; gap: 4px; }
+    .nav-bar .dropdown > a { flex-shrink: 0; padding: 10px 8px; font-size: 13px; }
 }
-
 @media screen and (max-width: 360px) {
-    .nav-bar .nav-links a {
-        font-size: 14px;
-        padding: 8px 10px;
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-    .nav-bar .dropdown > a {
-        font-size: 13px;
-        padding: 8px 6px;
-    }
-    .nav-badges {
-        display: none;
-    }
+    .nav-bar .nav-links a { font-size: 14px; padding: 8px 10px; white-space: nowrap; flex-shrink: 0; }
+    .nav-bar .dropdown > a { font-size: 13px; padding: 8px 6px; }
+    .nav-badges { display: none; }
 }
 </style>
+
+<script>
+/*
+ * Brandr browser-state isolation.
+ * sessionStorage belongs to a browser tab, not to the authenticated account.
+ * Scope the handful of Brandr workflow keys by the current server-side user id
+ * so logging out and into another account in the same tab cannot recover the
+ * previous account's filenames, thumbnails, metadata, brands, or loadouts.
+ *
+ * This is intentionally implemented in the shared nav partial because it loads
+ * before the page-specific workflow scripts on the portal pages that exchange
+ * these keys (Create, Library, Downloader).
+ */
+(function () {
+    const userId = {{ session.get('user_id')|tojson }};
+    if (userId === null || userId === undefined || userId === '') return;
+
+    const scopedKeys = new Set([
+        'lastDownloadFilename',
+        'brandr_job_items',
+        'brandr_active_item_index',
+        'brandr_video_meta',
+        'brandr_video_loadouts'
+    ]);
+    const prefix = 'brandr:user:' + String(userId) + ':';
+    const originalGetItem = Storage.prototype.getItem;
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+
+    function mapKey(storage, key) {
+        if (storage !== sessionStorage || !scopedKeys.has(key)) return key;
+        return prefix + key;
+    }
+
+    Storage.prototype.getItem = function (key) {
+        return originalGetItem.call(this, mapKey(this, key));
+    };
+    Storage.prototype.setItem = function (key, value) {
+        return originalSetItem.call(this, mapKey(this, key), value);
+    };
+    Storage.prototype.removeItem = function (key) {
+        return originalRemoveItem.call(this, mapKey(this, key));
+    };
+
+    // Remove legacy unscoped workflow state so an old tab cannot expose it if
+    // another script reads the raw Storage API before this shim is evaluated.
+    scopedKeys.forEach(function (key) {
+        try { originalRemoveItem.call(sessionStorage, key); } catch (e) {}
+    });
+})();
+</script>
 
 <div class="nav-bar">
     <a href="{{ url_for('brand_video') }}" class="nav-logo" title="Brandr — {{ tier|default('Explorer') }}"></a>
