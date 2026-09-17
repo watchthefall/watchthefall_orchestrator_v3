@@ -603,6 +603,10 @@ DISCORD_OAUTH_SCOPES = 'identify'
 # integration needs to change once they are.
 DISCORD_ROLE_IDS = {
     'verified': os.environ.get('DISCORD_ROLE_VERIFIED', '').strip(),
+    # Community/status marker only -- granted at beta APPROVAL time, never
+    # merely from completing Discord OAuth. Independent of special_status;
+    # see BETA_TEMP_TIER below for the actual product entitlement.
+    'beta_tester': os.environ.get('DISCORD_ROLE_BETA_TESTER', '').strip(),
     'tier': {
         'Explorer': os.environ.get('DISCORD_ROLE_EXPLORER', '').strip(),
         'Creator': os.environ.get('DISCORD_ROLE_CREATOR', '').strip(),
@@ -613,3 +617,21 @@ DISCORD_ROLE_IDS = {
     'founding': os.environ.get('DISCORD_ROLE_FOUNDING', '').strip(),
 }
 print(f"[CONFIG] Discord integration: {'configured' if DISCORD_CLIENT_ID and DISCORD_BOT_TOKEN and DISCORD_GUILD_ID else 'not configured (linking disabled)'}")
+
+# ============================================================================
+# BETA / WAITLIST TEMPORARY ENTITLEMENT
+# ============================================================================
+# An accepted beta tester (approved beta_access entry with no admin-set
+# tier_grant override) gets Platinum for the beta period -- NOT
+# special_status='beta_tester', which carries unrelated limit overrides
+# (9999 credits/day, effectively-uncapped everything) that are not the
+# intended beta entitlement. This reuses the same tier + bonus_tier_until
+# mechanism invite codes already use (see register() / _apply_beta_package).
+#
+# NOTE (pre-existing, not introduced here): bonus_tier_until is currently
+# write-only -- nothing reads it back to revert `tier` once it passes.
+# That gap already existed for invite-code grants; this reuses the same
+# mechanism rather than building enforcement as a side effect of the beta
+# gate. Worth a follow-up ticket, but out of scope for this change.
+BETA_TEMP_TIER = 'Platinum'
+BETA_TEMP_TIER_DAYS = int(os.environ.get('BETA_TEMP_TIER_DAYS', '90'))

@@ -18,7 +18,7 @@ import threading
 from yt_dlp import YoutubeDL
 import hashlib
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 import shutil
 import re
@@ -91,6 +91,7 @@ from .config import (
     get_tier_features, TIER_FEATURES,
     ADMIN_EMAILS, SPECIAL_STATUSES, VISIBLE_TIERS,
     calculate_output_contract,
+    BETA_TEMP_TIER, BETA_TEMP_TIER_DAYS,
 )
 from .database import (
     log_event, get_daily_usage, increment_branding_jobs, increment_downloads,
@@ -99,6 +100,7 @@ from .database import (
     log_render_event, get_render_stats, get_user_render_stats,
     get_user_special_status, set_user_special_status,
     link_discord_account, unlink_discord_account, get_discord_link,
+    get_beta_access_by_id, set_beta_discord_nonce, verify_beta_discord_identity,
     create_waitlist_entry, get_waitlist_entry_by_email,
     get_pending_waitlist_entries, get_all_waitlist_entries, get_waitlist_counts,
     approve_waitlist_entry, claim_waitlist_entry, set_waitlist_entry_status,
@@ -217,12 +219,19 @@ def register_user(email, password, beta_entry=None):
     try:
         is_admin_email = email.lower() in [e.lower() for e in ADMIN_EMAILS]
 
-        # Determine tier: admin → Platinum, beta package → tier_grant if set, else Explorer
+        # Determine tier: admin -> Platinum, beta package -> tier_grant if
+        # admin set one, else an accepted beta/waitlist applicant defaults to
+        # BETA_TEMP_TIER (temporary Platinum for the beta period -- see
+        # _apply_beta_package for the bonus_tier_until expiry stamp), and a
+        # non-beta registration (invite code path; entry is overwritten
+        # right after this call anyway) defaults to Explorer.
         print(f"[REGISTER] tier resolution start (admin={is_admin_email})", flush=True)
         if is_admin_email:
             tier = 'Platinum'
         elif beta_entry and beta_entry.get('tier_grant'):
             tier = beta_entry['tier_grant']
+        elif beta_entry:
+            tier = BETA_TEMP_TIER
         else:
             tier = 'Explorer'
 
@@ -270,9 +279,12 @@ def register_user(email, password, beta_entry=None):
 
 
 def _apply_beta_package(user_id, beta_entry):
-    """Apply founding/bonus fields from a beta_access row to the user record.
-    All fields are optional — only written if present in the row.
-    Does not touch tier enforcement logic."""
+    """Apply founding/bonus/beta-tester fields from a beta_access row to the
+    user record, and carry forward an already-VERIFIED Discord identity if
+    the applicant linked one. All fields are optional -- only written if
+    present in the row. Never sets special_status (see target_role_ids in
+    discord_integration.py for why 'beta_tester' is deliberately not a
+    special_status value)."""
     from .database import get_connection
     updates = {}
     if beta_entry.get('founding_status'):
@@ -282,14 +294,43 @@ def _apply_beta_package(user_id, beta_entry):
         updates['founding_discount_percent'] = beta_entry['founding_discount_percent']
     if beta_entry.get('bonus_tier_until'):
         updates['bonus_tier_until'] = beta_entry['bonus_tier_until']
-    if not updates:
-        return
-    set_clause = ', '.join(f"{k} = ?" for k in updates)
-    values = list(updates.values()) + [user_id]
-    with get_connection() as conn:
-        conn.execute(f"UPDATE users SET {set_clause} WHERE id = ?", values)
-        conn.commit()
-    print(f"[AUTH] Beta package applied to user={user_id}: {list(updates.keys())}")
+    elif not beta_entry.get('tier_grant'):
+        # No admin override on the beta_access row at all -- this is the
+        # default beta path (register_user set tier=BETA_TEMP_TIER above),
+        # so stamp its expiry. An admin-set tier_grant or bonus_tier_until
+        # already fully overrides this; a plain waitlist approval doesn't.
+        updates['bonus_tier_until'] = (
+            datetime.utcnow() + timedelta(days=BETA_TEMP_TIER_DAYS)
+        ).isoformat()
+
+    # Reaching this function at all means register()'s gate already
+    # confirmed beta_entry.status == 'approved' -- an accepted beta tester,
+    # permanently marked as such for Discord role-sync purposes (see
+    # discord_integration.sync_roles_for_user). Distinct from special_status.
+    updates['is_beta_tester'] = 1
+
+    if updates:
+        set_clause = ', '.join(f"{k} = ?" for k in updates)
+        values = list(updates.values()) + [user_id]
+        with get_connection() as conn:
+            conn.execute(f"UPDATE users SET {set_clause} WHERE id = ?", values)
+            conn.commit()
+        print(f"[AUTH] Beta package applied to user={user_id}: {list(updates.keys())}")
+
+    # Carry forward an already-verified Discord identity from the
+    # application -- no new OAuth round-trip needed, we already confirmed it
+    # during waitlist verification. Best-effort: registration must not fail
+    # over this.
+    if beta_entry.get('discord_user_id'):
+        try:
+            link_discord_account(user_id, beta_entry['discord_user_id'],
+                                 beta_entry.get('discord_verified_username'))
+            print(f"[AUTH] Carried forward verified Discord identity to user={user_id}", flush=True)
+            from .discord_integration import sync_roles_for_user
+            ok, detail = sync_roles_for_user(user_id)
+            print(f"[AUTH] Post-registration Discord role sync for user={user_id}: ok={ok} ({detail})", flush=True)
+        except Exception as _dc_err:
+            print(f"[AUTH] Warning: Discord carry-forward/sync failed for user={user_id}: {_dc_err}", flush=True)
 
 
 def get_user_tier(user_id):
@@ -720,6 +761,21 @@ def admin_waitlist_approve(entry_id):
                     args=(entry_email,),
                     daemon=True,
                 ).start()
+
+            # Beta Tester role is granted at APPROVAL, never merely from
+            # Discord verification -- only fires if the applicant verified
+            # Discord on their application; a legacy/unverified approval
+            # simply has nothing to sync yet (they may still link Discord
+            # later, from their Brandr profile page once registered).
+            entry = get_beta_access_by_id(entry_id)
+            if entry and entry.get('discord_user_id'):
+                try:
+                    from .discord_integration import sync_beta_applicant_roles
+                    ok, detail = sync_beta_applicant_roles(entry['discord_user_id'], beta_tester=True)
+                    print(f"[ADMIN WAITLIST] Beta Tester role sync id={entry_id}: ok={ok} ({detail})")
+                except Exception as _sync_err:
+                    print(f"[ADMIN WAITLIST] Beta Tester role sync failed id={entry_id}: {_sync_err}")
+
             return jsonify({'success': True, 'status': 'approved'})
         return jsonify({'success': False, 'error': 'Entry not found or already actioned.'}), 404
     except Exception as _e:
@@ -1563,14 +1619,49 @@ def beta_page():
     return render_template('waitlist.html')
 
 
+# ── Beta/waitlist Discord verification (anonymous -- no Brandr account yet) ──
+#
+# Apply -> Discord OAuth -> verified application -> admin approval -> account,
+# with Discord required only for THIS gate, never for an ordinary account.
+# See the "Brandr <-> Discord Access Model" spec. The state token is signed
+# (itsdangerous, short-lived) and paired with a single-use nonce stored on
+# the beta_access row itself (verify_beta_discord_identity in database.py
+# consumes it atomically) -- so a captured/replayed link fails cleanly even
+# though there is no logged-in session to anchor it to.
+
+def _beta_discord_serializer():
+    from itsdangerous import URLSafeTimedSerializer
+    return URLSafeTimedSerializer(SECRET_KEY, salt='beta-discord-verify')
+
+
+_BETA_DISCORD_STATE_MAX_AGE = 1800  # 30 minutes
+
+
+def _issue_beta_discord_verify_token(entry_id):
+    """Stamp a fresh nonce on the beta_access row and return a signed token
+    encoding (entry_id, nonce). Safe to call again for the same entry --
+    each call invalidates whatever link was issued before it."""
+    import secrets as _secrets
+    nonce = _secrets.token_urlsafe(24)
+    set_beta_discord_nonce(entry_id, nonce)
+    return _beta_discord_serializer().dumps({'id': entry_id, 'nonce': nonce})
+
+
 @app.route('/waitlist/submit', methods=['POST'])
+@limiter.limit('10 per hour')
 def waitlist_form_submit():
     """Server-rendered waitlist submission (Post/Redirect/Get).
 
     Backs the public waitlist form in waitlist.html. Validates, de-dupes,
     saves to beta_access, fires the Loops sync, then flashes a message and
     redirects back to the landing page so the success/error state renders.
-    The AJAX endpoint /api/waitlist is kept for programmatic callers."""
+    The AJAX endpoint /api/waitlist is kept for programmatic callers.
+
+    On success (new or already-pending-unverified), also issues a signed
+    Discord verification link and passes it back via ?verify=<token> so the
+    landing page can show a "Verify with Discord" call to action -- Discord
+    verification is how a beta application becomes qualified, but it is
+    NOT required to submit interest in the first place."""
     import traceback as _tb
 
     email = (request.form.get('email') or '').strip().lower()
@@ -1593,7 +1684,7 @@ def waitlist_form_submit():
         return redirect(url_for('beta_page'))
 
     try:
-        _entry_id, created = create_waitlist_entry(
+        entry_id, created = create_waitlist_entry(
             email, creator_name, main_platform, creator_type,
             page_count, referral_code_used, discord_username, notes=notes,
         )
@@ -1609,9 +1700,108 @@ def waitlist_form_submit():
             email, creator_name,
             main_platform=main_platform, creator_type=creator_type,
         )
-        flash("You're on the list. We'll email you when your beta access opens.", 'success')
+        flash("You're on the list — verify with Discord below to qualify your application.", 'success')
     else:
         flash("You're already on the Brandr beta list — we'll be in touch soon.", 'success')
+
+    # Only prompt for verification if this entry doesn't already have a
+    # VERIFIED Discord identity (never re-prompt someone who already did this).
+    verify_token = None
+    if entry_id:
+        existing = get_beta_access_by_id(entry_id)
+        if existing and not existing.get('discord_user_id'):
+            try:
+                verify_token = _issue_beta_discord_verify_token(entry_id)
+            except Exception as _tok_err:
+                print(f"[WAITLIST] Could not issue verify token for id={entry_id}: {_tok_err}", flush=True)
+
+    if verify_token:
+        return redirect(url_for('beta_page', verify=verify_token))
+    return redirect(url_for('beta_page'))
+
+
+@app.route('/waitlist/discord/authorize')
+@limiter.limit('20 per hour')
+def waitlist_discord_authorize():
+    """Public, anonymous hop: validate the signed verify token (re-checked
+    here so an expired link fails with a friendly message BEFORE sending
+    the applicant to Discord, not after), then redirect to Discord's own
+    consent screen using that same token as OAuth `state`."""
+    from itsdangerous import BadSignature, SignatureExpired
+    from .discord_integration import discord_configured, oauth_authorize_url
+
+    if not discord_configured():
+        flash('Discord verification is not set up yet -- check back soon.', 'error')
+        return redirect(url_for('beta_page'))
+
+    token = request.args.get('token', '')
+    try:
+        _beta_discord_serializer().loads(token, max_age=_BETA_DISCORD_STATE_MAX_AGE)
+    except SignatureExpired:
+        flash('That verification link has expired. Please submit the waitlist form again for a new one.', 'error')
+        return redirect(url_for('beta_page'))
+    except (BadSignature, Exception):
+        flash('That verification link is invalid. Please submit the waitlist form again.', 'error')
+        return redirect(url_for('beta_page'))
+
+    return redirect(oauth_authorize_url(token))
+
+
+@app.route('/waitlist/discord/callback')
+def waitlist_discord_callback():
+    """Public, anonymous OAuth2 callback for beta/waitlist applications.
+    Separate from /portal/discord/callback (which links an EXISTING,
+    logged-in Brandr account) -- this one has no session to anchor to, so
+    the signed state token IS the identity of which application is being
+    verified."""
+    from itsdangerous import BadSignature, SignatureExpired
+    from .discord_integration import exchange_code, fetch_identity, sync_beta_applicant_roles
+
+    if request.args.get('error'):
+        flash('Discord authorization was cancelled.', 'info')
+        return redirect(url_for('beta_page'))
+
+    token = request.args.get('state', '')
+    try:
+        payload = _beta_discord_serializer().loads(token, max_age=_BETA_DISCORD_STATE_MAX_AGE)
+    except SignatureExpired:
+        flash('That verification link expired before it was completed. Please submit the waitlist form again.', 'error')
+        return redirect(url_for('beta_page'))
+    except (BadSignature, Exception):
+        flash('That verification link is invalid. Please submit the waitlist form again.', 'error')
+        return redirect(url_for('beta_page'))
+
+    entry_id = payload.get('id')
+    nonce = payload.get('nonce')
+
+    code = request.args.get('code')
+    if not code:
+        flash('Discord did not return an authorization code -- please try again.', 'error')
+        return redirect(url_for('beta_page'))
+
+    token_resp = exchange_code(code)
+    if not token_resp or not token_resp.get('access_token'):
+        flash('Could not complete Discord verification -- please try again.', 'error')
+        return redirect(url_for('beta_page'))
+
+    identity = fetch_identity(token_resp['access_token'])
+    if not identity or not identity.get('id'):
+        flash('Could not read your Discord identity -- please try again.', 'error')
+        return redirect(url_for('beta_page'))
+
+    result = verify_beta_discord_identity(entry_id, nonce, identity['id'], identity['username'])
+    if result == 'ok':
+        try:
+            sync_beta_applicant_roles(identity['id'], beta_tester=False)
+        except Exception as _sync_err:
+            print(f"[WAITLIST] Discord Verified-role sync failed for entry={entry_id}: {_sync_err}", flush=True)
+        flash(f"Discord verified as @{identity['username']} — your application is now qualified.", 'success')
+    elif result == 'duplicate':
+        flash('That Discord account is already linked to a different beta application.', 'error')
+    elif result == 'nonce_mismatch':
+        flash('That verification link has already been used or has expired. Please submit the waitlist form again.', 'error')
+    else:
+        flash('We could not find that application -- please submit the waitlist form again.', 'error')
 
     return redirect(url_for('beta_page'))
 
@@ -1717,6 +1907,7 @@ def _loops_sync_contact(email, creator_name, **kwargs):
 
 
 @app.route('/api/waitlist', methods=['POST'])
+@limiter.limit('10 per hour')
 def waitlist_submit():
     """Public endpoint: submit a waitlist application.
     No login required. Does not create an app account."""

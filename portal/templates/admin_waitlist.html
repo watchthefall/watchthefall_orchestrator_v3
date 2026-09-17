@@ -107,6 +107,7 @@
       background: rgba(199,165,60,.08); border-radius: 4px; padding: 1px 5px;
     }
     .discord-handle { font-size: 0.77rem; color: #7289da; }
+    .discord-verified { font-size: 0.77rem; color: #43b581; font-weight: 600; }
 
     /* ── Action buttons ── */
     .actions { display: flex; gap: 5px; flex-wrap: nowrap; align-items: center; }
@@ -238,8 +239,13 @@
             <td class="muted">{{ e.page_count or '—' }}</td>
 
             <td>
-              {% if e.discord_username %}<span class="discord-handle">{{ e.discord_username }}</span>
-              {% else %}<span class="muted">—</span>{% endif %}
+              {% if e.discord_user_id %}
+                <span class="discord-verified" title="Verified via Discord OAuth">&#10003; @{{ e.discord_verified_username or e.discord_user_id }}</span>
+              {% elif e.discord_username %}
+                <span class="discord-handle" title="Free-text, entered by the applicant, never verified">{{ e.discord_username }} (unverified)</span>
+              {% else %}
+                <span class="muted">unverified</span>
+              {% endif %}
             </td>
 
             <td>

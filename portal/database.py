@@ -714,6 +714,15 @@ def _run_migrations():
             "ALTER TABLE users ADD COLUMN discord_user_id TEXT DEFAULT NULL",
             "ALTER TABLE users ADD COLUMN discord_username TEXT DEFAULT NULL",
             "ALTER TABLE users ADD COLUMN discord_linked_at TEXT DEFAULT NULL",
+            # Permanent marker: this account was accepted through the beta/
+            # waitlist gate at some point. Separate from special_status on
+            # purpose -- special_status='beta_tester' carries unrelated
+            # limit overrides (9999 credits/day etc.) that are NOT the beta
+            # entitlement; the actual beta entitlement is a temporary tier
+            # (tier + bonus_tier_until, same mechanism invite codes already
+            # use). is_beta_tester exists only to drive the Discord "Beta
+            # Tester" role sync -- see discord_integration.sync_roles_for_user.
+            "ALTER TABLE users ADD COLUMN is_beta_tester INTEGER DEFAULT 0",
         ]:
             col_name = col_sql.split("ADD COLUMN ")[1].split()[0]
             try:
@@ -723,6 +732,42 @@ def _run_migrations():
                 c.execute(col_sql)
                 conn.commit()
                 print(f"[DATABASE] Migration completed: {col_name} added")
+
+        # Migration: verified Discord identity on a beta/waitlist APPLICATION
+        # (beta_access), distinct from the free-text discord_username column
+        # that table already has -- that one is user-typed on the public
+        # form and was never verified; a NULL discord_user_id after this
+        # migration means "unverified", including every pre-existing row.
+        for col_sql in [
+            "ALTER TABLE beta_access ADD COLUMN discord_user_id TEXT DEFAULT NULL",
+            "ALTER TABLE beta_access ADD COLUMN discord_verified_username TEXT DEFAULT NULL",
+            "ALTER TABLE beta_access ADD COLUMN discord_linked_at TEXT DEFAULT NULL",
+            # Single-use, short-lived token for the OAuth flow in flight --
+            # set when a verification link is issued, cleared the moment it
+            # is successfully consumed. A non-NULL nonce that doesn't match
+            # what the callback presents means "already used or forged".
+            "ALTER TABLE beta_access ADD COLUMN discord_oauth_nonce TEXT DEFAULT NULL",
+        ]:
+            col_name = col_sql.split("ADD COLUMN ")[1].split()[0]
+            try:
+                c.execute(f"SELECT {col_name} FROM beta_access LIMIT 1")
+            except sqlite3.OperationalError:
+                print(f"[DATABASE] Running migration: Adding {col_name} to beta_access")
+                c.execute(col_sql)
+                conn.commit()
+                print(f"[DATABASE] Migration completed: {col_name} added")
+
+        # One Discord identity can qualify at most one beta application.
+        # SQLite UNIQUE indexes treat NULL as distinct from every other NULL,
+        # so every pre-existing (unverified, NULL) row is unaffected -- this
+        # only ever rejects a second VERIFIED row reusing the same id, and
+        # only at the index level; verify_beta_discord_identity() also
+        # checks explicitly first, for a clean error message instead of a
+        # raw IntegrityError.
+        c.execute(
+            'CREATE UNIQUE INDEX IF NOT EXISTS idx_beta_access_discord_user_id '
+            'ON beta_access(discord_user_id)'
+        )
     finally:
         conn.close()
 
@@ -2893,6 +2938,93 @@ def get_discord_link(user_id):
     except Exception as e:
         print(f"[DISCORD] get_discord_link error for user={user_id}: {e}", flush=True)
         return None
+
+
+# ========== BETA/WAITLIST DISCORD VERIFICATION ==========
+# The applicant does NOT need a Brandr account yet -- these work directly
+# against a beta_access row, keyed by entry id, so verification can happen
+# before registration even exists (see the "Apply -> Discord OAuth ->
+# qualified entry -> admin approval -> account" flow).
+
+def get_beta_access_by_id(entry_id):
+    """A single beta_access row by id, or None. Used by the anonymous OAuth
+    callback, which only knows the entry id (from the signed state token),
+    never a session."""
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute('SELECT * FROM beta_access WHERE id = ?', (entry_id,))
+            row = c.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"[BETA_ACCESS] get_beta_access_by_id error id={entry_id}: {e}", flush=True)
+        return None
+
+
+def set_beta_discord_nonce(entry_id, nonce):
+    """Stamp a fresh single-use nonce on a beta_access row when a
+    verification link is issued. Overwrites any previous nonce, which
+    quietly invalidates an older unfinished attempt for the same entry --
+    intentional, since only the newest link should still work."""
+    def _do(conn):
+        c = conn.cursor()
+        c.execute('UPDATE beta_access SET discord_oauth_nonce = ? WHERE id = ?', (nonce, entry_id))
+        conn.commit()
+        return c.rowcount > 0
+    return _retry_write(_do)
+
+
+def verify_beta_discord_identity(entry_id, nonce, discord_user_id, discord_username):
+    """Consume a single-use OAuth nonce and record a VERIFIED Discord
+    identity on a beta_access application. All three checks -- row exists,
+    nonce matches, identity not already claimed by a different application
+    -- and the write happen against one connection, so a double-submit
+    can't slip between the check and the write.
+
+    Returns one of:
+      'ok'             -- verified; discord_user_id/username/linked_at set,
+                          nonce cleared (further replay of this link fails
+                          on the next check, 'nonce_mismatch').
+      'not_found'      -- no such beta_access row.
+      'nonce_mismatch' -- wrong, already-used, or never-issued nonce (a
+                          replayed or forged link lands here, same as an
+                          expired one that was already consumed).
+      'duplicate'      -- this Discord account already verified a DIFFERENT
+                          application (the DB's own unique index is the
+                          final backstop if this check ever races).
+    """
+    def _do(conn):
+        c = conn.cursor()
+        row = c.execute(
+            'SELECT id, discord_oauth_nonce FROM beta_access WHERE id = ?', (entry_id,)
+        ).fetchone()
+        if not row:
+            return 'not_found'
+        if not nonce or row['discord_oauth_nonce'] != nonce:
+            return 'nonce_mismatch'
+        dup = c.execute(
+            'SELECT id FROM beta_access WHERE discord_user_id = ? AND id != ?',
+            (discord_user_id, entry_id)
+        ).fetchone()
+        if dup:
+            return 'duplicate'
+        c.execute(
+            'UPDATE beta_access SET discord_user_id = ?, discord_verified_username = ?, '
+            'discord_linked_at = CURRENT_TIMESTAMP, discord_oauth_nonce = NULL WHERE id = ?',
+            (discord_user_id, discord_username, entry_id)
+        )
+        conn.commit()
+        return 'ok'
+    try:
+        return _retry_write(_do)
+    except sqlite3.IntegrityError:
+        # The unique index caught a race the SELECT-based check above missed
+        # (two concurrent verifications for the same Discord id). Same
+        # externally-visible outcome as the explicit 'duplicate' check.
+        return 'duplicate'
+    except Exception as e:
+        print(f"[BETA_ACCESS] verify_beta_discord_identity error id={entry_id}: {e}", flush=True)
+        return 'not_found'
 
 
 # ============================================================================

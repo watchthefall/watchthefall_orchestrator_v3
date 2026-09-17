@@ -108,10 +108,19 @@ def fetch_identity(access_token):
 # Role sync (bot-driven, one-way: Brandr -> Discord)
 # ---------------------------------------------------------------------------
 
-def target_role_ids(tier, founding_status, special_status=None, role_ids=None):
+def target_role_ids(tier, founding_status, beta_tester=False, role_ids=None):
     """The set of OUR managed Discord role ids this account should hold right
     now, computed purely from Brandr's own facts -- no network call, so this
     is what scripts/simulate_discord.py exercises directly.
+
+    beta_tester is a Discord-only community/status marker, NOT Brandr's
+    special_status field (special_status='beta_tester' carries unrelated
+    limit overrides and is deliberately never set by the beta/waitlist flow
+    -- see the "Brandr <-> Discord Access Model" spec and BETA_TEMP_TIER in
+    config.py for the actual product entitlement). Callers pass it in
+    explicitly: users.is_beta_tester for an existing account, or True/False
+    directly for a not-yet-registered beta applicant (verification vs.
+    approval -- see sync_beta_applicant_roles).
 
     Pass role_ids to test against a fixture map; defaults to the real
     config.DISCORD_ROLE_IDS. Blank/unconfigured role ids are dropped rather
@@ -137,6 +146,15 @@ def target_role_ids(tier, founding_status, special_status=None, role_ids=None):
     if founding_status and founding_role:
         target.add(founding_role)
 
+    # Beta Tester is ALSO additive/stacking, same shape as Founding -- but
+    # unlike Founding it is expected to eventually be revoked (the beta
+    # ends): removal just means the caller passes beta_tester=False next
+    # sync, same one-way "Brandr says, Discord reflects" rule as everything
+    # else here.
+    beta_role = role_ids.get('beta_tester', '')
+    if beta_tester and beta_role:
+        target.add(beta_role)
+
     return {r for r in target if r}
 
 
@@ -149,6 +167,7 @@ def _all_managed_role_ids(role_ids=None):
     ids = {role_ids.get('verified', '')}
     ids.update(role_ids.get('tier', {}).values())
     ids.add(role_ids.get('founding', ''))
+    ids.add(role_ids.get('beta_tester', ''))
     return {r for r in ids if r}
 
 
@@ -184,13 +203,14 @@ def _set_member_role(discord_user_id, role_id, add):
         return False
 
 
-def sync_member_roles(discord_user_id, tier, founding_status, special_status=None):
+def sync_member_roles(discord_user_id, tier, founding_status, beta_tester=False):
     """Push this account's computed roles onto the guild member. Adds
     whatever's missing from target_role_ids(), removes whatever managed role
     the member holds that ISN'T in that set (e.g. their old tier role after
-    an upgrade). Returns (ok: bool, detail: str) -- ok=False covers "not
-    configured yet" and "not a guild member yet" the same way, since both
-    just mean sync will succeed later, not that anything is broken.
+    an upgrade, or a beta_tester role once the flag is cleared). Returns
+    (ok: bool, detail: str) -- ok=False covers "not configured yet" and "not
+    a guild member yet" the same way, since both just mean sync will
+    succeed later, not that anything is broken.
     """
     if not role_sync_configured():
         return False, 'Discord role sync is not configured yet'
@@ -199,7 +219,7 @@ def sync_member_roles(discord_user_id, tier, founding_status, special_status=Non
     if current is None:
         return False, 'not a member of the Brandr Discord server yet (or sync is temporarily unavailable)'
 
-    target = target_role_ids(tier, founding_status, special_status)
+    target = target_role_ids(tier, founding_status, beta_tester)
     managed = _all_managed_role_ids()
 
     to_add = target - current
@@ -217,25 +237,39 @@ def sync_member_roles(discord_user_id, tier, founding_status, special_status=Non
 
 
 def sync_roles_for_user(user_id):
-    """Convenience wrapper: pulls tier/founding/special_status/discord link
-    for a Brandr user id and syncs. Returns (ok, detail) as sync_member_roles."""
+    """Convenience wrapper: pulls tier/founding_status/is_beta_tester/discord
+    link for an EXISTING Brandr account and syncs. Returns (ok, detail) as
+    sync_member_roles. Deliberately does not touch special_status -- see
+    target_role_ids."""
     from .app import get_user_tier
-    from .database import get_user_special_status, get_discord_link, get_connection
+    from .database import get_discord_link, get_connection
 
     link = get_discord_link(user_id)
     if not link:
         return False, 'no Discord account linked'
 
     tier = get_user_tier(user_id)
-    special_status = get_user_special_status(user_id)
     try:
         with get_connection() as conn:
             row = conn.execute(
-                'SELECT COALESCE(founding_status, 0) as fs FROM users WHERE id = ?', (user_id,)
+                'SELECT COALESCE(founding_status, 0) as fs, '
+                'COALESCE(is_beta_tester, 0) as bt FROM users WHERE id = ?', (user_id,)
             ).fetchone()
         founding_status = bool(row['fs']) if row else False
+        beta_tester = bool(row['bt']) if row else False
     except Exception as e:
-        print(f"[DISCORD] founding_status lookup failed for user={user_id}: {e}", flush=True)
+        print(f"[DISCORD] founding_status/is_beta_tester lookup failed for user={user_id}: {e}", flush=True)
         founding_status = False
+        beta_tester = False
 
-    return sync_member_roles(link['discord_user_id'], tier, founding_status, special_status)
+    return sync_member_roles(link['discord_user_id'], tier, founding_status, beta_tester)
+
+
+def sync_beta_applicant_roles(discord_user_id, beta_tester=False):
+    """Sync roles for a beta/waitlist APPLICANT who has verified Discord but
+    may not have a Brandr account yet -- so there is no tier or founding
+    status to reflect, only Verified (always, once they have a
+    discord_user_id at all) and Beta Tester (only once beta_tester=True,
+    i.e. only after admin approval -- never merely from completing OAuth).
+    """
+    return sync_member_roles(discord_user_id, tier=None, founding_status=False, beta_tester=beta_tester)

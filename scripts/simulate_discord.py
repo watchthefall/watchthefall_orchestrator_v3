@@ -33,6 +33,7 @@ _check.failed = 0
 
 ROLES = {
     'verified': 'r_verified',
+    'beta_tester': 'r_beta_tester',
     'tier': {
         'Explorer': 'r_explorer',
         'Creator': 'r_creator',
@@ -71,12 +72,33 @@ def main():
     got = di.target_role_ids('Explorer', founding_status=True, role_ids=empty)
     _check("== empty set", got == set())
 
-    print("\n7) _all_managed_role_ids() covers verified + every tier + founding, and only those")
+    print("\n7) _all_managed_role_ids() covers verified + every tier + founding + beta_tester, and only those")
     managed = di._all_managed_role_ids(ROLES)
-    _check("== every configured id, 6 total",
-           managed == {'r_verified', 'r_explorer', 'r_creator', 'r_studio', 'r_platinum', 'r_founding'})
+    _check("== every configured id, 7 total",
+           managed == {'r_verified', 'r_explorer', 'r_creator', 'r_studio', 'r_platinum',
+                       'r_founding', 'r_beta_tester'})
 
-    print("\n8) discord_configured() / role_sync_configured() are False with no env set")
+    print("\n8) beta_tester=True adds the Beta Tester role, stacking with tier -- NOT a substitute for it")
+    got = di.target_role_ids('Platinum', founding_status=False, beta_tester=True, role_ids=ROLES)
+    _check("== {verified, platinum, beta_tester}", got == {'r_verified', 'r_platinum', 'r_beta_tester'})
+
+    print("\n9) beta_tester=False never adds it, whatever the tier or founding status")
+    got = di.target_role_ids('Studio', founding_status=True, beta_tester=False, role_ids=ROLES)
+    _check("no beta_tester role present", 'r_beta_tester' not in got)
+    _check("== {verified, studio, founding}", got == {'r_verified', 'r_studio', 'r_founding'})
+
+    print("\n10) All three (tier + founding + beta_tester) stack independently, nothing excludes another")
+    got = di.target_role_ids('Creator', founding_status=True, beta_tester=True, role_ids=ROLES)
+    _check("== {verified, creator, founding, beta_tester}",
+           got == {'r_verified', 'r_creator', 'r_founding', 'r_beta_tester'})
+
+    print("\n11) A beta applicant with no tier yet (tier=None) still gets Verified, and Beta Tester once approved")
+    got = di.target_role_ids(None, founding_status=False, beta_tester=False, role_ids=ROLES)
+    _check("verification only -> {verified}", got == {'r_verified'})
+    got = di.target_role_ids(None, founding_status=False, beta_tester=True, role_ids=ROLES)
+    _check("approved -> {verified, beta_tester}, no tier role", got == {'r_verified', 'r_beta_tester'})
+
+    print("\n12) discord_configured() / role_sync_configured() are False with no env set")
     _check("discord_configured() False without client id/secret/redirect",
            di.discord_configured() is False)
     _check("role_sync_configured() False without bot token/guild id",
@@ -87,8 +109,9 @@ def main():
         print(f"RESULT: {_check.failed} assertion(s) FAILED")
         return 1
     print("RESULT: all assertions passed - target_role_ids() computes the right managed-role "
-          "set for tier + Founding stacking, ignores blank/unmapped roles cleanly, and the "
-          "configured-ness checks correctly report unset in this environment.")
+          "set for tier + Founding + Beta Tester stacking (all three independent, none excludes "
+          "another), handles a tier-less beta applicant cleanly, ignores blank/unmapped roles, "
+          "and the configured-ness checks correctly report unset in this environment.")
     return 0
 
 

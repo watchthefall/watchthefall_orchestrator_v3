@@ -345,6 +345,13 @@ img { display: block; }
     box-shadow: 0 8px 40px var(--founding-glow);
 }
 .success-subtext { font-size: .875rem; color: var(--mid); text-align: center; }
+.btn-discord-verify {
+    display: inline-block; margin-top: 14px; padding: 10px 24px;
+    background: #5865F2; color: #fff; font-weight: 600; font-size: .875rem;
+    border-radius: 8px; text-decoration: none;
+}
+.btn-discord-verify:hover { background: #4752C4; }
+.verify-hint { font-size: .75rem; color: var(--mid); text-align: center; margin-top: 8px; }
 
 /* ── Cards ── */
 .card {
@@ -849,6 +856,12 @@ img { display: block; }
                     width="560" loading="eager"
                 >
                 <p class="success-subtext">{{ message }}</p>
+                {% if request.args.get('verify') %}
+                <a href="{{ url_for('waitlist_discord_authorize', token=request.args.get('verify')) }}" class="btn-discord-verify">
+                    Verify with Discord
+                </a>
+                <p class="verify-hint">Takes 10 seconds — you don't need to join our server yet. This is what qualifies your application.</p>
+                {% endif %}
             </div>
             {% else %}
             <div class="flash flash-error u-fade" data-delay="1" role="alert">{{ message }}</div>
