@@ -101,7 +101,7 @@ from .database import (
     get_user_special_status, set_user_special_status,
     link_discord_account, unlink_discord_account, get_discord_link,
     get_beta_access_by_id, set_beta_discord_nonce, verify_beta_discord_identity,
-    create_waitlist_entry, get_waitlist_entry_by_email,
+    create_waitlist_entry, create_verified_waitlist_entry, get_waitlist_entry_by_email,
     get_pending_waitlist_entries, get_all_waitlist_entries, get_waitlist_counts,
     approve_waitlist_entry, claim_waitlist_entry, set_waitlist_entry_status,
     user_can_download_filename, save_branded_output, get_connection,
@@ -1722,11 +1722,25 @@ _BETA_DISCORD_STATE_MAX_AGE = 1800  # 30 minutes
 def _issue_beta_discord_verify_token(entry_id):
     """Stamp a fresh nonce on the beta_access row and return a signed token
     encoding (entry_id, nonce). Safe to call again for the same entry --
-    each call invalidates whatever link was issued before it."""
+    each call invalidates whatever link was issued before it.
+
+    kind='existing' distinguishes this from _issue_beta_discord_pending_token
+    below, so waitlist_discord_callback() knows whether the OAuth round trip
+    is resuming verification on an already-created row (this function) or
+    completing the creation of a brand-new one (the other)."""
     import secrets as _secrets
     nonce = _secrets.token_urlsafe(24)
     set_beta_discord_nonce(entry_id, nonce)
-    return _beta_discord_serializer().dumps({'id': entry_id, 'nonce': nonce})
+    return _beta_discord_serializer().dumps({'kind': 'existing', 'id': entry_id, 'nonce': nonce})
+
+
+def _issue_beta_discord_pending_token(form_data):
+    """Sign the SUBMITTED FORM DATA itself (not a DB row -- none exists yet)
+    so it survives the redirect out to Discord and back. The beta_access row
+    is only created in waitlist_discord_callback(), once Discord verification
+    has actually succeeded -- this is the crux of the hard gate: a cancelled
+    or failed OAuth attempt leaves nothing in the database at all."""
+    return _beta_discord_serializer().dumps({'kind': 'new', **form_data})
 
 
 @app.route('/waitlist/submit', methods=['POST'])
@@ -1734,72 +1748,84 @@ def _issue_beta_discord_verify_token(entry_id):
 def waitlist_form_submit():
     """Server-rendered waitlist submission (Post/Redirect/Get).
 
-    Backs the public waitlist form in waitlist.html. Validates, de-dupes,
-    saves to beta_access, fires the Loops sync, then flashes a message and
-    redirects back to the landing page so the success/error state renders.
-    The AJAX endpoint /api/waitlist is kept for programmatic callers.
+    Backs the public waitlist form in waitlist.html. Discord verification is
+    now a HARD GATE: this endpoint validates the form fields, then redirects
+    straight into the Discord OAuth flow WITHOUT writing anything to
+    beta_access. The application is only saved once Discord verification
+    actually succeeds, in waitlist_discord_callback() below -- a cancelled
+    or failed OAuth attempt leaves no row behind. This is deliberate: every
+    beta tester needs a verified Discord identity (they end up in the
+    Discord community), and it is the actual anti-bot barrier on this form,
+    not merely a follow-up nicety.
 
-    On success (new or already-pending-unverified), also issues a signed
-    Discord verification link and passes it back via ?verify=<token> so the
-    landing page can show a "Verify with Discord" call to action -- Discord
-    verification is how a beta application becomes qualified, but it is
-    NOT required to submit interest in the first place."""
-    import traceback as _tb
+    Exception: an email already on the list with no verified Discord
+    identity yet resumes verification against that SAME row rather than
+    creating a second one (see the 'existing' token kind)."""
+    from .discord_integration import discord_configured
 
     email = (request.form.get('email') or '').strip().lower()
     creator_name = (request.form.get('creator_name') or '').strip()
     main_platform = (request.form.get('main_platform') or '').strip()
     creator_type = (request.form.get('creator_type') or '').strip()
-    discord_username = (request.form.get('discord_username') or '').strip() or None
+    discord_username_freetext = (request.form.get('discord_username') or '').strip()
     referral_code_used = (request.form.get('referral_code') or '').strip() or None
 
     # The form collects free-text handles ("@a, @b"). Derive a numeric page
     # count for the admin ICP filter / CSV, and keep the raw handles in notes
-    # so nothing the applicant typed is dropped.
+    # so nothing the applicant typed is dropped. The free-text Discord field
+    # is NEVER treated as a verified identity -- if filled in, it's folded
+    # into notes purely as a hint for admins, same as the handles are.
     pages_raw = (request.form.get('pages_accounts') or '').strip()
     handles = [h.strip() for h in pages_raw.split(',') if h.strip()]
     page_count = str(len(handles)) if handles else ''
-    notes = ('Handles: ' + ', '.join(handles)) if handles else None
+    note_parts = []
+    if handles:
+        note_parts.append('Handles: ' + ', '.join(handles))
+    if discord_username_freetext:
+        note_parts.append(f'Self-reported Discord (unverified): {discord_username_freetext}')
+    notes = '; '.join(note_parts) if note_parts else None
 
     if not email or not creator_name or '@' not in email:
         flash('Please enter your name and a valid email address.', 'error')
         return redirect(url_for('beta_page'))
 
-    try:
-        entry_id, created = create_waitlist_entry(
-            email, creator_name, main_platform, creator_type,
-            page_count, referral_code_used, discord_username, notes=notes,
-        )
-    except Exception:
-        print(f"[WAITLIST] Error on form submission: {_tb.format_exc()}", flush=True)
-        flash('Something went wrong saving your application. Please try again.', 'error')
+    if not discord_configured():
+        flash('Discord verification is required to join the Brandr beta, and '
+              "Discord sign-in isn't available right now -- please check back soon.",
+              'error')
         return redirect(url_for('beta_page'))
 
-    if created:
-        print(f"[WAITLIST] New entry: {email} platform={main_platform} "
-              f"type={creator_type} pages={page_count}", flush=True)
-        _loops_sync_contact(
-            email, creator_name,
-            main_platform=main_platform, creator_type=creator_type,
-        )
-        flash("You're on the list — verify with Discord below to qualify your application.", 'success')
-    else:
-        flash("You're already on the Brandr beta list — we'll be in touch soon.", 'success')
+    existing = get_waitlist_entry_by_email(email)
+    if existing:
+        if existing.get('discord_user_id'):
+            flash("You're already on the Brandr beta list and verified — we'll be in touch soon.",
+                  'success')
+            return redirect(url_for('beta_page'))
+        # Pending, unverified -- resume verification on the SAME row instead
+        # of creating a duplicate. Cleaner than forcing a second application.
+        try:
+            token = _issue_beta_discord_verify_token(existing['id'])
+        except Exception as _tok_err:
+            print(f"[WAITLIST] Could not issue verify token for existing id={existing['id']}: {_tok_err}",
+                  flush=True)
+            flash('Something went wrong starting Discord verification. Please try again.', 'error')
+            return redirect(url_for('beta_page'))
+        return redirect(url_for('waitlist_discord_authorize', token=token))
 
-    # Only prompt for verification if this entry doesn't already have a
-    # VERIFIED Discord identity (never re-prompt someone who already did this).
-    verify_token = None
-    if entry_id:
-        existing = get_beta_access_by_id(entry_id)
-        if existing and not existing.get('discord_user_id'):
-            try:
-                verify_token = _issue_beta_discord_verify_token(entry_id)
-            except Exception as _tok_err:
-                print(f"[WAITLIST] Could not issue verify token for id={entry_id}: {_tok_err}", flush=True)
-
-    if verify_token:
-        return redirect(url_for('beta_page', verify=verify_token))
-    return redirect(url_for('beta_page'))
+    # Brand-new application. Nothing is saved yet -- the submitted data
+    # travels through the OAuth round trip inside the signed state token,
+    # and only becomes a beta_access row on a verified Discord callback.
+    pending_data = {
+        'email': email,
+        'creator_name': creator_name,
+        'main_platform': main_platform,
+        'creator_type': creator_type,
+        'page_count': page_count,
+        'referral_code_used': referral_code_used,
+        'notes': notes,
+    }
+    token = _issue_beta_discord_pending_token(pending_data)
+    return redirect(url_for('waitlist_discord_authorize', token=token))
 
 
 @app.route('/waitlist/discord/authorize')
@@ -1834,13 +1860,24 @@ def waitlist_discord_callback():
     """Public, anonymous OAuth2 callback for beta/waitlist applications.
     Separate from /portal/discord/callback (which links an EXISTING,
     logged-in Brandr account) -- this one has no session to anchor to, so
-    the signed state token IS the identity of which application is being
-    verified."""
+    the signed state token IS the identity of what's being verified.
+
+    Two payload kinds, from the two token issuers above:
+      kind='new'      -- the token carries the SUBMITTED FORM DATA itself;
+                          no beta_access row exists yet. A verified Discord
+                          identity here creates the row for the first time
+                          (create_verified_waitlist_entry) -- this is the
+                          hard gate: cancel or fail anywhere in this
+                          function and nothing is ever saved.
+      kind='existing' -- resuming verification on an already-created,
+                          still-unverified row (verify_beta_discord_identity),
+                          same as before this gate was added."""
     from itsdangerous import BadSignature, SignatureExpired
     from .discord_integration import exchange_code, fetch_identity, sync_beta_applicant_roles
 
     if request.args.get('error'):
-        flash('Discord authorization was cancelled.', 'info')
+        flash('Discord verification was cancelled, so your beta application was not saved. '
+              'Submit the form again whenever you\'re ready to connect Discord.', 'info')
         return redirect(url_for('beta_page'))
 
     token = request.args.get('state', '')
@@ -1853,24 +1890,62 @@ def waitlist_discord_callback():
         flash('That verification link is invalid. Please submit the waitlist form again.', 'error')
         return redirect(url_for('beta_page'))
 
-    entry_id = payload.get('id')
-    nonce = payload.get('nonce')
-
     code = request.args.get('code')
     if not code:
-        flash('Discord did not return an authorization code -- please try again.', 'error')
+        flash("Discord did not return an authorization code, so your beta application was not saved. "
+              "Please try again.", 'error')
         return redirect(url_for('beta_page'))
 
     token_resp = exchange_code(code)
     if not token_resp or not token_resp.get('access_token'):
-        flash('Could not complete Discord verification -- please try again.', 'error')
+        flash('Could not complete Discord verification, so your beta application was not saved. '
+              'Please try again.', 'error')
         return redirect(url_for('beta_page'))
 
     identity = fetch_identity(token_resp['access_token'])
     if not identity or not identity.get('id'):
-        flash('Could not read your Discord identity -- please try again.', 'error')
+        flash('Could not read your Discord identity, so your beta application was not saved. '
+              'Please try again.', 'error')
         return redirect(url_for('beta_page'))
 
+    kind = payload.get('kind')
+
+    if kind == 'new':
+        result, entry_id = create_verified_waitlist_entry(
+            payload.get('email'), payload.get('creator_name'),
+            payload.get('main_platform'), payload.get('creator_type'),
+            payload.get('page_count'), payload.get('referral_code_used'),
+            payload.get('notes'),
+            identity['id'], identity['username'],
+        )
+        if result == 'ok':
+            print(f"[WAITLIST] New verified entry id={entry_id}: {payload.get('email')} "
+                  f"discord=@{identity['username']} platform={payload.get('main_platform')} "
+                  f"type={payload.get('creator_type')}", flush=True)
+            _loops_sync_contact(
+                payload.get('email'), payload.get('creator_name'),
+                main_platform=payload.get('main_platform'), creator_type=payload.get('creator_type'),
+            )
+            try:
+                sync_beta_applicant_roles(identity['id'], beta_tester=False)
+            except Exception as _sync_err:
+                print(f"[WAITLIST] Discord Verified-role sync failed for entry={entry_id}: {_sync_err}", flush=True)
+            flash(f"You're on the Brandr beta list, verified as @{identity['username']} "
+                  "— we'll be in touch soon.", 'success')
+        elif result == 'duplicate':
+            flash('That Discord account is already linked to a different beta application.', 'error')
+        elif result == 'exists':
+            # Someone else finished submitting this same email in the few
+            # seconds since the initial check -- not an error, just don't
+            # create a second row.
+            flash("You're already on the Brandr beta list — we'll be in touch soon.", 'success')
+        else:
+            flash('Something went wrong saving your application. Please try again.', 'error')
+        return redirect(url_for('beta_page'))
+
+    # kind == 'existing' -- resuming verification on a pre-existing pending row
+    entry_id = payload.get('id')
+    nonce = payload.get('nonce')
     result = verify_beta_discord_identity(entry_id, nonce, identity['id'], identity['username'])
     if result == 'ok':
         try:
@@ -1991,47 +2066,28 @@ def _loops_sync_contact(email, creator_name, **kwargs):
 @app.route('/api/waitlist', methods=['POST'])
 @limiter.limit('10 per hour')
 def waitlist_submit():
-    """Public endpoint: submit a waitlist application.
-    No login required. Does not create an app account."""
-    import traceback as _tb
-    try:
-        email = (request.form.get('email') or '').strip().lower()
-        creator_name = (request.form.get('creator_name') or '').strip()
-        main_platform = (request.form.get('main_platform') or '').strip()
-        creator_type = (request.form.get('creator_type') or '').strip()
-        page_count = (request.form.get('page_count') or '').strip()
-        referral_code_used = (request.form.get('referral_code_used') or '').strip() or None
-        discord_username = (request.form.get('discord_username') or '').strip() or None
+    """Legacy JSON endpoint -- DISABLED as a direct write path.
 
-        if not email or not creator_name:
-            return jsonify({'success': False, 'error': 'Email and name are required.'}), 400
+    This used to create a beta_access row straight from name+email with no
+    Discord verification at all, which is a second, unguarded door into the
+    exact hard gate waitlist_form_submit() now enforces: Discord OAuth must
+    succeed before any waitlist row is created (see the "Brandr <-> Discord
+    Access Model" spec / Jamie's 2026-09-17 instruction). Leaving this
+    endpoint free to write directly would make that gate pointless -- a
+    single POST here bypasses it entirely. It isn't linked from any live
+    template (only the orphaned beta.html referenced it; no current route
+    renders that template), so nothing in the shipped product relies on the
+    old behavior.
 
-        _entry_id, created = create_waitlist_entry(
-            email, creator_name, main_platform, creator_type,
-            page_count, referral_code_used, discord_username
-        )
-
-        if created:
-            print(f"[WAITLIST] New entry: {email} platform={main_platform} type={creator_type}", flush=True)
-            # Synchronous (not a background thread): a single 5s-timeout HTTP call is fine
-            # within the request window, guarantees the call runs, and surfaces any Loops
-            # failure in the logs instead of swallowing it on a dying thread.
-            _loops_sync_contact(
-                email, creator_name,
-                main_platform=main_platform, creator_type=creator_type,
-            )
-            return jsonify({'success': True, 'created': True})
-        else:
-            # Already on the list — friendly, not an error
-            return jsonify({'success': True, 'created': False,
-                            'message': "You're already on the Brandr beta list."})
-
-    except Exception as _e:
-        print(f"[WAITLIST] Error on submission: {_tb.format_exc()}")
-        return jsonify({
-            'success': False,
-            'error': 'Something went wrong saving your application. Please try again.'
-        }), 500
+    Kept at this path (rather than removed) in case any external caller
+    still hits it, so they get a clear, actionable error instead of a 404 --
+    but it no longer writes to beta_access under any circumstance."""
+    return jsonify({
+        'success': False,
+        'error': ('Waitlist signups now require Discord verification and must go through '
+                  'the beta page -- POST here no longer creates an application.'),
+        'use_instead': url_for('beta_page', _external=True),
+    }), 410
 
 
 @app.route('/api')

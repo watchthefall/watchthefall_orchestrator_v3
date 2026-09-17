@@ -856,12 +856,6 @@ img { display: block; }
                     width="560" loading="eager"
                 >
                 <p class="success-subtext">{{ message }}</p>
-                {% if request.args.get('verify') %}
-                <a href="{{ url_for('waitlist_discord_authorize', token=request.args.get('verify')) }}" class="btn-discord-verify">
-                    Verify with Discord
-                </a>
-                <p class="verify-hint">Takes 10 seconds — you don't need to join our server yet. This is what qualifies your application.</p>
-                {% endif %}
             </div>
             {% else %}
             <div class="flash flash-error u-fade" data-delay="1" role="alert">{{ message }}</div>
@@ -932,11 +926,12 @@ img { display: block; }
             </div>
             <div class="form-sep" role="separator"></div>
             <div class="field">
-                <label for="discord_username">Discord Username</label>
+                <label for="discord_username">Discord Username <span class="field-hint">(optional note)</span></label>
                 <input type="text" id="discord_username" name="discord_username"
                     placeholder="username or user#0000"
                     value="{{ form_data.discord_username if form_data else '' }}"
                     spellcheck="false" autocomplete="off">
+                <span class="field-hint">Just a note for us -- you'll verify your real Discord identity in the next step.</span>
             </div>
             <div class="field">
                 <label for="referral_code">Referral Code</label>
@@ -945,10 +940,15 @@ img { display: block; }
                     value="{{ form_data.referral_code if form_data else '' }}"
                     spellcheck="false" autocomplete="off">
             </div>
+            <p class="verify-hint" style="text-align:left;margin-bottom:10px;">
+                Discord verification is required to join the beta -- it's how we confirm you're a real
+                person and get you into our creator community. You'll be sent to Discord next; your
+                application isn't saved until that verification succeeds.
+            </p>
             <div class="form-submit">
                 <button type="submit" class="btn btn-gold" id="submit-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                    Request Beta Access
+                    Continue with Discord
                 </button>
             </div>
         </form>

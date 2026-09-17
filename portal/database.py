@@ -953,6 +953,71 @@ def create_waitlist_entry(email, creator_name, main_platform, creator_type,
         return (row['id'] if row else None), False
 
 
+def create_verified_waitlist_entry(email, creator_name, main_platform, creator_type,
+                                    page_count, referral_code_used, notes,
+                                    discord_user_id, discord_username):
+    """Insert a NEW waitlist entry that is Discord-verified from the moment
+    it is created. Used by the hard-gated waitlist flow: Discord OAuth must
+    succeed BEFORE any beta_access row exists at all, so there is no
+    unverified row to later attach a verified identity to (contrast with
+    create_waitlist_entry + verify_beta_discord_identity, which still cover
+    resuming verification on a pre-existing pending row).
+
+    The duplicate-Discord-identity check, the email-uniqueness check, and
+    the insert all happen against one connection so a double-submit can't
+    slip between the check and the write.
+
+    Returns:
+      ('ok', new_id)        -- created, verified from the start.
+      ('duplicate', None)   -- this Discord identity already verified a
+                               DIFFERENT application (unique index is the
+                               final backstop if this races).
+      ('exists', existing_id) -- this email is already on the waitlist
+                               (e.g. a concurrent submission won the race);
+                               the existing row is left untouched.
+      ('error', None)       -- unexpected failure.
+    """
+    email = email.lower().strip()
+    now = datetime.utcnow().isoformat()
+
+    def _do(conn):
+        c = conn.cursor()
+        dup = c.execute(
+            'SELECT id FROM beta_access WHERE discord_user_id = ?', (discord_user_id,)
+        ).fetchone()
+        if dup:
+            return ('duplicate', None)
+        existing = c.execute(
+            'SELECT id FROM beta_access WHERE email = ?', (email,)
+        ).fetchone()
+        if existing:
+            return ('exists', existing['id'])
+        c.execute(
+            '''
+            INSERT INTO beta_access
+                (email, creator_name, main_platform, creator_type,
+                 page_count, referral_code_used, discord_username, notes,
+                 status, access_level, created_at,
+                 discord_user_id, discord_verified_username, discord_linked_at)
+            VALUES (?, ?, ?, ?, ?, ?, NULL, ?, 'pending', 'waitlist', ?, ?, ?, CURRENT_TIMESTAMP)
+            ''',
+            (email, creator_name, main_platform, creator_type,
+             page_count, referral_code_used or None, notes or None, now,
+             discord_user_id, discord_username)
+        )
+        conn.commit()
+        return ('ok', c.lastrowid)
+
+    try:
+        return _retry_write(_do)
+    except sqlite3.IntegrityError:
+        # The unique index caught a race the SELECT-based checks above missed.
+        return ('duplicate', None)
+    except Exception as e:
+        print(f"[BETA_ACCESS] create_verified_waitlist_entry error email={email}: {e}", flush=True)
+        return ('error', None)
+
+
 def get_waitlist_entry_by_email(email, timeout=8.0):
     """Return the beta_access row for this email, or None.
     Uses a short timeout (default 8s) so callers in the registration path
