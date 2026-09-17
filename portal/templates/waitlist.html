@@ -252,6 +252,62 @@ img { display: block; }
 
 @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
 
+/* ── Countdown ── */
+.countdown-card {
+    background: linear-gradient(180deg, var(--card) 0%, var(--bg-alt) 100%);
+    border: 1px solid var(--founding-20);
+    border-radius: var(--r-card);
+    padding: 1.1rem 1.25rem 1.15rem;
+    text-align: center;
+    box-shadow: 0 4px 24px rgba(0,0,0,.3);
+}
+.countdown-eyebrow {
+    font-size: .62rem; font-weight: 700; letter-spacing: .17em;
+    color: var(--founding); text-transform: uppercase;
+    margin-bottom: .65rem;
+}
+.countdown-grid {
+    display: flex; align-items: flex-end; justify-content: center;
+    gap: .4rem;
+}
+.countdown-unit { display: flex; flex-direction: column; align-items: center; min-width: 2.6rem; }
+.countdown-value {
+    font-variant-numeric: tabular-nums;
+    font-size: 1.75rem; font-weight: 800; letter-spacing: -.02em;
+    color: var(--white); line-height: 1;
+    font-feature-settings: "tnum";
+}
+.countdown-unit-label {
+    font-size: .58rem; font-weight: 600; letter-spacing: .1em;
+    color: var(--low); text-transform: uppercase; margin-top: .3rem;
+}
+.countdown-sep {
+    font-size: 1.5rem; font-weight: 700; color: var(--xlow);
+    padding-bottom: 1.1rem;
+}
+/* Seconds: present but visually subordinate to Days/Hours/Minutes */
+.countdown-unit-sm { min-width: 2.1rem; }
+.countdown-value-sm {
+    font-size: 1.1rem; font-weight: 700; color: var(--mid);
+}
+.countdown-sep-sm { font-size: 1.1rem; padding-bottom: .55rem; color: var(--xlow); }
+.countdown-date {
+    font-size: .72rem; font-weight: 600; letter-spacing: .05em;
+    color: var(--mid); margin-top: .75rem;
+    text-transform: uppercase;
+}
+.countdown-live {
+    font-size: 1.1rem; font-weight: 800; letter-spacing: .04em;
+    color: var(--founding); text-transform: uppercase;
+    padding: .35rem 0;
+}
+@media (min-width: 480px) {
+    .countdown-card { padding: 1.35rem 1.5rem 1.4rem; }
+    .countdown-value { font-size: 2.1rem; }
+    .countdown-value-sm { font-size: 1.3rem; }
+    .countdown-unit { min-width: 3rem; }
+}
+
 /* ── Pills ── */
 .pills-row { display: flex; flex-wrap: wrap; justify-content: center; gap: .55rem; padding: .25rem 0 .5rem; }
 .pill {
@@ -651,6 +707,36 @@ img { display: block; }
             <span class="badge-dot"></span>
             Invite-Only Beta
         </span>
+    </section>
+
+    <!-- ── COUNTDOWN ── -->
+    <section class="countdown-card u-fade" data-delay="1" id="countdown-card" aria-label="Beta launch countdown">
+        <div id="countdown-pending">
+            <p class="countdown-eyebrow">Brandr launches in</p>
+            <div class="countdown-grid" aria-live="off">
+                <div class="countdown-unit">
+                    <span class="countdown-value" id="cd-days">00</span>
+                    <span class="countdown-unit-label">Days</span>
+                </div>
+                <span class="countdown-sep">:</span>
+                <div class="countdown-unit">
+                    <span class="countdown-value" id="cd-hours">00</span>
+                    <span class="countdown-unit-label">Hours</span>
+                </div>
+                <span class="countdown-sep">:</span>
+                <div class="countdown-unit">
+                    <span class="countdown-value" id="cd-mins">00</span>
+                    <span class="countdown-unit-label">Mins</span>
+                </div>
+                <span class="countdown-sep countdown-sep-sm">:</span>
+                <div class="countdown-unit countdown-unit-sm">
+                    <span class="countdown-value countdown-value-sm" id="cd-secs">00</span>
+                    <span class="countdown-unit-label">Secs</span>
+                </div>
+            </div>
+            <p class="countdown-date">6 October 2026 · 5:00 PM UK</p>
+        </div>
+        <p class="countdown-live" id="countdown-live" hidden>Brandr is live</p>
     </section>
 
     <!-- ── PILLS ── -->
@@ -1234,6 +1320,74 @@ img { display: block; }
     updateArrows(scrollF, apf, anf);
     updateArrows(scrollFP, apfp, anfp);
 
+})();
+</script>
+
+<!-- ── Countdown timer (self-contained; no dependency on the script above) ── -->
+<script>
+(function () {
+    var LAUNCH = { y: 2026, mo: 10, d: 6, hh: 17, mi: 0, se: 0 };
+    var TZ = 'Europe/London';
+
+    /* Resolve "6 Oct 2026, 17:00 Europe/London" to the correct UTC instant,
+       handling BST/GMT automatically via Intl — never hardcode an offset. */
+    function resolveTargetUTC() {
+        var utcGuess = Date.UTC(LAUNCH.y, LAUNCH.mo - 1, LAUNCH.d, LAUNCH.hh, LAUNCH.mi, LAUNCH.se);
+        var dtf = new Intl.DateTimeFormat('en-US', {
+            timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        });
+        var parts = {};
+        dtf.formatToParts(new Date(utcGuess)).forEach(function (p) { parts[p.type] = p.value; });
+        var hour = parseInt(parts.hour, 10);
+        if (hour === 24) hour = 0; /* some engines emit 24 for midnight with hour12:false */
+        var partsAsUTC = Date.UTC(
+            parseInt(parts.year, 10), parseInt(parts.month, 10) - 1, parseInt(parts.day, 10),
+            hour, parseInt(parts.minute, 10), parseInt(parts.second, 10)
+        );
+        var offsetMs = partsAsUTC - utcGuess; /* how far Europe/London sits east of UTC at that instant */
+        return utcGuess - offsetMs;
+    }
+
+    var cdCard = document.getElementById('countdown-card');
+    if (!cdCard) return;
+
+    var pendingEl = document.getElementById('countdown-pending');
+    var liveEl    = document.getElementById('countdown-live');
+    var elD = document.getElementById('cd-days');
+    var elH = document.getElementById('cd-hours');
+    var elM = document.getElementById('cd-mins');
+    var elS = document.getElementById('cd-secs');
+
+    var targetMs;
+    try {
+        targetMs = resolveTargetUTC();
+    } catch (e) {
+        /* Fallback only if Intl/timeZone support is missing: 6 Oct 2026 falls
+           inside British Summer Time (UTC+1), so 17:00 UK = 16:00 UTC. */
+        targetMs = Date.UTC(2026, 9, 6, 16, 0, 0);
+    }
+
+    function pad(n) { n = String(n); return n.length < 2 ? '0' + n : n; }
+
+    var timer;
+    function tick() {
+        var diff = targetMs - Date.now();
+        if (diff <= 0) {
+            pendingEl.hidden = true;
+            liveEl.hidden = false;
+            if (timer) clearInterval(timer);
+            return;
+        }
+        var totalSec = Math.floor(diff / 1000);
+        elD.textContent = pad(Math.floor(totalSec / 86400));
+        elH.textContent = pad(Math.floor((totalSec % 86400) / 3600));
+        elM.textContent = pad(Math.floor((totalSec % 3600) / 60));
+        elS.textContent = pad(totalSec % 60);
+    }
+
+    tick();
+    timer = setInterval(tick, 1000);
 })();
 </script>
 
