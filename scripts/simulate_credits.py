@@ -5,7 +5,12 @@ Deterministic, no network, no Flask. Spins up a throwaway SQLite DB, runs the
 real schema via init_db(), and exercises: lazy daily refresh (subscription only),
 spend order (subscription -> earned -> purchased), insufficient-balance blocking
 with no partial deduction, permanent stacking of earned/purchased, and that a
-plain balance read never spends.
+plain balance read never spends. Also exercises the credit_ledger: a grant
+writes one row with reason/admin_email/source_type/balance_after, a spend that
+dips into earned/purchased writes exactly one render_spend row for the
+persistent portion only, a spend fully covered by the daily allowance writes
+none, and set_subscription_credits (the daily counter, not persistent balance)
+never touches the ledger.
 
 Run:  python scripts/simulate_credits.py     (exit 0 = all pass)
 """
@@ -54,10 +59,23 @@ def main():
     tmp = tempfile.mkdtemp(prefix='brandr_credits_sim_')
     db.DB_PATH = os.path.join(tmp, 'test.db')   # redirect all connections here
     try:
-        # The credit functions only touch user_credits; create just that table
-        # (mirrors the CREATE in database.init_db) rather than running the full
-        # migration chain, which assumes a pre-existing users table.
+        # The credit functions only touch user_credits + credit_ledger; create
+        # just those tables (mirrors the CREATEs in database.init_db) rather
+        # than running the full migration chain, which assumes a pre-existing
+        # users table.
         with db.get_connection() as conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS credit_ledger (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    delta INTEGER NOT NULL,
+                    balance_after INTEGER NOT NULL,
+                    source_type TEXT NOT NULL,
+                    reason TEXT,
+                    admin_email TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS user_credits (
                     user_id INTEGER PRIMARY KEY,
@@ -86,12 +104,23 @@ def main():
         _check("spend ok", ok is True)
         _check(f"subscription == {ALLOW - 1}", bal['subscription'] == ALLOW - 1)
         _check(f"total == {ALLOW - 1}", bal['total'] == ALLOW - 1)
+        _check("a spend covered entirely by subscription writes NO ledger row",
+               len(db.get_credit_ledger(U)) == 0)
 
         print("\n4) Earned + purchased stack on top; spend order sub -> earned -> purchased")
-        db.add_earned_credits(U, 5)
-        db.add_purchased_credits(U, 3)
+        db.add_earned_credits(U, 5, reason='Competition prize', admin_email='jamie@brandr.online',
+                              source_type='competition')
+        db.add_purchased_credits(U, 3, reason='PayPal pack', admin_email='jamie@brandr.online',
+                                 source_type='purchase')
         bal = db.get_credit_balance(U, ALLOW)
         _check(f"total == {ALLOW - 1} + 5 + 3", bal['total'] == (ALLOW - 1) + 5 + 3)
+        history = db.get_credit_ledger(U)
+        _check("two grants produced two ledger rows", len(history) == 2)
+        _check("newest first (purchased grant on top)", history[0]['source_type'] == 'purchase')
+        _check("grant reason recorded", history[0]['reason'] == 'PayPal pack')
+        _check("grant admin_email recorded", history[0]['admin_email'] == 'jamie@brandr.online')
+        _check("grant balance_after == earned+purchased at that point (5+3=8)",
+               history[0]['balance_after'] == 8)
         # Drain the remaining subscription exactly, then dip into earned.
         sub_left = bal['subscription']  # ALLOW-1 = 34
         ok, bal = db.spend_credits(U, sub_left + 2, ALLOW)  # drains sub, takes 2 from earned
@@ -99,6 +128,12 @@ def main():
         _check("subscription drained to 0", bal['subscription'] == 0)
         _check("earned reduced by 2 (5 -> 3)", bal['earned'] == 3)
         _check("purchased untouched (still 3)", bal['purchased'] == 3)
+        history = db.get_credit_ledger(U)
+        _check("dipping into earned adds exactly one render_spend row (3 total now)", len(history) == 3)
+        _check("render_spend delta is -2 (only the persistent portion taken)",
+               history[0]['delta'] == -2 and history[0]['source_type'] == 'render_spend')
+        _check("render_spend balance_after == 6 (earned 3 + purchased 3)",
+               history[0]['balance_after'] == 6)
 
         print("\n5) Insufficient balance blocks with NO partial deduction")
         before = db.get_credit_balance(U, ALLOW)  # total = 0 + 3 + 3 = 6
@@ -125,11 +160,21 @@ def main():
         _check("ok flag present and True", db.get_credit_balance(U, ALLOW).get('ok') is True)
 
         print("\n9) Admin set_subscription_credits sets an exact value (survives same-day read)")
+        ledger_count_before = len(db.get_credit_ledger(U))
         db.set_subscription_credits(U, 7)
         bal = db.get_credit_balance(U, ALLOW)
         _check("subscription set to exactly 7 (not re-refreshed to allowance)", bal['subscription'] == 7)
+        _check("set_subscription_credits writes NO ledger row (daily counter, not persistent)",
+               len(db.get_credit_ledger(U)) == ledger_count_before)
 
-        print("\n10) DB unreachable -> ok=False (fail-closed signal for the render pre-check)")
+        print("\n10) get_credit_ledger respects `limit` and stays newest-first")
+        for i in range(5):
+            db.add_earned_credits(U, 1, reason=f'batch {i}', admin_email='jamie@brandr.online')
+        capped = db.get_credit_ledger(U, limit=3)
+        _check("limit is honoured", len(capped) == 3)
+        _check("still newest-first", capped[0]['reason'] == 'batch 4')
+
+        print("\n11) DB unreachable -> ok=False (fail-closed signal for the render pre-check)")
         _good_path = db.DB_PATH
         db.DB_PATH = os.path.join(tmp, 'no_such_dir', 'x.db')  # missing parent -> connect fails
         bad = db.get_credit_balance(U, ALLOW)
@@ -146,7 +191,9 @@ def main():
         return 1
     print("RESULT: all assertions passed - lazy daily refresh (subscription only), "
           "spend order sub->earned->purchased, no partial deduction on refusal, "
-          "permanent stacking, and read-never-spends all hold.")
+          "permanent stacking, read-never-spends, and the credit_ledger (grants and "
+          "persistent-portion spends recorded with reason/admin_email/balance_after, "
+          "daily-counter changes excluded, newest-first, limit honoured) all hold.")
     return 0
 
 

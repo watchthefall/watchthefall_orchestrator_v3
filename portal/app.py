@@ -95,7 +95,7 @@ from .config import (
 from .database import (
     log_event, get_daily_usage, increment_branding_jobs, increment_downloads,
     get_credit_balance, spend_credits, set_subscription_credits,
-    add_earned_credits, add_purchased_credits,
+    add_earned_credits, add_purchased_credits, get_credit_ledger,
     log_render_event, get_render_stats, get_user_render_stats,
     get_user_special_status, set_user_special_status,
     create_waitlist_entry, get_waitlist_entry_by_email,
@@ -2449,12 +2449,18 @@ def api_usage():
 def admin_manage_credits():
     """Admin credit tool — fix a user's credits in seconds.
 
-    Body: {"user_id": <int>, "action": <str>, "amount": <int>}
-      action = grant_earned      -> add permanent earned credits
-             | grant_purchased   -> add permanent purchased credits
-             | set_subscription  -> set today's subscription credits exactly
-             | reset_subscription-> reset subscription to the tier's daily allowance
-    Returns the resulting balance. GET the current balance with action=inspect.
+    Body: {"user_id": <int>, "action": <str>, "amount": <int>, "reason": <str>,
+           "source_type": <str>}
+      action = grant_earned      -> add permanent earned credits (persistent, ledgered)
+             | grant_purchased   -> add permanent purchased credits (persistent, ledgered)
+             | set_subscription  -> set today's subscription credits exactly (NOT ledgered —
+                                     it's the daily counter, not the persistent balance)
+             | reset_subscription-> reset subscription to the tier's daily allowance (NOT ledgered)
+             | inspect           -> just report the balance + recent ledger history
+      reason is required for grant_earned/grant_purchased — every persistent-credit
+      change must say why. source_type defaults to 'admin_grant'; pass 'competition',
+      'referral', 'referral_paid', 'promo' etc. once those flows call this same path.
+    Returns the resulting balance and recent ledger history for every action.
     """
     data = request.get_json(force=True) or {}
     try:
@@ -2466,19 +2472,32 @@ def admin_manage_credits():
         amount = int(data.get('amount', 0))
     except (TypeError, ValueError):
         return jsonify({'success': False, 'error': 'amount must be an integer'}), 400
+    reason = (data.get('reason') or '').strip()
+    source_type = (data.get('source_type') or 'admin_grant').strip()
 
     allowance = get_effective_limits(
         get_user_tier(target_id), get_user_special_status(target_id)
     ).get('credits_per_day', 0)
+    admin_email = session.get('email', 'unknown')
 
+    if action in ('grant_earned', 'grant_purchased') and not reason:
+        return jsonify({'success': False, 'error': 'reason is required for a credit grant'}), 400
+
+    audit_detail = None
     if action == 'grant_earned':
-        add_earned_credits(target_id, amount)
+        add_earned_credits(target_id, amount, reason=reason, admin_email=admin_email,
+                           source_type=source_type)
+        audit_detail = f'Earned credits {amount:+d} ({source_type}) — {reason}'
     elif action == 'grant_purchased':
-        add_purchased_credits(target_id, amount)
+        add_purchased_credits(target_id, amount, reason=reason, admin_email=admin_email,
+                              source_type=source_type)
+        audit_detail = f'Purchased credits {amount:+d} ({source_type}) — {reason}'
     elif action == 'set_subscription':
         set_subscription_credits(target_id, amount)
+        audit_detail = f'Subscription credits set to {amount} (today only)'
     elif action == 'reset_subscription':
         set_subscription_credits(target_id, allowance)
+        audit_detail = f'Subscription credits reset to daily allowance ({allowance})'
     elif action == 'inspect':
         pass  # just report the balance
     else:
@@ -2486,12 +2505,25 @@ def admin_manage_credits():
                         'error': "action must be one of: grant_earned, grant_purchased, "
                                  "set_subscription, reset_subscription, inspect"}), 400
 
+    if audit_detail:
+        try:
+            with get_connection() as conn:
+                conn.execute(
+                    '''INSERT INTO audit_log (admin_user_id, admin_email, action_type, target_user_id, target_email, details)
+                       SELECT ?, ?, 'credits', ?, email, ? FROM users WHERE id = ?''',
+                    (session.get('user_id'), admin_email, target_id, audit_detail, target_id)
+                )
+                conn.commit()
+        except Exception:
+            pass  # audit log is best-effort, same as set-tier
+
     bal = get_credit_balance(target_id, allowance)
-    print(f"[CREDITS][ADMIN] user={target_id} action={action} amount={amount} "
+    history = get_credit_ledger(target_id, limit=20)
+    print(f"[CREDITS][ADMIN] user={target_id} action={action} amount={amount} by={admin_email} "
           f"-> balance={bal['total']} (sub={bal['subscription']} earned={bal['earned']} "
           f"purchased={bal['purchased']})", flush=True)
     return jsonify({'success': True, 'user_id': target_id, 'action': action,
-                    'credits_per_day': allowance, 'balance': bal})
+                    'credits_per_day': allowance, 'balance': bal, 'history': history})
 
 
 @app.route('/api/admin/proxy-check', methods=['GET'])

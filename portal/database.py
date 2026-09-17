@@ -293,7 +293,27 @@ def init_db():
                 purchased_credits INTEGER NOT NULL DEFAULT 0
             )
         ''')
-        
+
+        # Append-only history of every change to a user's PERSISTENT credit
+        # balance (earned_credits + purchased_credits). subscription_credits is
+        # a daily-refreshing counter and is deliberately NOT logged here — see
+        # audit_log for admin adjustments to it. delta is signed (+grant,
+        # -spend/-correction); balance_after is (earned+purchased) right after
+        # this row, so a history view never has to replay the whole table.
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS credit_ledger (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                delta INTEGER NOT NULL,
+                balance_after INTEGER NOT NULL,
+                source_type TEXT NOT NULL,
+                reason TEXT,
+                admin_email TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_credit_ledger_user ON credit_ledger(user_id, created_at)')
+
         # Per-render telemetry. One row per brand render (the real compute unit),
         # so unit economics move from modelled to measured: renders/user,
         # render-seconds/user, output size, heavy-user behaviour, capacity.
@@ -576,6 +596,27 @@ def _run_migrations():
             ''')
             conn.commit()
             print("[DATABASE] Migration completed: user_credits table created")
+
+        # Migration: Create credit_ledger table for existing databases
+        try:
+            c.execute("SELECT id FROM credit_ledger LIMIT 1")
+        except sqlite3.OperationalError:
+            print("[DATABASE] Running migration: Creating credit_ledger table")
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS credit_ledger (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    delta INTEGER NOT NULL,
+                    balance_after INTEGER NOT NULL,
+                    source_type TEXT NOT NULL,
+                    reason TEXT,
+                    admin_email TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            c.execute('CREATE INDEX IF NOT EXISTS idx_credit_ledger_user ON credit_ledger(user_id, created_at)')
+            conn.commit()
+            print("[DATABASE] Migration completed: credit_ledger table created")
 
         # Migration: Create render_events table for existing databases
         try:
@@ -2514,6 +2555,34 @@ def get_credit_balance(user_id, daily_allowance):
                 'total': daily_allowance, 'ok': False}
 
 
+def _write_ledger(conn, user_id, delta, balance_after, source_type, reason=None, admin_email=None):
+    """Append one row to credit_ledger. Caller's transaction — no commit here.
+    Only ever called for the PERSISTENT balance (earned + purchased); the daily
+    subscription counter never touches this table (see audit_log for that)."""
+    conn.execute(
+        'INSERT INTO credit_ledger (user_id, delta, balance_after, source_type, reason, admin_email) '
+        'VALUES (?, ?, ?, ?, ?, ?)',
+        (user_id, delta, balance_after, source_type, reason, admin_email)
+    )
+
+
+def get_credit_ledger(user_id, limit=50):
+    """Recent persistent-balance history for a user, newest first. Best-effort —
+    returns [] on DB error rather than breaking an admin page over a display list."""
+    def _do(conn):
+        rows = conn.execute(
+            'SELECT id, delta, balance_after, source_type, reason, admin_email, created_at '
+            'FROM credit_ledger WHERE user_id = ? ORDER BY id DESC LIMIT ?',
+            (user_id, limit)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    try:
+        return _retry_write(_do)
+    except Exception as e:
+        print(f"[CREDITS] get_credit_ledger DB error for user={user_id}: {e}", flush=True)
+        return []
+
+
 def spend_credits(user_id, amount, daily_allowance):
     """Spend `amount` credits, drawing subscription -> earned -> purchased (after
     a lazy daily refresh). Returns (ok, balance). ok is False with no deduction
@@ -2544,6 +2613,12 @@ def spend_credits(user_id, amount, daily_allowance):
             'purchased_credits = ? WHERE user_id = ?',
             (sub, earn, purch, user_id)
         )
+        # Only the persistent portion (earned + purchased) is ledger-worthy —
+        # a render fully covered by the daily allowance leaves no trace here,
+        # keeping the history meaningful instead of one row per render.
+        persistent_spent = take_earn + take_purch
+        if persistent_spent > 0:
+            _write_ledger(conn, user_id, -persistent_spent, earn + purch, 'render_spend')
         conn.commit()
         after_total = sub + earn + purch
         print(f"[CREDITS] user={user_id} balance_before={before_total} spent={amount} "
@@ -2563,25 +2638,33 @@ def spend_credits(user_id, amount, daily_allowance):
         return True, {'subscription': 0, 'earned': 0, 'purchased': 0, 'total': 0}
 
 
-def add_earned_credits(user_id, amount):
-    """Grant permanent earned credits (invite/share/community bonuses). Stub for
-    the later granting pass."""
+def add_earned_credits(user_id, amount, reason=None, admin_email=None, source_type='admin_grant'):
+    """Grant permanent earned credits (invite/share/community bonuses, admin
+    grants). Every call writes a credit_ledger row alongside the balance update."""
     def _do(conn):
         _ensure_credits_row(conn, user_id)
         conn.execute('UPDATE user_credits SET earned_credits = earned_credits + ? WHERE user_id = ?',
                      (amount, user_id))
+        r = conn.execute('SELECT earned_credits, purchased_credits FROM user_credits WHERE user_id = ?',
+                         (user_id,)).fetchone()
+        _write_ledger(conn, user_id, amount, r['earned_credits'] + r['purchased_credits'],
+                      source_type, reason, admin_email)
         conn.commit()
         return True
     return _retry_write(_do)
 
 
-def add_purchased_credits(user_id, amount):
-    """Grant permanent purchased credits (PayPal credit packs). Stub for the
-    later purchase pass."""
+def add_purchased_credits(user_id, amount, reason=None, admin_email=None, source_type='admin_grant'):
+    """Grant permanent purchased credits (PayPal credit packs, admin corrections).
+    Every call writes a credit_ledger row alongside the balance update."""
     def _do(conn):
         _ensure_credits_row(conn, user_id)
         conn.execute('UPDATE user_credits SET purchased_credits = purchased_credits + ? WHERE user_id = ?',
                      (amount, user_id))
+        r = conn.execute('SELECT earned_credits, purchased_credits FROM user_credits WHERE user_id = ?',
+                         (user_id,)).fetchone()
+        _write_ledger(conn, user_id, amount, r['earned_credits'] + r['purchased_credits'],
+                      source_type, reason, admin_email)
         conn.commit()
         return True
     return _retry_write(_do)

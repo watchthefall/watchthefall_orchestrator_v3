@@ -208,6 +208,37 @@
         }
         .admin-modal .delete-preview strong { color: #EAEAEA; }
 
+        /* ── Credits modal ── */
+        .admin-modal.wide { max-width: 560px; }
+        .credits-balances {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+            margin-bottom: 14px;
+        }
+        .credits-balances .stat {
+            background: #0f0f11; border: 1px solid #222; border-radius: 7px;
+            padding: 9px 10px; text-align: center;
+        }
+        .credits-balances .stat .num { font-size: 17px; font-weight: 700; color: #EAEAEA; }
+        .credits-balances .stat .lbl { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 2px; }
+        .credits-balances .stat.total .num { color: #86EDA5; }
+        .credits-grant-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .credits-grant-row input[type="number"] { width: 110px; }
+        .credits-grant-row input[type="text"] { flex: 1; }
+        .credits-grant-row input {
+            padding: 8px 10px; background: #0f0f11; border: 1px solid #333;
+            border-radius: 6px; color: #EAEAEA; font-size: 13px;
+        }
+        .credits-type-row { display: flex; gap: 14px; margin: 8px 0 12px; font-size: 12px; color: #aaa; }
+        .credits-type-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+        .credits-history { max-height: 190px; overflow-y: auto; border: 1px solid #222; border-radius: 6px; margin-top: 6px; }
+        .credits-history table { width: 100%; font-size: 11px; }
+        .credits-history th { position: sticky; top: 0; background: #16161a; padding: 6px 8px; text-align: left; color: #666; font-weight: 600; }
+        .credits-history td { padding: 6px 8px; border-bottom: 1px solid #1a1a1c; color: #999; white-space: nowrap; }
+        .credits-history td.delta-pos { color: #86EDA5; font-weight: 600; }
+        .credits-history td.delta-neg { color: #e05252; font-weight: 600; }
+        .credits-history td.reason-cell { white-space: normal; color: #bbb; max-width: 180px; }
+        .credits-quick-actions { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #222; }
+
         /* ── Audit log ── */
         .action-tag {
             display: inline-block; padding: 1px 5px; border-radius: 3px;
@@ -340,6 +371,7 @@
                     <td class="actions-cell">
                         <div class="actions-wrap">
                             <button class="action-btn" onclick="openResetModal({{ user.id }}, '{{ user.email }}')">Reset PW</button>
+                            <button class="action-btn" onclick="openCreditsModal({{ user.id }}, '{{ user.email }}')">Credits</button>
 
                             {% if user.account_status == 'suspended' %}
                             <button class="action-btn ok" onclick="setAccountStatus({{ user.id }}, 'active', this)">Unsuspend</button>
@@ -394,6 +426,50 @@
         </div>
         {% endif %}
     </div>
+
+<!-- Credits Modal -->
+<div class="admin-modal-overlay" id="creditsModal">
+    <div class="admin-modal wide">
+        <h3>Credits — <span id="creditsEmail"></span></h3>
+
+        <div class="credits-balances">
+            <div class="stat"><div class="num" id="creditsSub">—</div><div class="lbl">Daily left</div></div>
+            <div class="stat"><div class="num" id="creditsEarned">—</div><div class="lbl">Reward</div></div>
+            <div class="stat"><div class="num" id="creditsPurchased">—</div><div class="lbl">Purchased</div></div>
+            <div class="stat total"><div class="num" id="creditsTotal">—</div><div class="lbl">Total usable</div></div>
+        </div>
+
+        <p style="margin-bottom:6px;">Grant persistent credits</p>
+        <div class="credits-grant-row">
+            <input type="number" id="creditsAmount" placeholder="Amount" value="25">
+            <input type="text" id="creditsReason" placeholder="Reason (required) — e.g. Beta compensation">
+        </div>
+        <div class="credits-type-row">
+            <label><input type="radio" name="creditsBucket" value="earned" checked> Reward / promotional</label>
+            <label><input type="radio" name="creditsBucket" value="purchased"> Purchased adjustment</label>
+        </div>
+        <div class="modal-actions" style="justify-content:flex-start;margin-top:0;">
+            <button class="btn btn-primary" id="creditsGrantBtn" onclick="submitCreditGrant()">Grant credits</button>
+            <span class="saved-msg" id="creditsGrantMsg"></span>
+        </div>
+
+        <div class="credits-quick-actions">
+            <button class="action-btn" onclick="quickResetSubscription()">Reset today's daily credits</button>
+        </div>
+
+        <p style="margin:14px 0 4px;">Recent history</p>
+        <div class="credits-history">
+            <table>
+                <thead><tr><th>When</th><th>Δ</th><th>Balance</th><th>Source</th><th>Reason</th><th>By</th></tr></thead>
+                <tbody id="creditsHistoryBody"><tr><td colspan="6" style="color:#555;padding:10px;">Loading…</td></tr></tbody>
+            </table>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeCreditsModal()">Close</button>
+        </div>
+    </div>
+</div>
 
 <!-- Reset Password Modal -->
 <div class="admin-modal-overlay" id="resetModal">
@@ -466,6 +542,7 @@ var _resetAccountUserId = null;
 var _purgeUserId = null;
 var _purgeUserEmail = null;
 var _resetAccountEmail = null;
+var _creditsUserId = null;
 
 var TIER_COLORS = {
     Explorer: '#86EDA5', Creator: '#A855F7', Studio: '#F5A623',
@@ -647,6 +724,84 @@ function confirmResetPassword() {
         } else { alert('Error: ' + (data.error || 'Unknown')); btn.disabled = false; btn.textContent = 'Reset Password'; }
     })
     .catch(function() { alert('Network error'); btn.disabled = false; btn.textContent = 'Reset Password'; });
+}
+
+/* ── Credits ── */
+function openCreditsModal(userId, email) {
+    _creditsUserId = userId;
+    document.getElementById('creditsEmail').textContent = email;
+    document.getElementById('creditsReason').value = '';
+    document.getElementById('creditsGrantMsg').textContent = '';
+    document.getElementById('creditsHistoryBody').innerHTML = '<tr><td colspan="6" style="color:#555;padding:10px;">Loading…</td></tr>';
+    document.getElementById('creditsModal').classList.add('active');
+    creditsFetch('inspect', 0, null, null);
+}
+function closeCreditsModal() {
+    document.getElementById('creditsModal').classList.remove('active');
+    _creditsUserId = null;
+}
+function creditsFetch(action, amount, reason, sourceBucket) {
+    var body = {user_id: _creditsUserId, action: action, amount: amount};
+    var payload = {method: 'POST', headers: {'Content-Type': 'application/json'}};
+    if (action === 'grant_earned' || action === 'grant_purchased') {
+        body.reason = reason;
+    }
+    payload.body = JSON.stringify(body);
+    return fetch('/api/admin/credits', payload)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) { throw new Error(data.error || 'Unknown error'); }
+            renderCreditsBalance(data.balance);
+            renderCreditsHistory(data.history || []);
+            return data;
+        });
+}
+function renderCreditsBalance(bal) {
+    document.getElementById('creditsSub').textContent = bal.subscription;
+    document.getElementById('creditsEarned').textContent = bal.earned;
+    document.getElementById('creditsPurchased').textContent = bal.purchased;
+    document.getElementById('creditsTotal').textContent = bal.total;
+}
+function renderCreditsHistory(rows) {
+    var body = document.getElementById('creditsHistoryBody');
+    if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="6" style="color:#555;padding:10px;">No persistent-credit history yet.</td></tr>';
+        return;
+    }
+    body.innerHTML = rows.map(function(row) {
+        var deltaClass = row.delta > 0 ? 'delta-pos' : (row.delta < 0 ? 'delta-neg' : '');
+        var deltaText = row.delta > 0 ? ('+' + row.delta) : String(row.delta);
+        var when = (row.created_at || '').replace('T', ' ').slice(0, 16);
+        return '<tr>' +
+            '<td>' + when + '</td>' +
+            '<td class="' + deltaClass + '">' + deltaText + '</td>' +
+            '<td>' + row.balance_after + '</td>' +
+            '<td>' + (row.source_type || '') + '</td>' +
+            '<td class="reason-cell">' + (row.reason || '—') + '</td>' +
+            '<td>' + (row.admin_email || 'system') + '</td>' +
+            '</tr>';
+    }).join('');
+}
+function submitCreditGrant() {
+    var amount = parseInt(document.getElementById('creditsAmount').value, 10);
+    var reason = document.getElementById('creditsReason').value.trim();
+    var bucket = document.querySelector('input[name="creditsBucket"]:checked').value;
+    var msg = document.getElementById('creditsGrantMsg');
+    if (!amount) { msg.textContent = 'Enter an amount'; msg.style.color = '#e05252'; return; }
+    if (!reason) { msg.textContent = 'Reason is required'; msg.style.color = '#e05252'; return; }
+    var btn = document.getElementById('creditsGrantBtn');
+    btn.disabled = true; btn.textContent = 'Granting…';
+    var action = bucket === 'purchased' ? 'grant_purchased' : 'grant_earned';
+    creditsFetch(action, amount, reason, bucket)
+        .then(function() {
+            msg.style.color = '#86EDA5'; msg.textContent = 'Granted ' + amount + ' credits';
+            document.getElementById('creditsReason').value = '';
+        })
+        .catch(function(e) { msg.style.color = '#e05252'; msg.textContent = e.message || 'Network error'; })
+        .finally(function() { btn.disabled = false; btn.textContent = 'Grant credits'; });
+}
+function quickResetSubscription() {
+    creditsFetch('reset_subscription', 0, null, null).catch(function(e) { alert(e.message || 'Network error'); });
 }
 
 /* ── Deactivate ── */
