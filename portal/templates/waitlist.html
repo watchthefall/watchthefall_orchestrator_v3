@@ -283,6 +283,20 @@ img { display: block; }
     margin-right: .1em;
 }
 .countdown-dot { color: var(--founding); font-weight: 700; }
+/* Seconds: present so the countdown visibly moves, but kept subordinate
+   to Days/Hours/Minutes — smaller, dimmer, no bold weight. */
+.countdown-num-sm {
+    font-variant-numeric: tabular-nums;
+    font-size: .95rem; font-weight: 700; letter-spacing: -.01em;
+    color: var(--low);
+    font-feature-settings: "tnum";
+}
+.countdown-word-sm {
+    font-size: .62rem; font-weight: 600; letter-spacing: .04em;
+    color: var(--xlow);
+    margin-right: .1em;
+}
+.countdown-dot-sm { color: var(--xlow); font-weight: 700; font-size: .8em; }
 .countdown-date {
     font-size: .72rem; font-weight: 600; letter-spacing: .05em;
     color: var(--mid); margin-top: .7rem;
@@ -297,6 +311,8 @@ img { display: block; }
     .countdown-card { padding: 1.35rem 1.5rem 1.4rem; }
     .countdown-num { font-size: 1.8rem; }
     .countdown-word { font-size: .9rem; }
+    .countdown-num-sm { font-size: 1.1rem; }
+    .countdown-word-sm { font-size: .68rem; }
 }
 
 /* ── Pills ── */
@@ -710,6 +726,8 @@ img { display: block; }
                 <span class="countdown-num" id="cd-hours">00</span><span class="countdown-word">Hours</span>
                 <span class="countdown-dot">·</span>
                 <span class="countdown-num" id="cd-mins">00</span><span class="countdown-word">Minutes</span>
+                <span class="countdown-dot countdown-dot-sm">·</span>
+                <span class="countdown-num-sm" id="cd-secs">00</span><span class="countdown-word-sm">Sec</span>
             </p>
             <p class="countdown-date">06 October 2026 · 5:00 PM UK</p>
         </div>
@@ -1334,6 +1352,7 @@ img { display: block; }
     var elD = document.getElementById('cd-days');
     var elH = document.getElementById('cd-hours');
     var elM = document.getElementById('cd-mins');
+    var elS = document.getElementById('cd-secs');
 
     var targetMs;
     try {
@@ -1355,12 +1374,11 @@ img { display: block; }
             if (timer) clearInterval(timer);
             return;
         }
-        /* Recomputed every second (not just once a minute) so Days/Hours/Minutes
-           roll over at the exact real-world instant — seconds just aren't displayed. */
         var totalSec = Math.floor(diff / 1000);
         elD.textContent = pad(Math.floor(totalSec / 86400));
         elH.textContent = pad(Math.floor((totalSec % 86400) / 3600));
         elM.textContent = pad(Math.floor((totalSec % 3600) / 60));
+        elS.textContent = pad(totalSec % 60);
     }
 
     tick();
