@@ -706,6 +706,16 @@ def _run_migrations():
             "ALTER TABLE users ADD COLUMN founding_status_granted_at TEXT DEFAULT NULL",
             "ALTER TABLE users ADD COLUMN founding_discount_percent REAL DEFAULT NULL",
             "ALTER TABLE users ADD COLUMN bonus_tier_until TEXT DEFAULT NULL",
+            # bonus_tier is the TEMPORARY overlay tier (e.g. 'Platinum' during
+            # the beta period). users.tier is left alone as the underlying
+            # base/subscription entitlement -- a temporary grant must never
+            # overwrite it. get_user_tier() in app.py resolves the two: while
+            # bonus_tier_until is in the future, effective tier = bonus_tier;
+            # once it passes, effective tier falls back to the base tier with
+            # no code needing to "restore" anything, since base was never
+            # touched. See the entitlement-architecture discussion for the
+            # full reasoning (base + temporary + founding = effective tier).
+            "ALTER TABLE users ADD COLUMN bonus_tier TEXT DEFAULT NULL",
             "ALTER TABLE users ADD COLUMN first_login_welcome_seen INTEGER DEFAULT 0",
             # Discord OAuth2 link (identify scope only) -- discord_user_id is the
             # verified snowflake from Discord's own /users/@me, never user-typed;
@@ -768,6 +778,21 @@ def _run_migrations():
             'CREATE UNIQUE INDEX IF NOT EXISTS idx_beta_access_discord_user_id '
             'ON beta_access(discord_user_id)'
         )
+
+        # Same anti-abuse guarantee for ordinary account links: one Discord
+        # identity must not end up attached to more than one Brandr account.
+        # link_discord_account() also checks this explicitly first (for a
+        # clean rejection instead of a raw IntegrityError) -- this index is
+        # the backstop. Wrapped defensively: if a pre-existing duplicate
+        # somehow already exists, log it instead of blocking startup.
+        try:
+            c.execute(
+                'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_discord_user_id '
+                'ON users(discord_user_id)'
+            )
+        except sqlite3.IntegrityError as e:
+            print(f"[DATABASE] WARNING: could not create idx_users_discord_user_id "
+                  f"-- duplicate discord_user_id already present: {e}")
     finally:
         conn.close()
 
@@ -2891,18 +2916,28 @@ def set_user_special_status(user_id, status):
 
 def link_discord_account(user_id, discord_user_id, discord_username):
     """Record a verified Discord identity against this Brandr account.
-    Overwrites any previous link (e.g. the user re-linked a different Discord
-    account) -- last link wins, matching how re-authenticating any OAuth
-    provider works elsewhere on the web."""
+    Overwrites any previous link ON THIS SAME account (e.g. the user
+    re-linked a different Discord account) -- last link wins, matching how
+    re-authenticating any OAuth provider works elsewhere on the web.
+
+    Rejects the link if discord_user_id is already attached to a DIFFERENT
+    Brandr account -- one Discord identity must not end up controlling more
+    than one Brandr account. Returns 'ok' or 'duplicate'."""
     def _do_update(conn):
         c = conn.cursor()
+        existing = c.execute(
+            'SELECT id FROM users WHERE discord_user_id = ? AND id != ?',
+            (discord_user_id, user_id)
+        ).fetchone()
+        if existing:
+            return 'duplicate'
         c.execute(
             'UPDATE users SET discord_user_id = ?, discord_username = ?, '
             'discord_linked_at = CURRENT_TIMESTAMP WHERE id = ?',
             (discord_user_id, discord_username, user_id)
         )
         conn.commit()
-        return True
+        return 'ok'
     return _retry_write(_do_update)
 
 

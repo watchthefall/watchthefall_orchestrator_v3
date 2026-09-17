@@ -237,11 +237,20 @@ def sync_member_roles(discord_user_id, tier, founding_status, beta_tester=False)
 
 
 def sync_roles_for_user(user_id):
-    """Convenience wrapper: pulls tier/founding_status/is_beta_tester/discord
-    link for an EXISTING Brandr account and syncs. Returns (ok, detail) as
-    sync_member_roles. Deliberately does not touch special_status -- see
-    target_role_ids."""
-    from .app import get_user_tier
+    """Convenience wrapper: pulls tier/founding_status/active-beta-status/
+    discord link for an EXISTING Brandr account and syncs. Returns (ok,
+    detail) as sync_member_roles. Deliberately does not touch special_status
+    -- see target_role_ids.
+
+    beta_tester here is the LIVE active-beta predicate (app.get_beta_tester_active),
+    not the raw users.is_beta_tester column -- that column is permanent
+    historical info ("was ever accepted"), so reading it directly would mean
+    the Beta Tester Discord role never comes off once the beta period ends.
+    get_beta_tester_active() additionally requires an unexpired bonus_tier,
+    so the role is added while the temporary entitlement is active and drops
+    off the very next sync after it expires -- Discord follows Brandr's
+    effective entitlement, never the other way around."""
+    from .app import get_user_tier, get_beta_tester_active
     from .database import get_discord_link, get_connection
 
     link = get_discord_link(user_id)
@@ -252,15 +261,13 @@ def sync_roles_for_user(user_id):
     try:
         with get_connection() as conn:
             row = conn.execute(
-                'SELECT COALESCE(founding_status, 0) as fs, '
-                'COALESCE(is_beta_tester, 0) as bt FROM users WHERE id = ?', (user_id,)
+                'SELECT COALESCE(founding_status, 0) as fs FROM users WHERE id = ?', (user_id,)
             ).fetchone()
         founding_status = bool(row['fs']) if row else False
-        beta_tester = bool(row['bt']) if row else False
     except Exception as e:
-        print(f"[DISCORD] founding_status/is_beta_tester lookup failed for user={user_id}: {e}", flush=True)
+        print(f"[DISCORD] founding_status lookup failed for user={user_id}: {e}", flush=True)
         founding_status = False
-        beta_tester = False
+    beta_tester = get_beta_tester_active(user_id)
 
     return sync_member_roles(link['discord_user_id'], tier, founding_status, beta_tester)
 

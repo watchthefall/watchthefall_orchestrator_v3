@@ -322,6 +322,15 @@
                                 {% endfor %}
                             </select>
                         </div>
+                        {% if user.bonus_active %}
+                        <div class="bonus-tier-note" style="font-size:11px;color:var(--accent,#8b5cf6);margin-top:2px;">
+                            + temporary {{ user.bonus_tier }} until {{ user.bonus_tier_until[:10] }}
+                        </div>
+                        {% elif user.bonus_tier_until %}
+                        <div class="bonus-tier-note" style="font-size:11px;color:#888;margin-top:2px;">
+                            temporary {{ user.bonus_tier or '?' }} expired {{ user.bonus_tier_until[:10] }}
+                        </div>
+                        {% endif %}
 
                         <div class="founder-control">
                             {% if user.founding_status %}

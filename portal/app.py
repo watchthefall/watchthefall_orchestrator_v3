@@ -219,19 +219,19 @@ def register_user(email, password, beta_entry=None):
     try:
         is_admin_email = email.lower() in [e.lower() for e in ADMIN_EMAILS]
 
-        # Determine tier: admin -> Platinum, beta package -> tier_grant if
-        # admin set one, else an accepted beta/waitlist applicant defaults to
-        # BETA_TEMP_TIER (temporary Platinum for the beta period -- see
-        # _apply_beta_package for the bonus_tier_until expiry stamp), and a
-        # non-beta registration (invite code path; entry is overwritten
-        # right after this call anyway) defaults to Explorer.
+        # Determine BASE tier: admin -> Platinum, beta package -> tier_grant
+        # if an admin explicitly set one on the beta_access row (a real base
+        # tier grant, not a temporary promo), else Explorer. An accepted
+        # beta/waitlist applicant with no tier_grant stays on base Explorer
+        # here -- their temporary Platinum access is applied afterwards by
+        # _apply_beta_package() as an overlay (bonus_tier/bonus_tier_until),
+        # which never overwrites this base tier. See get_user_tier() for how
+        # the two are resolved into an effective tier.
         print(f"[REGISTER] tier resolution start (admin={is_admin_email})", flush=True)
         if is_admin_email:
             tier = 'Platinum'
         elif beta_entry and beta_entry.get('tier_grant'):
             tier = beta_entry['tier_grant']
-        elif beta_entry:
-            tier = BETA_TEMP_TIER
         else:
             tier = 'Explorer'
 
@@ -293,20 +293,32 @@ def _apply_beta_package(user_id, beta_entry):
     if beta_entry.get('founding_discount_percent') is not None:
         updates['founding_discount_percent'] = beta_entry['founding_discount_percent']
     if beta_entry.get('bonus_tier_until'):
+        # Admin set an explicit expiry on the beta_access row -- carry it
+        # forward as the temporary overlay. bonus_tier is still the beta
+        # promo tier (BETA_TEMP_TIER); this never touches users.tier, the
+        # underlying base entitlement set above in register_user().
+        updates['bonus_tier'] = BETA_TEMP_TIER
         updates['bonus_tier_until'] = beta_entry['bonus_tier_until']
     elif not beta_entry.get('tier_grant'):
         # No admin override on the beta_access row at all -- this is the
-        # default beta path (register_user set tier=BETA_TEMP_TIER above),
-        # so stamp its expiry. An admin-set tier_grant or bonus_tier_until
-        # already fully overrides this; a plain waitlist approval doesn't.
+        # default beta path: base tier stays Explorer (or whatever
+        # register_user resolved), and the temporary Platinum grant is
+        # applied here as an overlay with a real expiry. An admin-set
+        # tier_grant or bonus_tier_until already fully overrides this; a
+        # plain waitlist approval doesn't.
+        updates['bonus_tier'] = BETA_TEMP_TIER
         updates['bonus_tier_until'] = (
             datetime.utcnow() + timedelta(days=BETA_TEMP_TIER_DAYS)
         ).isoformat()
 
     # Reaching this function at all means register()'s gate already
-    # confirmed beta_entry.status == 'approved' -- an accepted beta tester,
-    # permanently marked as such for Discord role-sync purposes (see
-    # discord_integration.sync_roles_for_user). Distinct from special_status.
+    # confirmed beta_entry.status == 'approved' -- an accepted beta tester.
+    # is_beta_tester is HISTORICAL/admin information only ("was ever
+    # accepted into the beta"), permanently 1 once set -- it is deliberately
+    # NOT read anywhere as "beta is currently active". See
+    # get_beta_tester_active(), which combines this with a live
+    # bonus_tier_until check, for the real active-beta predicate that
+    # Discord role sync uses. Distinct from special_status either way.
     updates['is_beta_tester'] = 1
 
     if updates:
@@ -323,9 +335,18 @@ def _apply_beta_package(user_id, beta_entry):
     # over this.
     if beta_entry.get('discord_user_id'):
         try:
-            link_discord_account(user_id, beta_entry['discord_user_id'],
+            link_result = link_discord_account(user_id, beta_entry['discord_user_id'],
                                  beta_entry.get('discord_verified_username'))
-            print(f"[AUTH] Carried forward verified Discord identity to user={user_id}", flush=True)
+            if link_result == 'duplicate':
+                # Shouldn't normally happen -- beta_access.discord_user_id is
+                # already unique -- but guard anyway: never let one Discord
+                # identity end up attached to two Brandr accounts. Beta
+                # entitlement itself is unaffected; only the Discord link is
+                # skipped.
+                print(f"[AUTH] Discord carry-forward skipped for user={user_id}: "
+                      f"discord_user_id already linked to a different account", flush=True)
+            else:
+                print(f"[AUTH] Carried forward verified Discord identity to user={user_id}", flush=True)
             from .discord_integration import sync_roles_for_user
             ok, detail = sync_roles_for_user(user_id)
             print(f"[AUTH] Post-registration Discord role sync for user={user_id}: ok={ok} ({detail})", flush=True)
@@ -334,7 +355,22 @@ def _apply_beta_package(user_id, beta_entry):
 
 
 def get_user_tier(user_id):
-    """Get a user's tier from the database. Returns tier name string.
+    """Get a user's EFFECTIVE tier: their base/subscription tier (users.tier),
+    overridden by a still-active temporary bonus tier if one is set.
+
+    users.tier is the underlying entitlement -- what a paid subscription or
+    an admin/invite-code grant sets, and what a temporary promo (e.g. beta
+    Platinum) must never overwrite. users.bonus_tier + users.bonus_tier_until
+    are the temporary overlay: while bonus_tier_until is in the future,
+    effective tier = bonus_tier; once it passes, effective tier falls back
+    to the base tier automatically, with nothing needing to "revert" it,
+    since the base tier was never touched in the first place.
+
+    This is the single choke-point ~25 call sites across the app use to read
+    a user's tier (credits, limits, UI, admin console, Discord role sync via
+    sync_roles_for_user) -- resolving the overlay here means all of them get
+    correct temporary-entitlement behavior with no changes of their own.
+
     On OperationalError (e.g. disk I/O error, disk full) logs server-side
     and returns DEFAULT_TIER as a safe fallback so callers don't crash."""
     import traceback as _tb
@@ -342,11 +378,23 @@ def get_user_tier(user_id):
     try:
         with get_connection() as conn:
             c = conn.cursor()
-            c.execute('SELECT tier FROM users WHERE id = ?', (user_id,))
+            c.execute(
+                'SELECT tier, bonus_tier, bonus_tier_until FROM users WHERE id = ?',
+                (user_id,)
+            )
             row = c.fetchone()
-        if row and row['tier']:
-            return row['tier']
-        return DEFAULT_TIER
+        if not row:
+            return DEFAULT_TIER
+        base_tier = row['tier'] if row['tier'] else DEFAULT_TIER
+        bonus_tier = row['bonus_tier']
+        bonus_until = row['bonus_tier_until']
+        if bonus_tier and bonus_until:
+            try:
+                if datetime.fromisoformat(bonus_until) > datetime.utcnow():
+                    return bonus_tier
+            except ValueError:
+                pass  # malformed timestamp -- fall through to base tier
+        return base_tier
     except sqlite3.OperationalError as e:
         print(f"[GET_USER_TIER] DB OperationalError for user_id={user_id}: {e}")
         print(f"[GET_USER_TIER] Full traceback:\n{_tb.format_exc()}")
@@ -356,6 +404,33 @@ def get_user_tier(user_id):
         print(f"[GET_USER_TIER] Unexpected error for user_id={user_id}: {e}")
         print(f"[GET_USER_TIER] Full traceback:\n{_tb.format_exc()}")
         return DEFAULT_TIER
+
+
+def get_beta_tester_active(user_id):
+    """True if this account currently holds an ACTIVE (non-expired) beta
+    entitlement -- i.e. was accepted into the beta (users.is_beta_tester,
+    kept purely as historical/admin information, never as live entitlement
+    state) AND still has an unexpired bonus_tier grant right now.
+
+    This is what Discord role sync should use to decide whether to hold the
+    Beta Tester role, instead of reading is_beta_tester directly -- an
+    eternal boolean by itself never turns back off, but combined with a real
+    expiry check here it does. Once bonus_tier_until passes, the very next
+    role sync naturally drops the Beta Tester role with no separate cleanup
+    job needed."""
+    from .database import get_connection
+    try:
+        with get_connection() as conn:
+            row = conn.execute(
+                'SELECT is_beta_tester, bonus_tier, bonus_tier_until FROM users WHERE id = ?',
+                (user_id,)
+            ).fetchone()
+        if not row or not row['is_beta_tester'] or not row['bonus_tier'] or not row['bonus_tier_until']:
+            return False
+        return datetime.fromisoformat(row['bonus_tier_until']) > datetime.utcnow()
+    except Exception as e:
+        print(f"[GET_BETA_TESTER_ACTIVE] error for user_id={user_id}: {e}")
+        return False
 
 
 def _log_disk_health_warning():
@@ -2179,7 +2254,12 @@ def discord_callback():
         return redirect(url_for('profile_page'))
 
     user_id = session['user_id']
-    link_discord_account(user_id, identity['id'], identity['username'])
+    link_result = link_discord_account(user_id, identity['id'], identity['username'])
+    if link_result == 'duplicate':
+        flash(f"That Discord account (@{identity['username']}) is already linked to a "
+              f"different Brandr account. Unlink it there first, or use a different "
+              f"Discord account.", 'error')
+        return redirect(url_for('profile_page'))
 
     ok, detail = sync_roles_for_user(user_id)
     if ok:
@@ -2232,11 +2312,22 @@ def admin_console():
                             COALESCE(u.must_change_password, 0) as must_change_password,
                             COALESCE(u.founding_status, 0) as founding_status,
                             u.founding_status_granted_at,
+                            u.bonus_tier,
                             u.bonus_tier_until,
                             (SELECT COUNT(*) FROM brands b WHERE b.user_id = u.id AND b.is_active = 1) as brand_count,
                             (SELECT COUNT(*) FROM daily_usage du WHERE du.user_id = u.id AND du.usage_date = date('now')) as jobs_today
                      FROM users u ORDER BY u.created_at DESC''')
         users = [dict(row) for row in c.fetchall()]
+        # u.tier is the BASE tier (what the tier-select edits). Compute
+        # whether each user's bonus_tier is currently active so the admin
+        # console can show "Base: X, temporary: Y until <date>" rather than
+        # just the base tier, without duplicating get_user_tier()'s logic.
+        _now_iso = datetime.utcnow().isoformat()
+        for _u in users:
+            _u['bonus_active'] = bool(
+                _u.get('bonus_tier') and _u.get('bonus_tier_until') and
+                _u['bonus_tier_until'] > _now_iso
+            )
         
         # Fetch recent admin actions for audit visibility
         try:
