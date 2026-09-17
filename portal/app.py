@@ -535,6 +535,12 @@ def inject_global_context():
     # Founding is a DEADLINE, not a quota: no slot counting, no scarcity math.
     founding_open = founding_window_open()
     founding_days_left = founding_days_remaining()
+    # Nav-wide Discord state: whether OAuth linking is actually reachable
+    # right now (client id/secret/redirect URI all set -- see
+    # discord_integration.discord_configured()). The nav partial uses this
+    # to show a real "Discord" menu item or a disabled "Coming Soon" one,
+    # rather than guessing from whether the feature was ever *built*.
+    from .discord_integration import discord_configured as _discord_configured
     ctx = {'is_admin_user': is_admin(), 'tier': DEFAULT_TIER,
            'theme_tier': DEFAULT_TIER,
            'founding_status': 0,
@@ -546,6 +552,7 @@ def inject_global_context():
            'founding_days_left': founding_days_left,
            'founding_window_end': FOUNDING_WINDOW_END,
            'founding_payment_links': _fpl,
+           'discord_configured': _discord_configured(),
            }
     user_id = session.get('user_id')
     if user_id:
