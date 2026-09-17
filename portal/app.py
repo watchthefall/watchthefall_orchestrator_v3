@@ -1855,12 +1855,21 @@ def waitlist_discord_authorize():
     return redirect(oauth_authorize_url(token))
 
 
-@app.route('/waitlist/discord/callback')
-def waitlist_discord_callback():
-    """Public, anonymous OAuth2 callback for beta/waitlist applications.
-    Separate from /portal/discord/callback (which links an EXISTING,
-    logged-in Brandr account) -- this one has no session to anchor to, so
-    the signed state token IS the identity of what's being verified.
+def _run_waitlist_discord_callback():
+    """Shared body for the anonymous beta/waitlist OAuth2 callback.
+
+    IMPORTANT: Discord only has ONE redirect URI registered for this app
+    (config.DISCORD_REDIRECT_URI, the same value oauth_authorize_url() uses
+    for both the waitlist flow and the logged-in account-link flow), and
+    that URI points at /portal/discord/callback. Discord therefore ALWAYS
+    calls back to /portal/discord/callback in practice, never to
+    /waitlist/discord/callback directly -- so discord_callback() below
+    detects a beta/waitlist state token and delegates here BEFORE its own
+    @login_required-equivalent check runs, since a fresh waitlist applicant
+    has no Brandr session to require. /waitlist/discord/callback (the route
+    right after this function) still calls this too, so verification also
+    works correctly if a second redirect URI is ever registered for that
+    exact path.
 
     Two payload kinds, from the two token issuers above:
       kind='new'      -- the token carries the SUBMITTED FORM DATA itself;
@@ -1961,6 +1970,16 @@ def waitlist_discord_callback():
         flash('We could not find that application -- please submit the waitlist form again.', 'error')
 
     return redirect(url_for('beta_page'))
+
+
+@app.route('/waitlist/discord/callback')
+def waitlist_discord_callback():
+    """Public, anonymous OAuth2 callback for beta/waitlist applications.
+    In today's config Discord actually calls back to /portal/discord/callback
+    (see the note on _run_waitlist_discord_callback above) -- this route
+    exists so the same logic also works correctly if a second Discord
+    redirect URI matching this exact path is ever registered."""
+    return _run_waitlist_discord_callback()
 
 
 def _loops_send_event(email, event_name):
@@ -2287,8 +2306,41 @@ def discord_link():
 
 
 @app.route('/portal/discord/callback')
-@login_required
 def discord_callback():
+    """Handles BOTH Discord OAuth callbacks that exist in this app, because
+    Discord only has ONE redirect URI registered (config.DISCORD_REDIRECT_URI)
+    and both oauth_authorize_url() call sites -- discord_link() below for a
+    logged-in account, and the anonymous waitlist flow in
+    _issue_beta_discord_pending_token/_issue_beta_discord_verify_token above
+    -- use that same value. Discord therefore always lands here, never on
+    /waitlist/discord/callback directly, however the flow started.
+
+    Dispatch: the waitlist flow's `state` is a signed itsdangerous token
+    (from _beta_discord_serializer(), carrying a 'kind'); the account-link
+    flow's `state` is a plain random string matched against
+    session['discord_oauth_state']. Trying to decode as the former first is
+    a safe, unambiguous discriminator -- a plain random token essentially
+    never happens to also be a valid signature. A waitlist applicant has no
+    Brandr session at all, so this MUST run before any login check."""
+    from itsdangerous import BadSignature, SignatureExpired
+
+    state_arg = request.args.get('state', '')
+    if state_arg:
+        try:
+            _beta_discord_serializer().loads(state_arg, max_age=_BETA_DISCORD_STATE_MAX_AGE)
+            return _run_waitlist_discord_callback()
+        except SignatureExpired:
+            # It WAS a waitlist token, just an expired one -- still route to
+            # the waitlist handler so the user gets the right error message
+            # ("submit the form again"), not a login prompt.
+            return _run_waitlist_discord_callback()
+        except (BadSignature, Exception):
+            pass  # not a waitlist token -- fall through to account-link handling
+
+    if 'user_id' not in session:
+        flash('Please log in and try connecting Discord again.', 'error')
+        return redirect(url_for('login'))
+
     from .discord_integration import exchange_code, fetch_identity, sync_roles_for_user
 
     expected_state = session.pop('discord_oauth_state', None)

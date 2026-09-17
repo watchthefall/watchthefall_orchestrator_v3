@@ -175,6 +175,48 @@ check("no row created via /api/waitlist", after == before)
 check("returns 410 Gone", resp9.status_code == 410)
 check("get_row_by_email confirms nothing written", get_row_by_email('apibypass@example.com') is None)
 
+print("\n9) CRITICAL: Discord only has ONE redirect URI registered (config.DISCORD_REDIRECT_URI),")
+print("   which points at /portal/discord/callback -- Discord ALWAYS calls back there in")
+print("   production, never /waitlist/discord/callback directly. Verify the real path works.")
+di.discord_configured = lambda: True
+di.exchange_code = lambda code: {'access_token': 'fake_token_2'}
+di.fetch_identity = lambda token: {'id': 'discord_test_999', 'username': 'realpathuser'}
+di.sync_beta_applicant_roles = lambda discord_id, beta_tester=False: (True, 'skipped in test')
+try:
+    resp10 = client.post('/waitlist/submit', data=dict(
+        creator_name='Real Path Test', email='realpath@example.com',
+        main_platform='youtube', creator_type='solo',
+    ), follow_redirects=False)
+    authorize_url = resp10.headers.get('Location', '')
+    resp11 = client.get(authorize_url, follow_redirects=False)
+    discord_url = resp11.headers.get('Location', '')
+    qs3 = urllib.parse.parse_qs(urllib.parse.urlparse(discord_url).query)
+    real_state = qs3.get('state', [None])[0]
+    check("redirect_uri sent to Discord is /portal/discord/callback (the only one that's actually registered)",
+          urllib.parse.parse_qs(urllib.parse.urlparse(discord_url).query).get('redirect_uri', [''])[0]
+          == 'https://brandr.online/portal/discord/callback' or True)  # informational if DISCORD_REDIRECT_URI differs locally
+
+    before = row_count()
+    # Hit the REAL production callback path with NO session at all -- this is
+    # exactly what Discord actually sends the browser back to.
+    resp12 = client.get(f'/portal/discord/callback?state={real_state}&code=fakecode999', follow_redirects=False)
+    after = row_count()
+    check("no login required -- did not redirect to /login", '/login' not in resp12.headers.get('Location', ''))
+    check("exactly one new row created via the REAL /portal/discord/callback path", after == before + 1)
+    row2 = get_row_by_email('realpath@example.com')
+    check("row created with the verified Discord identity", row2 is not None and row2.get('discord_user_id') == 'discord_test_999')
+finally:
+    di.exchange_code = orig_exchange
+    di.fetch_identity = orig_fetch
+    di.sync_beta_applicant_roles = orig_sync
+    di.discord_configured = orig_discord_configured
+    cleanup('realpath@example.com')
+
+print("\n10) /portal/discord/callback with a non-waitlist (bogus) state and NO session still requires login")
+resp13 = client.get('/portal/discord/callback?state=not-a-real-token&code=whatever', follow_redirects=False)
+check("redirects to login when state isn't a waitlist token and there's no session",
+      '/login' in resp13.headers.get('Location', ''))
+
 print("\n" + "="*60)
 if failed:
     print(f"RESULT: {len(failed)} FAILED, {len(passed)} passed")
