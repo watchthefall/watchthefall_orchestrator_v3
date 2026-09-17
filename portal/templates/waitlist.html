@@ -515,7 +515,7 @@ img { display: block; }
 .evidence-intro h2 { font-size: 1.05rem; font-weight: 700; letter-spacing: -.015em; margin-bottom: .6rem; }
 .evidence-intro p  { font-size: .9rem; color: var(--mid); line-height: 1.7; }
 
-.proof-scroll-wrap { margin: 1.1rem -1.75rem 0; }
+.proof-scroll-wrap { position: relative; margin: 1.1rem -1.75rem 0; }
 .proof-scroll {
     display: flex; gap: .75rem;
     overflow-x: auto; padding: 0 1.75rem .5rem;
@@ -525,15 +525,22 @@ img { display: block; }
     scroll-snap-type: x proximity;
 }
 .proof-scroll::-webkit-scrollbar { display: none; }
-.proof-shot { flex-shrink: 0; width: 240px; scroll-snap-align: center; }
+.proof-shot { flex-shrink: 0; width: min(86vw, 460px); scroll-snap-align: center; }
 .proof-shot img {
-    width: 100%; height: auto; border-radius: 10px;
+    display: block; width: 100%; height: auto; aspect-ratio: 21 / 10; border-radius: 10px;
     border: 1px solid var(--card-bdr);
     box-shadow: 0 4px 20px rgba(0,0,0,.4);
+    object-fit: contain; background: #050508;
 }
 .proof-shot figcaption {
     margin-top: .5rem; font-size: .72rem; font-weight: 600;
     letter-spacing: .04em; color: var(--mid); text-align: center;
+}
+
+.proof-counter {
+    text-align: center; margin-top: .6rem;
+    font-size: .7rem; font-weight: 600; letter-spacing: .04em;
+    color: var(--xlow);
 }
 
 .level-table { width: 100%; border-collapse: collapse; margin-top: 1.25rem; font-size: .8rem; }
@@ -547,7 +554,6 @@ img { display: block; }
 @media (min-width: 768px) {
     .proof-scroll-wrap { margin: 1.1rem -2rem 0; }
     .proof-scroll { padding: 0 2rem .5rem; }
-    .proof-shot { width: 270px; }
 }
 
 /* ── Discord ── */
@@ -667,33 +673,40 @@ img { display: block; }
             <p>Not a mockup — this is the real Brandr app, captured from the working product.</p>
         </div>
         <div class="proof-scroll-wrap">
-            <div class="proof-scroll">
+            <button class="carousel-arrow arrow-prev arrow-hidden" id="arrow-prev-proof" aria-label="Previous screenshot">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <div class="proof-scroll" id="proof-scroll-product">
                 <figure class="proof-shot">
-                    <img src="{{ url_for('static', filename='img/waitlist_v4/01_create_source.png') }}" alt="Brandr Create step 1 — a real source clip selected from the library" loading="lazy">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/01_create_source.png') }}" alt="Brandr Create step 1 — a real source clip selected from the library" width="1050" height="500" loading="lazy">
                     <figcaption>1. Pick your source</figcaption>
                 </figure>
                 <figure class="proof-shot">
-                    <img src="{{ url_for('static', filename='img/waitlist_v4/02_configure_outputs.png') }}" alt="Brandr Create step 2 — output format and brand selected" loading="lazy">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/02_configure_outputs.png') }}" alt="Brandr Create step 2 — output format and brand selected" width="1050" height="500" loading="lazy">
                     <figcaption>2. Choose format &amp; brand</figcaption>
                 </figure>
                 <figure class="proof-shot">
-                    <img src="{{ url_for('static', filename='img/waitlist_v4/03_review_cockpit.png') }}" alt="Brandr review cockpit with watermark and logo controls" loading="lazy">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/03_review_cockpit.png') }}" alt="Brandr review cockpit with watermark and logo controls" width="1050" height="500" loading="lazy">
                     <figcaption>3. Review &amp; adjust</figcaption>
                 </figure>
                 <figure class="proof-shot">
-                    <img src="{{ url_for('static', filename='img/waitlist_v4/04_rendering.png') }}" alt="Brandr rendering the branded output in the background" loading="lazy">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/04_rendering.png') }}" alt="Brandr rendering the branded output in the background" width="1050" height="500" loading="lazy">
                     <figcaption>4. Brandr renders it</figcaption>
                 </figure>
                 <figure class="proof-shot">
-                    <img src="{{ url_for('static', filename='img/waitlist_v4/05_finished_output.png') }}" alt="Brandr branding complete, ready to download" loading="lazy">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/05_finished_output.png') }}" alt="Brandr branding complete, ready to download" width="1050" height="500" loading="lazy">
                     <figcaption>5. Done — ready to post</figcaption>
                 </figure>
                 <figure class="proof-shot">
-                    <img src="{{ url_for('static', filename='img/waitlist_v4/06_library.png') }}" alt="Brandr library showing the finished branded render" loading="lazy">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/06_library.png') }}" alt="Brandr library showing the finished branded render" width="1050" height="500" loading="lazy">
                     <figcaption>6. Lives in your library</figcaption>
                 </figure>
             </div>
+            <button class="carousel-arrow arrow-next" id="arrow-next-proof" aria-label="Next screenshot">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
         </div>
+        <div class="proof-counter" id="proof-counter-product">1 / 6</div>
     </section>
 
     <!-- ── CHOOSE YOUR LEVEL ── -->
@@ -703,25 +716,32 @@ img { display: block; }
             <p>The workflow stays the same. Your Brandr workspace scales with you.</p>
         </div>
         <div class="proof-scroll-wrap">
-            <div class="proof-scroll">
+            <button class="carousel-arrow arrow-prev arrow-hidden" id="arrow-prev-tier" aria-label="Previous tier">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <div class="proof-scroll" id="proof-scroll-tier">
                 <figure class="proof-shot">
-                    <img src="{{ url_for('static', filename='img/waitlist_v4/07_tier_explorer.png') }}" alt="Brandr workspace themed for the Explorer tier — mint green" loading="lazy">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/07_tier_explorer.png') }}" alt="Brandr workspace themed for the Explorer tier — mint green" width="1050" height="500" loading="lazy">
                     <figcaption>Explorer</figcaption>
                 </figure>
                 <figure class="proof-shot">
-                    <img src="{{ url_for('static', filename='img/waitlist_v4/08_tier_creator.png') }}" alt="Brandr workspace themed for the Creator tier — purple" loading="lazy">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/08_tier_creator.png') }}" alt="Brandr workspace themed for the Creator tier — purple" width="1050" height="500" loading="lazy">
                     <figcaption>Creator</figcaption>
                 </figure>
                 <figure class="proof-shot">
-                    <img src="{{ url_for('static', filename='img/waitlist_v4/09_tier_studio.png') }}" alt="Brandr workspace themed for the Studio tier — amber" loading="lazy">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/09_tier_studio.png') }}" alt="Brandr workspace themed for the Studio tier — amber" width="1050" height="500" loading="lazy">
                     <figcaption>Studio</figcaption>
                 </figure>
                 <figure class="proof-shot">
-                    <img src="{{ url_for('static', filename='img/waitlist_v4/10_tier_platinum.png') }}" alt="Brandr workspace themed for the Platinum tier — icy blue" loading="lazy">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/10_tier_platinum.png') }}" alt="Brandr workspace themed for the Platinum tier — icy blue" width="1050" height="500" loading="lazy">
                     <figcaption>Platinum</figcaption>
                 </figure>
             </div>
+            <button class="carousel-arrow arrow-next" id="arrow-next-tier" aria-label="Next tier">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
         </div>
+        <div class="proof-counter" id="proof-counter-tier">1 / 4</div>
         <table class="level-table">
             <thead>
                 <tr><th>Tier</th><th>Brand configs</th><th>Daily credits</th></tr>
@@ -1132,6 +1152,47 @@ img { display: block; }
     scrollFP.querySelectorAll('.pricing-card-img[data-tier]').forEach(function (c) {
         c.addEventListener('click', function () { setTier(c.dataset.tier, false); if (foundingActive) setFounding(false); });
     });
+
+    /* ── Simple evidence carousels (product proof / tier progression) ── */
+    function initProofCarousel(scrollId, prevId, nextId, counterId) {
+        var strip = document.getElementById(scrollId);
+        var prev  = document.getElementById(prevId);
+        var next  = document.getElementById(nextId);
+        var counter = document.getElementById(counterId);
+        if (!strip || !prev || !next) return;
+        var items = Array.from(strip.children);
+
+        function closestIndex() {
+            var center = strip.scrollLeft + strip.offsetWidth / 2;
+            var idx = 0, best = Infinity;
+            items.forEach(function (c, i) {
+                var d = Math.abs((c.offsetLeft + c.offsetWidth / 2) - center);
+                if (d < best) { best = d; idx = i; }
+            });
+            return idx;
+        }
+        function update() {
+            if (counter) counter.textContent = (closestIndex() + 1) + ' / ' + items.length;
+            prev.classList.toggle('arrow-hidden', strip.scrollLeft < 8);
+            next.classList.toggle('arrow-hidden', strip.scrollLeft >= strip.scrollWidth - strip.offsetWidth - 8);
+        }
+        function goTo(idx) {
+            idx = Math.max(0, Math.min(items.length - 1, idx));
+            var target = items[idx];
+            var left = target.offsetLeft - (strip.offsetWidth / 2) + (target.offsetWidth / 2);
+            /* Instant, not smooth: smooth scrollTo() fights with scroll-snap-type here and
+               truncates mid-animation on lazy-loaded content. Instant jump is reliable. */
+            strip.scrollLeft = Math.max(0, left);
+            update();
+        }
+        prev.addEventListener('click', function () { goTo(closestIndex() - 1); });
+        next.addEventListener('click', function () { goTo(closestIndex() + 1); });
+        var t;
+        strip.addEventListener('scroll', function () { clearTimeout(t); t = setTimeout(update, 60); }, { passive: true });
+        goTo(0);
+    }
+    initProofCarousel('proof-scroll-product', 'arrow-prev-proof', 'arrow-next-proof', 'proof-counter-product');
+    initProofCarousel('proof-scroll-tier', 'arrow-prev-tier', 'arrow-next-tier', 'proof-counter-tier');
 
     /* ── Scroll-triggered fade-up ── */
     if ('IntersectionObserver' in window) {
