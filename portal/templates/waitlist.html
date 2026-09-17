@@ -266,34 +266,26 @@ img { display: block; }
     color: var(--founding); text-transform: uppercase;
     margin-bottom: .65rem;
 }
-.countdown-grid {
-    display: flex; align-items: flex-end; justify-content: center;
-    gap: .4rem;
+.countdown-stat {
+    display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center;
+    gap: .3em .5em;
+    text-transform: uppercase;
 }
-.countdown-unit { display: flex; flex-direction: column; align-items: center; min-width: 2.6rem; }
-.countdown-value {
+.countdown-num {
     font-variant-numeric: tabular-nums;
-    font-size: 1.75rem; font-weight: 800; letter-spacing: -.02em;
-    color: var(--white); line-height: 1;
+    font-size: 1.5rem; font-weight: 800; letter-spacing: -.01em;
+    color: var(--white);
     font-feature-settings: "tnum";
 }
-.countdown-unit-label {
-    font-size: .58rem; font-weight: 600; letter-spacing: .1em;
-    color: var(--low); text-transform: uppercase; margin-top: .3rem;
+.countdown-word {
+    font-size: .8rem; font-weight: 600; letter-spacing: .04em;
+    color: var(--mid);
+    margin-right: .1em;
 }
-.countdown-sep {
-    font-size: 1.5rem; font-weight: 700; color: var(--xlow);
-    padding-bottom: 1.1rem;
-}
-/* Seconds: present but visually subordinate to Days/Hours/Minutes */
-.countdown-unit-sm { min-width: 2.1rem; }
-.countdown-value-sm {
-    font-size: 1.1rem; font-weight: 700; color: var(--mid);
-}
-.countdown-sep-sm { font-size: 1.1rem; padding-bottom: .55rem; color: var(--xlow); }
+.countdown-dot { color: var(--founding); font-weight: 700; }
 .countdown-date {
     font-size: .72rem; font-weight: 600; letter-spacing: .05em;
-    color: var(--mid); margin-top: .75rem;
+    color: var(--mid); margin-top: .7rem;
     text-transform: uppercase;
 }
 .countdown-live {
@@ -303,9 +295,8 @@ img { display: block; }
 }
 @media (min-width: 480px) {
     .countdown-card { padding: 1.35rem 1.5rem 1.4rem; }
-    .countdown-value { font-size: 2.1rem; }
-    .countdown-value-sm { font-size: 1.3rem; }
-    .countdown-unit { min-width: 3rem; }
+    .countdown-num { font-size: 1.8rem; }
+    .countdown-word { font-size: .9rem; }
 }
 
 /* ── Pills ── */
@@ -713,28 +704,14 @@ img { display: block; }
     <section class="countdown-card u-fade" data-delay="1" id="countdown-card" aria-label="Beta launch countdown">
         <div id="countdown-pending">
             <p class="countdown-eyebrow">Brandr launches in</p>
-            <div class="countdown-grid" aria-live="off">
-                <div class="countdown-unit">
-                    <span class="countdown-value" id="cd-days">00</span>
-                    <span class="countdown-unit-label">Days</span>
-                </div>
-                <span class="countdown-sep">:</span>
-                <div class="countdown-unit">
-                    <span class="countdown-value" id="cd-hours">00</span>
-                    <span class="countdown-unit-label">Hours</span>
-                </div>
-                <span class="countdown-sep">:</span>
-                <div class="countdown-unit">
-                    <span class="countdown-value" id="cd-mins">00</span>
-                    <span class="countdown-unit-label">Mins</span>
-                </div>
-                <span class="countdown-sep countdown-sep-sm">:</span>
-                <div class="countdown-unit countdown-unit-sm">
-                    <span class="countdown-value countdown-value-sm" id="cd-secs">00</span>
-                    <span class="countdown-unit-label">Secs</span>
-                </div>
-            </div>
-            <p class="countdown-date">6 October 2026 · 5:00 PM UK</p>
+            <p class="countdown-stat" id="countdown-stat" aria-live="off">
+                <span class="countdown-num" id="cd-days">00</span><span class="countdown-word">Days</span>
+                <span class="countdown-dot">·</span>
+                <span class="countdown-num" id="cd-hours">00</span><span class="countdown-word">Hours</span>
+                <span class="countdown-dot">·</span>
+                <span class="countdown-num" id="cd-mins">00</span><span class="countdown-word">Minutes</span>
+            </p>
+            <p class="countdown-date">06 October 2026 · 5:00 PM UK</p>
         </div>
         <p class="countdown-live" id="countdown-live" hidden>Brandr is live</p>
     </section>
@@ -1357,7 +1334,6 @@ img { display: block; }
     var elD = document.getElementById('cd-days');
     var elH = document.getElementById('cd-hours');
     var elM = document.getElementById('cd-mins');
-    var elS = document.getElementById('cd-secs');
 
     var targetMs;
     try {
@@ -1379,11 +1355,12 @@ img { display: block; }
             if (timer) clearInterval(timer);
             return;
         }
+        /* Recomputed every second (not just once a minute) so Days/Hours/Minutes
+           roll over at the exact real-world instant — seconds just aren't displayed. */
         var totalSec = Math.floor(diff / 1000);
         elD.textContent = pad(Math.floor(totalSec / 86400));
         elH.textContent = pad(Math.floor((totalSec % 86400) / 3600));
         elM.textContent = pad(Math.floor((totalSec % 3600) / 60));
-        elS.textContent = pad(totalSec % 60);
     }
 
     tick();
