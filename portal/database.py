@@ -707,6 +707,13 @@ def _run_migrations():
             "ALTER TABLE users ADD COLUMN founding_discount_percent REAL DEFAULT NULL",
             "ALTER TABLE users ADD COLUMN bonus_tier_until TEXT DEFAULT NULL",
             "ALTER TABLE users ADD COLUMN first_login_welcome_seen INTEGER DEFAULT 0",
+            # Discord OAuth2 link (identify scope only) -- discord_user_id is the
+            # verified snowflake from Discord's own /users/@me, never user-typed;
+            # compare with beta_access.discord_username, which IS a free-text
+            # field collected on the waitlist form and never verified.
+            "ALTER TABLE users ADD COLUMN discord_user_id TEXT DEFAULT NULL",
+            "ALTER TABLE users ADD COLUMN discord_username TEXT DEFAULT NULL",
+            "ALTER TABLE users ADD COLUMN discord_linked_at TEXT DEFAULT NULL",
         ]:
             col_name = col_sql.split("ADD COLUMN ")[1].split()[0]
             try:
@@ -2830,6 +2837,62 @@ def set_user_special_status(user_id, status):
         conn.commit()
         return True
     return _retry_write(_do_update)
+
+
+# ========== DISCORD ACCOUNT LINK ==========
+# Brandr is the source of truth (see the Brandr <-> Discord Access Model doc);
+# these three columns are the verified link, written only from an OAuth2
+# identify-scope callback -- never user-typed, never trusted from a form.
+
+def link_discord_account(user_id, discord_user_id, discord_username):
+    """Record a verified Discord identity against this Brandr account.
+    Overwrites any previous link (e.g. the user re-linked a different Discord
+    account) -- last link wins, matching how re-authenticating any OAuth
+    provider works elsewhere on the web."""
+    def _do_update(conn):
+        c = conn.cursor()
+        c.execute(
+            'UPDATE users SET discord_user_id = ?, discord_username = ?, '
+            'discord_linked_at = CURRENT_TIMESTAMP WHERE id = ?',
+            (discord_user_id, discord_username, user_id)
+        )
+        conn.commit()
+        return True
+    return _retry_write(_do_update)
+
+
+def unlink_discord_account(user_id):
+    """Clear a user's Discord link. Does not touch their Discord roles --
+    call discord_integration.sync_roles_for_user first if roles should be
+    revoked too (best-effort; the account may have already left the server)."""
+    def _do_update(conn):
+        c = conn.cursor()
+        c.execute(
+            'UPDATE users SET discord_user_id = NULL, discord_username = NULL, '
+            'discord_linked_at = NULL WHERE id = ?',
+            (user_id,)
+        )
+        conn.commit()
+        return True
+    return _retry_write(_do_update)
+
+
+def get_discord_link(user_id):
+    """This account's Discord link, or None if never linked / on DB error."""
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute(
+                'SELECT discord_user_id, discord_username, discord_linked_at '
+                'FROM users WHERE id = ?', (user_id,)
+            )
+            row = c.fetchone()
+        if row and row['discord_user_id']:
+            return dict(row)
+        return None
+    except Exception as e:
+        print(f"[DISCORD] get_discord_link error for user={user_id}: {e}", flush=True)
+        return None
 
 
 # ============================================================================

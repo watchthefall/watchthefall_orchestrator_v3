@@ -98,6 +98,7 @@ from .database import (
     add_earned_credits, add_purchased_credits, get_credit_ledger,
     log_render_event, get_render_stats, get_user_render_stats,
     get_user_special_status, set_user_special_status,
+    link_discord_account, unlink_discord_account, get_discord_link,
     create_waitlist_entry, get_waitlist_entry_by_email,
     get_pending_waitlist_entries, get_all_waitlist_entries, get_waitlist_counts,
     approve_waitlist_entry, claim_waitlist_entry, set_waitlist_entry_status,
@@ -1908,6 +1909,7 @@ def profile_page():
         user_brands = get_all_brands(user_id=user_id, include_system=False)
         brand_configs = len(user_brands)
 
+        from .discord_integration import discord_configured
         return render_template('profile.html',
             email=email,
             created_at=created_at,
@@ -1918,6 +1920,8 @@ def profile_page():
             credits_per_day=credits_per_day,
             brand_configs=brand_configs,
             founding_status=founding_status,
+            discord_link=get_discord_link(user_id),
+            discord_configured=discord_configured(),
         )
     except Exception as e:
         print(f"[PROFILE ERROR] Failed to load profile page: {e}")
@@ -1932,6 +1936,86 @@ def profile_page():
             usage={'branding_jobs': 0, 'downloads': 0},
             brand_configs=0,
         ), 200
+
+
+# ── Discord account linking ──
+#
+# One-way sync: Brandr is the source of truth for tier/Founding/status, this
+# never reads a role back out of Discord. See discord_integration.py and the
+# "Brandr <-> Discord Access Model" spec doc for the full design.
+
+@app.route('/portal/discord/link')
+@login_required
+def discord_link():
+    import secrets
+    from .discord_integration import discord_configured, oauth_authorize_url
+    if not discord_configured():
+        flash('Discord linking is not set up yet -- check back soon.', 'error')
+        return redirect(url_for('profile_page'))
+    state = secrets.token_urlsafe(24)
+    session['discord_oauth_state'] = state
+    return redirect(oauth_authorize_url(state))
+
+
+@app.route('/portal/discord/callback')
+@login_required
+def discord_callback():
+    from .discord_integration import exchange_code, fetch_identity, sync_roles_for_user
+
+    expected_state = session.pop('discord_oauth_state', None)
+    state = request.args.get('state')
+    if not state or state != expected_state:
+        flash('Discord linking failed (session expired) -- please try again.', 'error')
+        return redirect(url_for('profile_page'))
+
+    if request.args.get('error'):
+        flash('Discord authorization was cancelled.', 'info')
+        return redirect(url_for('profile_page'))
+
+    code = request.args.get('code')
+    if not code:
+        flash('Discord did not return an authorization code -- please try again.', 'error')
+        return redirect(url_for('profile_page'))
+
+    token = exchange_code(code)
+    if not token or not token.get('access_token'):
+        flash('Could not complete Discord linking -- please try again.', 'error')
+        return redirect(url_for('profile_page'))
+
+    identity = fetch_identity(token['access_token'])
+    if not identity or not identity.get('id'):
+        flash('Could not read your Discord identity -- please try again.', 'error')
+        return redirect(url_for('profile_page'))
+
+    user_id = session['user_id']
+    link_discord_account(user_id, identity['id'], identity['username'])
+
+    ok, detail = sync_roles_for_user(user_id)
+    if ok:
+        flash(f"Discord linked as @{identity['username']} — roles synced.", 'success')
+    else:
+        flash(f"Discord linked as @{identity['username']}. Roles will sync once you've "
+              f"joined the Brandr server ({detail}).", 'info')
+    return redirect(url_for('profile_page'))
+
+
+@app.route('/portal/discord/unlink', methods=['POST'])
+@login_required
+def discord_unlink():
+    unlink_discord_account(session['user_id'])
+    flash('Discord account unlinked.', 'success')
+    return redirect(url_for('profile_page'))
+
+
+@app.route('/portal/discord/resync', methods=['POST'])
+@login_required
+def discord_resync():
+    from .discord_integration import sync_roles_for_user
+    ok, detail = sync_roles_for_user(session['user_id'])
+    flash('Discord roles synced.' if ok else f'Could not sync roles yet: {detail}',
+          'success' if ok else 'error')
+    return redirect(url_for('profile_page'))
+
 
 @app.route('/portal/shipr')
 @login_required

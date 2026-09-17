@@ -572,3 +572,44 @@ try:
     print(f"[CONFIG] Meta fetch proxy: {proxy_service.describe()}")
 except Exception as _px_err:
     print(f"[CONFIG] proxy_service unavailable: {_px_err}")
+
+# ============================================================================
+# DISCORD INTEGRATION
+# ============================================================================
+# Brandr <-> Discord Access Model: Brandr is the source of truth for tier,
+# Founding status and entitlements; Discord roles only ever reflect them
+# (one-way sync). See the "Brandr <-> Discord Access Model" spec doc for the
+# full role map and sync rules. Every value below is optional -- with no
+# DISCORD_CLIENT_ID set, discord_integration.discord_configured() is False
+# and the "Connect Discord" flow tells the user linking isn't live yet
+# instead of failing partway through an OAuth redirect.
+DISCORD_CLIENT_ID = os.environ.get('DISCORD_CLIENT_ID', '').strip()
+DISCORD_CLIENT_SECRET = os.environ.get('DISCORD_CLIENT_SECRET', '').strip()
+DISCORD_BOT_TOKEN = os.environ.get('DISCORD_BOT_TOKEN', '').strip()
+DISCORD_GUILD_ID = os.environ.get('DISCORD_GUILD_ID', '').strip()
+# Must exactly match a redirect registered on the app in the Discord Developer
+# Portal (OAuth2 -> Redirects), e.g. https://brandr.online/portal/discord/callback
+DISCORD_REDIRECT_URI = os.environ.get('DISCORD_REDIRECT_URI', '').strip()
+
+# Only the identify scope is requested -- Brandr reads the linking user's
+# Discord id/username, nothing more. Role assignment then goes through the
+# BOT token against the guild, not through the user's own OAuth grant.
+DISCORD_OAUTH_SCOPES = 'identify'
+
+# Discord role ids this account manages on a member's roles (Server Settings
+# -> Roles -> right-click a role -> Copy Role ID, with Developer Mode on).
+# A blank value just means that role is skipped by sync -- fill these in as
+# each role is created/identified on the real server; nothing else in the
+# integration needs to change once they are.
+DISCORD_ROLE_IDS = {
+    'verified': os.environ.get('DISCORD_ROLE_VERIFIED', '').strip(),
+    'tier': {
+        'Explorer': os.environ.get('DISCORD_ROLE_EXPLORER', '').strip(),
+        'Creator': os.environ.get('DISCORD_ROLE_CREATOR', '').strip(),
+        'Studio': os.environ.get('DISCORD_ROLE_STUDIO', '').strip(),
+        'Platinum': os.environ.get('DISCORD_ROLE_PLATINUM', '').strip(),
+        'Elite': os.environ.get('DISCORD_ROLE_PLATINUM', '').strip(),  # no Elite role yet; Platinum is closest
+    },
+    'founding': os.environ.get('DISCORD_ROLE_FOUNDING', '').strip(),
+}
+print(f"[CONFIG] Discord integration: {'configured' if DISCORD_CLIENT_ID and DISCORD_BOT_TOKEN and DISCORD_GUILD_ID else 'not configured (linking disabled)'}")
