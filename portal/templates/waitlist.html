@@ -504,6 +504,52 @@ img { display: block; }
 .pricing-note em     { color: var(--accent); font-style: normal; font-weight: 600; transition: color .3s; }
 .pricing-note.pn-hidden { display: none; }
 
+/* ══════════════════════════════════════════
+   HERO CTA
+══════════════════════════════════════════ */
+.hero-cta { max-width: 320px; margin-bottom: .9rem; text-transform: uppercase; letter-spacing: .04em; }
+
+/* ══════════════════════════════════════════
+   PRODUCT PROOF / TIER PROGRESSION STRIPS
+══════════════════════════════════════════ */
+.evidence-intro h2 { font-size: 1.05rem; font-weight: 700; letter-spacing: -.015em; margin-bottom: .6rem; }
+.evidence-intro p  { font-size: .9rem; color: var(--mid); line-height: 1.7; }
+
+.proof-scroll-wrap { margin: 1.1rem -1.75rem 0; }
+.proof-scroll {
+    display: flex; gap: .75rem;
+    overflow-x: auto; padding: 0 1.75rem .5rem;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 6%, black 88%, transparent 100%);
+    mask-image:         linear-gradient(to right, transparent 0%, black 6%, black 88%, transparent 100%);
+    scroll-snap-type: x proximity;
+}
+.proof-scroll::-webkit-scrollbar { display: none; }
+.proof-shot { flex-shrink: 0; width: 240px; scroll-snap-align: center; }
+.proof-shot img {
+    width: 100%; height: auto; border-radius: 10px;
+    border: 1px solid var(--card-bdr);
+    box-shadow: 0 4px 20px rgba(0,0,0,.4);
+}
+.proof-shot figcaption {
+    margin-top: .5rem; font-size: .72rem; font-weight: 600;
+    letter-spacing: .04em; color: var(--mid); text-align: center;
+}
+
+.level-table { width: 100%; border-collapse: collapse; margin-top: 1.25rem; font-size: .8rem; }
+.level-table th, .level-table td { padding: .55rem .5rem; text-align: center; border-bottom: 1px solid var(--card-bdr); }
+.level-table th {
+    color: var(--low); font-weight: 600; text-transform: uppercase;
+    font-size: .68rem; letter-spacing: .06em;
+}
+.level-table td:first-child, .level-table th:first-child { text-align: left; color: var(--white); font-weight: 600; }
+
+@media (min-width: 768px) {
+    .proof-scroll-wrap { margin: 1.1rem -2rem 0; }
+    .proof-scroll { padding: 0 2rem .5rem; }
+    .proof-shot { width: 270px; }
+}
+
 /* ── Discord ── */
 .discord-card { background: var(--card-alt); text-align: center; }
 .discord-card h2 { font-size: 1.05rem; font-weight: 700; letter-spacing: -.015em; margin-bottom: .5rem; }
@@ -589,8 +635,12 @@ img { display: block; }
         <p class="hero-eyebrow">Creator Command Centre</p>
         <h1 class="hero-headline">Paste clips.<br>Brand them.<br>Build from there.</h1>
         <p class="hero-description">
-            A mobile-first branding engine for creators managing pages, clips, brands, and communities.
+            Turn one piece of content into branded outputs for every page, brand and format you run.
         </p>
+        <a href="#waitlist-form" class="btn btn-gold hero-cta">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            Join the Brandr Beta
+        </a>
         <span class="invite-badge" aria-label="Invite only beta">
             <span class="badge-dot"></span>
             Invite-Only Beta
@@ -603,6 +653,87 @@ img { display: block; }
         <span class="pill">🎨 Multi-brand workspace</span>
         <span class="pill">📱 Mobile-first</span>
     </div>
+
+    <!-- ── WHAT BRANDR DOES ── -->
+    <section class="card evidence-intro u-fade" data-delay="1">
+        <h2>What Brandr does</h2>
+        <p>Paste one clip. Brandr brands it — your logo, your watermark, your look — and outputs it in every format your pages need, ready to post.</p>
+    </section>
+
+    <!-- ── REAL PRODUCT PROOF ── -->
+    <section class="card proof-section u-fade" data-delay="2">
+        <div class="pricing-header">
+            <h2>FROM CONTENT → TO BRANDED OUTPUT</h2>
+            <p>Not a mockup — this is the real Brandr app, captured from the working product.</p>
+        </div>
+        <div class="proof-scroll-wrap">
+            <div class="proof-scroll">
+                <figure class="proof-shot">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/01_create_source.png') }}" alt="Brandr Create step 1 — a real source clip selected from the library" loading="lazy">
+                    <figcaption>1. Pick your source</figcaption>
+                </figure>
+                <figure class="proof-shot">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/02_configure_outputs.png') }}" alt="Brandr Create step 2 — output format and brand selected" loading="lazy">
+                    <figcaption>2. Choose format &amp; brand</figcaption>
+                </figure>
+                <figure class="proof-shot">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/03_review_cockpit.png') }}" alt="Brandr review cockpit with watermark and logo controls" loading="lazy">
+                    <figcaption>3. Review &amp; adjust</figcaption>
+                </figure>
+                <figure class="proof-shot">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/04_rendering.png') }}" alt="Brandr rendering the branded output in the background" loading="lazy">
+                    <figcaption>4. Brandr renders it</figcaption>
+                </figure>
+                <figure class="proof-shot">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/05_finished_output.png') }}" alt="Brandr branding complete, ready to download" loading="lazy">
+                    <figcaption>5. Done — ready to post</figcaption>
+                </figure>
+                <figure class="proof-shot">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/06_library.png') }}" alt="Brandr library showing the finished branded render" loading="lazy">
+                    <figcaption>6. Lives in your library</figcaption>
+                </figure>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── CHOOSE YOUR LEVEL ── -->
+    <section class="card level-section u-fade" data-delay="3">
+        <div class="pricing-header">
+            <h2>Choose your level</h2>
+            <p>The workflow stays the same. Your Brandr workspace scales with you.</p>
+        </div>
+        <div class="proof-scroll-wrap">
+            <div class="proof-scroll">
+                <figure class="proof-shot">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/07_tier_explorer.png') }}" alt="Brandr workspace themed for the Explorer tier — mint green" loading="lazy">
+                    <figcaption>Explorer</figcaption>
+                </figure>
+                <figure class="proof-shot">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/08_tier_creator.png') }}" alt="Brandr workspace themed for the Creator tier — purple" loading="lazy">
+                    <figcaption>Creator</figcaption>
+                </figure>
+                <figure class="proof-shot">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/09_tier_studio.png') }}" alt="Brandr workspace themed for the Studio tier — amber" loading="lazy">
+                    <figcaption>Studio</figcaption>
+                </figure>
+                <figure class="proof-shot">
+                    <img src="{{ url_for('static', filename='img/waitlist_v4/10_tier_platinum.png') }}" alt="Brandr workspace themed for the Platinum tier — icy blue" loading="lazy">
+                    <figcaption>Platinum</figcaption>
+                </figure>
+            </div>
+        </div>
+        <table class="level-table">
+            <thead>
+                <tr><th>Tier</th><th>Brand configs</th><th>Daily credits</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Explorer</td><td>3</td><td>10</td></tr>
+                <tr><td>Creator</td><td>7</td><td>35</td></tr>
+                <tr><td>Studio</td><td>10</td><td>75</td></tr>
+                <tr><td>Platinum</td><td>50</td><td>250</td></tr>
+            </tbody>
+        </table>
+    </section>
 
     <!-- ── FLASH / SUCCESS ── -->
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -746,7 +877,7 @@ img { display: block; }
                 </div>
                 <div class="perk-body">
                     <strong>Founding member pricing</strong>
-                    <span>Founder pricing for life — always below standard rates, even as the product grows</span>
+                    <span>Founding Members keep their Founding status permanently and receive the applicable Founding price whenever they subscribe</span>
                 </div>
             </li>
         </ul>
@@ -755,8 +886,8 @@ img { display: block; }
             <img src="{{ url_for('static', filename='img/brandr_founding_member_badge_gold.png') }}"
                 alt="Brandr Founding Member" loading="lazy">
             <div class="founding-copy">
-                <strong>Founding Member — Early Access</strong>
-                <span>First in line for every new feature. Founder pricing, locked for life.</span>
+                <strong>Founding Member — get in early</strong>
+                <span>Your Founding status is permanent. Cancel anytime and you keep it. When you re-subscribe, you receive the Founding price available for your chosen tier at that time.</span>
             </div>
         </div>
     </div>
@@ -765,7 +896,7 @@ img { display: block; }
     <div class="pricing-section u-fade" data-delay="5">
         <div class="pricing-header">
             <h2>Plans unlocked on approval</h2>
-            <p id="pricing-sub-founding">Founding members keep these rates for as long as they stay subscribed.</p>
+            <p id="pricing-sub-founding">Founding Members keep their Founding status permanently and receive the applicable Founding price whenever they subscribe.</p>
             <p id="pricing-sub-full" style="display:none">Regular rates — what everyone pays outside the beta window.</p>
         </div>
 
@@ -821,7 +952,7 @@ img { display: block; }
         </div>
 
         <p class="pricing-note" id="pn-founding">
-            Your founding price is <strong>locked for 12 months</strong> — then you keep founder pricing, always below standard, for life.
+            <strong>Founding Members</strong> keep their Founding status permanently and receive the applicable <em>Founding price</em> whenever they subscribe.
         </p>
         <p class="pricing-note pn-hidden" id="pn-full">
             These are regular rates. <em>Join during beta</em> to lock in founding member pricing.
@@ -883,13 +1014,13 @@ img { display: block; }
         next.classList.toggle('arrow-hidden', strip.scrollLeft >= strip.scrollWidth - strip.offsetWidth - 8);
     }
 
-    function centerCard(strip, tierId) {
+    function centerCard(strip, tierId, instant) {
         var card = strip.querySelector('[data-tier="' + tierId + '"]');
         if (!card) return;
         scrollLocked = true;
         var t = card.offsetLeft - (strip.offsetWidth / 2) + (card.offsetWidth / 2);
-        strip.scrollTo({ left: Math.max(0, t), behavior: 'smooth' });
-        setTimeout(function () { scrollLocked = false; }, 700);
+        strip.scrollTo({ left: Math.max(0, t), behavior: instant ? 'auto' : 'smooth' });
+        setTimeout(function () { scrollLocked = false; }, instant ? 0 : 700);
     }
 
     function stepCard(strip, dir) {
@@ -1035,9 +1166,10 @@ img { display: block; }
         });
     }
 
-    /* ── Init ── */
+    /* ── Init: land on the active card centered, not pinned to scrollLeft 0 ── */
     setTier('explorer', true);
-    scrollF.scrollLeft = 0;
+    centerCard(scrollF, currentTier, true);
+    centerCard(scrollFP, currentTier, true);
     updateArrows(scrollF, apf, anf);
     updateArrows(scrollFP, apfp, anfp);
 
