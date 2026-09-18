@@ -560,6 +560,16 @@ def inject_global_context():
         special_status = get_user_special_status(user_id)
         badge = get_badge_info(tier, special_status)
         ctx['tier'] = tier
+        # Nav-wide Discord LINK state (distinct from discord_configured above,
+        # which only says whether OAuth is reachable at all). The nav partial
+        # uses this so the "Discord" menu item reflects whether THIS account
+        # has already linked, instead of always pointing at the OAuth
+        # kickoff route as if nothing had happened yet.
+        try:
+            ctx['discord_link'] = get_discord_link(user_id)
+        except Exception as _e:
+            print(f"[NAV] discord_link lookup failed for user={user_id}: {_e}")
+            ctx['discord_link'] = None
         ctx['user_badge'] = badge
         ctx['user_special_status'] = special_status
         ctx['tier_features'] = get_tier_features(tier)

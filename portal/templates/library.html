@@ -5,6 +5,61 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Library - Brandr</title>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        /* Library video-preview modal -- click any available Finished
+           Render card to play it in place, matching the dark modal look
+           used elsewhere (Brands, Admin, upgrade modal). Source Video
+           cards are unaffected -- those aren't rendered output files. */
+        .video-preview-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .video-preview-modal.active { display: flex; }
+        .video-preview-modal__content {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 480px;
+            width: 100%;
+            max-height: 90vh;
+            position: relative;
+        }
+        .video-preview-modal__content video {
+            width: 100%;
+            max-height: 70vh;
+            border-radius: 8px;
+            display: block;
+            background: #000;
+        }
+        .video-preview-modal__close {
+            position: absolute;
+            top: -14px;
+            right: -14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #1a1a2e;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .video-preview-modal__title {
+            margin-top: 12px;
+            color: #EAEAEA;
+            font-size: 14px;
+            text-align: center;
+            word-break: break-word;
+        }
+    </style>
 </head>
 <body class="page-create">
     {% set active_page = 'library' %}
@@ -68,6 +123,14 @@
         </div>
     </div>
 
+    <div class="video-preview-modal" id="videoPreviewModal" onclick="if (event.target === this) closeVideoPreview()">
+        <div class="video-preview-modal__content">
+            <button type="button" class="video-preview-modal__close" onclick="closeVideoPreview()" aria-label="Close">&times;</button>
+            <video id="videoPreviewPlayer" controls></video>
+            <div class="video-preview-modal__title" id="videoPreviewTitle"></div>
+        </div>
+    </div>
+
     <script>
         const FORMAT_LABELS = {
             'vertical_9_16': 'Vertical 9:16',
@@ -114,6 +177,35 @@
             document.getElementById('tab-' + tab).classList.add('active');
             document.getElementById('panel-' + tab).classList.add('active');
         }
+
+        // Click-to-play modal for Finished Render cards. The single
+        // "Latest output" card already has its own <video> inline; this
+        // gives every OTHER available render the same playback ability
+        // instead of just a decorative thumbnail placeholder.
+        function openVideoPreview(url, title) {
+            const modal = document.getElementById('videoPreviewModal');
+            const player = document.getElementById('videoPreviewPlayer');
+            const titleEl = document.getElementById('videoPreviewTitle');
+            if (!modal || !player) return;
+            player.src = url;
+            if (titleEl) titleEl.textContent = title || '';
+            modal.classList.add('active');
+            player.play().catch(() => {});
+        }
+
+        function closeVideoPreview() {
+            const modal = document.getElementById('videoPreviewModal');
+            const player = document.getElementById('videoPreviewPlayer');
+            if (!modal || !player) return;
+            modal.classList.remove('active');
+            player.pause();
+            player.removeAttribute('src');
+            player.load();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeVideoPreview();
+        });
 
         // ========== Shared state ==========
         let allBrands = [];
@@ -366,10 +458,13 @@
                 const outputFilename = output.output_filename || '';
                 const outputId = output.id;
                 const metaLine = outputMetaLine(output);
+                const previewUrl = `/api/videos/download/${encodeURIComponent(outputFilename)}`;
+                const previewTitle = escapeHtml(`${output.brand_name || 'Unknown brand'} \u2014 ${sourceLabel}`).replace(/'/g, "\\'");
 
                 card.innerHTML = `
-                    <div class="card-thumb ${aspectClass}">
+                    <div class="card-thumb ${aspectClass}" ${fileAvailable ? `onclick="openVideoPreview('${previewUrl}', '${previewTitle}')" style="cursor:pointer;"` : ''}>
                         <input type="checkbox" class="card-thumb__select" value="${escapeHtml(outputFilename)}"
+                               onclick="event.stopPropagation()"
                                onchange="toggleRenderSelection(this)" title="Select for batch download"
                                ${fileAvailable ? '' : 'disabled data-unavailable="true"'}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>

@@ -249,7 +249,9 @@ window.addEventListener('pageshow', function (event) {
                 {% if is_admin_user %}
                 <a href="{{ url_for('admin_console') }}" style="color:#C7A53C;">Admin</a>
                 {% endif %}
-                {% if discord_configured %}
+                {% if discord_configured and discord_link %}
+                <a href="{{ url_for('profile_page') }}#community" title="Connected as @{{ discord_link.discord_username }} — manage in Profile">Discord &#10003; Connected</a>
+                {% elif discord_configured %}
                 <a href="{{ url_for('discord_link') }}">Discord</a>
                 {% else %}
                 <a href="#" class="disabled" tabindex="-1" aria-disabled="true">Discord — Coming Soon</a>
