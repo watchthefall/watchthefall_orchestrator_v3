@@ -59,6 +59,26 @@
             text-align: center;
             word-break: break-word;
         }
+
+        /* Latest Output now opens the same preview modal as every other
+           card instead of embedding its own playable <video controls> --
+           this overlay is the only visual difference from a plain poster. */
+        .latest-output__play-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            color: var(--accent);
+            background: rgba(0, 0, 0, 0.15);
+        }
+        .latest-output__play-overlay svg {
+            width: 56px;
+            height: 56px;
+            opacity: 0.85;
+            filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+        }
     </style>
 </head>
 <body class="page-create">
@@ -115,6 +135,7 @@
         <div id="renders-content">
             <div class="loading">Loading finished renders...</div>
         </div>
+        <div id="saved-content"></div>
     </div>
 
     <div class="lib-panel" id="panel-source">
@@ -258,18 +279,32 @@
             currentBrandFilter = brandId;
             document.querySelectorAll('.brand-chip:not(.brand-chip--add)').forEach(el => el.classList.remove('active'));
             if (btn) btn.classList.add('active');
+            renderLatestOutput();
             renderRecentGrid();
+            renderSavedGrid();
+        }
+
+        // Display name of the selected brand filter, or null for "All Brands".
+        // Latest Output, Recent renders, and Saved to Library all read this
+        // so the whole page reads as one brand's workspace, not a filter
+        // bolted onto one section of a generic dump.
+        function currentBrandLabel() {
+            if (!currentBrandFilter) return null;
+            const b = brandsById[currentBrandFilter];
+            return b ? (b.display_name || b.name) : null;
         }
 
         function onLibrarySearch() {
             searchQuery = document.getElementById('librarySearch').value.trim().toLowerCase();
             renderRecentGrid();
+            renderSavedGrid();
             renderSourceGrid();
         }
 
         function onLibrarySortChange() {
             currentSort = document.getElementById('librarySort').value;
             renderRecentGrid();
+            renderSavedGrid();
         }
 
         function updateStats() {
@@ -290,6 +325,7 @@
                 updateStats();
                 renderLatestOutput();
                 renderRecentGrid();
+                renderSavedGrid();
             } catch (error) {
                 document.getElementById('latestOutputMount').innerHTML = '';
                 document.getElementById('renders-content').innerHTML = `
@@ -300,6 +336,7 @@
                         <button class="btn btn-primary" onclick="loadRenderedOutputs()">Try Again</button>
                     </div>
                 `;
+                document.getElementById('saved-content').innerHTML = '';
             }
         }
 
@@ -318,18 +355,37 @@
             return `${logoImg}<span>${escapeHtml(brandName || 'Unknown brand')}</span>`;
         }
 
-        // The single most recent AVAILABLE render, regardless of the current
-        // brand filter/search — this is "the thing you just made", a fixed
-        // headline slot, not a filtered view. Recent renders below excludes it
-        // so the same render never appears twice.
+        // The single most recent AVAILABLE render -- scoped to the selected
+        // brand, same as every other section on the page, so picking a brand
+        // turns the whole Library into that brand's workspace instead of only
+        // filtering the grid underneath. allOutputs is already newest-first
+        // (the API orders by created_at DESC), so the first match IS the
+        // latest. Ignores the text search box on purpose: search narrows
+        // what you're looking for, it doesn't redefine "the thing you just
+        // made". Recent/Saved below exclude this exact render so it never
+        // appears twice.
         function getLatestOutput() {
-            return allOutputs.find(o => o.file_available) || null;
+            let list = allOutputs.filter(o => o.file_available);
+            if (currentBrandFilter) list = list.filter(o => o.brand_id === currentBrandFilter);
+            return list[0] || null;
         }
 
         function renderLatestOutput() {
             const mount = document.getElementById('latestOutputMount');
             const latest = getLatestOutput();
-            if (!latest) { mount.innerHTML = ''; return; }
+            const brandLabel = currentBrandLabel();
+            const eyebrowText = brandLabel ? `Latest ${brandLabel} output` : 'Latest output';
+
+            if (!latest) {
+                mount.innerHTML = brandLabel ? `
+                    <div class="latest-output__eyebrow">&#10022; ${escapeHtml(eyebrowText)}</div>
+                    <div class="library-empty" style="margin-bottom:var(--space-6, 24px);">
+                        <h2>No ${escapeHtml(brandLabel)} outputs yet</h2>
+                        <p>Brand a video with ${escapeHtml(brandLabel)} to see it here.</p>
+                    </div>
+                ` : '';
+                return;
+            }
 
             const formatKey = latest.output_format || 'vertical_9_16';
             const formatLabel = FORMAT_LABELS[formatKey] || formatKey;
@@ -341,12 +397,16 @@
             const sourceLabel = latest.source_display_name || latest.source_filename || 'Unknown source';
             const videoUrl = `/api/videos/download/${encodeURIComponent(latest.output_filename)}`;
             const isBookmarked = latest.bookmarked === 1;
+            const previewTitle = escapeHtml(`${latest.brand_name || 'Unknown brand'} \u2014 ${sourceLabel}`).replace(/'/g, "\\'");
 
             mount.innerHTML = `
-                <div class="latest-output__eyebrow">&#10022; Latest output</div>
+                <div class="latest-output__eyebrow">&#10022; ${escapeHtml(eyebrowText)}</div>
                 <div class="latest-output-card">
-                    <div class="latest-output__media ${aspectClass}">
-                        <video controls preload="metadata" src="${videoUrl}"></video>
+                    <div class="latest-output__media ${aspectClass}" onclick="openVideoPreview('${videoUrl}', '${previewTitle}')" style="cursor:pointer;">
+                        <video preload="metadata" muted playsinline src="${videoUrl}"></video>
+                        <div class="latest-output__play-overlay" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        </div>
                     </div>
                     <div class="latest-output__info">
                         <div class="latest-output__brand">${brandBadgeHtml(latest.brand_id, latest.brand_name, 'latest-output__brand-logo')}</div>
@@ -410,8 +470,61 @@
             return toolbar;
         }
 
+        // Shared by Recent renders AND Saved to Library, so every output
+        // card -- wherever it's shown -- has identical playback (tap opens
+        // the one preview modal) and identical actions. `selectable` turns
+        // the batch-download checkbox on/off; Saved is a curated view, not
+        // a second batch-download surface, so it renders without one.
+        function buildOutputCard(output, { selectable }) {
+            const card = document.createElement('div');
+            card.className = 'media-card2';
+
+            const formatKey = output.output_format || 'vertical_9_16';
+            const formatLabel = FORMAT_LABELS[formatKey] || formatKey;
+            const aspectClass = FORMAT_ASPECT_CLASS[formatKey] || '';
+            const sourceLabel = output.source_display_name || (output.source_filename ? output.source_filename.replace(/\.mp4$/i, '') : 'Unknown source');
+            const fileAvailable = output.file_available !== false;
+            const isBookmarked = output.bookmarked === 1;
+            const outputFilename = output.output_filename || '';
+            const outputId = output.id;
+            const metaLine = outputMetaLine(output);
+            const previewUrl = `/api/videos/download/${encodeURIComponent(outputFilename)}`;
+            const previewTitle = escapeHtml(`${output.brand_name || 'Unknown brand'} \u2014 ${sourceLabel}`).replace(/'/g, "\\'");
+
+            card.innerHTML = `
+                <div class="card-thumb ${aspectClass}" ${fileAvailable ? `onclick="openVideoPreview('${previewUrl}', '${previewTitle}')" style="cursor:pointer;"` : ''}>
+                    ${selectable ? `<input type="checkbox" class="card-thumb__select" value="${escapeHtml(outputFilename)}"
+                           onclick="event.stopPropagation()"
+                           onchange="toggleRenderSelection(this)" title="Select for batch download"
+                           ${fileAvailable ? '' : 'disabled data-unavailable="true"'}>` : ''}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    <span class="card-thumb__format">${escapeHtml(formatLabel)}</span>
+                    ${!fileAvailable ? '<div class="card-thumb__unavailable">Unavailable</div>' : ''}
+                </div>
+                <div class="media-card2__body">
+                    <div class="media-card2__brand">${brandBadgeHtml(output.brand_id, output.brand_name, 'media-card2__brand-logo')}</div>
+                    <div class="media-card2__title">${escapeHtml(sourceLabel)}</div>
+                    <div class="media-card2__meta">${metaLine || '&nbsp;'}</div>
+                    <div class="media-card2__status ${fileAvailable ? '' : 'unavailable'}" id="bm-label-${outputId}">
+                        ${fileAvailable ? `&#9679; Ready &middot; ${formatRelativeTime(output.created_at)}` : '&#9679; Unavailable'}
+                    </div>
+                </div>
+                <div class="media-card2__actions">
+                    ${fileAvailable
+                        ? `<a href="/api/videos/download/${encodeURIComponent(outputFilename)}" class="btn btn-secondary btn-small">Download</a>`
+                        : `<button class="btn btn-secondary btn-small" disabled>Download</button>`
+                    }
+                    <button class="btn btn-secondary btn-small" id="bm-btn-${outputId}" onclick="toggleRenderBookmark(${outputId}, this)">
+                        ${isBookmarked ? 'Unsave' : 'Save'}
+                    </button>
+                </div>
+            `;
+            return card;
+        }
+
         function renderRecentGrid() {
             const container = document.getElementById('renders-content');
+            const brandLabel = currentBrandLabel();
             if (!allOutputs.length) {
                 container.innerHTML = `
                     <div class="library-empty">
@@ -429,14 +542,18 @@
 
             const countText = document.createElement('p');
             countText.className = 'lib-count';
-            countText.textContent = `Recent renders · ${items.length} shown`;
+            countText.textContent = brandLabel
+                ? `Recent ${brandLabel} outputs · ${items.length} shown`
+                : `Recent renders · ${items.length} shown`;
             container.appendChild(countText);
             container.appendChild(buildGridToolbar());
 
             if (!items.length) {
                 const empty = document.createElement('div');
                 empty.className = 'library-empty';
-                empty.innerHTML = `<h2>No renders match this filter</h2><p>Try a different brand, or clear your search.</p>`;
+                empty.innerHTML = brandLabel
+                    ? `<h2>No ${escapeHtml(brandLabel)} renders match this filter</h2><p>Try a different brand, or clear your search.</p>`
+                    : `<h2>No renders match this filter</h2><p>Try a different brand, or clear your search.</p>`;
                 container.appendChild(empty);
                 updateRendersToolbar();
                 return;
@@ -444,56 +561,69 @@
 
             const grid = document.createElement('div');
             grid.className = 'card-grid';
-
-            items.forEach(output => {
-                const card = document.createElement('div');
-                card.className = 'media-card2';
-
-                const formatKey = output.output_format || 'vertical_9_16';
-                const formatLabel = FORMAT_LABELS[formatKey] || formatKey;
-                const aspectClass = FORMAT_ASPECT_CLASS[formatKey] || '';
-                const sourceLabel = output.source_display_name || (output.source_filename ? output.source_filename.replace(/\.mp4$/i, '') : 'Unknown source');
-                const fileAvailable = output.file_available !== false;
-                const isBookmarked = output.bookmarked === 1;
-                const outputFilename = output.output_filename || '';
-                const outputId = output.id;
-                const metaLine = outputMetaLine(output);
-                const previewUrl = `/api/videos/download/${encodeURIComponent(outputFilename)}`;
-                const previewTitle = escapeHtml(`${output.brand_name || 'Unknown brand'} \u2014 ${sourceLabel}`).replace(/'/g, "\\'");
-
-                card.innerHTML = `
-                    <div class="card-thumb ${aspectClass}" ${fileAvailable ? `onclick="openVideoPreview('${previewUrl}', '${previewTitle}')" style="cursor:pointer;"` : ''}>
-                        <input type="checkbox" class="card-thumb__select" value="${escapeHtml(outputFilename)}"
-                               onclick="event.stopPropagation()"
-                               onchange="toggleRenderSelection(this)" title="Select for batch download"
-                               ${fileAvailable ? '' : 'disabled data-unavailable="true"'}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                        <span class="card-thumb__format">${escapeHtml(formatLabel)}</span>
-                        ${!fileAvailable ? '<div class="card-thumb__unavailable">Unavailable</div>' : ''}
-                    </div>
-                    <div class="media-card2__body">
-                        <div class="media-card2__brand">${brandBadgeHtml(output.brand_id, output.brand_name, 'media-card2__brand-logo')}</div>
-                        <div class="media-card2__title">${escapeHtml(sourceLabel)}</div>
-                        <div class="media-card2__meta">${metaLine || '&nbsp;'}</div>
-                        <div class="media-card2__status ${fileAvailable ? '' : 'unavailable'}" id="bm-label-${outputId}">
-                            ${fileAvailable ? `&#9679; Ready &middot; ${formatRelativeTime(output.created_at)}` : '&#9679; Unavailable'}
-                        </div>
-                    </div>
-                    <div class="media-card2__actions">
-                        ${fileAvailable
-                            ? `<a href="/api/videos/download/${encodeURIComponent(outputFilename)}" class="btn btn-secondary btn-small">Download</a>`
-                            : `<button class="btn btn-secondary btn-small" disabled>Download</button>`
-                        }
-                        <button class="btn btn-secondary btn-small" id="bm-btn-${outputId}" onclick="toggleRenderBookmark(${outputId}, this)">
-                            ${isBookmarked ? 'Unsave' : 'Save'}
-                        </button>
-                    </div>
-                `;
-                grid.appendChild(card);
-            });
-
+            items.forEach(output => grid.appendChild(buildOutputCard(output, { selectable: true })));
             container.appendChild(grid);
             updateRendersToolbar();
+        }
+
+        // ========== Saved to Library ==========
+        // "Saved" is NOT a separate collection -- there is only one
+        // branded_outputs table, and Save/Unsave just flips its `bookmarked`
+        // column. So a saved render already carries the same brand_id as
+        // everything else here; this view is purely a filter over allOutputs,
+        // same data the Recent grid reads, never a second data source to
+        // keep in sync.
+        function getSavedOutputs() {
+            const latest = getLatestOutput();
+            let list = allOutputs.filter(o => o.bookmarked === 1 && (!latest || o.id !== latest.id));
+            if (currentBrandFilter) {
+                list = list.filter(o => o.brand_id === currentBrandFilter);
+            }
+            if (searchQuery) {
+                list = list.filter(o => {
+                    const haystack = [o.output_filename, o.brand_name, o.source_display_name, o.source_filename]
+                        .filter(Boolean).join(' ').toLowerCase();
+                    return haystack.includes(searchQuery);
+                });
+            }
+            list = list.slice().sort((a, b) => {
+                if (currentSort === 'oldest') return new Date(a.created_at) - new Date(b.created_at);
+                if (currentSort === 'brand') return (a.brand_name || '').localeCompare(b.brand_name || '');
+                return new Date(b.created_at) - new Date(a.created_at);
+            });
+            return list;
+        }
+
+        function renderSavedGrid() {
+            const container = document.getElementById('saved-content');
+            if (!container) return;
+            if (!allOutputs.length) { container.innerHTML = ''; return; }
+
+            const brandLabel = currentBrandLabel();
+            const items = getSavedOutputs();
+            container.innerHTML = '';
+
+            const countText = document.createElement('p');
+            countText.className = 'lib-count';
+            countText.textContent = brandLabel
+                ? `Saved ${brandLabel} outputs · ${items.length} shown`
+                : `Saved to Library · ${items.length} shown`;
+            container.appendChild(countText);
+
+            if (!items.length) {
+                const empty = document.createElement('div');
+                empty.className = 'library-empty';
+                empty.innerHTML = brandLabel
+                    ? `<p>No saved ${escapeHtml(brandLabel)} outputs yet. Tap Save on a ${escapeHtml(brandLabel)} render to keep it here.</p>`
+                    : `<p>Nothing saved yet. Tap Save on any render to keep it here.</p>`;
+                container.appendChild(empty);
+                return;
+            }
+
+            const grid = document.createElement('div');
+            grid.className = 'card-grid';
+            items.forEach(output => grid.appendChild(buildOutputCard(output, { selectable: false })));
+            container.appendChild(grid);
         }
 
         function toggleMoreMenu(btn) {
@@ -605,6 +735,7 @@
                     btn.textContent = isNowBookmarked ? 'Unsave' : 'Save';
                     btn.disabled = false;
                 }
+                renderSavedGrid();
             } catch (err) {
                 console.error('[RenderBookmark] Error:', err);
                 if (btn) { btn.disabled = false; btn.textContent += ' ⚠'; }
