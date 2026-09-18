@@ -184,6 +184,7 @@ def init_db():
                 is_system INTEGER DEFAULT 0,
                 is_locked INTEGER DEFAULT 0,
                 is_active INTEGER DEFAULT 1,
+                access_locked INTEGER DEFAULT 0,
                 watermark_vertical TEXT,
                 watermark_square TEXT,
                 watermark_landscape TEXT,
@@ -733,6 +734,12 @@ def _run_migrations():
             # use). is_beta_tester exists only to drive the Discord "Beta
             # Tester" role sync -- see discord_integration.sync_roles_for_user.
             "ALTER TABLE users ADD COLUMN is_beta_tester INTEGER DEFAULT 0",
+            # NULL = a pending brand-selection prompt is owed to this user
+            # (their unlocked brand count last exceeded their tier limit and
+            # they have not yet confirmed which ones to keep). Set to the
+            # timestamp of their last confirmed choice otherwise. See
+            # reconcile_brand_access() / apply_brand_selection().
+            "ALTER TABLE users ADD COLUMN brand_selection_confirmed_at TEXT DEFAULT NULL",
         ]:
             col_name = col_sql.split("ADD COLUMN ")[1].split()[0]
             try:
@@ -742,6 +749,16 @@ def _run_migrations():
                 c.execute(col_sql)
                 conn.commit()
                 print(f"[DATABASE] Migration completed: {col_name} added")
+
+        # Migration: Add access_locked column to brands table (tier-downgrade lock,
+        # separate from is_active/soft-delete and is_locked/system-template).
+        try:
+            c.execute("SELECT access_locked FROM brands LIMIT 1")
+        except sqlite3.OperationalError:
+            print("[DATABASE] Running migration: Adding access_locked column to brands")
+            c.execute("ALTER TABLE brands ADD COLUMN access_locked INTEGER DEFAULT 0")
+            conn.commit()
+            print("[DATABASE] Migration completed: access_locked column added")
 
         # Migration: verified Discord identity on a beta/waitlist APPLICATION
         # (beta_access), distinct from the free-text discord_username column
@@ -1936,6 +1953,149 @@ def find_inactive_brand(name, user_id):
         brand['is_ready'] = bool(brand.get('logo_path') or brand.get('watermark_path'))
         return brand
     return None
+
+
+# -- Brand access locking (tier downgrade) -----------------------------------
+# A brand is "access-locked" when its owner's active, unlocked brand count no
+# longer fits their current tier limit (a bonus_tier expired, or an admin
+# changed their tier). This is distinct from is_active (soft-deleted) and
+# is_locked (a system template the owner can't edit) -- an access-locked
+# brand still exists, is still visible, and unlocks again the moment its
+# owner's limit covers it (upgrade, or picking a different brand to keep).
+
+def get_user_brands_for_reconcile(user_id):
+    """Active, non-system brands for a user, most-recently-touched first.
+    Used by reconcile_brand_access() and the retained-brands picker."""
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            '''SELECT id, name, display_name, COALESCE(access_locked, 0) as access_locked,
+                      updated_at, created_at
+               FROM brands WHERE user_id = ? AND is_system = 0 AND is_active = 1
+               ORDER BY updated_at DESC''',
+            (user_id,)
+        )
+        return [dict(row) for row in c.fetchall()]
+
+
+def set_brands_access_locked(user_id, brand_ids, locked):
+    """Bulk-set access_locked on the given brand ids, scoped to this user."""
+    if not brand_ids:
+        return
+    with get_connection() as conn:
+        c = conn.cursor()
+        placeholders = ','.join('?' for _ in brand_ids)
+        c.execute(
+            f'UPDATE brands SET access_locked = ? WHERE user_id = ? AND id IN ({placeholders})',
+            (1 if locked else 0, user_id, *brand_ids)
+        )
+        conn.commit()
+
+
+def get_brand_selection_confirmed_at(user_id):
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('SELECT brand_selection_confirmed_at FROM users WHERE id = ?', (user_id,))
+        row = c.fetchone()
+        return row['brand_selection_confirmed_at'] if row else None
+
+
+def set_brand_selection_confirmed_at(user_id, value):
+    """value=None clears it, which is what forces the picker to prompt again
+    the next time this user goes over their limit."""
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute('UPDATE users SET brand_selection_confirmed_at = ? WHERE id = ?', (value, user_id))
+        conn.commit()
+
+
+def reconcile_brand_access(user_id, max_brands):
+    """Lazily reconcile a user's brand access against their current tier limit.
+
+    Called on every dashboard load (cheap: one SELECT; writes only on an
+    actual state change) -- same lazy-refresh shape as credit/tier resolution
+    elsewhere in this file. Two things can be true when this runs:
+
+    - The user has MORE unlocked brands than their current limit allows
+      (their tier just dropped). The most-recently-touched `max_brands` stay
+      unlocked as a sane default; the rest are locked and
+      brand_selection_confirmed_at is cleared so the picker prompts them to
+      review or change that default.
+    - The user has LOCKED brands and now has room for some of them (their
+      tier went back up, or they deleted another brand to free a slot).
+      Those come back automatically, most-recently-touched first -- no
+      prompt needed, since restoring access is never a surprise worth
+      interrupting someone over.
+
+    Returns {'needs_selection': bool, 'limit': max_brands, 'brands': [...]}
+    reflecting state AFTER reconciling.
+    """
+    brands = get_user_brands_for_reconcile(user_id)
+    if max_brands == -1:
+        locked_ids = [b['id'] for b in brands if b['access_locked']]
+        if locked_ids:
+            set_brands_access_locked(user_id, locked_ids, locked=False)
+            for b in brands:
+                b['access_locked'] = 0
+        return {'needs_selection': False, 'limit': max_brands, 'brands': brands}
+
+    unlocked = [b for b in brands if not b['access_locked']]
+    locked = [b for b in brands if b['access_locked']]
+
+    if locked and len(unlocked) < max_brands:
+        give_back = locked[:max_brands - len(unlocked)]
+        set_brands_access_locked(user_id, [b['id'] for b in give_back], locked=False)
+        for b in give_back:
+            b['access_locked'] = 0
+        unlocked = unlocked + give_back
+        locked = [b for b in locked if b not in give_back]
+
+    if len(unlocked) > max_brands:
+        excess = unlocked[max_brands:]
+        set_brands_access_locked(user_id, [b['id'] for b in excess], locked=True)
+        for b in excess:
+            b['access_locked'] = 1
+        set_brand_selection_confirmed_at(user_id, None)
+        return {'needs_selection': True, 'limit': max_brands, 'brands': brands}
+
+    needs_selection = bool(locked) and get_brand_selection_confirmed_at(user_id) is None
+    return {'needs_selection': needs_selection, 'limit': max_brands, 'brands': brands}
+
+
+def apply_brand_selection(user_id, keep_brand_ids, max_brands):
+    """User's explicit answer to the retained-brands picker. Truncates to
+    max_brands server-side (never trusts the client's count) and locks every
+    other active brand. Always marks the selection confirmed, even when
+    keep_brand_ids is empty -- that just means 'lock them all for now',
+    which is a valid choice."""
+    brands = get_user_brands_for_reconcile(user_id)
+    valid_ids = {b['id'] for b in brands}
+    keep = [bid for bid in keep_brand_ids if bid in valid_ids]
+    if max_brands != -1:
+        keep = keep[:max_brands]
+    keep_set = set(keep)
+    lock_ids = [b['id'] for b in brands if b['id'] not in keep_set]
+    if keep:
+        set_brands_access_locked(user_id, keep, locked=False)
+    if lock_ids:
+        set_brands_access_locked(user_id, lock_ids, locked=True)
+    set_brand_selection_confirmed_at(user_id, datetime.utcnow().isoformat())
+    return get_user_brands_for_reconcile(user_id)
+
+
+def get_locked_brand_ids(user_id, brand_ids):
+    """Which of these brand ids are currently access-locked for this user.
+    Used to reject a render job that includes a locked brand."""
+    if not brand_ids:
+        return []
+    with get_connection() as conn:
+        c = conn.cursor()
+        placeholders = ','.join('?' for _ in brand_ids)
+        c.execute(
+            f'SELECT id FROM brands WHERE user_id = ? AND access_locked = 1 AND id IN ({placeholders})',
+            (user_id, *brand_ids)
+        )
+        return [row['id'] for row in c.fetchall()]
 
 
 def create_brand(name, display_name, user_id=None, is_system=False, is_locked=False,

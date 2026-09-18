@@ -1247,6 +1247,18 @@ def dashboard():
 
     can_create = (max_brands == -1) or (brand_count < max_brands)
 
+    # Lazily reconcile brand access against the current tier limit -- locks
+    # the excess (most-recently-touched brands stay unlocked by default) if
+    # the user's limit just dropped, or gives locked brands back if there's
+    # now room. See database.reconcile_brand_access().
+    try:
+        from .database import reconcile_brand_access
+        brand_access = reconcile_brand_access(user_id, max_brands) if user_id else \
+            {'needs_selection': False, 'limit': max_brands, 'brands': []}
+    except Exception as _e:
+        print(f"[DASHBOARD] reconcile_brand_access failed for user={user_id}: {_e}")
+        brand_access = {'needs_selection': False, 'limit': max_brands, 'brands': []}
+
     # Daily usage counters
     try:
         usage = get_daily_usage(user_id) if user_id else {'branding_jobs': 0, 'downloads': 0}
@@ -1285,7 +1297,32 @@ def dashboard():
         credits=credits,
         credits_per_day=credits_per_day,
         founding_status=founding_status,
+        brand_selection_required=brand_access['needs_selection'],
+        brand_selection_brands=brand_access['brands'],
     )
+
+
+@app.route('/api/brands/select-retained', methods=['POST'])
+@login_required
+def select_retained_brands():
+    """A user's answer to the retained-brands picker after their tier limit
+    dropped below their active brand count. Body: {"brand_ids": [int, ...]}
+    -- the brands to keep unlocked; every other active brand gets locked.
+    The server, not the client, is what caps the count at the current
+    tier's limit."""
+    from .database import apply_brand_selection
+    user_id = session.get('user_id')
+    tier = get_user_tier(user_id)
+    special_status = get_user_special_status(user_id)
+    limits = get_effective_limits(tier, special_status)
+    max_brands = limits.get('max_brand_configs', 1)
+    data = request.get_json(force=True) or {}
+    try:
+        keep_ids = [int(x) for x in (data.get('brand_ids') or [])]
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'brand_ids must be a list of integers'}), 400
+    brands = apply_brand_selection(user_id, keep_ids, max_brands)
+    return jsonify({'success': True, 'limit': max_brands, 'brands': brands})
 
 
 # Default routing based on login status
@@ -3868,6 +3905,20 @@ def process_branded_videos():
                 'selected': num_brands,
             }), 403
 
+        # --- Tier enforcement: brand access locked by a tier downgrade ---
+        if brand_ids:
+            from .database import get_locked_brand_ids
+            locked_ids = get_locked_brand_ids(user_id, brand_ids)
+            if locked_ids:
+                return jsonify({
+                    'success': False,
+                    'error': 'BRAND_ACCESS_LOCKED',
+                    'message': 'One or more selected brands are locked because your plan '
+                               'changed. Choose your retained brands from the prompt on your '
+                               'dashboard, or upgrade to unlock all of them.',
+                    'locked_brand_ids': locked_ids,
+                }), 403
+
         # --- Tier enforcement: max outputs per job (OUTPUT CONTRACT) ---
         # Beta-v1: source_count=1, variant_count=1, so outputs = brands
         source_count = 1  # Beta-v1: single source only
@@ -5848,6 +5899,13 @@ def update_brand_api(brand_id):
         # Check if locked (system templates)
         if brand['is_locked']:
             return jsonify({'success': False, 'error': 'This brand is locked and cannot be modified'}), 403
+
+        # Check if access-locked (tier downgrade -- distinct from is_locked above)
+        if brand.get('access_locked'):
+            return jsonify({'success': False,
+                            'error': 'This brand is paused because your plan changed. Choose your '
+                                     'retained brands from the prompt on your dashboard, or upgrade '
+                                     'to unlock it.'}), 403
         
         data = request.get_json(force=True) or {}
 

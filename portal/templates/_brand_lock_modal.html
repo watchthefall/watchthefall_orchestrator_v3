@@ -1,0 +1,129 @@
+<!-- Retained-brands picker — shown when a tier drop leaves more unlocked
+     brands than the current plan allows. Requires context:
+     brand_selection_required, brand_selection_brands (each: id, name,
+     display_name, access_locked), max_brands -->
+{% if brand_selection_brands is defined and brand_selection_brands %}
+
+<style>
+.brand-lock-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+}
+.brand-lock-modal-overlay.active { display: flex; }
+.brand-lock-modal {
+    background: #17171a;
+    border: 1px solid #2a2a2e;
+    border-radius: 14px;
+    max-width: 480px;
+    width: 92vw;
+    max-height: 84vh;
+    overflow-y: auto;
+    padding: 22px 22px 18px;
+}
+.brand-lock-modal h2 { margin: 0 0 8px; font-size: 18px; }
+.brand-lock-modal p.sub { color: #999; font-size: 13px; margin: 0 0 16px; }
+.brand-lock-count { font-size: 12px; color: #888; margin-bottom: 10px; }
+.brand-lock-count strong { color: #EAEAEA; }
+.brand-lock-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.brand-lock-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    background: #1e1e22;
+    border: 1px solid transparent;
+}
+.brand-lock-row.checked { border-color: var(--accent, #A855F7); }
+.brand-lock-row input[type=checkbox] { width: 16px; height: 16px; flex-shrink: 0; }
+.brand-lock-row label { flex: 1; font-size: 13px; cursor: pointer; }
+.brand-lock-actions { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.brand-lock-msg { font-size: 12px; color: #86EDA5; }
+.brand-lock-msg.error { color: #ff6b6b; }
+</style>
+
+<div class="brand-lock-modal-overlay{% if brand_selection_required %} active{% endif %}" id="brandLockModal">
+    <div class="brand-lock-modal">
+        <h2>Choose the brands you'll keep</h2>
+        <p class="sub">Your plan currently covers {{ max_brands }} brand config{{ 's' if max_brands != 1 else '' }}, but you have more than that. Pick which ones stay active — the rest are paused, not deleted, and come straight back the moment you upgrade.</p>
+        <div class="brand-lock-count"><strong id="brandLockSelectedCount">0</strong> / {{ max_brands }} selected</div>
+        <div class="brand-lock-list" id="brandLockList">
+            {% for b in brand_selection_brands %}
+            <div class="brand-lock-row{% if not b.access_locked %} checked{% endif %}">
+                <input type="checkbox" id="brandlock-{{ b.id }}" value="{{ b.id }}"
+                       {% if not b.access_locked %}checked{% endif %}
+                       onchange="onBrandLockToggle(this)">
+                <label for="brandlock-{{ b.id }}">{{ b.display_name or b.name }}</label>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="brand-lock-actions">
+            <button class="btn btn-primary" id="brandLockSaveBtn" onclick="submitBrandSelection()">Save selection</button>
+            <span class="brand-lock-msg" id="brandLockMsg"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+var BRAND_LOCK_LIMIT = {{ max_brands }};
+
+function brandLockCheckedBoxes() {
+    return Array.prototype.slice.call(
+        document.querySelectorAll('#brandLockList input[type=checkbox]:checked')
+    );
+}
+
+function onBrandLockToggle(cb) {
+    var checked = brandLockCheckedBoxes();
+    if (checked.length > BRAND_LOCK_LIMIT) {
+        cb.checked = false;
+        document.getElementById('brandLockMsg').textContent =
+            'You can only keep ' + BRAND_LOCK_LIMIT + ' active on your current plan.';
+        document.getElementById('brandLockMsg').className = 'brand-lock-msg error';
+    } else {
+        document.getElementById('brandLockMsg').textContent = '';
+        document.getElementById('brandLockMsg').className = 'brand-lock-msg';
+    }
+    cb.closest('.brand-lock-row').classList.toggle('checked', cb.checked);
+    document.getElementById('brandLockSelectedCount').textContent = brandLockCheckedBoxes().length;
+}
+
+function submitBrandSelection() {
+    var ids = brandLockCheckedBoxes().map(function(cb) { return parseInt(cb.value, 10); });
+    var btn = document.getElementById('brandLockSaveBtn');
+    var msg = document.getElementById('brandLockMsg');
+    btn.disabled = true;
+    fetch('/api/brands/select-retained', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({brand_ids: ids})
+    })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                msg.textContent = 'Saved — refreshing…';
+                msg.className = 'brand-lock-msg';
+                setTimeout(function() { window.location.reload(); }, 500);
+            } else {
+                msg.textContent = data.error || 'Could not save your selection.';
+                msg.className = 'brand-lock-msg error';
+                btn.disabled = false;
+            }
+        })
+        .catch(function() {
+            msg.textContent = 'Could not save your selection. Please try again.';
+            msg.className = 'brand-lock-msg error';
+            btn.disabled = false;
+        });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('brandLockSelectedCount').textContent = brandLockCheckedBoxes().length;
+});
+</script>
+{% endif %}
