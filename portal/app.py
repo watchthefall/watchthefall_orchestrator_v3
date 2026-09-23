@@ -2572,6 +2572,18 @@ def admin_set_tier():
             pass  # audit log is best-effort
 
     print(f"[ADMIN] set-tier user={user_id} tier={new_tier} status={new_status} founder_granted={founding_granted} by {admin_email}")
+
+    # An admin tier change must reconcile brand access immediately, not wait
+    # for the user's next /portal/dashboard load -- otherwise a downgrade
+    # leaves every brand unlocked (and no prompt shown) until they happen to
+    # revisit that specific route.
+    try:
+        from .database import reconcile_brand_access
+        new_limits = get_effective_limits(new_tier, new_status)
+        reconcile_brand_access(user_id, new_limits.get('max_brand_configs', 1))
+    except Exception as _e:
+        print(f"[ADMIN] reconcile_brand_access failed for user={user_id}: {_e}")
+
     return jsonify({'success': True, 'user_id': user_id, 'tier': new_tier,
                     'special_status': new_status, 'founding_granted': founding_granted})
 
