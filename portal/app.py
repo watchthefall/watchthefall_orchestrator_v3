@@ -5099,10 +5099,17 @@ def download_video(filename):
         friendly = _friendly_download_name(filename, user_id)
         if friendly:
             print(f'[DOWNLOAD] serving {filename} as "{friendly}"', flush=True)
+        # ?inline=1 (used by Library preview players) skips Content-Disposition:
+        # attachment -- with it set, Chrome accepts the response for a <video>
+        # element but never actually plays it (stuck at readyState 0), since an
+        # attachment disposition tells the browser this is a save-to-disk file,
+        # not a streamable media resource. The real "Download" button never
+        # passes this param, so it keeps forcing a save as before.
         # werkzeug emits both filename= and filename*=UTF-8'' so non-ASCII names
         # survive; hand-rolling the header would lose that.
-        response = send_from_directory(directory, filename, as_attachment=True,
-                                       download_name=(friendly or filename))
+        inline = request.args.get('inline') == '1'
+        response = send_from_directory(directory, filename, as_attachment=not inline,
+                                       download_name=(friendly or filename), conditional=True)
         response.headers['Content-Type'] = 'video/mp4'
         response.headers['Cache-Control'] = 'no-cache'
         print(f'[DOWNLOAD] Response status: 200 for {filename}')

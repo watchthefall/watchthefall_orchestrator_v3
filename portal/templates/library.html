@@ -396,14 +396,15 @@
             const title = `${latest.brand_name || 'Unknown brand'} — ${formatLabel}`;
             const sourceLabel = latest.source_display_name || latest.source_filename || 'Unknown source';
             const videoUrl = `/api/videos/download/${encodeURIComponent(latest.output_filename)}`;
+            const previewVideoUrl = `${videoUrl}?inline=1`;
             const isBookmarked = latest.bookmarked === 1;
             const previewTitle = escapeHtml(`${latest.brand_name || 'Unknown brand'} \u2014 ${sourceLabel}`).replace(/'/g, "\\'");
 
             mount.innerHTML = `
                 <div class="latest-output__eyebrow">&#10022; ${escapeHtml(eyebrowText)}</div>
                 <div class="latest-output-card">
-                    <div class="latest-output__media ${aspectClass}" onclick="openVideoPreview('${videoUrl}', '${previewTitle}')" style="cursor:pointer;">
-                        <video preload="metadata" muted playsinline src="${videoUrl}"></video>
+                    <div class="latest-output__media ${aspectClass}" onclick="openVideoPreview('${previewVideoUrl}', '${previewTitle}')" style="cursor:pointer;">
+                        <video preload="metadata" muted playsinline src="${previewVideoUrl}"></video>
                         <div class="latest-output__play-overlay" aria-hidden="true">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                         </div>
@@ -488,7 +489,8 @@
             const outputFilename = output.output_filename || '';
             const outputId = output.id;
             const metaLine = outputMetaLine(output);
-            const previewUrl = `/api/videos/download/${encodeURIComponent(outputFilename)}`;
+            const downloadUrl = `/api/videos/download/${encodeURIComponent(outputFilename)}`;
+            const previewUrl = `${downloadUrl}?inline=1`;
             const previewTitle = escapeHtml(`${output.brand_name || 'Unknown brand'} \u2014 ${sourceLabel}`).replace(/'/g, "\\'");
 
             card.innerHTML = `
@@ -511,7 +513,7 @@
                 </div>
                 <div class="media-card2__actions">
                     ${fileAvailable
-                        ? `<a href="/api/videos/download/${encodeURIComponent(outputFilename)}" class="btn btn-secondary btn-small">Download</a>`
+                        ? `<a href="${downloadUrl}" class="btn btn-secondary btn-small">Download</a>`
                         : `<button class="btn btn-secondary btn-small" disabled>Download</button>`
                     }
                     <button class="btn btn-secondary btn-small" id="bm-btn-${outputId}" onclick="toggleRenderBookmark(${outputId}, this)">
