@@ -396,7 +396,7 @@
             const title = `${latest.brand_name || 'Unknown brand'} — ${formatLabel}`;
             const sourceLabel = latest.source_display_name || latest.source_filename || 'Unknown source';
             const videoUrl = `/api/videos/download/${encodeURIComponent(latest.output_filename)}`;
-            const previewVideoUrl = `${videoUrl}?inline=1`;
+            const previewVideoUrl = `/api/videos/preview/${encodeURIComponent(latest.output_filename)}`;
             const isBookmarked = latest.bookmarked === 1;
             const previewTitle = escapeHtml(`${latest.brand_name || 'Unknown brand'} \u2014 ${sourceLabel}`).replace(/'/g, "\\'");
 
@@ -490,7 +490,7 @@
             const outputId = output.id;
             const metaLine = outputMetaLine(output);
             const downloadUrl = `/api/videos/download/${encodeURIComponent(outputFilename)}`;
-            const previewUrl = `${downloadUrl}?inline=1`;
+            const previewUrl = `/api/videos/preview/${encodeURIComponent(outputFilename)}`;
             const previewTitle = escapeHtml(`${output.brand_name || 'Unknown brand'} \u2014 ${sourceLabel}`).replace(/'/g, "\\'");
 
             card.innerHTML = `

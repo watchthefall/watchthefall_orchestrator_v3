@@ -5036,16 +5036,20 @@ def _friendly_download_name(stored_filename, user_id):
         return None
 
 
-@app.route('/api/videos/download/<filename>', methods=['GET'])
-@login_required
-def download_video(filename):
-    """Download processed video (raw or branded output)"""
+def _serve_video_file(filename, as_attachment):
+    """Shared implementation for both the real download (attachment) and
+    inline preview (streamed) routes -- same lookup/ownership logic, only the
+    Content-Disposition differs. Split out because a <video> element loading
+    an attachment-disposition response silently never plays it (stuck at
+    readyState 0 forever) -- so the Library preview modal and the inline
+    Latest Output player need the non-attachment variant, while the actual
+    "Download" links/buttons need the original attachment behavior."""
     from .config import UPLOAD_DIR
     from .database import get_connection
 
     # Sanitize filename to prevent path traversal
     filename = os.path.basename(filename)
-    print(f'[DOWNLOAD] Requested: {filename}')
+    print(f'[DOWNLOAD] Requested: {filename} (attachment={as_attachment})')
 
     user_id = session.get('user_id')
 
@@ -5099,16 +5103,12 @@ def download_video(filename):
         friendly = _friendly_download_name(filename, user_id)
         if friendly:
             print(f'[DOWNLOAD] serving {filename} as "{friendly}"', flush=True)
-        # ?inline=1 (used by Library preview players) skips Content-Disposition:
-        # attachment -- with it set, Chrome accepts the response for a <video>
-        # element but never actually plays it (stuck at readyState 0), since an
-        # attachment disposition tells the browser this is a save-to-disk file,
-        # not a streamable media resource. The real "Download" button never
-        # passes this param, so it keeps forcing a save as before.
         # werkzeug emits both filename= and filename*=UTF-8'' so non-ASCII names
-        # survive; hand-rolling the header would lose that.
-        inline = request.args.get('inline') == '1'
-        response = send_from_directory(directory, filename, as_attachment=not inline,
+        # survive; hand-rolling the header would lose that. conditional=True
+        # turns on Range support, which browsers also expect from playable
+        # media (scrubbing, faster start) even though it isn't the root cause
+        # of the stuck-preview bug.
+        response = send_from_directory(directory, filename, as_attachment=as_attachment,
                                        download_name=(friendly or filename), conditional=True)
         response.headers['Content-Type'] = 'video/mp4'
         response.headers['Cache-Control'] = 'no-cache'
@@ -5119,6 +5119,23 @@ def download_video(filename):
         print(f'[DOWNLOAD] Exception serving {filename}: {e}')
         traceback.print_exc()
         return jsonify({'error': 'Failed to serve file', 'details': str(e), 'filename': filename}), 500
+
+
+@app.route('/api/videos/download/<filename>', methods=['GET'])
+@login_required
+def download_video(filename):
+    """Download processed video (raw or branded output) -- forces Save As."""
+    return _serve_video_file(filename, as_attachment=True)
+
+
+@app.route('/api/videos/preview/<filename>', methods=['GET'])
+@login_required
+def preview_video(filename):
+    """Stream a processed video inline for playback (Library preview modal,
+    Latest Output player). Same file, same ownership check as the download
+    route above -- just without Content-Disposition: attachment, which is
+    what a <video> element needs to actually play it instead of stalling."""
+    return _serve_video_file(filename, as_attachment=False)
 
 # ZIP safety caps — protect Render free tier from OOM on large batch downloads
 MAX_ZIP_FILES = 10
