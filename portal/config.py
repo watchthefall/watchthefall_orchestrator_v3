@@ -75,8 +75,12 @@ TIER_CONFIG = {
         'batch_link_limit': 5,    # max links per Batch (Multi) paste
         'ig_per_hour': 3,
         'branding_jobs_per_day': 15,
-        'max_brands_per_job': 1,
-        'max_outputs_per_job': 1,  # Explorer has 1 brand config, so max 1 brand per job
+        # Explorer gets 3 brand configs (max_brand_configs below) specifically so a
+        # user can feel the multi-brand/time-saving value before upgrading -- that
+        # only actually happens if a single job can also render all 3 at once, so
+        # this must match max_brand_configs, not be stuck at 1 brand per job.
+        'max_brands_per_job': 3,
+        'max_outputs_per_job': 3,
         'max_brand_configs': 3,
         'concurrent_jobs': 1,
         'max_render_bookmarks': 5,   # renders saved from 24h expiry
