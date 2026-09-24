@@ -810,6 +810,19 @@ def _run_migrations():
         except sqlite3.IntegrityError as e:
             print(f"[DATABASE] WARNING: could not create idx_users_discord_user_id "
                   f"-- duplicate discord_user_id already present: {e}")
+
+        # Migration: idempotency marker for the "Download Only" credit charge.
+        # A raw source video fetched via Download Only consumes 1 credit the
+        # first time it is charged; this column lets charge_raw_download()
+        # tell "never charged" (0) from "already charged" (1) so repeat
+        # downloads of the same already-fetched file never charge twice.
+        try:
+            c.execute("SELECT credit_charged FROM downloads LIMIT 1")
+        except sqlite3.OperationalError:
+            print("[DATABASE] Running migration: Adding credit_charged column to downloads")
+            c.execute("ALTER TABLE downloads ADD COLUMN credit_charged INTEGER DEFAULT 0")
+            conn.commit()
+            print("[DATABASE] Migration completed: credit_charged column added")
     finally:
         conn.close()
 
@@ -2938,6 +2951,106 @@ def spend_credits(user_id, amount, daily_allowance):
         print(f"[CREDITS] spend_credits DB error for user={user_id} (render allowed uncharged): {e}",
               flush=True)
         return True, {'subscription': 0, 'earned': 0, 'purchased': 0, 'total': 0}
+
+
+def _unclaim_raw_download(download_id):
+    """Revert a credit_charged claim on a downloads row after the actual credit
+    spend failed (insufficient balance / DB error), so a later retry with
+    sufficient credits can still charge correctly instead of being permanently
+    treated as already-paid-for."""
+    def _do(conn):
+        conn.execute('UPDATE downloads SET credit_charged = 0 WHERE id = ?', (download_id,))
+        conn.commit()
+        return True
+    try:
+        _retry_write(_do)
+    except Exception as e:
+        print(f"[CREDITS] charge_raw_download unclaim error for download_id={download_id}: {e}",
+              flush=True)
+
+
+def charge_raw_download(user_id, filename, daily_allowance):
+    """Charge 1 credit for a raw/fetched video via the "Download Only" choice,
+    exactly once per (user_id, filename). This is the Download-Only counterpart
+    to the render-time spend in process_branded_videos() -- it does NOT apply to
+    downloading an already-rendered branded output, which stays free on repeat
+    downloads by design (branded_outputs rows are never touched here).
+
+    Idempotent: once a downloads row is charged, every later call for the same
+    (user_id, filename) is a free no-op (charged=False, ok=True) -- covers
+    re-downloads, retries, and the "download all fetched videos" batch action
+    revisiting a file.
+
+    Returns {'ok': bool, 'charged': bool, 'reason': str|None, 'balance': dict|None}.
+    reason is one of:
+      'NOT_FOUND'          -- no downloads row for (user_id, filename); not a raw
+                              fetched file this user owns. Caller should 403/404.
+      'SERVICE_UNAVAILABLE' -- DB error checking/spending balance; fail closed,
+                              exactly like the process_branded_videos() pre-check.
+      'OUT_OF_CREDITS'     -- balance insufficient; no charge made, download must
+                              not proceed.
+    """
+    if not user_id or not filename:
+        return {'ok': False, 'charged': False, 'reason': 'NOT_FOUND', 'balance': None}
+
+    filename = os.path.basename(filename)
+
+    # Step 1: atomically claim this row (credit_charged 0 -> 1). This both
+    # confirms ownership (only rows owned by user_id are visible) and prevents
+    # a double-charge race if the same download is triggered twice concurrently
+    # (e.g. the batch "download all" loop and a manual click landing together).
+    def _claim(conn):
+        c = conn.cursor()
+        c.execute(
+            'SELECT id, credit_charged FROM downloads WHERE filename = ? AND user_id = ? LIMIT 1',
+            (filename, user_id)
+        )
+        row = c.fetchone()
+        if row is None:
+            return ('not_found', None)
+        if row['credit_charged']:
+            return ('already_charged', row['id'])
+        c.execute(
+            'UPDATE downloads SET credit_charged = 1 WHERE id = ? AND credit_charged = 0',
+            (row['id'],)
+        )
+        conn.commit()
+        if c.rowcount == 0:
+            # Lost the race to a concurrent claim -- treat as already charged.
+            return ('already_charged', row['id'])
+        return ('claimed', row['id'])
+
+    try:
+        status, download_id = _retry_write(_claim)
+    except Exception as e:
+        print(f"[CREDITS] charge_raw_download claim error for user={user_id} file={filename}: {e}",
+              flush=True)
+        return {'ok': False, 'charged': False, 'reason': 'SERVICE_UNAVAILABLE', 'balance': None}
+
+    if status == 'not_found':
+        return {'ok': False, 'charged': False, 'reason': 'NOT_FOUND', 'balance': None}
+
+    if status == 'already_charged':
+        balance = get_credit_balance(user_id, daily_allowance)
+        return {'ok': True, 'charged': False, 'reason': None, 'balance': balance}
+
+    # status == 'claimed' -- the row is now marked charged; actually spend the
+    # credit. If this fails for any reason, undo the claim so the user isn't
+    # left permanently "charged" for a download they didn't pay for.
+    balance = get_credit_balance(user_id, daily_allowance)
+    if not balance.get('ok', True):
+        _unclaim_raw_download(download_id)
+        return {'ok': False, 'charged': False, 'reason': 'SERVICE_UNAVAILABLE', 'balance': balance}
+    if balance['total'] < 1:
+        _unclaim_raw_download(download_id)
+        return {'ok': False, 'charged': False, 'reason': 'OUT_OF_CREDITS', 'balance': balance}
+
+    spent_ok, balance_after = spend_credits(user_id, 1, daily_allowance)
+    if not spent_ok:
+        _unclaim_raw_download(download_id)
+        return {'ok': False, 'charged': False, 'reason': 'OUT_OF_CREDITS', 'balance': balance_after}
+
+    return {'ok': True, 'charged': True, 'reason': None, 'balance': balance_after}
 
 
 def add_earned_credits(user_id, amount, reason=None, admin_email=None, source_type='admin_grant'):

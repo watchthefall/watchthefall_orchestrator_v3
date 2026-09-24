@@ -95,7 +95,7 @@ from .config import (
 )
 from .database import (
     log_event, get_daily_usage, increment_branding_jobs, increment_downloads,
-    get_credit_balance, spend_credits, set_subscription_credits,
+    get_credit_balance, spend_credits, set_subscription_credits, charge_raw_download,
     add_earned_credits, add_purchased_credits, get_credit_ledger,
     log_render_event, get_render_stats, get_user_render_stats,
     get_user_special_status, set_user_special_status,
@@ -5136,6 +5136,58 @@ def preview_video(filename):
     route above -- just without Content-Disposition: attachment, which is
     what a <video> element needs to actually play it instead of stalling."""
     return _serve_video_file(filename, as_attachment=False)
+
+
+@app.route('/api/videos/download-only-charge/<filename>', methods=['POST'])
+@login_required
+def charge_download_only(filename):
+    """Charge 1 credit for the "Download Only" choice on a raw fetched video,
+    before the client opens the actual download URL. Mirrors the OUT_OF_CREDITS /
+    SERVICE_UNAVAILABLE pre-check pattern used by process_branded_videos() for
+    Brand & Review renders, so both paths fail the same way in the UI.
+
+    Idempotent per (user, filename): re-downloading the same raw file (e.g. the
+    "download all fetched videos" batch action revisiting one, or a user
+    re-clicking Download) is a free no-op after the first successful charge --
+    see charge_raw_download() in database.py. Downloading an already-rendered
+    branded output never reaches this route at all (it isn't a downloads-table
+    row), so that stays free by construction, per spec.
+    """
+    filename = os.path.basename(filename)
+    user_id = session.get('user_id')
+    tier = get_user_tier(user_id)
+    special_status = get_user_special_status(user_id)
+    limits = get_effective_limits(tier, special_status)
+    credits_allowance = limits.get('credits_per_day', 0)
+
+    result = charge_raw_download(user_id, filename, credits_allowance)
+
+    if result['reason'] == 'NOT_FOUND':
+        return jsonify({'error': 'File not found', 'filename': filename}), 404
+
+    if result['reason'] == 'SERVICE_UNAVAILABLE':
+        return jsonify({
+            'success': False,
+            'error': 'SERVICE_UNAVAILABLE',
+            'message': "We couldn't check your credits right now. Please try again in a moment.",
+        }), 503
+
+    if result['reason'] == 'OUT_OF_CREDITS':
+        balance = result.get('balance') or {}
+        return jsonify({
+            'success': False,
+            'error': 'OUT_OF_CREDITS',
+            'message': "You're out of credits for today. Your daily credits reset at 00:00 UTC.",
+            'tier': tier,
+            'credits_per_day': credits_allowance,
+            'credits_remaining': balance.get('total', 0),
+        }), 403
+
+    return jsonify({
+        'success': True,
+        'charged': result['charged'],
+        'credits_remaining': (result.get('balance') or {}).get('total'),
+    })
 
 # ZIP safety caps — protect Render free tier from OOM on large batch downloads
 MAX_ZIP_FILES = 10

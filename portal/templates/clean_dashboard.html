@@ -7884,7 +7884,33 @@ function goToDownload() {
 
 function downloadRawVideo() {
     if (!currentFile) return;
-    window.open('/api/videos/download/' + encodeURIComponent(currentFile), '_blank');
+    var filename = currentFile;
+    // "Download Only" consumes 1 credit -- charged here, before the file is
+    // actually served, via a route that is idempotent per (user, filename) so
+    // re-downloading the same raw video is free on subsequent clicks.
+    fetch('/api/videos/download-only-charge/' + encodeURIComponent(filename), {
+        method: 'POST'
+    })
+    .then(function(res) {
+        return res.json().then(function(data) { return { status: res.status, data: data }; });
+    })
+    .then(function(r) {
+        if (r.data && r.data.success) {
+            window.open('/api/videos/download/' + encodeURIComponent(filename), '_blank');
+        } else if (r.data && r.data.error === 'OUT_OF_CREDITS') {
+            if (typeof openUpgradeModal === 'function') {
+                openUpgradeModal('Need more credits', r.data.message || "You're out of credits for today.");
+            }
+        } else if (r.data && r.data.error === 'SERVICE_UNAVAILABLE') {
+            alert(r.data.message || "We couldn't check your credits right now. Please try again in a moment.");
+        } else {
+            alert((r.data && r.data.message) || 'Download failed. Please try again.');
+        }
+    })
+    .catch(function(err) {
+        console.error('[DOWNLOAD] credit charge failed', err);
+        alert('Download failed. Please try again.');
+    });
 }
 
 function persistFetchedDownload(result, sourceUrl) {
@@ -8796,7 +8822,13 @@ function downloadAllBatchVideos() {
     let downloaded = 0;
     const total = batchSuccessfulVideos.length;
 
-    // Download videos sequentially with small delay to avoid browser blocking
+    // Download videos sequentially with small delay to avoid browser blocking.
+    // Each raw video is "Download Only" and consumes 1 credit, charged via
+    // /api/videos/download-only-charge right before it's triggered -- that
+    // route is idempotent per (user, filename), so re-running this over an
+    // already-downloaded video charges nothing again. If credits run out
+    // partway through, the remaining videos in the batch are left untriggered
+    // and the upgrade modal explains how many went through.
     function downloadNext(index) {
         if (index >= total) {
             // All downloads triggered
@@ -8809,24 +8841,54 @@ function downloadAllBatchVideos() {
         }
 
         const video = batchSuccessfulVideos[index];
-        const dlUrl = '/api/videos/download/' + encodeURIComponent(video.filename);
-        
-        // Create temporary link and trigger download
-        const a = document.createElement('a');
-        a.href = dlUrl;
-        a.download = video.filename;
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
 
-        downloaded++;
-        btn.innerHTML = '⏳ Downloading... (' + downloaded + '/' + total + ')';
+        fetch('/api/videos/download-only-charge/' + encodeURIComponent(video.filename), {
+            method: 'POST'
+        })
+        .then(function(res) {
+            return res.json().then(function(data) { return { status: res.status, data: data }; });
+        })
+        .then(function(r) {
+            if (!(r.data && r.data.success)) {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                if (r.data && r.data.error === 'OUT_OF_CREDITS') {
+                    if (typeof openUpgradeModal === 'function') {
+                        openUpgradeModal('Need more credits', (r.data.message ||
+                            "You're out of credits for today.") + ' ' + downloaded + ' of ' + total +
+                            ' downloads were started before credits ran out.');
+                    }
+                } else {
+                    alert((r.data && r.data.message) || 'Download failed. Please try again.');
+                }
+                return;
+            }
 
-        // Small delay between downloads to prevent browser blocking
-        setTimeout(function() {
-            downloadNext(index + 1);
-        }, 500);
+            const dlUrl = '/api/videos/download/' + encodeURIComponent(video.filename);
+
+            // Create temporary link and trigger download
+            const a = document.createElement('a');
+            a.href = dlUrl;
+            a.download = video.filename;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            downloaded++;
+            btn.innerHTML = '⏳ Downloading... (' + downloaded + '/' + total + ')';
+
+            // Small delay between downloads to prevent browser blocking
+            setTimeout(function() {
+                downloadNext(index + 1);
+            }, 500);
+        })
+        .catch(function(err) {
+            console.error('[DOWNLOAD] credit charge failed', err);
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            alert('Download failed. Please try again.');
+        });
     }
 
     downloadNext(0);
